@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FiCheckCircle, FiShield, FiClock, FiTool, FiNavigation, FiStar, FiArrowRight } from "react-icons/fi";
 import { SERVICE_CATEGORIES, SERVICES } from "@/data/services";
@@ -82,13 +82,15 @@ export default function Home() {
           </div>
           <Link to="/services" className="btn-ghost">View all <FiArrowRight /></Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {SERVICE_CATEGORIES.slice(0, 6).map((c) => (
-            <Link to="/booking/services" key={c.id} className="group">
-              <div className="aspect-square rounded-3xl bg-bg-soft grid place-items-center transition group-hover:bg-ink group-hover:text-white">
-                <c.icon className="text-4xl" style={{ color: c.color }} />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
+          {SERVICE_CATEGORIES.slice(0, 8).map((c) => (
+            <Link to={`/services/${c.id}`} key={c.id} className="group">
+              <div className="rounded-3xl bg-white p-5 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+                <div className="text-lg font-bold mb-4">{c.name}</div>
+                <div className="h-32 w-full rounded-2xl overflow-hidden">
+                  <img src={c.image} alt={c.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                </div>
               </div>
-              <div className="mt-3 text-sm font-medium text-center">{c.name}</div>
             </Link>
           ))}
         </div>
@@ -125,6 +127,12 @@ export default function Home() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {SERVICES.slice(0, 6).map((s) => (
             <Link to="/booking/services" key={s.id} className="card-soft p-5 hover:-translate-y-1 transition group">
+              {/* Service Image */}
+              {s.image && (
+                <div className="h-40 w-full rounded-2xl overflow-hidden mb-4">
+                  <img src={s.image} alt={s.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                </div>
+              )}
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <span className="chip">{s.duration}</span>

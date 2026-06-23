@@ -22,6 +22,7 @@ function VehicleCheck({ children }) {
 
 import Home from "@/pages/Home";
 import Services from "@/pages/Services";
+import CategoryDetail from "@/pages/CategoryDetail";
 import HowItWorks from "@/pages/HowItWorks";
 import About from "@/pages/About";
 import Partner from "@/pages/Partner";
@@ -98,6 +99,7 @@ function AppRoutes() {
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/services" element={<Services />} />
+        <Route path="/services/:categoryId" element={<CategoryDetail />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/about" element={<About />} />
         <Route path="/partner" element={<Partner />} />

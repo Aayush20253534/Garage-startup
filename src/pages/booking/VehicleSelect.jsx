@@ -14,7 +14,7 @@ export default function VehicleSelect() {
 
   const confirm = () => {
     addVehicle({ brand: brand.name, model, fuel, reg: "DL 3C AB 1234", year: 2023 });
-    nav("/booking/services");
+    nav("/services");
   };
 
   return (

@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { SERVICE_CATEGORIES, SERVICES } from "@/data/services";
+import { SERVICE_CATEGORIES, CATEGORY_PACKAGES } from "@/data/services";
 import { useApp } from "@/hooks/useApp";
 import { FiArrowRight, FiCheck, FiTruck } from "react-icons/fi";
 
 export default function ServiceSelect() {
   const { vehicle, cart, addToCart, removeFromCart } = useApp();
   const [cat, setCat] = useState("scheduled");
-  const list = SERVICES.filter((s) => s.catId === cat);
+  const list = CATEGORY_PACKAGES[cat] || [];
   const total = cart.reduce((a, b) => a + b.price, 0);
 
   return (
