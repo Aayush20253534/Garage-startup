@@ -1,0 +1,135 @@
+import { Routes, Route, Navigate } from "react-router-dom";
+import { AppProvider } from "@/hooks/useApp";
+import MainLayout from "@/layouts/MainLayout";
+import DashboardLayout from "@/layouts/DashboardLayout";
+
+import Home from "@/pages/Home";
+import Services from "@/pages/Services";
+import HowItWorks from "@/pages/HowItWorks";
+import About from "@/pages/About";
+import Partner from "@/pages/Partner";
+import Contact from "@/pages/Contact";
+import Warranty from "@/pages/Warranty";
+import NotFound from "@/pages/NotFound";
+
+import Login from "@/pages/auth/Login";
+import Register from "@/pages/auth/Register";
+import OTP from "@/pages/auth/OTP";
+import Forgot from "@/pages/auth/Forgot";
+
+import VehicleSelect from "@/pages/booking/VehicleSelect";
+import ServiceSelect from "@/pages/booking/ServiceSelect";
+import GarageSelect from "@/pages/booking/GarageSelect";
+import Checkout from "@/pages/booking/Checkout";
+import Tracking from "@/pages/booking/Tracking";
+
+import CustomerDashboard from "@/pages/customer/Dashboard";
+import MyVehicles from "@/pages/customer/MyVehicles";
+import ActiveBookings from "@/pages/customer/ActiveBookings";
+import ServiceHistory from "@/pages/customer/ServiceHistory";
+import Profile from "@/pages/customer/Profile";
+import Payments from "@/pages/customer/Payments";
+import Notifications from "@/pages/customer/Notifications";
+
+import GarageDashboard from "@/pages/garage/Dashboard";
+import GarageLeads from "@/pages/garage/Leads";
+import GarageWallet from "@/pages/garage/Wallet";
+import GarageJobs from "@/pages/garage/Jobs";
+import GarageEarnings from "@/pages/garage/Earnings";
+import MagicLink from "@/pages/garage/MagicLink";
+
+import AdminDashboard from "@/pages/admin/Dashboard";
+import AdminCustomers from "@/pages/admin/Customers";
+import AdminGarages from "@/pages/admin/Garages";
+import AdminBookings from "@/pages/admin/Bookings";
+import AdminRevenue from "@/pages/admin/Revenue";
+
+import { FiGrid, FiTruck, FiPlusCircle, FiCalendar, FiClock, FiShield, FiCreditCard, FiBell, FiUser,
+  FiInbox, FiBriefcase, FiTrendingUp, FiStar, FiUsers, FiSettings, FiDollarSign, FiHome } from "react-icons/fi";
+
+const customerItems = [
+  { to: "/dashboard", label: "Dashboard", icon: FiGrid },
+  { to: "/dashboard/vehicles", label: "My Vehicles", icon: FiTruck },
+  { to: "/booking/vehicle", label: "Book Service", icon: FiPlusCircle },
+  { to: "/dashboard/bookings", label: "Active Bookings", icon: FiCalendar },
+  { to: "/dashboard/history", label: "Service History", icon: FiClock },
+  { to: "/warranty", label: "Warranty Center", icon: FiShield },
+  { to: "/dashboard/payments", label: "Payments", icon: FiCreditCard },
+  { to: "/dashboard/notifications", label: "Notifications", icon: FiBell },
+  { to: "/dashboard/profile", label: "Profile", icon: FiUser },
+];
+
+const garageItems = [
+  { to: "/garage", label: "Dashboard", icon: FiGrid },
+  { to: "/garage/leads", label: "Leads", icon: FiInbox },
+  { to: "/garage/jobs", label: "Active Jobs", icon: FiBriefcase },
+  { to: "/garage/wallet", label: "Wallet", icon: FiCreditCard },
+  { to: "/garage/earnings", label: "Earnings", icon: FiTrendingUp },
+];
+
+const adminItems = [
+  { to: "/admin", label: "Dashboard", icon: FiGrid },
+  { to: "/admin/customers", label: "Customers", icon: FiUsers },
+  { to: "/admin/garages", label: "Garages", icon: FiHome },
+  { to: "/admin/bookings", label: "Bookings", icon: FiCalendar },
+  { to: "/admin/revenue", label: "Revenue", icon: FiDollarSign },
+];
+
+export default function App() {
+  return (
+    <AppProvider>
+      <Routes>
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/partner" element={<Partner />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/warranty" element={<Warranty />} />
+
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/otp" element={<OTP />} />
+          <Route path="/forgot" element={<Forgot />} />
+
+          <Route path="/booking/vehicle" element={<VehicleSelect />} />
+          <Route path="/booking/services" element={<ServiceSelect />} />
+          <Route path="/booking/garage" element={<GarageSelect />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/tracking" element={<Tracking />} />
+
+          <Route path="/garage/magic/:id" element={<MagicLink />} />
+        </Route>
+
+        <Route element={<DashboardLayout items={customerItems} title="Customer Portal" />}>
+          <Route path="/dashboard" element={<CustomerDashboard />} />
+          <Route path="/dashboard/vehicles" element={<MyVehicles />} />
+          <Route path="/dashboard/bookings" element={<ActiveBookings />} />
+          <Route path="/dashboard/history" element={<ServiceHistory />} />
+          <Route path="/dashboard/payments" element={<Payments />} />
+          <Route path="/dashboard/notifications" element={<Notifications />} />
+          <Route path="/dashboard/profile" element={<Profile />} />
+        </Route>
+
+        <Route element={<DashboardLayout items={garageItems} title="Garage Portal" />}>
+          <Route path="/garage" element={<GarageDashboard />} />
+          <Route path="/garage/leads" element={<GarageLeads />} />
+          <Route path="/garage/jobs" element={<GarageJobs />} />
+          <Route path="/garage/wallet" element={<GarageWallet />} />
+          <Route path="/garage/earnings" element={<GarageEarnings />} />
+        </Route>
+
+        <Route element={<DashboardLayout items={adminItems} title="Admin Console" />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/customers" element={<AdminCustomers />} />
+          <Route path="/admin/garages" element={<AdminGarages />} />
+          <Route path="/admin/bookings" element={<AdminBookings />} />
+          <Route path="/admin/revenue" element={<AdminRevenue />} />
+        </Route>
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AppProvider>
+  );
+}
