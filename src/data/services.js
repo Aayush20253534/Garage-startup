@@ -1,0 +1,43 @@
+import { FiTool, FiDroplet, FiZap, FiWind, FiShield, FiCircle, FiPackage, FiUmbrella, FiSun } from "react-icons/fi";
+
+export const SERVICE_CATEGORIES = [
+  { id: "scheduled", name: "Scheduled Packages", icon: FiPackage, color: "#b9f000" },
+  { id: "denting", name: "Denting & Painting", icon: FiTool, color: "#ff8a3d" },
+  { id: "ac", name: "AC Service", icon: FiWind, color: "#56c2ff" },
+  { id: "clean", name: "Cleaning & Detailing", icon: FiSun, color: "#ffd23d" },
+  { id: "oil", name: "Oil Change", icon: FiDroplet, color: "#a78bfa" },
+  { id: "battery", name: "Battery Services", icon: FiZap, color: "#22c55e" },
+  { id: "tyre", name: "Tyre Services", icon: FiCircle, color: "#111111" },
+  { id: "insurance", name: "Insurance Assistance", icon: FiUmbrella, color: "#3b82f6" },
+  { id: "wash", name: "Regular Car Wash", icon: FiShield, color: "#06b6d4" },
+];
+
+export const SERVICES = [
+  { id: "s1", catId: "scheduled", name: "Standard Service Package", price: 3500, duration: "4 Hours",
+    desc: "Recommended every 10,000 km. Keeps your car running like new.",
+    includes: ["Engine Oil Change", "Oil Filter", "Air Filter Cleaning", "Coolant Top-up", "Wheel Balancing", "30-point Inspection"] },
+  { id: "s2", catId: "scheduled", name: "Comprehensive Service", price: 5999, duration: "6 Hours",
+    desc: "Deep service with synthetic oil and AC vent cleaning.",
+    includes: ["Synthetic Engine Oil", "All Filters", "AC Vent Cleaning", "Brake Inspection", "Battery Check", "Underbody Wash"] },
+  { id: "s3", catId: "denting", name: "Dent Repair (per panel)", price: 1800, duration: "1 Day",
+    desc: "Paintless dent removal by certified technicians.",
+    includes: ["Dent Removal", "Panel Repaint", "Polish & Buff", "Color Match Guarantee"] },
+  { id: "s4", catId: "ac", name: "AC Gas Refill & Service", price: 2499, duration: "2 Hours",
+    desc: "Cool comfort for Indian summers.",
+    includes: ["AC Gas Top-up", "Condenser Cleaning", "Cooling Coil Service", "Leak Test"] },
+  { id: "s5", catId: "clean", name: "Premium Detailing", price: 4500, duration: "5 Hours",
+    desc: "Showroom-finish inside and out.",
+    includes: ["Foam Wash", "Interior Vacuum", "Dashboard Polish", "Tyre Dressing", "Ceramic Spray Coat"] },
+  { id: "s6", catId: "oil", name: "Engine Oil Top-up", price: 899, duration: "30 Min",
+    desc: "Quick oil top-up with branded oil.",
+    includes: ["1L Branded Oil", "Quality Check", "Cap Inspection"] },
+  { id: "s7", catId: "battery", name: "Battery Replacement", price: 5400, duration: "1 Hour",
+    desc: "Original Exide / Amaron with warranty.",
+    includes: ["Old Battery Pickup", "New Battery Install", "Terminal Cleaning", "55-month Warranty"] },
+  { id: "s8", catId: "tyre", name: "Wheel Alignment & Balancing", price: 999, duration: "1 Hour",
+    desc: "Smooth ride and longer tyre life.",
+    includes: ["4-Wheel Alignment", "Computerised Balancing", "Tyre Rotation"] },
+  { id: "s9", catId: "wash", name: "Express Car Wash", price: 299, duration: "30 Min",
+    desc: "Quick exterior wash and dry.",
+    includes: ["Foam Wash", "Rinse", "Hand Dry"] },
+];
