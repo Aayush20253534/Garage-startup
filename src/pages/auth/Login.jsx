@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import Logo from "@/components/common/Logo";
 import { FiArrowRight, FiTool, FiUser } from "react-icons/fi";
 
 export default function Login() {
+  const { state } = useLocation();
+  const from = state?.from?.pathname || null;
   const [role, setRole] = useState("customer");
   const [phone, setPhone] = useState("");
   const nav = useNavigate();
-  const { login } = useApp();
+  const { login, vehicles } = useApp();
   return (
     <div className="container-x py-16 grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
       <div className="hidden lg:block">
@@ -25,7 +27,7 @@ export default function Login() {
             </button>
           ))}
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); nav("/otp", { state: { phone, role } }); }} className="mt-6 grid gap-3">
+        <form onSubmit={(e) => { e.preventDefault(); nav("/otp", { state: { phone, role, from } }); }} className="mt-6 grid gap-3">
           <label className="grid gap-1.5 text-sm">
             <span className="font-medium">Mobile Number</span>
             <div className="flex">
@@ -36,7 +38,20 @@ export default function Login() {
           <button className="btn-primary mt-2">Send OTP <FiArrowRight /></button>
           <Link to="/forgot" className="text-sm text-muted hover:text-ink text-center mt-1">Forgot something?</Link>
           <div className="text-center text-sm text-muted">New to Rovauto? <Link to="/register" className="text-ink font-medium">Create account</Link></div>
-          <button type="button" onClick={() => { login("Ayush", role); nav(role === "garage" ? "/garage" : "/dashboard"); }} className="btn-ghost text-xs">Demo login (skip OTP)</button>
+          <button type="button" onClick={() => { 
+            login("Ayush", role); 
+            if (role === "garage") {
+              nav("/garage");
+            } else {
+              if (from && from !== "/booking/vehicle") {
+                nav(from);
+              } else if (vehicles.length === 0) {
+                nav("/booking/vehicle");
+              } else {
+                nav("/dashboard");
+              }
+            }
+          }} className="btn-ghost text-xs">Demo login (skip OTP)</button>
         </form>
       </div>
     </div>

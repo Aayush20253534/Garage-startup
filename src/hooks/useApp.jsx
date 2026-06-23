@@ -22,10 +22,6 @@ export function AppProvider({ children }) {
 
   const login = (name, role = "customer") => {
     setUser({ name: name || "Ayush", role });
-    if (!vehicle) {
-      setVehicle(DEFAULT_VEHICLE);
-      setVehicles([DEFAULT_VEHICLE]);
-    }
   };
   const logout = () => { setUser(null); };
   const addVehicle = (v) => {

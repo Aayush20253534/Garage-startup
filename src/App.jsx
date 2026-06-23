@@ -1,7 +1,24 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import { AppProvider } from "@/hooks/useApp";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AppProvider, useApp } from "@/hooks/useApp";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
+
+function ProtectedRoute({ children }) {
+  const { user } = useApp();
+  const location = useLocation();
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return children;
+}
+
+function VehicleCheck({ children }) {
+  const { user, vehicles } = useApp();
+  if (user && user.role === "customer" && vehicles.length === 0) {
+    return <Navigate to="/booking/vehicle" replace />;
+  }
+  return children;
+}
 
 import Home from "@/pages/Home";
 import Services from "@/pages/Services";
@@ -75,61 +92,67 @@ const adminItems = [
   { to: "/admin/revenue", label: "Revenue", icon: FiDollarSign },
 ];
 
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route element={<MainLayout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/services" element={<Services />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/partner" element={<Partner />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/warranty" element={<Warranty />} />
+
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/otp" element={<OTP />} />
+        <Route path="/forgot" element={<Forgot />} />
+
+        <Route path="/booking/vehicle" element={<ProtectedRoute><VehicleSelect /></ProtectedRoute>} />
+        <Route path="/booking/services" element={<ProtectedRoute><VehicleCheck><ServiceSelect /></VehicleCheck></ProtectedRoute>} />
+        <Route path="/booking/garage" element={<ProtectedRoute><VehicleCheck><GarageSelect /></VehicleCheck></ProtectedRoute>} />
+        <Route path="/checkout" element={<ProtectedRoute><VehicleCheck><Checkout /></VehicleCheck></ProtectedRoute>} />
+        <Route path="/tracking" element={<ProtectedRoute><VehicleCheck><Tracking /></VehicleCheck></ProtectedRoute>} />
+
+        <Route path="/garage/magic/:id" element={<MagicLink />} />
+      </Route>
+
+      <Route element={<DashboardLayout items={customerItems} title="Customer Portal" />}>
+        <Route path="/dashboard" element={<ProtectedRoute><VehicleCheck><CustomerDashboard /></VehicleCheck></ProtectedRoute>} />
+        <Route path="/dashboard/vehicles" element={<ProtectedRoute><MyVehicles /></ProtectedRoute>} />
+        <Route path="/dashboard/bookings" element={<ProtectedRoute><VehicleCheck><ActiveBookings /></VehicleCheck></ProtectedRoute>} />
+        <Route path="/dashboard/history" element={<ProtectedRoute><VehicleCheck><ServiceHistory /></VehicleCheck></ProtectedRoute>} />
+        <Route path="/dashboard/payments" element={<ProtectedRoute><VehicleCheck><Payments /></VehicleCheck></ProtectedRoute>} />
+        <Route path="/dashboard/notifications" element={<ProtectedRoute><VehicleCheck><Notifications /></VehicleCheck></ProtectedRoute>} />
+        <Route path="/dashboard/profile" element={<ProtectedRoute><VehicleCheck><Profile /></VehicleCheck></ProtectedRoute>} />
+      </Route>
+
+      <Route element={<DashboardLayout items={garageItems} title="Garage Portal" />}>
+        <Route path="/garage" element={<ProtectedRoute><GarageDashboard /></ProtectedRoute>} />
+        <Route path="/garage/leads" element={<ProtectedRoute><GarageLeads /></ProtectedRoute>} />
+        <Route path="/garage/jobs" element={<ProtectedRoute><GarageJobs /></ProtectedRoute>} />
+        <Route path="/garage/wallet" element={<ProtectedRoute><GarageWallet /></ProtectedRoute>} />
+        <Route path="/garage/earnings" element={<ProtectedRoute><GarageEarnings /></ProtectedRoute>} />
+      </Route>
+
+      <Route element={<DashboardLayout items={adminItems} title="Admin Console" />}>
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/customers" element={<AdminCustomers />} />
+        <Route path="/admin/garages" element={<AdminGarages />} />
+        <Route path="/admin/bookings" element={<AdminBookings />} />
+        <Route path="/admin/revenue" element={<AdminRevenue />} />
+      </Route>
+
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
     <AppProvider>
-      <Routes>
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/services" element={<Services />} />
-          <Route path="/how-it-works" element={<HowItWorks />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/partner" element={<Partner />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/warranty" element={<Warranty />} />
-
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/otp" element={<OTP />} />
-          <Route path="/forgot" element={<Forgot />} />
-
-          <Route path="/booking/vehicle" element={<VehicleSelect />} />
-          <Route path="/booking/services" element={<ServiceSelect />} />
-          <Route path="/booking/garage" element={<GarageSelect />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/tracking" element={<Tracking />} />
-
-          <Route path="/garage/magic/:id" element={<MagicLink />} />
-        </Route>
-
-        <Route element={<DashboardLayout items={customerItems} title="Customer Portal" />}>
-          <Route path="/dashboard" element={<CustomerDashboard />} />
-          <Route path="/dashboard/vehicles" element={<MyVehicles />} />
-          <Route path="/dashboard/bookings" element={<ActiveBookings />} />
-          <Route path="/dashboard/history" element={<ServiceHistory />} />
-          <Route path="/dashboard/payments" element={<Payments />} />
-          <Route path="/dashboard/notifications" element={<Notifications />} />
-          <Route path="/dashboard/profile" element={<Profile />} />
-        </Route>
-
-        <Route element={<DashboardLayout items={garageItems} title="Garage Portal" />}>
-          <Route path="/garage" element={<GarageDashboard />} />
-          <Route path="/garage/leads" element={<GarageLeads />} />
-          <Route path="/garage/jobs" element={<GarageJobs />} />
-          <Route path="/garage/wallet" element={<GarageWallet />} />
-          <Route path="/garage/earnings" element={<GarageEarnings />} />
-        </Route>
-
-        <Route element={<DashboardLayout items={adminItems} title="Admin Console" />}>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/customers" element={<AdminCustomers />} />
-          <Route path="/admin/garages" element={<AdminGarages />} />
-          <Route path="/admin/bookings" element={<AdminBookings />} />
-          <Route path="/admin/revenue" element={<AdminRevenue />} />
-        </Route>
-
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AppRoutes />
     </AppProvider>
   );
 }

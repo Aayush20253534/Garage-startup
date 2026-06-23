@@ -6,10 +6,11 @@ import Logo from "@/components/common/Logo";
 export default function OTP() {
   const { state } = useLocation();
   const role = state?.role || "customer";
+  const from = state?.from?.pathname || null;
   const [otp, setOtp] = useState(Array(6).fill(""));
   const refs = useRef([]);
   const nav = useNavigate();
-  const { login } = useApp();
+  const { login, vehicles } = useApp();
   const [timer, setTimer] = useState(30);
 
   useEffect(() => {
@@ -27,7 +28,17 @@ export default function OTP() {
   const submit = (e) => {
     e.preventDefault();
     login("Ayush", role);
-    nav(role === "garage" ? "/garage" : "/dashboard");
+    if (role === "garage") {
+      nav("/garage");
+    } else {
+      if (from && from !== "/booking/vehicle") {
+        nav(from);
+      } else if (vehicles.length === 0) {
+        nav("/booking/vehicle");
+      } else {
+        nav("/dashboard");
+      }
+    }
   };
 
   return (

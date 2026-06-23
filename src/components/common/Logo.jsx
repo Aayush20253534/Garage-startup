@@ -1,6 +1,6 @@
 import { LOGO_URL } from "@/data/vehicles";
 
-export default function Logo({ className = "h-9 w-auto", showText = true }) {
+export default function Logo({ className = "h-17 w-auto mt-0", showText = true }) {
   return (
     <div className="flex items-center gap-2">
       <img src={LOGO_URL} alt="Rovauto" className={className} />
