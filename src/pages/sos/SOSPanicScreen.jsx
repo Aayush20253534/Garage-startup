@@ -1,10 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { FiTrendingUp, FiCircle, FiWrench, FiTruck } from "react-icons/fi";
+import { FiTrendingUp, FiCircle, FiTool, FiTruck } from "react-icons/fi";
 
 const SOS_PROBLEMS = [
   { id: "flat-tire", icon: FiCircle, label: "Flat Tire", emoji: "🛞", desc: "Puncture repair" },
   { id: "dead-battery", icon: FiTrendingUp, label: "Dead Battery", emoji: "🔋", desc: "Jumpstart" },
-  { id: "engine-failure", icon: FiWrench, label: "Engine Won't Start", emoji: "⚙️", desc: "Engine issues" },
+  { id: "engine-failure", icon: FiTool, label: "Engine Won't Start", emoji: "⚙️", desc: "Engine issues" },
   { id: "towing", icon: FiTruck, label: "Need Towing", emoji: "🏗️", desc: "Vehicle tow" },
 ];
 
