@@ -100,6 +100,10 @@ const adminItems = [
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/sos" element={<SOSPanicScreen />} />
+      <Route path="/sos/location" element={<SOSLocationScreen />} />
+      <Route path="/sos/checkout" element={<SOSCheckoutScreen />} />
+      <Route path="/sos/success" element={<SOSSuccessScreen />} />
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/services" element={<Services />} />
@@ -109,10 +113,6 @@ function AppRoutes() {
         <Route path="/partner" element={<Partner />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/warranty" element={<Warranty />} />
-        <Route path="/sos" element={<SOSPanicScreen />} />
-        <Route path="/sos/location" element={<SOSLocationScreen />} />
-        <Route path="/sos/checkout" element={<SOSCheckoutScreen />} />
-        <Route path="/sos/success" element={<SOSSuccessScreen />} />
 
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
