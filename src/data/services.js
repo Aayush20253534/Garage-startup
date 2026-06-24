@@ -14,8 +14,7 @@ export const SERVICE_CATEGORIES = [
   { id: "ac", name: "AC Service", image: acService, icon: FiWind, color: "#56c2ff" },
   { id: "denting", name: "Denting & Painting", image: painting, icon: FiTool, color: "#ff8a3d" },
   { id: "battery", name: "Batteries", image: battery, icon: FiZap, color: "#22c55e" },
-  { id: "sos", name: "SOS Rescue", image: roadside, icon: FiUmbrella, color: "#ef4444" },
-  { id: "roadside", name: "Roadside Assistance", image: roadside, icon: FiUmbrella, color: "#3b82f6" },
+  { id: "roadside", name: "Roadside Assistance", image: roadside, icon: FiUmbrella, color: "#ef4444", isSos: true },
   { id: "modification", name: "Modifications", image: modification, icon: FiTool, color: "#a78bfa" },
 ];
 

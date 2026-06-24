@@ -26,7 +26,7 @@ export default function Services() {
       {/* Categories Grid like in photo */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 mb-10">
         {SERVICE_CATEGORIES.map((c) => (
-          <Link to={`/services/${c.id}`} key={c.id} className="cursor-pointer rounded-3xl bg-white p-5 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+          <Link to={c.isSos ? "/sos" : `/services/${c.id}`} key={c.id} className="cursor-pointer rounded-3xl bg-white p-5 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
             <div className="text-xl font-bold mb-4">{c.name}</div>
             <div className="h-32 w-full rounded-2xl overflow-hidden">
               <img src={c.image} alt={c.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />

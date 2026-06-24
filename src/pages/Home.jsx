@@ -84,7 +84,7 @@ export default function Home() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
           {SERVICE_CATEGORIES.slice(0, 8).map((c) => (
-            <Link to={`/services/${c.id}`} key={c.id} className="group">
+            <Link to={c.isSos ? "/sos" : `/services/${c.id}`} key={c.id} className="group">
               <div className="rounded-3xl bg-white p-5 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
                 <div className="text-lg font-bold mb-4">{c.name}</div>
                 <div className="h-32 w-full rounded-2xl overflow-hidden">
