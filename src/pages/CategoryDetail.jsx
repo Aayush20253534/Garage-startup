@@ -16,6 +16,11 @@ export default function CategoryDetail() {
     return <div className="container-x py-10">Category not found</div>;
   }
 
+  if (categoryId === "sos") {
+    nav("/sos");
+    return null;
+  }
+
   return (
     <div className="container-x py-10">
       {/* Back button */}

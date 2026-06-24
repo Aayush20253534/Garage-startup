@@ -29,6 +29,10 @@ import Partner from "@/pages/Partner";
 import Contact from "@/pages/Contact";
 import Warranty from "@/pages/Warranty";
 import NotFound from "@/pages/NotFound";
+import SOSPanicScreen from "@/pages/sos/SOSPanicScreen";
+import SOSLocationScreen from "@/pages/sos/SOSLocationScreen";
+import SOSCheckoutScreen from "@/pages/sos/SOSCheckoutScreen";
+import SOSSuccessScreen from "@/pages/sos/SOSSuccessScreen";
 
 import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
@@ -105,6 +109,10 @@ function AppRoutes() {
         <Route path="/partner" element={<Partner />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/warranty" element={<Warranty />} />
+        <Route path="/sos" element={<SOSPanicScreen />} />
+        <Route path="/sos/location" element={<SOSLocationScreen />} />
+        <Route path="/sos/checkout" element={<SOSCheckoutScreen />} />
+        <Route path="/sos/success" element={<SOSSuccessScreen />} />
 
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
