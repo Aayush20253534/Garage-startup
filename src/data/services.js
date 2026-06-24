@@ -18,7 +18,9 @@ export const SERVICE_CATEGORIES = [
   { id: "modification", name: "Modifications", image: modification, icon: FiTool, color: "#a78bfa" },
 ];
 
-export const SERVICES = [];
+export const SERVICES = Object.entries(CATEGORY_PACKAGES).flatMap(([catId, packages]) =>
+  packages.map(pkg => ({ ...pkg, catId, duration: pkg.time, desc: pkg.includes.join(", ") }))
+);
 
 // Define packages for each category
 export const CATEGORY_PACKAGES = {
