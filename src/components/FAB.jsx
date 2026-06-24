@@ -47,7 +47,7 @@ export default function FAB() {
       {/* Main Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-16 h-16 rounded-full bg-white border-4 border-green-500 shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+        className="w-16 h-16 rounded-full bg-white border-4 border-[#b9f000] shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
       >
         {isOpen ? <FiX className="text-3xl text-gray-700" /> : <FiMessageCircle className="text-3xl text-gray-700" />}
       </button>
