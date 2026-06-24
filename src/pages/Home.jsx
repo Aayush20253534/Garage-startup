@@ -162,7 +162,6 @@ export default function Home() {
               <p className="text-white/70 mt-4 max-w-md">Get verified leads via WhatsApp, manage jobs, and grow revenue. No app required to start.</p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link to="/partner" className="btn-primary">Become a Partner</Link>
-                <Link to="/garage" className="btn-ghost border-white/20 text-white hover:border-white">Garage Portal</Link>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3 text-center">
