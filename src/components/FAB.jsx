@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { FiX, FiMessageCircle, FiPhone, FiMessageSquare } from "react-icons/fi";
+import ChatbotPopup from "./ChatbotPopup";
 
 export default function FAB() {
   const [isOpen, setIsOpen] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   const handleChat = () => {
-    alert("Opening chat bot...");
     setIsOpen(false);
+    setShowChat(true);
   };
 
   const handleCall = () => {
@@ -38,6 +40,9 @@ export default function FAB() {
           </button>
         </div>
       )}
+
+      {/* Chatbot Popup */}
+      {showChat && <ChatbotPopup onClose={() => setShowChat(false)} />}
 
       {/* Main Button */}
       <button
