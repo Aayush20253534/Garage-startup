@@ -1,5 +1,6 @@
 import Navbar from "@/components/navbar/Navbar";
 import Footer from "@/components/footer/Footer";
+import FAB from "@/components/FAB";
 import { Outlet, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
@@ -14,6 +15,7 @@ export default function MainLayout() {
         <Outlet />
       </motion.main>
       <Footer />
+      <FAB />
     </div>
   );
 }
