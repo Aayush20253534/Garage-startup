@@ -1,20 +1,32 @@
 import logo from "@/assets/Rovauto.png";
 import { FiCar } from "react-icons/fi";
+import {
+  SiSuzuki,
+  SiHyundai,
+  SiTata,
+  SiMahindra,
+  SiKia,
+  SiHonda,
+  SiToyota,
+  SiRenault,
+  SiVolkswagen,
+  SiBmw,
+} from "react-icons/si";
 
 export const LOGO_URL = logo;
 
 export const VEHICLE_BRANDS = [
-  { name: "Maruti Suzuki", icon: FiCar, models: ["Swift", "Baleno", "Brezza", "Dzire", "WagonR", "Fronx", "Grand Vitara", "Alto", "S-presso", "Ignite", "Ertiga", "XL6"] },
-  { name: "Hyundai", icon: FiCar, models: ["i20", "Creta", "Venue", "Verna", "Nios"] },
-  { name: "Tata", icon: FiCar, models: ["Nexon", "Punch", "Harrier", "Altroz", "Tiago"] },
-  { name: "Mahindra", icon: FiCar, models: ["XUV700/XUV 7XO", "Thar", "Scorpio N", "XUV 300/XUV 3XO", "Bolero"] },
-  { name: "Kia", icon: FiCar, models: ["Seltos", "Sonet", "Carens", "Carnival"] },
-  { name: "Honda", icon: FiCar, models: ["City", "Amaze", "Elevate"] },
-  { name: "Toyota", icon: FiCar, models: ["Innova", "Fortuner", "Glanza", "Urban Cruiser"] },
-  { name: "Renault", icon: FiCar, models: ["Kwid", "Kiger", "Duster", "Triber"] },
-  { name: "Volkswagen", icon: FiCar, models: ["Virtus", "Taigun", "Polo"] },
+  { name: "Maruti Suzuki", icon: SiSuzuki, models: ["Swift", "Baleno", "Brezza", "Dzire", "WagonR", "Fronx", "Grand Vitara", "Alto", "S-presso", "Ignite", "Ertiga", "XL6"] },
+  { name: "Hyundai", icon: SiHyundai, models: ["i20", "Creta", "Venue", "Verna", "Nios"] },
+  { name: "Tata", icon: SiTata, models: ["Nexon", "Punch", "Harrier", "Altroz", "Tiago"] },
+  { name: "Mahindra", icon: SiMahindra, models: ["XUV700/XUV 7XO", "Thar", "Scorpio N", "XUV 300/XUV 3XO", "Bolero"] },
+  { name: "Kia", icon: SiKia, models: ["Seltos", "Sonet", "Carens", "Carnival"] },
+  { name: "Honda", icon: SiHonda, models: ["City", "Amaze", "Elevate"] },
+  { name: "Toyota", icon: SiToyota, models: ["Innova", "Fortuner", "Glanza", "Urban Cruiser"] },
+  { name: "Renault", icon: SiRenault, models: ["Kwid", "Kiger", "Duster", "Triber"] },
+  { name: "Volkswagen", icon: SiVolkswagen, models: ["Virtus", "Taigun", "Polo"] },
   { name: "Mercedes", icon: FiCar, models: ["A-class", "C-class", "S-class","G-class"] },
-  { name: "BMW", icon: FiCar, models: ["X1", "X3", "X5","X7","Z4"] },
+  { name: "BMW", icon: SiBmw, models: ["X1", "X3", "X5","X7","Z4"] },
   
 ];
 
