@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { VEHICLE_BRANDS, FUEL_TYPES } from "@/data/vehicles";
 import { useApp } from "@/hooks/useApp";
-import { FiArrowRight, FiCheck, FiTruck } from "react-icons/fi";
+import { FiArrowRight, FiCheck } from "react-icons/fi";
 
 export default function VehicleSelect() {
   const [brand, setBrand] = useState(null);
@@ -28,7 +28,7 @@ export default function VehicleSelect() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {VEHICLE_BRANDS.map((b) => (
               <button key={b.name} onClick={() => { setBrand(b); setModel(null); }} className={`p-4 rounded-2xl border text-left transition ${brand?.name === b.name ? "border-ink bg-ink text-white" : "border-line hover:border-ink"}`}>
-                <FiTruck className="text-xl mb-2" />
+                <img src={b.logo} alt={b.name} className="h-10 w-auto mb-2 object-contain" />
                 <div className="text-sm font-semibold">{b.name}</div>
               </button>
             ))}
@@ -60,7 +60,7 @@ export default function VehicleSelect() {
         {brand && model && fuel && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card-soft p-6">
             <div className="flex items-center gap-4">
-              <span className="grid place-items-center h-14 w-14 rounded-2xl bg-brand"><FiTruck className="text-2xl" /></span>
+              <img src={brand.logo} alt={brand.name} className="h-14 w-14 rounded-2xl object-contain bg-white p-2" />
               <div className="flex-1">
                 <div className="text-xs text-muted">Your vehicle</div>
                 <div className="text-xl font-bold">{brand.name} {model}</div>
