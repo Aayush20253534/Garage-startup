@@ -1,5 +1,5 @@
 import logo from "@/assets/Rovauto.png";
-import { SiSuzuki, SiHyundai, SiTata, SiMahindra, SiKia, SiHonda, SiToyota, SiRenault, SiVolkswagen, SiMercedesbenz, SiBmw } from "react-icons/si";
+import { SiSuzuki, SiHyundai, SiTata, SiMahindra, SiKia, SiHonda, SiToyota, SiRenault, SiVolkswagen, SiMercedes, SiBmw } from "react-icons/si";
 
 export const LOGO_URL = logo;
 
@@ -13,7 +13,7 @@ export const VEHICLE_BRANDS = [
   { name: "Toyota", icon: SiToyota, models: ["Innova", "Fortuner", "Glanza", "Urban Cruiser"] },
   { name: "Renault", icon: SiRenault, models: ["Kwid", "Kiger", "Duster", "Triber"] },
   { name: "Volkswagen", icon: SiVolkswagen, models: ["Virtus", "Taigun", "Polo"] },
-  { name: "Mercedes", icon: SiMercedesbenz, models: ["A-class", "C-class", "S-class","G-class"] },
+  { name: "Mercedes", icon: SiMercedes, models: ["A-class", "C-class", "S-class","G-class"] },
   { name: "BMW", icon: SiBmw, models: ["X1", "X3", "X5","X7","Z4"] },
   
 ];
