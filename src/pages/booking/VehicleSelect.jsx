@@ -28,7 +28,11 @@ export default function VehicleSelect() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {VEHICLE_BRANDS.map((b) => (
               <button key={b.name} onClick={() => { setBrand(b); setModel(null); }} className={`p-4 rounded-2xl border text-left transition ${brand?.name === b.name ? "border-ink bg-ink text-white" : "border-line hover:border-ink"}`}>
-                <b.icon className="h-10 w-auto mb-2" />
+                {b.image ? (
+                  <img src={b.image} alt={b.name} className="h-10 w-auto mb-2 object-contain" />
+                ) : (
+                  <b.icon className="h-10 w-auto mb-2" />
+                )}
                 <div className="text-sm font-semibold">{b.name}</div>
               </button>
             ))}
@@ -61,7 +65,11 @@ export default function VehicleSelect() {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card-soft p-6">
             <div className="flex items-center gap-4">
               <span className="grid place-items-center h-14 w-14 rounded-2xl bg-brand p-2">
-                <brand.icon className="h-8 w-8 text-ink" />
+                {brand.image ? (
+                  <img src={brand.image} alt={brand.name} className="h-8 w-8 object-contain" />
+                ) : (
+                  <brand.icon className="h-8 w-8 text-ink" />
+                )}
               </span>
               <div className="flex-1">
                 <div className="text-xs text-muted">Your vehicle</div>
