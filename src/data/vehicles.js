@@ -1,5 +1,5 @@
 import logo from "@/assets/Rovauto.png";
-import { FiCar } from "react-icons/fi";
+import { FaCar } from "react-icons/fa";
 import {
   SiSuzuki,
   SiHyundai,
@@ -25,7 +25,7 @@ export const VEHICLE_BRANDS = [
   { name: "Toyota", icon: SiToyota, models: ["Innova", "Fortuner", "Glanza", "Urban Cruiser"] },
   { name: "Renault", icon: SiRenault, models: ["Kwid", "Kiger", "Duster", "Triber"] },
   { name: "Volkswagen", icon: SiVolkswagen, models: ["Virtus", "Taigun", "Polo"] },
-  { name: "Mercedes", icon: FiCar, models: ["A-class", "C-class", "S-class","G-class"] },
+  { name: "Mercedes", icon: FaCar, models: ["A-class", "C-class", "S-class","G-class"] },
   { name: "BMW", icon: SiBmw, models: ["X1", "X3", "X5","X7","Z4"] },
   
 ];
