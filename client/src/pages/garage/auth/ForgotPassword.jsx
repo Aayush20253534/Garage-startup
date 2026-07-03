@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { FiMail, FiArrowLeft, FiCheckCircle } from "react-icons/fi";
@@ -10,9 +10,10 @@ export default function GarageForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [otpFromServer, setOtpFromServer] = useState("");
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState(Array(6).fill(""));
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const otpRefs = useRef([]);
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
@@ -46,7 +47,9 @@ export default function GarageForgotPassword() {
     e.preventDefault();
     setError("");
 
-    if (!/^\d{6}$/.test(otp)) {
+    const finalOtp = otp.join("");
+
+    if (!/^\d{6}$/.test(finalOtp)) {
       setError("Enter a valid 6-digit OTP");
       return;
     }
@@ -66,7 +69,7 @@ export default function GarageForgotPassword() {
     try {
       await api.post("/auth/reset-password", {
         email,
-        otp,
+        otp: finalOtp,
         newPassword,
         role: "GARAGE_OWNER",
       });
@@ -81,6 +84,40 @@ export default function GarageForgotPassword() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const setOtpDigit = (index, value) => {
+    const digit = value.replace(/\D/g, "").slice(0, 1);
+    const next = [...otp];
+
+    next[index] = digit;
+    setOtp(next);
+
+    if (digit && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key !== "Backspace" || otp[index]) return;
+    otpRefs.current[index - 1]?.focus();
+  };
+
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+
+    const pastedOtp = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, 6);
+
+    const next = Array(6).fill("");
+    pastedOtp.split("").forEach((digit, index) => {
+      next[index] = digit;
+    });
+
+    setOtp(next);
+    otpRefs.current[Math.min(pastedOtp.length, 5)]?.focus();
   };
 
   return (
@@ -179,16 +216,23 @@ export default function GarageForgotPassword() {
                 <div>
                   <label className="mb-2 block text-sm font-medium">OTP</label>
 
-                  <input
-                    type="text"
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))
-                    }
-                    placeholder="123456"
-                    className="w-full rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-                    required
-                  />
+                  <div className="flex justify-center gap-2">
+                    {Array.from({ length: 6 }).map((_, index) => (
+                      <input
+                        key={index}
+                        ref={(el) => (otpRefs.current[index] = el)}
+                        type="text"
+                        value={otp[index] || ""}
+                        onChange={(e) => setOtpDigit(index, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                        onPaste={handleOtpPaste}
+                        maxLength={1}
+                        inputMode="numeric"
+                        className="h-14 w-12 rounded-2xl border border-ink text-center text-xl font-bold outline-none"
+                        required
+                      />
+                    ))}
+                  </div>
                 </div>
 
                 <div>

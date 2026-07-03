@@ -12,6 +12,16 @@ const PASSWORD_MESSAGE =
 const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
+const getPhoneDigits = (value) => {
+  let digits = value.replace(/\D/g, "");
+
+  if (digits.length > 10 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  }
+
+  return digits.slice(0, 10);
+};
+
 export default function Register() {
   const nav = useNavigate();
   const { login } = useApp();
@@ -28,7 +38,12 @@ export default function Register() {
   const [error, setError] = useState("");
 
   const change = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === "phone" ? getPhoneDigits(value) : value,
+    }));
   };
 
   const submit = async (e) => {
@@ -45,10 +60,8 @@ export default function Register() {
         throw new Error("Passwords do not match.");
       }
 
-      const phoneDigits = form.phone.replace(/\D/g, "");
-      const fullPhone = form.phone.trim().startsWith("+")
-        ? form.phone.trim()
-        : `${COUNTRY_CODE}${phoneDigits}`;
+      const phoneDigits = getPhoneDigits(form.phone);
+      const fullPhone = `${COUNTRY_CODE}${phoneDigits}`;
 
       if (!/^\+91[6-9]\d{9}$/.test(fullPhone)) {
         throw new Error("Enter a valid 10-digit Indian mobile number.");
@@ -179,7 +192,7 @@ export default function Register() {
               name="phone"
               value={form.phone}
               onChange={change}
-              maxLength={15}
+              maxLength={10}
               inputMode="tel"
               placeholder="Mobile number"
               className="min-w-0 flex-1 border-0 px-4 py-2.5 outline-none"

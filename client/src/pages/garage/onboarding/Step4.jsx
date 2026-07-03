@@ -8,6 +8,16 @@ import api from "@/api/axios";
 const getBrandLogo = (brand) =>
   brand.logoUrl || brand.image || brand.logo || brand.logo_url || "";
 
+const getPhoneDigits = (value) => {
+  let digits = value.replace(/\D/g, "");
+
+  if (digits.length > 10 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  }
+
+  return digits.slice(0, 10);
+};
+
 export default function OnboardingStep4({ data, onChange }) {
   const [loading, setLoading] = useState(false);
   const [complete, setComplete] = useState(false);
@@ -56,10 +66,11 @@ export default function OnboardingStep4({ data, onChange }) {
 
     try {
       const formData = new FormData();
+      const phoneDigits = getPhoneDigits(data.phone);
       const fields = {
         ownerName: data.ownerName,
         email: data.email,
-        phone: data.phone,
+        phone: phoneDigits ? `+91${phoneDigits}` : "",
         garageName: data.name,
         description: [
           data.description,

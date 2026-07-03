@@ -4,11 +4,21 @@ import {
   FiArrowRight,
   FiHome,
   FiUser,
-  FiPhone,
   FiMail,
   FiFileText,
 } from "react-icons/fi";
-import Logo from "@/components/common/Logo";
+
+const COUNTRY_CODE = "+91";
+
+const getPhoneDigits = (value) => {
+  let digits = value.replace(/\D/g, "");
+
+  if (digits.length > 10 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  }
+
+  return digits.slice(0, 10);
+};
 
 export default function OnboardingStep1({ data, onChange, onNext }) {
   const [loading, setLoading] = useState(false);
@@ -75,14 +85,20 @@ export default function OnboardingStep1({ data, onChange, onNext }) {
               <label className="block text-sm font-medium mb-2">
                 Phone Number
               </label>
-              <div className="relative">
-                <FiPhone className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
+              <div className="flex items-center overflow-hidden rounded-xl border border-line bg-white transition focus-within:border-ink">
+                <div className="grid h-full w-16 shrink-0 place-items-center border-r border-line bg-bg-soft px-3 py-3 font-semibold text-ink">
+                  {COUNTRY_CODE}
+                </div>
                 <input
                   type="tel"
                   value={data.phone}
-                  onChange={(e) => onChange({ ...data, phone: e.target.value })}
-                  placeholder="+91 98765 43210"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
+                  onChange={(e) =>
+                    onChange({ ...data, phone: getPhoneDigits(e.target.value) })
+                  }
+                  maxLength={10}
+                  inputMode="tel"
+                  placeholder="Mobile number"
+                  className="min-w-0 flex-1 border-0 px-4 py-3 outline-none"
                   required
                 />
               </div>
