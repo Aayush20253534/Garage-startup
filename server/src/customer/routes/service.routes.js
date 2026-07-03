@@ -10,6 +10,13 @@ const {
 
 const router = express.Router();
 
+router.use((req, res, next) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
+  next();
+});
+
 router.get("/categories", optionalProtect, serviceController.getServiceCategories);
 router.get("/", optionalProtect, serviceController.getServices);
 
