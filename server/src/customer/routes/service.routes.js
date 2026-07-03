@@ -2,6 +2,7 @@ const express = require("express");
 
 const serviceController = require("../controllers/service.controller");
 const validate = require("../../middlewares/validate.middleware");
+const { optionalProtect } = require("../../middlewares/auth.middleware");
 
 const {
   serviceIdParamSchema,
@@ -9,8 +10,8 @@ const {
 
 const router = express.Router();
 
-router.get("/categories", serviceController.getServiceCategories);
-router.get("/", serviceController.getServices);
+router.get("/categories", optionalProtect, serviceController.getServiceCategories);
+router.get("/", optionalProtect, serviceController.getServices);
 
 router.get(
   "/:id",

@@ -4,7 +4,6 @@ const generateBookingCode = require("../../utils/bookingCode");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const { getCache, setCache, deletePattern } = require("../../utils/cache");
 const { addGarageWhatsappLink, createWhatsappLink } = require("../../utils/whatsapp");
-const { getServicePriceRange } = require("../../utils/pricing");
 const bookingLifecycleService = require("../../services/bookingLifecycle.service");
 const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
 
@@ -67,11 +66,6 @@ const getBookingCity = (location = {}) => {
   return addressParts.length >= 2 ? addressParts[addressParts.length - 2] : null;
 };
 
-const getFallbackBookingServiceRange = (service) => {
-  const range = getServicePriceRange(service);
-  return { min: range.min, max: range.max };
-};
-
 const getBookingServiceRange = (service, priceRangeMap = new Map()) => {
   const adminRange = priceRangeMap.get(service.id);
   if (adminRange) {
@@ -81,13 +75,19 @@ const getBookingServiceRange = (service, priceRangeMap = new Map()) => {
     };
   }
 
-  return getFallbackBookingServiceRange(service);
+  return null;
 };
 
 const sumServiceRanges = (services = [], priceRangeMap = new Map()) => {
   return services.reduce(
     (total, service) => {
       const range = getBookingServiceRange(service, priceRangeMap);
+      if (!range) {
+        throw new ApiError(
+          400,
+          `Price range is not configured for ${service.name} in this city and vehicle.`,
+        );
+      }
       return {
         min: total.min + range.min,
         max: total.max + range.max,

@@ -3,7 +3,9 @@ const ApiResponse = require("../../utils/apiResponse");
 const serviceService = require("../services/service.service");
 
 const getServiceCategories = asyncHandler(async (req, res) => {
-  const categories = await serviceService.getServiceCategories();
+  const categories = await serviceService.getServiceCategories({
+    userId: req.user?.role === "CUSTOMER" ? req.user.id : null,
+  });
 
   return res
     .status(200)
@@ -11,7 +13,9 @@ const getServiceCategories = asyncHandler(async (req, res) => {
 });
 
 const getServices = asyncHandler(async (req, res) => {
-  const services = await serviceService.getServices(req.query);
+  const services = await serviceService.getServices(req.query, {
+    userId: req.user?.role === "CUSTOMER" ? req.user.id : null,
+  });
 
   return res
     .status(200)

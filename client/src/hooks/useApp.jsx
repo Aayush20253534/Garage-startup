@@ -476,8 +476,14 @@ export function AppProvider({ children }) {
   };
   const fetchServiceCategories = async ({ force = false } = {}) => {
     const now = Date.now();
+    const usePublicCache = !token;
 
-    if (!force && serviceCategoriesCache && serviceCategoriesFetchedAt) {
+    if (
+      usePublicCache &&
+      !force &&
+      serviceCategoriesCache &&
+      serviceCategoriesFetchedAt
+    ) {
       if (now - serviceCategoriesFetchedAt < SERVICES_CACHE_TTL) {
         return serviceCategoriesCache;
       }
@@ -487,7 +493,7 @@ export function AppProvider({ children }) {
     const data = res.data.data || [];
     const fetchedAt = Date.now();
 
-    saveServiceCategoriesCache(data, fetchedAt);
+    if (usePublicCache) saveServiceCategoriesCache(data, fetchedAt);
 
     return data;
   };

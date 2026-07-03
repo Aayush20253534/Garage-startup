@@ -88,10 +88,13 @@ const normalizeServiceIds = (serviceIds) => {
     .filter(Boolean);
 };
 
-const buildGarageServiceFilter = (serviceIds = []) => {
+const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
   const uniqueServiceIds = normalizeServiceIds(serviceIds);
 
   if (uniqueServiceIds.length === 0) return {};
+
+  const vehicleBrand = String(vehicle?.brand || "").trim();
+  const vehicleModel = String(vehicle?.model || "").trim();
 
   return {
     AND: uniqueServiceIds.map((serviceId) => ({
@@ -99,6 +102,13 @@ const buildGarageServiceFilter = (serviceIds = []) => {
         some: {
           serviceId,
           isActive: true,
+          ...(vehicleBrand && {
+            OR: [
+              { vehicleBrand: "ALL", vehicleModel: "ALL" },
+              { vehicleBrand, vehicleModel: "ALL" },
+              ...(vehicleModel ? [{ vehicleBrand, vehicleModel }] : []),
+            ],
+          }),
         },
       },
     })),
@@ -308,10 +318,11 @@ const findNearbyEligibleGarages = async ({
   serviceIds = [],
   maxDistance = null,
   onlyVerified = true,
-  requireOpenNow = true,
-  requireWalletBalance = false,
-  minGarageWalletBalance = 0,
-}) => {
+    requireOpenNow = true,
+    requireWalletBalance = false,
+    minGarageWalletBalance = 0,
+    vehicle = null,
+  }) => {
   if (!latitude || !longitude) {
     throw new ApiError(400, "Customer location is required");
   }
@@ -330,7 +341,7 @@ const findNearbyEligibleGarages = async ({
         isVerified: true,
       }),
 
-      ...buildGarageServiceFilter(finalServiceIds),
+        ...buildGarageServiceFilter(finalServiceIds, vehicle),
 
       ...(requireWalletBalance && {
         wallet: {

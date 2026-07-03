@@ -28,6 +28,7 @@ const emptyForm = {
 export default function Revenue() {
   const [ranges, setRanges] = useState([]);
   const [services, setServices] = useState([]);
+  const [vehicleBrands, setVehicleBrands] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [filterCity, setFilterCity] = useState("");
   const [loading, setLoading] = useState(false);
@@ -53,6 +54,13 @@ export default function Revenue() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    adminApi
+      .getCarBrands()
+      .then((brands) => setVehicleBrands(Array.isArray(brands) ? brands : []))
+      .catch(() => setVehicleBrands([]));
+  }, []);
 
   useEffect(() => {
     load();
@@ -124,6 +132,11 @@ export default function Revenue() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const selectedVehicleBrand = vehicleBrands.find(
+    (brand) => brand.name === form.vehicleBrand,
+  );
+  const vehicleModels = selectedVehicleBrand?.models || [];
+
   const deleteRange = async (range) => {
     const ok = window.confirm("Delete this price range?");
     if (!ok) return;
@@ -188,19 +201,34 @@ export default function Revenue() {
           ))}
         </select>
 
-        <input
+        <select
           value={form.vehicleBrand}
-          onChange={(e) => setForm({ ...form, vehicleBrand: e.target.value })}
-          placeholder="Vehicle brand optional"
+          onChange={(e) =>
+            setForm({ ...form, vehicleBrand: e.target.value, vehicleModel: "" })
+          }
           className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        />
+        >
+          <option value="">Any brand</option>
+          {vehicleBrands.map((brand) => (
+            <option key={brand.id || brand.name} value={brand.name}>
+              {brand.name}
+            </option>
+          ))}
+        </select>
 
-        <input
+        <select
           value={form.vehicleModel}
           onChange={(e) => setForm({ ...form, vehicleModel: e.target.value })}
-          placeholder="Vehicle model optional"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        />
+          disabled={!form.vehicleBrand}
+          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink disabled:bg-bg-soft"
+        >
+          <option value="">Any model</option>
+          {vehicleModels.map((model) => (
+            <option key={model.id || model.name} value={model.name}>
+              {model.name}
+            </option>
+          ))}
+        </select>
 
         <select
           value={form.fuelType}

@@ -118,6 +118,7 @@ export default function ServiceSelect() {
           {list.map((service) => {
             const inCart = cart.some((item) => item.id === service.id);
             const priceRange = formatServicePriceRange(service);
+            const hasPrice = Boolean(service.priceRange);
             const duration = service.durationMin
               ? `${service.durationMin} min`
               : "Duration varies";
@@ -156,7 +157,7 @@ export default function ServiceSelect() {
                   <div>
                     <div className="text-xs text-muted">Estimated</div>
                     <div className="whitespace-nowrap text-lg font-bold leading-tight sm:text-xl">
-                      {priceRange}
+                      {hasPrice ? priceRange : "Not configured"}
                     </div>
                   </div>
 
@@ -165,7 +166,8 @@ export default function ServiceSelect() {
                     onClick={() =>
                       inCart ? removeFromCart(service.id) : addToCart(service)
                     }
-                    className={`${inCart ? "btn-dark" : "btn-primary"} shrink-0`}
+                    disabled={!hasPrice && !inCart}
+                    className={`${inCart ? "btn-dark" : "btn-primary"} shrink-0 disabled:cursor-not-allowed disabled:opacity-50`}
                   >
                     {inCart ? "Remove" : "Add"}
                   </button>
@@ -212,7 +214,7 @@ export default function ServiceSelect() {
                 >
                   <span className="truncate">{item.name}</span>
                   <span className="whitespace-nowrap text-right text-xs font-semibold sm:text-sm">
-                    {formatServicePriceRange(item)}
+                    {item.priceRange ? formatServicePriceRange(item) : ""}
                   </span>
                 </div>
               ))}

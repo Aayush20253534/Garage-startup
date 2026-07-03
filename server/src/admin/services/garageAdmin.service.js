@@ -35,6 +35,11 @@ const parseBoolean = (value, fallback = true) => {
   return String(value).toLowerCase() === "true";
 };
 
+const normalizeScope = (value) => {
+  const text = String(value || "").trim();
+  return text || "ALL";
+};
+
 const listGarages = async (query = {}) => {
   const where = {
     ...(query.search && {
@@ -48,6 +53,7 @@ const listGarages = async (query = {}) => {
     }),
     ...(query.isActive !== undefined && { isActive: query.isActive === "true" }),
     ...(query.isVerified !== undefined && { isVerified: query.isVerified === "true" }),
+    ...(query.city && { city: { contains: query.city, mode: "insensitive" } }),
   };
 
   return prisma.garage.findMany({
@@ -90,16 +96,23 @@ const upsertGarageService = async (garageId, payload) => {
   const service = await prisma.service.findUnique({ where: { id: payload.serviceId } });
   if (!service) throw new ApiError(404, "Service not found");
 
+  const vehicleBrand = normalizeScope(payload.vehicleBrand);
+  const vehicleModel = normalizeScope(payload.vehicleModel);
+
   const garageService = await prisma.garageService.upsert({
     where: {
-      garageId_serviceId: {
+      garageId_serviceId_vehicleBrand_vehicleModel: {
         garageId,
         serviceId: payload.serviceId,
+        vehicleBrand,
+        vehicleModel,
       },
     },
     create: {
       garageId,
       serviceId: payload.serviceId,
+      vehicleBrand,
+      vehicleModel,
       price: null,
       isActive: parseBoolean(payload.isActive, true),
     },
@@ -122,14 +135,18 @@ const upsertGarageService = async (garageId, payload) => {
   return garageService;
 };
 
-const removeGarageService = async (garageId, serviceId) => {
+const removeGarageService = async (garageId, serviceId, scope = {}) => {
   await getGarage(garageId);
+  const vehicleBrand = normalizeScope(scope.vehicleBrand);
+  const vehicleModel = normalizeScope(scope.vehicleModel);
 
   const garageService = await prisma.garageService.findUnique({
     where: {
-      garageId_serviceId: {
+      garageId_serviceId_vehicleBrand_vehicleModel: {
         garageId,
         serviceId,
+        vehicleBrand,
+        vehicleModel,
       },
     },
   });

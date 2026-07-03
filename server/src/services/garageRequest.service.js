@@ -163,6 +163,7 @@ const broadcastBookingToNearbyGarages = async (bookingId, options = {}) => {
     latitude: booking.customerLatitude,
     longitude: booking.customerLongitude,
     serviceIds,
+    vehicle: booking.vehicle,
     maxDistance: options.maxDistance || null,
     onlyVerified: true,
     requireOpenNow: false,

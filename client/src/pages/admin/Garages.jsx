@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
+import CitySelect from "@/components/common/CitySelect";
 import {
   FiCheck,
   FiEdit3,
@@ -47,9 +48,15 @@ export default function Garages() {
   const [applicationStatus, setApplicationStatus] = useState("PENDING");
   const [garages, setGarages] = useState([]);
   const [services, setServices] = useState([]);
+  const [vehicleBrands, setVehicleBrands] = useState([]);
+  const [filterCity, setFilterCity] = useState("");
   const [selectedGarageId, setSelectedGarageId] = useState("");
   const [selectedGarageDetails, setSelectedGarageDetails] = useState(null);
-  const [serviceForm, setServiceForm] = useState({ serviceId: "" });
+  const [serviceForm, setServiceForm] = useState({
+    serviceId: "",
+    vehicleBrand: "ALL",
+    vehicleModel: "ALL",
+  });
   const [noteByApplication, setNoteByApplication] = useState({});
   const [selectedApplicationIds, setSelectedApplicationIds] = useState([]);
   const [selectedGarageIds, setSelectedGarageIds] = useState([]);
@@ -83,7 +90,7 @@ export default function Garages() {
     setError("");
     try {
       const [garageList, serviceList] = await Promise.all([
-        adminApi.getGarages(),
+        adminApi.getGarages(filterCity ? { city: filterCity } : {}),
         adminApi.getAssignableServices(),
       ]);
       setGarages(garageList || []);
@@ -114,6 +121,14 @@ export default function Garages() {
     if (tab === "applications") loadApplications();
     if (tab === "services") loadGaragesAndServices();
   }, [tab, applicationStatus]);
+
+  useEffect(() => {
+    if (tab !== "services") return;
+    adminApi
+      .getCarBrands()
+      .then((brands) => setVehicleBrands(Array.isArray(brands) ? brands : []))
+      .catch(() => setVehicleBrands([]));
+  }, [tab]);
 
   const runApplicationAction = async (application, action) => {
     setError("");
@@ -154,21 +169,26 @@ export default function Garages() {
     try {
       await adminApi.saveGarageService(selectedGarageId, {
         serviceId: serviceForm.serviceId,
+        vehicleBrand: serviceForm.vehicleBrand,
+        vehicleModel: serviceForm.vehicleModel,
         isActive: true,
       });
       setSuccess("Garage service saved.");
-      setServiceForm({ serviceId: "" });
+      setServiceForm({ serviceId: "", vehicleBrand: "ALL", vehicleModel: "ALL" });
       await loadGaragesAndServices();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save garage service");
     }
   };
 
-  const removeGarageService = async (serviceId) => {
+  const removeGarageService = async (item) => {
     setError("");
     setSuccess("");
     try {
-      await adminApi.removeGarageService(selectedGarageId, serviceId);
+      await adminApi.removeGarageService(selectedGarageId, item.serviceId, {
+        vehicleBrand: item.vehicleBrand || "ALL",
+        vehicleModel: item.vehicleModel || "ALL",
+      });
       setSuccess("Garage service removed.");
       await loadGaragesAndServices();
     } catch (err) {
@@ -181,6 +201,8 @@ export default function Garages() {
   const editGarageService = (item) => {
     setServiceForm({
       serviceId: item.serviceId,
+      vehicleBrand: item.vehicleBrand || "ALL",
+      vehicleModel: item.vehicleModel || "ALL",
     });
   };
 
@@ -250,9 +272,10 @@ export default function Garages() {
     applicationStatus === "APPROVED" || applicationStatus === "DENIED";
   const allApplicationIds = applications.map((application) => application.id);
   const allGarageIds = garages.map((garage) => garage.id);
-  const selectedServiceForAssignment = services.find(
-    (service) => service.id === serviceForm.serviceId,
+  const selectedVehicleBrand = vehicleBrands.find(
+    (brand) => brand.name === serviceForm.vehicleBrand,
   );
+  const vehicleModels = selectedVehicleBrand?.models || [];
 
   return (
     <div className="mx-auto w-full max-w-[1480px] space-y-6 overflow-hidden">
@@ -481,6 +504,22 @@ export default function Garages() {
                   <FiRefreshCw />
                 </button>
               </div>
+              <div className="mt-3 grid gap-2">
+                <CitySelect
+                  value={filterCity}
+                  onChange={setFilterCity}
+                  includeInactive
+                  placeholder="Filter garages by city"
+                  className="min-w-0 rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-ink"
+                />
+                <button
+                  onClick={loadGaragesAndServices}
+                  className="btn-ghost justify-center !px-3 !py-2 text-sm"
+                  type="button"
+                >
+                  Apply city filter
+                </button>
+              </div>
               {garages.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <label className="inline-flex items-center gap-2 rounded-full bg-bg-soft px-3 py-2 text-xs font-semibold text-muted">
@@ -696,7 +735,7 @@ export default function Garages() {
 
             <form
               onSubmit={saveGarageService}
-              className="card-soft grid min-w-0 gap-3 p-4 sm:p-5 xl:grid-cols-[minmax(180px,0.9fr)_minmax(220px,1fr)_140px_140px_auto]"
+              className="card-soft grid min-w-0 gap-3 p-4 sm:p-5 xl:grid-cols-[minmax(180px,0.9fr)_minmax(220px,1fr)_minmax(160px,0.8fr)_minmax(160px,0.8fr)_auto]"
             >
               <select
                 required
@@ -733,26 +772,39 @@ export default function Garages() {
                   </option>
                 ))}
               </select>
-              <input
-                readOnly
-                value={
-                  selectedServiceForAssignment?.minPrice !== undefined
-                    ? money(selectedServiceForAssignment.minPrice)
-                    : ""
+              <select
+                value={serviceForm.vehicleBrand}
+                onChange={(e) =>
+                  setServiceForm({
+                    ...serviceForm,
+                    vehicleBrand: e.target.value,
+                    vehicleModel: "ALL",
+                  })
                 }
-                placeholder="Min price"
-                className="min-w-0 rounded-xl border border-line bg-bg-soft px-4 py-3 outline-none"
-              />
-              <input
-                readOnly
-                value={
-                  selectedServiceForAssignment?.maxPrice !== undefined
-                    ? money(selectedServiceForAssignment.maxPrice)
-                    : ""
+                className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+              >
+                <option value="ALL">All brands</option>
+                {vehicleBrands.map((brand) => (
+                  <option key={brand.id || brand.name} value={brand.name}>
+                    {brand.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={serviceForm.vehicleModel}
+                onChange={(e) =>
+                  setServiceForm({ ...serviceForm, vehicleModel: e.target.value })
                 }
-                placeholder="Max price"
-                className="min-w-0 rounded-xl border border-line bg-bg-soft px-4 py-3 outline-none"
-              />
+                disabled={serviceForm.vehicleBrand === "ALL"}
+                className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink disabled:bg-bg-soft"
+              >
+                <option value="ALL">All models</option>
+                {vehicleModels.map((model) => (
+                  <option key={model.id || model.name} value={model.name}>
+                    {model.name}
+                  </option>
+                ))}
+              </select>
               <button
                 disabled={!selectedGarageId || !serviceForm.serviceId}
                 className="btn-primary !px-5"
@@ -766,7 +818,7 @@ export default function Garages() {
                 <table className="w-full min-w-[620px] text-sm">
                   <thead className="bg-bg-soft text-left">
                     <tr>
-                      {["Service", "Category", "Min Price", "Max Price", ""].map((h) => (
+                      {["Service", "Category", "Vehicle Scope", ""].map((h) => (
                         <th key={h} className="px-4 py-3 font-semibold">
                           {h}
                         </th>
@@ -784,10 +836,13 @@ export default function Garages() {
                             {item.service?.category?.name || "General"}
                           </td>
                           <td className="px-4 py-3">
-                            {money(item.service?.minPrice)}
-                          </td>
-                          <td className="px-4 py-3">
-                            {money(item.service?.maxPrice)}
+                            {item.vehicleBrand === "ALL"
+                              ? "All brands / all models"
+                              : `${item.vehicleBrand || "All brands"} / ${
+                                  item.vehicleModel === "ALL"
+                                    ? "All models"
+                                    : item.vehicleModel || "All models"
+                                }`}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex justify-end gap-2">
@@ -800,7 +855,7 @@ export default function Garages() {
                               </button>
                               <button
                                 onClick={() =>
-                                  removeGarageService(item.serviceId)
+                                  removeGarageService(item)
                                 }
                                 className="rounded-xl bg-red-50 px-3 py-2 text-red-700"
                                 type="button"
@@ -813,7 +868,7 @@ export default function Garages() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="5" className="px-4 py-5 text-muted">
+                        <td colSpan="4" className="px-4 py-5 text-muted">
                           No services assigned yet.
                         </td>
                       </tr>

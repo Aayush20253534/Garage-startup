@@ -12,10 +12,13 @@ const deleteGaragesSchema = [
 const serviceIdSchema = [
   ...garageIdSchema,
   param("serviceId").isUUID().withMessage("Invalid service ID"),
+  query("vehicleBrand").optional({ nullable: true, checkFalsy: true }).trim(),
+  query("vehicleModel").optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
 const garageQuerySchema = [
   query("search").optional({ nullable: true, checkFalsy: true }).trim(),
+  query("city").optional({ nullable: true, checkFalsy: true }).trim(),
   query("isActive").optional({ nullable: true, checkFalsy: true }).isBoolean(),
   query("isVerified").optional({ nullable: true, checkFalsy: true }).isBoolean(),
 ];
@@ -28,6 +31,8 @@ const assignableServiceQuerySchema = [
 const upsertGarageServiceSchema = [
   ...garageIdSchema,
   body("serviceId").isUUID().withMessage("Valid service ID is required"),
+  body("vehicleBrand").optional({ nullable: true, checkFalsy: true }).trim(),
+  body("vehicleModel").optional({ nullable: true, checkFalsy: true }).trim(),
   body("isActive").optional({ nullable: true }).isBoolean(),
 ];
 

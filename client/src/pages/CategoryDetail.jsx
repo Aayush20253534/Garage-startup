@@ -76,6 +76,13 @@ export default function CategoryDetail() {
   const Icon = ui.icon || FiTool;
 
   const handleBook = (service) => {
+    if (!user) {
+      nav("/login");
+      return;
+    }
+
+    if (!service.priceRange) return;
+
     const serviceItem = {
       ...service,
       price: getServiceMinPrice(service),
@@ -84,12 +91,7 @@ export default function CategoryDetail() {
     };
 
     addToCart(serviceItem);
-
-    if (!user) {
-      nav("/login");
-    } else {
-      nav("/booking/services");
-    }
+    nav("/booking/services");
   };
 
   return (
@@ -110,6 +112,7 @@ export default function CategoryDetail() {
           const maxPrice = getServiceMaxPrice(pkg);
           const includes = getIncludes(pkg);
           const serviceImage = getServiceThumbnailUrl(pkg);
+          const hasPrice = Boolean(user && pkg.priceRange);
 
           return (
             <div
@@ -136,17 +139,19 @@ export default function CategoryDetail() {
                     {pkg.name}
                   </h2>
 
-                  <div className="mb-2 flex items-baseline gap-3">
-                    <span className="text-2xl font-bold text-ink">
-                      {priceRange}
-                    </span>
-
-                    {maxPrice > minPrice && (
-                      <span className="text-base text-muted">
-                        estimated range
+                  {hasPrice && (
+                    <div className="mb-2 flex items-baseline gap-3">
+                      <span className="text-2xl font-bold text-ink">
+                        {priceRange}
                       </span>
-                    )}
-                  </div>
+
+                      {maxPrice > minPrice && (
+                        <span className="text-base text-muted">
+                          estimated range
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mb-3 flex items-center gap-2">
                     <div className="flex items-center gap-1">
@@ -189,9 +194,10 @@ export default function CategoryDetail() {
 
                     <button
                       onClick={() => handleBook(pkg)}
-                      className="flex-1 rounded-2xl bg-[#b9f000] px-6 py-3 text-base font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000]"
+                      disabled={user && !hasPrice}
+                      className="flex-1 rounded-2xl bg-[#b9f000] px-6 py-3 text-base font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Book
+                      {!user ? "Login to Book" : hasPrice ? "Book" : "Unavailable"}
                     </button>
                   </div>
                 </div>
@@ -236,11 +242,13 @@ export default function CategoryDetail() {
                 )}
               </div>
 
-              <div className="mb-3 flex items-baseline gap-3">
-                <span className="text-2xl font-bold text-ink">
-                  {formatServicePriceRange(selectedPackage)}
-                </span>
-              </div>
+              {user && selectedPackage.priceRange && (
+                <div className="mb-3 flex items-baseline gap-3">
+                  <span className="text-2xl font-bold text-ink">
+                    {formatServicePriceRange(selectedPackage)}
+                  </span>
+                </div>
+              )}
 
               <div className="mb-5 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -270,7 +278,9 @@ export default function CategoryDetail() {
                 <div>
                   <span className="text-sm text-muted">Estimated Price</span>
                   <div className="font-semibold">
-                    {formatServicePriceRange(selectedPackage)}
+                    {user && selectedPackage.priceRange
+                      ? formatServicePriceRange(selectedPackage)
+                      : ""}
                   </div>
                 </div>
               </div>
@@ -304,9 +314,14 @@ export default function CategoryDetail() {
                     handleBook(selectedPackage);
                     setSelectedPackage(null);
                   }}
-                  className="flex-1 rounded-full bg-[#b9f000] px-6 py-3 font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000]"
+                  disabled={user && !selectedPackage.priceRange}
+                  className="flex-1 rounded-full bg-[#b9f000] px-6 py-3 font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Book Now
+                  {!user
+                    ? "Login to Book"
+                    : selectedPackage.priceRange
+                      ? "Book Now"
+                      : "Unavailable"}
                 </button>
               </div>
             </div>

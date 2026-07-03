@@ -80,9 +80,11 @@ export const adminApi = {
     );
   },
 
-  async removeGarageService(garageId, serviceId) {
+  async removeGarageService(garageId, serviceId, params = {}) {
     return unwrap(
-      await api.delete(`/admin/garages/${garageId}/services/${serviceId}`),
+      await api.delete(`/admin/garages/${garageId}/services/${serviceId}`, {
+        params,
+      }),
     );
   },
 

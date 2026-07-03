@@ -23,7 +23,11 @@ const upsertGarageService = asyncHandler(async (req, res) => {
 });
 
 const removeGarageService = asyncHandler(async (req, res) => {
-  const garageService = await service.removeGarageService(req.params.garageId, req.params.serviceId);
+  const garageService = await service.removeGarageService(
+    req.params.garageId,
+    req.params.serviceId,
+    req.query,
+  );
   return res.status(200).json(new ApiResponse(200, "Garage service removed successfully", garageService));
 });
 
