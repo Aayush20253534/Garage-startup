@@ -14,9 +14,8 @@
 
   "seed:services": "node src/seed/seedServices.js",
   "seed:admin": "node src/seed/seedAdmin.js",
-  "seed:vehicle-meta": "node src/seed/seedVehicleMeta.js",
 
-  "seed:all": "npm run seed:services && npm run seed:admin && npm run seed:vehicle-meta",
+  "seed:all": "npm run seed:services && npm run seed:admin",
 
   "db:delete-user": "node src/scripts/deleteUserData.js",
   "db:delete-active-bookings": "node src/scripts/deleteCustomerRecords.js --scope=active-bookings",

@@ -16,10 +16,6 @@ import {
   SiSkoda,
   SiJaguar,
 } from "react-icons/si";
-import mahindraLogo from "@/assets/mahindra logo.png";
-import mercedesLogo from "@/assets/mercedes logo.png";
-import skodaLogo from "@/assets/skoda logo.png";
-import forceLogo from "@/assets/force logo.png";
 
 export const mockGarage = {
   id: "garage_123",
@@ -158,14 +154,14 @@ export const mockBrands = [
   { id: "maruti", name: "Maruti Suzuki", icon: SiSuzuki },
   { id: "hyundai", name: "Hyundai", icon: SiHyundai },
   { id: "tata", name: "Tata", icon: SiTata },
-  { id: "mahindra", name: "Mahindra", image: mahindraLogo },
+  { id: "mahindra", name: "Mahindra" },
   { id: "honda", name: "Honda", icon: SiHonda },
   { id: "toyota", name: "Toyota", icon: SiToyota },
   { id: "kia", name: "Kia", icon: SiKia },
   { id: "volkswagen", name: "Volkswagen", icon: SiVolkswagen },
-  { id: "skoda", name: "Skoda", image: skodaLogo },
+  { id: "skoda", name: "Skoda", icon: SiSkoda },
   { id: "bmw", name: "BMW", icon: SiBmw },
-  { id: "mercedes", name: "Mercedes", image: mercedesLogo },
+  { id: "mercedes", name: "Mercedes" },
   { id: "audi", name: "Audi", icon: SiAudi },
   { id: "jaguar", name: "Jaguar", icon: SiJaguar },
   { id: "landrover", name: "Land Rover", icon: SiLandrover },
@@ -173,7 +169,7 @@ export const mockBrands = [
   { id: "nissan", name: "Nissan", icon: SiNissan },
   { id: "mg", name: "MG", icon: SiMg },
   { id: "jeep", name: "Jeep", icon: SiJeep },
-  { id: "force", name: "Force Motors", image: forceLogo },
+  { id: "force", name: "Force Motors" },
 ];
 
 export const mockTransactions = [
