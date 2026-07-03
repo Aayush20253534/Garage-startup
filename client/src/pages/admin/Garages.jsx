@@ -557,8 +557,7 @@ export default function Garages() {
               </div>
               {selectedGarage && (
                 <p className="break-words text-sm text-muted">
-                  {selectedGarage.address}, {selectedGarage.city} - Wallet{" "}
-                  {money(selectedGarage.wallet?.balance)}
+                  Wallet {money(selectedGarage.wallet?.balance)}
                 </p>
               )}
             </div>
