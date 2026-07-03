@@ -238,7 +238,7 @@ export default function Cars() {
         <div>
           <h2 className="text-xl font-bold sm:text-2xl">Cars</h2>
           <p className="mt-1 text-sm text-muted sm:text-base">
-            Upload Cloudinary logos for seeded brands and adjust models only when needed.
+            Manage vehicle brands, models, and Cloudinary logos.
           </p>
         </div>
 

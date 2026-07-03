@@ -307,7 +307,7 @@ export default function AdminServices() {
         <div>
           <h2 className="text-xl font-bold sm:text-2xl">Services</h2>
           <p className="mt-1 text-sm text-muted sm:text-base">
-            Manage seeded services and upload Cloudinary thumbnails.
+            Manage service categories, services, and Cloudinary thumbnails.
           </p>
         </div>
 
