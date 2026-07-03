@@ -4,6 +4,30 @@ const ApiError = require("../../utils/apiError");
 const normalizeText = (value) => String(value || "").trim();
 const normalizeCity = (city) => normalizeText(city).toLowerCase();
 
+const scopeWhere = (payload = {}) => ({
+  city: normalizeCity(payload.city),
+  serviceId: payload.serviceId,
+  vehicleBrand: payload.vehicleBrand ? normalizeText(payload.vehicleBrand) : null,
+  vehicleModel: payload.vehicleModel ? normalizeText(payload.vehicleModel) : null,
+  fuelType: payload.fuelType || null,
+});
+
+const findDuplicateScopes = async (payload = {}) => {
+  const scope = scopeWhere(payload);
+  return prisma.cityServicePriceRange.findMany({
+    where: scope,
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+const removeOlderDuplicates = async (duplicates = []) => {
+  const olderIds = duplicates.slice(1).map((item) => item.id);
+  if (olderIds.length === 0) return;
+  await prisma.cityServicePriceRange.deleteMany({
+    where: { id: { in: olderIds } },
+  });
+};
+
 const listPriceRanges = async (query = {}) => {
   const where = {
     ...(query.city && { city: normalizeCity(query.city) }),
@@ -38,13 +62,23 @@ const createPriceRange = async (payload) => {
   const service = await prisma.service.findUnique({ where: { id: payload.serviceId } });
   if (!service) throw new ApiError(404, "Service not found");
 
+  const duplicates = await findDuplicateScopes(payload);
+  if (duplicates.length > 0) {
+    await removeOlderDuplicates(duplicates);
+    return prisma.cityServicePriceRange.update({
+      where: { id: duplicates[0].id },
+      data: {
+        minPrice: Number(payload.minPrice),
+        maxPrice: Number(payload.maxPrice),
+        isActive: payload.isActive === undefined ? true : payload.isActive === true || payload.isActive === "true",
+      },
+      include: { service: { include: { category: true } } },
+    });
+  }
+
   return prisma.cityServicePriceRange.create({
     data: {
-      city: normalizeCity(payload.city),
-      serviceId: payload.serviceId,
-      vehicleBrand: payload.vehicleBrand ? normalizeText(payload.vehicleBrand) : null,
-      vehicleModel: payload.vehicleModel ? normalizeText(payload.vehicleModel) : null,
-      fuelType: payload.fuelType || null,
+      ...scopeWhere(payload),
       minPrice: Number(payload.minPrice),
       maxPrice: Number(payload.maxPrice),
       isActive: payload.isActive === undefined ? true : payload.isActive === true || payload.isActive === "true",
@@ -54,10 +88,46 @@ const createPriceRange = async (payload) => {
 };
 
 const updatePriceRange = async (id, payload) => {
-  await getPriceRange(id);
+  const existing = await getPriceRange(id);
 
   if (payload.minPrice !== undefined && payload.maxPrice !== undefined && Number(payload.maxPrice) < Number(payload.minPrice)) {
     throw new ApiError(400, "maxPrice must be greater than or equal to minPrice");
+  }
+
+  const nextScope = {
+    city: payload.city !== undefined ? payload.city : existing.city,
+    serviceId: payload.serviceId !== undefined ? payload.serviceId : existing.serviceId,
+    vehicleBrand:
+      payload.vehicleBrand !== undefined ? payload.vehicleBrand : existing.vehicleBrand,
+    vehicleModel:
+      payload.vehicleModel !== undefined ? payload.vehicleModel : existing.vehicleModel,
+    fuelType: payload.fuelType !== undefined ? payload.fuelType : existing.fuelType,
+  };
+
+  const duplicates = await findDuplicateScopes(nextScope);
+  const conflictingDuplicate = duplicates.find((item) => item.id !== id);
+  if (conflictingDuplicate) {
+    await prisma.cityServicePriceRange.deleteMany({
+      where: {
+        id: {
+          in: duplicates
+            .filter((item) => item.id !== id && item.id !== conflictingDuplicate.id)
+            .map((item) => item.id),
+        },
+      },
+    });
+
+    await prisma.cityServicePriceRange.delete({ where: { id } });
+    return prisma.cityServicePriceRange.update({
+      where: { id: conflictingDuplicate.id },
+      data: {
+        ...scopeWhere(nextScope),
+        ...(payload.minPrice !== undefined && { minPrice: Number(payload.minPrice) }),
+        ...(payload.maxPrice !== undefined && { maxPrice: Number(payload.maxPrice) }),
+        ...(payload.isActive !== undefined && { isActive: payload.isActive === true || payload.isActive === "true" }),
+      },
+      include: { service: { include: { category: true } } },
+    });
   }
 
   return prisma.cityServicePriceRange.update({

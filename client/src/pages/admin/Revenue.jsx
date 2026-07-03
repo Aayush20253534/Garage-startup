@@ -25,6 +25,20 @@ const emptyForm = {
   isActive: true,
 };
 
+const getRangeScopeKey = (range = {}) =>
+  [
+    String(range.city || "").trim().toLowerCase(),
+    range.serviceId || "",
+    String(range.vehicleBrand || "").trim().toLowerCase(),
+    String(range.vehicleModel || "").trim().toLowerCase(),
+    range.fuelType || "",
+  ].join("|");
+
+const formatServiceLabel = (service = {}) =>
+  [service.category?.name, service.name].filter(Boolean).join(" - ") ||
+  service.id ||
+  "Unknown service";
+
 export default function Revenue() {
   const [ranges, setRanges] = useState([]);
   const [services, setServices] = useState([]);
@@ -136,6 +150,11 @@ export default function Revenue() {
     (brand) => brand.name === form.vehicleBrand,
   );
   const vehicleModels = selectedVehicleBrand?.models || [];
+  const duplicateScopeKeys = ranges.reduce((counts, range) => {
+    const key = getRangeScopeKey(range);
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
 
   const deleteRange = async (range) => {
     const ok = window.confirm("Delete this price range?");
@@ -338,7 +357,14 @@ export default function Revenue() {
                     </td>
 
                     <td className="px-4 py-3">
-                      {range.service?.name || range.serviceId}
+                      <div className="font-medium">
+                        {formatServiceLabel(range.service)}
+                      </div>
+                      {duplicateScopeKeys[getRangeScopeKey(range)] > 1 && (
+                        <div className="mt-1 text-xs font-semibold text-red-600">
+                          Duplicate scope
+                        </div>
+                      )}
                     </td>
 
                     <td className="px-4 py-3">
