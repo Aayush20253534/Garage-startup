@@ -342,7 +342,7 @@ export default function VehicleSelect() {
                     key={b.id}
                     type="button"
                     onClick={() => selectBrand(b)}
-                    className={`rounded-2xl border p-4 text-left transition ${
+                    className={`flex min-h-36 flex-col items-center justify-center rounded-2xl border p-4 text-center transition ${
                       brand?.id === b.id
                         ? "border-ink bg-ink text-white"
                         : "border-line hover:border-ink"
@@ -352,17 +352,19 @@ export default function VehicleSelect() {
                       <img
                         src={b.image}
                         alt={b.name}
-                        className="mb-2 h-10 w-auto object-contain"
+                        className="mb-3 h-12 max-w-28 object-contain"
                       />
                     ) : Icon ? (
-                      <Icon className="mb-2 h-10 w-auto" />
+                      <Icon className="mb-3 h-12 w-12" />
                     ) : (
-                      <div className="mb-2 grid h-10 w-10 place-items-center rounded-xl bg-brand font-bold">
+                      <div className="mb-3 grid h-12 w-12 place-items-center rounded-xl bg-brand font-bold text-ink">
                         {b.name.charAt(0)}
                       </div>
                     )}
 
-                    <div className="text-sm font-semibold">{b.name}</div>
+                    <div className="w-full text-sm font-semibold leading-tight">
+                      {b.name}
+                    </div>
                   </button>
                 );
               })}
