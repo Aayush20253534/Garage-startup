@@ -17,6 +17,7 @@ const emptyCategoryForm = {
   name: "",
   description: "",
   isActive: true,
+  thumbnail: null,
 };
 
 const emptyServiceForm = {
@@ -36,6 +37,17 @@ const getThumbnail = (service) =>
   service?.media?.find((item) => item.isThumbnail)?.url ||
   service?.media?.[0]?.url ||
   "";
+
+const validateThumbnail = (file, label) => {
+  if (!file) return "";
+  if (!file.type.startsWith("image/")) {
+    return `${label} must be an image file.`;
+  }
+  if (file.size > MAX_THUMBNAIL_BYTES) {
+    return `${label} must be under 5 MB.`;
+  }
+  return "";
+};
 
 export default function AdminServices() {
   const [categories, setCategories] = useState([]);
@@ -106,12 +118,19 @@ export default function AdminServices() {
         isActive: categoryForm.isActive,
       };
 
+      let saved;
       if (categoryForm.id) {
-        await adminApi.updateServiceCategory(categoryForm.id, payload);
+        saved = await adminApi.updateServiceCategory(categoryForm.id, payload);
         setSuccess("Service category updated.");
       } else {
-        await adminApi.createServiceCategory(payload);
+        saved = await adminApi.createServiceCategory(payload);
         setSuccess("Service category created.");
+      }
+
+      if (categoryForm.thumbnail) {
+        const formData = new FormData();
+        formData.append("thumbnail", categoryForm.thumbnail);
+        await adminApi.uploadServiceCategoryThumbnail(saved.id, formData);
       }
 
       setCategoryForm(emptyCategoryForm);
@@ -129,6 +148,7 @@ export default function AdminServices() {
       name: category.name || "",
       description: category.description || "",
       isActive: Boolean(category.isActive),
+      thumbnail: null,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -157,16 +177,29 @@ export default function AdminServices() {
       setServiceForm((current) => ({ ...current, thumbnail: null }));
       return;
     }
-    if (!file.type.startsWith("image/")) {
-      setError("Thumbnail must be an image file.");
-      return;
-    }
-    if (file.size > MAX_THUMBNAIL_BYTES) {
-      setError("Thumbnail must be under 5 MB.");
+    const message = validateThumbnail(file, "Service thumbnail");
+    if (message) {
+      setError(message);
       return;
     }
 
     setServiceForm((current) => ({ ...current, thumbnail: file }));
+  };
+
+  const setCategoryThumbnail = (file) => {
+    setError("");
+
+    if (!file) {
+      setCategoryForm((current) => ({ ...current, thumbnail: null }));
+      return;
+    }
+    const message = validateThumbnail(file, "Category thumbnail");
+    if (message) {
+      setError(message);
+      return;
+    }
+
+    setCategoryForm((current) => ({ ...current, thumbnail: file }));
   };
 
   const uploadThumbnailIfNeeded = async (serviceId) => {
@@ -299,7 +332,7 @@ export default function AdminServices() {
 
       <form
         onSubmit={saveCategory}
-        className="card-soft grid gap-3 p-4 sm:p-5 lg:grid-cols-[1fr_1.4fr_auto]"
+        className="card-soft grid gap-3 p-4 sm:p-5 lg:grid-cols-[1fr_1.4fr_220px_auto]"
       >
         <input
           required
@@ -321,7 +354,19 @@ export default function AdminServices() {
           placeholder="Category description"
           className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
         />
-        <div className="flex gap-2">
+        <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-line px-4 py-3 text-sm font-medium">
+          <FiImage className="shrink-0" />
+          <span className="truncate">
+            {categoryForm.thumbnail?.name || "Category thumbnail"}
+          </span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/webp"
+            onChange={(event) => setCategoryThumbnail(event.target.files?.[0])}
+            className="hidden"
+          />
+        </label>
+        <div className="flex min-w-0 flex-wrap gap-2">
           <button disabled={saving} className="btn-primary flex-1">
             {saving ? "Saving..." : categoryForm.id ? "Update Category" : "Add Category"}
           </button>
@@ -477,18 +522,31 @@ export default function AdminServices() {
           categories.map((category) => (
             <section key={category.id} className="card-soft overflow-hidden">
               <div className="flex flex-col gap-4 border-b border-line p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate text-lg font-semibold">
-                      {category.name}
-                    </h3>
-                    <span className={category.isActive ? "chip-brand" : "chip"}>
-                      {category.isActive ? "Active" : "Inactive"}
-                    </span>
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-bg-soft">
+                    {category.thumbnailUrl ? (
+                      <img
+                        src={category.thumbnailUrl}
+                        alt={category.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <FiImage className="text-muted" />
+                    )}
                   </div>
-                  <p className="mt-1 text-sm text-muted">
-                    {category.description || "No category description."}
-                  </p>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-lg font-semibold">
+                        {category.name}
+                      </h3>
+                      <span className={category.isActive ? "chip-brand" : "chip"}>
+                        {category.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted">
+                      {category.description || "No category description."}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
                   <button

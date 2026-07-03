@@ -4,13 +4,7 @@ import { CATEGORY_UI } from "@/data/services";
 import { FiSearch, FiArrowRight, FiSettings } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
 
-const getServiceThumbnail = (service) =>
-  service?.media?.find((item) => item.isThumbnail)?.url ||
-  service?.media?.[0]?.url ||
-  "";
-
-const getCategoryThumbnail = (category) =>
-  (category?.services || []).map(getServiceThumbnail).find(Boolean) || "";
+const getCategoryThumbnail = (category) => category?.thumbnailUrl || "";
 
 export default function Services() {
   const [q, setQ] = useState("");

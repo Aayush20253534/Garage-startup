@@ -8,6 +8,7 @@ const {
 
 const THUMBNAIL_MAX_SIZE = 5 * 1024 * 1024;
 const THUMBNAIL_FOLDER = "rovauto/services";
+const CATEGORY_THUMBNAIL_FOLDER = "rovauto/service-categories";
 
 const normalizeText = (value) => String(value || "").trim();
 const parseBoolean = (value, fallback = true) => {
@@ -310,6 +311,40 @@ const uploadThumbnail = async (serviceId, file) => {
   return media.created;
 };
 
+const uploadCategoryThumbnail = async (categoryId, file) => {
+  const category = await getCategory(categoryId);
+
+  if (!file) throw new ApiError(400, "Category thumbnail image is required");
+  if (!file.mimetype?.startsWith("image/")) {
+    throw new ApiError(400, "Category thumbnail must be an image");
+  }
+  if (file.size > THUMBNAIL_MAX_SIZE) {
+    throw new ApiError(400, "Category thumbnail must be under 5 MB");
+  }
+
+  const result = await uploadToCloudinary(
+    file.buffer,
+    CATEGORY_THUMBNAIL_FOLDER,
+    "image"
+  );
+
+  const updated = await prisma.serviceCategory.update({
+    where: { id: categoryId },
+    data: {
+      thumbnailUrl: result.secure_url,
+      thumbnailPublicId: result.public_id,
+    },
+    include: categoryInclude,
+  });
+
+  if (category.thumbnailPublicId) {
+    deleteFromCloudinary(category.thumbnailPublicId, "image").catch(() => {});
+  }
+
+  await invalidateServiceCache();
+  return updated;
+};
+
 module.exports = {
   createCategory,
   createService,
@@ -320,5 +355,6 @@ module.exports = {
   listCategories,
   updateCategory,
   updateService,
+  uploadCategoryThumbnail,
   uploadThumbnail,
 };

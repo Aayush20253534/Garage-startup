@@ -31,8 +31,7 @@ const getServiceThumbnail = (service) =>
   service?.media?.[0]?.url ||
   "";
 
-const getCategoryThumbnail = (category) =>
-  (category?.services || []).map(getServiceThumbnail).find(Boolean) || "";
+const getCategoryThumbnail = (category) => category?.thumbnailUrl || "";
 
 const formatCount = (value, fallback) => {
   const number = Number(value);

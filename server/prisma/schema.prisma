@@ -264,13 +264,15 @@ model GarageVideo {
 }
 
 model ServiceCategory {
-  id          String    @id @default(uuid())
-  name        String    @unique
-  description String?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  services    Service[]
+  id                String    @id @default(uuid())
+  name              String    @unique
+  description       String?
+  thumbnailUrl      String?
+  thumbnailPublicId String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  services          Service[]
 }
 
 model Service {

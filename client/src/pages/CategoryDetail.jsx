@@ -24,8 +24,7 @@ const getServiceThumbnail = (service) =>
   service?.media?.[0]?.url ||
   "";
 
-const getCategoryThumbnail = (category) =>
-  (category?.services || []).map(getServiceThumbnail).find(Boolean) || "";
+const getCategoryThumbnail = (category) => category?.thumbnailUrl || "";
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
@@ -110,7 +109,7 @@ export default function CategoryDetail() {
           const minPrice = getServiceMinPrice(pkg);
           const maxPrice = getServiceMaxPrice(pkg);
           const includes = getIncludes(pkg);
-          const serviceImage = getServiceThumbnail(pkg) || categoryImage;
+          const serviceImage = getServiceThumbnail(pkg);
 
           return (
             <div
@@ -224,9 +223,9 @@ export default function CategoryDetail() {
               </div>
 
               <div className="mb-5 h-44 w-full overflow-hidden rounded-2xl bg-bg-soft">
-                {(getServiceThumbnail(selectedPackage) || categoryImage) ? (
+                {getServiceThumbnail(selectedPackage) ? (
                   <img
-                    src={getServiceThumbnail(selectedPackage) || categoryImage}
+                    src={getServiceThumbnail(selectedPackage)}
                     alt={selectedPackage.name}
                     className="h-full w-full object-cover"
                   />

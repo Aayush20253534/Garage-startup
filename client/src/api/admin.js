@@ -166,6 +166,14 @@ export const adminApi = {
     return unwrap(await api.delete(`/admin/services/categories/${categoryId}`));
   },
 
+  async uploadServiceCategoryThumbnail(categoryId, payload) {
+    return unwrap(
+      await api.post(`/admin/services/categories/${categoryId}/thumbnail`, payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }),
+    );
+  },
+
   async createService(payload) {
     return unwrap(await api.post("/admin/services", payload));
   },

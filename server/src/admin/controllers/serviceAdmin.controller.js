@@ -58,6 +58,18 @@ const uploadThumbnail = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Service thumbnail uploaded successfully", media));
 });
 
+const uploadCategoryThumbnail = asyncHandler(async (req, res) => {
+  const category = await service.uploadCategoryThumbnail(
+    req.params.categoryId,
+    req.file
+  );
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(201, "Service category thumbnail uploaded successfully", category)
+    );
+});
+
 module.exports = {
   createCategory,
   createService,
@@ -66,5 +78,6 @@ module.exports = {
   listCategories,
   updateCategory,
   updateService,
+  uploadCategoryThumbnail,
   uploadThumbnail,
 };

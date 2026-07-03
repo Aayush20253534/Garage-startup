@@ -25,6 +25,13 @@ router.get("/categories", categoryQuerySchema, validate, controller.listCategori
 router.post("/categories", createCategorySchema, validate, controller.createCategory);
 router.patch("/categories/:categoryId", updateCategorySchema, validate, controller.updateCategory);
 router.delete("/categories/:categoryId", categoryIdSchema, validate, controller.deactivateCategory);
+router.post(
+  "/categories/:categoryId/thumbnail",
+  thumbnailUpload,
+  categoryIdSchema,
+  validate,
+  controller.uploadCategoryThumbnail
+);
 router.post("/", createServiceSchema, validate, controller.createService);
 router.patch("/:serviceId", updateServiceSchema, validate, controller.updateService);
 router.delete("/:serviceId", serviceIdSchema, validate, controller.deactivateService);
