@@ -16,7 +16,7 @@ export default function Footer() {
               { Icon: FiInstagram, href: "https://instagram.com/rovauto.official" },
               { Icon: FiTwitter, href: "https://twitter.com/rovauto" },
               { Icon: FiYoutube, href: "https://youtube.com/@rovauto" },
-              { Icon: FiFacebook, href: "https://facebook.com/rovauto" }
+              { Icon: FiFacebook, href: "https://www.facebook.com/share/18AVZ22uvY/" }
             ].map(({ Icon, href }, i) => (
               <a key={i} target="_blank" rel="noopener noreferrer" className="grid place-items-center h-10 w-10 rounded-full bg-white/10 hover:bg-brand hover:text-ink transition" href={href}><Icon /></a>
             ))}

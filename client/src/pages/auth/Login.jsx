@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import Logo from "@/components/common/Logo";
 import api from "@/api/axios";
 import { FiArrowRight } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
@@ -100,7 +99,7 @@ export default function Login() {
   };
 
   return (
-    <div className="container-x grid min-h-[80vh] items-center gap-12 py-10 sm:py-16 lg:grid-cols-2 mt-0">
+    <div className="container-x grid min-h-[80vh] items-center gap-12 py-10 sm:py-16 lg:grid-cols-2 mt-0 pb-30">
       <div className="hidden lg:block">
         <h1 className="text-5xl font-bold leading-tight">
           Welcome back.

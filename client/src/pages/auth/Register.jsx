@@ -1,6 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import Logo from "@/components/common/Logo";
 import api from "@/api/axios";
 import { FcGoogle } from "react-icons/fc";
 import completeGoogleAuth from "@/utils/googleAuth";
@@ -120,11 +119,9 @@ export default function Register() {
   };
 
   return (
-    <div className="container-x grid min-h-[80vh] items-center gap-12 py-10 sm:py-16 lg:grid-cols-2">
+    <div className="container-x grid min-h-[80vh]  gap-12 py-10 sm:py-16 lg:grid-cols-2 ">
       <div className="hidden lg:block">
-        <Logo />
-
-        <h1 className="mt-8 text-5xl font-bold leading-tight">
+        <h1 className="text-5xl font-bold leading-tight mt-38">
           Create your <span className="text-brand-dark">Rovauto</span> account.
         </h1>
 
