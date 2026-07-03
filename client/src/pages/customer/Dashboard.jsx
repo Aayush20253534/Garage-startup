@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useApp } from "@/hooks/useApp";
 import { getRecentActivities } from "@/utils/activityLog";
-import VehicleIcon from "@/components/common/VehicleIcon";
 import {
   FiTruck,
   FiCalendar,
@@ -259,10 +258,7 @@ export default function Dashboard() {
             <>
               <div className="flex items-center gap-4">
                 <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand text-black">
-                  <VehicleIcon
-                    vehicle={activeBooking.vehicle}
-                    className="h-10 w-10"
-                  />
+                  <FiTruck className="text-xl" />
                 </span>
 
                 <div className="flex-1">

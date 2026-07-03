@@ -12,7 +12,6 @@ import {
   FiLogOut,
 } from "react-icons/fi";
 import Logo from "@/components/common/Logo";
-import VehicleIcon from "@/components/common/VehicleIcon";
 import { useApp } from "@/hooks/useApp";
 
 const NAV = [
@@ -135,7 +134,7 @@ export default function Navbar() {
                     className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-line bg-white hover:border-ink transition"
                   >
                     <span className="grid place-items-center h-7 w-7 rounded-full bg-brand text-ink">
-                      <VehicleIcon vehicle={vehicle} className="h-5 w-5" />
+                      <FiTruck className="text-sm" />
                     </span>
                     <span className="text-xs leading-tight text-left">
                       <span className="block font-semibold">
@@ -281,15 +280,14 @@ export default function Navbar() {
                 {vehicle && (
                   <div className="card-soft p-4 flex items-center gap-3">
                     <span className="grid place-items-center h-12 w-12 rounded-2xl bg-brand text-ink">
-                      <VehicleIcon vehicle={vehicle} className="h-9 w-9" />
+                      <FiTruck className="text-xl" />
                     </span>
                     <div className="min-w-0">
                       <div className="font-semibold truncate">
                         {vehicle.brand} {vehicle.model}
                       </div>
                       <div className="text-xs text-muted">
-                        {vehicle.fuel || vehicle.fuelType} ·{" "}
-                        {vehicle.reg || vehicle.registrationNumber}
+                        {vehicle.fuel} · {vehicle.reg}
                       </div>
                     </div>
                   </div>

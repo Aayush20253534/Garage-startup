@@ -2,8 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
-import VehicleIcon from "@/components/common/VehicleIcon";
-import { FiPlus, FiTrash2, FiCheckCircle } from "react-icons/fi";
+import { FiPlus, FiTruck, FiTrash2, FiCheckCircle } from "react-icons/fi";
 
 export default function MyVehicles() {
   const {
@@ -139,7 +138,7 @@ export default function MyVehicles() {
               >
                 <div className="flex items-center gap-3">
                   <span className="grid place-items-center h-12 w-12 rounded-2xl bg-brand">
-                    <VehicleIcon vehicle={v} className="h-9 w-9" />
+                    <FiTruck />
                   </span>
 
                   <div>
