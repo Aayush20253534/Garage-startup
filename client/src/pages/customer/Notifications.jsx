@@ -19,6 +19,15 @@ const formatTime = (date) => {
   return `${days} days ago`;
 };
 
+const notifyUnreadChanged = (items) => {
+  const unreadCount = items.filter((item) => !item.isRead).length;
+  window.dispatchEvent(
+    new CustomEvent("rov:notifications-updated", {
+      detail: { unreadCount },
+    }),
+  );
+};
+
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,11 +57,13 @@ export default function Notifications() {
     try {
       await api.patch(`/notifications/${notification.id}/read`);
 
-      setNotifications((current) =>
-        current.map((item) =>
+      setNotifications((current) => {
+        const next = current.map((item) =>
           item.id === notification.id ? { ...item, isRead: true } : item,
-        ),
-      );
+        );
+        notifyUnreadChanged(next);
+        return next;
+      });
     } catch (err) {
       setError(
         err.response?.data?.message || "Failed to mark notification read",
@@ -64,9 +75,11 @@ export default function Notifications() {
     try {
       await api.patch("/notifications/read-all");
 
-      setNotifications((current) =>
-        current.map((item) => ({ ...item, isRead: true })),
-      );
+      setNotifications((current) => {
+        const next = current.map((item) => ({ ...item, isRead: true }));
+        notifyUnreadChanged(next);
+        return next;
+      });
     } catch (err) {
       setError(err.response?.data?.message || "Failed to mark all as read");
     }

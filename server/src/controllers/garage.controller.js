@@ -27,6 +27,14 @@ const getMyGarage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Garage owner profile fetched successfully", garage));
 });
 
+const updateMyGarage = asyncHandler(async (req, res) => {
+  const garage = await garageOwnerService.updateGarageOwnerProfile(req.user.id, req.body);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Garage profile updated successfully", garage));
+});
+
 const getGarageById = asyncHandler(async (req, res) => {
   const garage = await garageService.getGarageById(req.params.id);
 
@@ -47,6 +55,7 @@ module.exports = {
   getGarages,
   getNearbyGarages,
   getMyGarage,
+  updateMyGarage,
   getGarageById,
   getGarageServices,
 };

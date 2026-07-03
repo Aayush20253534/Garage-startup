@@ -1,0 +1,3 @@
+ALTER TABLE "Garage"
+ADD COLUMN "garageType" TEXT DEFAULT 'MULTI_BRAND',
+ADD COLUMN "supportedBrands" JSONB;

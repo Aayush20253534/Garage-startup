@@ -9,6 +9,27 @@ const geocodingService = require("../../customer/services/geocoding.service");
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const normalizePhone = (phone) => String(phone || "").trim();
+const normalizeGarageType = (value) =>
+  String(value || "MULTI_BRAND").trim().toUpperCase() === "AUTHORIZED"
+    ? "AUTHORIZED"
+    : "MULTI_BRAND";
+
+const parseSupportedBrands = (value) => {
+  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.map(String).map((item) => item.trim()).filter(Boolean);
+  } catch {
+    // Plain comma-separated form is accepted below.
+  }
+
+  return String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
 
 const applicationSelect = {
   id: true,
@@ -218,6 +239,8 @@ const approveApplication = async (applicationId, adminNote) => {
         latitude: application.latitude ?? 0,
         longitude: application.longitude ?? 0,
         workingRadiusKm: application.workingRadiusKm || 15,
+        garageType: normalizeGarageType(application.description?.match(/Garage type:\s*(.+)/i)?.[1]),
+        supportedBrands: parseSupportedBrands(application.description?.match(/Brands:\s*(.+)/i)?.[1]),
         isVerified: true,
         isActive: false,
         wallet: { create: { balance: 0 } },

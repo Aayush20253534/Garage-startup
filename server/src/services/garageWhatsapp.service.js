@@ -59,12 +59,19 @@ const formatServiceList = (services = []) => {
     .join(", ") || "Selected services";
 };
 
+const formatBookingAmount = (booking) => {
+  const amount = Number(booking.totalServiceMaxAmount || booking.totalServiceAmount || booking.payableAmount || 0);
+  return amount > 0 ? `Rs. ${amount.toLocaleString("en-IN")}` : "To be confirmed";
+};
+
 const sendGarageBookingRequestWhatsapp = async ({ garage, request, booking }) => {
   const acceptUrl = getGarageAcceptUrl(request.id);
   const message = [
     "New Rovauto booking request",
+    `Brand: ${booking.vehicle?.brand || "Vehicle"}`,
+    `Model: ${booking.vehicle?.model || "N/A"}`,
     `Services: ${formatServiceList(booking.services)}`,
-    `Vehicle: ${formatVehicleDetails(booking.vehicle)}`,
+    `Amount: ${formatBookingAmount(booking)}`,
     `Accept here: ${acceptUrl}`,
   ].filter(Boolean).join("\n");
 

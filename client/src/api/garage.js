@@ -119,6 +119,13 @@ export const garageApi = {
     return normalizeGarage(garage);
   },
 
+  async updateProfile(token, payload) {
+    const garage = unwrap(
+      await api.put("/garages/me", payload, authConfig(token)),
+    );
+    return normalizeGarage(garage);
+  },
+
   async submitApplication(payload) {
     return unwrap(await api.post("/garage/applications", payload));
   },

@@ -206,6 +206,8 @@ model Garage {
   latitude           Float
   longitude          Float
   workingRadiusKm    Int                       @default(15)
+  garageType         String?                   @default("MULTI_BRAND")
+  supportedBrands    Json?
   isVerified         Boolean                   @default(false)
   isActive           Boolean                   @default(true)
   ratingAvg          Float                     @default(0)

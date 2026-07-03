@@ -101,7 +101,8 @@ const verifyFirebaseIdTokenWithPublicCerts = async (token, projectId) => {
 };
 
 const getFirebaseApp = () => {
-  if (admin.apps.length) {
+  const existingApps = Array.isArray(admin.apps) ? admin.apps : [];
+  if (existingApps.length) {
     return admin.app();
   }
 
@@ -159,11 +160,11 @@ const verifyFirebaseIdToken = async (idToken) => {
   try {
     return await getFirebaseApp().auth().verifyIdToken(token);
   } catch (error) {
-    if (error.statusCode) {
+    if (error.statusCode && error.statusCode !== 503) {
       throw error;
     }
 
-    console.error("Firebase ID token verification failed", {
+    console.error("Firebase Admin ID token verification failed; trying public cert fallback", {
       code: error.code,
       message: error.message,
       stack: error.stack,

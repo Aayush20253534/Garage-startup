@@ -8,7 +8,6 @@ const getGarageIdForOwner = async (userId) => {
   const garage = await prisma.garage.findFirst({
     where: {
       ownerId: userId,
-      isActive: true,
     },
     select: {
       id: true,

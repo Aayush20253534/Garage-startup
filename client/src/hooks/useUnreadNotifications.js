@@ -39,13 +39,22 @@ export default function useUnreadNotifications() {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") refreshUnreadNotifications();
     };
+    const handleNotificationsUpdated = (event) => {
+      if (typeof event.detail?.unreadCount === "number") {
+        setUnreadCount(event.detail.unreadCount);
+        return;
+      }
+      refreshUnreadNotifications();
+    };
 
     window.addEventListener("focus", handleFocus);
+    window.addEventListener("rov:notifications-updated", handleNotificationsUpdated);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("rov:notifications-updated", handleNotificationsUpdated);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [isCustomer, token, refreshUnreadNotifications]);
