@@ -11,18 +11,21 @@ const seedAdmin = async () => {
   const password = await argon2.hash(ADMIN_PASSWORD);
 
   const admin = await prisma.user.upsert({
-    where: { email: ADMIN_EMAIL },
+    where: {
+      email_role: {
+        email: ADMIN_EMAIL,
+        role: "ADMIN",
+      },
+    },
     update: {
       name: "Admin",
       password,
-      role: "ADMIN",
       isActive: true,
       isEmailVerified: true,
       isPhoneVerified: true,
       isOnboarded: true,
     },
     create: {
-      id: ADMIN_LOGIN_ID,
       name: "Admin",
       email: ADMIN_EMAIL,
       password,
