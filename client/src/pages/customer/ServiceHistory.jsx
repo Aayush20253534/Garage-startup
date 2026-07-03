@@ -134,7 +134,7 @@ export default function ServiceHistory() {
                     </td>
 
                     <td className="px-4 py-3 font-semibold">
-                      Rs. {getAmount(booking)}
+                      ₹{getAmount(booking)}
                     </td>
 
                     <td className="px-4 py-3 text-amber-500">

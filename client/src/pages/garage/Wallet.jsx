@@ -145,10 +145,10 @@ export default function GarageWallet() {
       <div className="card-soft p-8 text-center bg-gradient-to-br from-brand-soft to-white">
         <p className="text-muted mb-2">Available Balance</p>
         <h2 className="text-5xl font-bold mb-3">
-          Rs. {Number(wallet.balance || 0).toLocaleString()}
+          ₹{Number(wallet.balance || 0).toLocaleString()}
         </h2>
         <p className="text-sm text-muted mb-6">
-          Minimum Rs. {wallet.activation?.minimumBalance || 1000} wallet balance
+          Minimum ₹{wallet.activation?.minimumBalance || 1000} wallet balance
           required for activation
         </p>
         <button
@@ -191,7 +191,7 @@ export default function GarageWallet() {
                   <p
                     className={`font-bold ${isCredit ? "text-green-700" : "text-red-700"}`}
                   >
-                    {isCredit ? "+" : "-"}Rs.{" "}
+                    {isCredit ? "+" : "-"}₹{" "}
                     {Math.abs(Number(txn.amount || 0)).toLocaleString()}
                   </p>
                 </div>
@@ -208,7 +208,7 @@ export default function GarageWallet() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <h3 className="text-xl font-bold mb-2">Recharge Wallet</h3>
             <p className="text-muted mb-5">
-              Create a Cashfree recharge order. Minimum amount is Rs. 1000.
+              Create a Cashfree recharge order. Minimum amount is ₹1000.
             </p>
 
             {!pendingOrder ? (
@@ -245,7 +245,7 @@ export default function GarageWallet() {
                     {pendingOrder.id}
                   </p>
                   <p>
-                    <span className="text-muted">Amount:</span> Rs.{" "}
+                    <span className="text-muted">Amount:</span> ₹{" "}
                     {Number(pendingOrder.amount || amount).toLocaleString()}
                   </p>
                   {pendingOrder.paymentSessionId && (

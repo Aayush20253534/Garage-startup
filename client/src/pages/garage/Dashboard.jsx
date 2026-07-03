@@ -88,7 +88,7 @@ export default function GarageDashboard() {
     },
     {
       label: "Wallet Balance",
-      value: `Rs. ${balance.toLocaleString()}`,
+      value: `₹${balance.toLocaleString()}`,
       icon: FiCreditCard,
       color: "orange",
     },
@@ -112,12 +112,12 @@ export default function GarageDashboard() {
             <div>
               <h2 className="font-bold text-yellow-900">Activation pending</h2>
               <p className="text-sm text-yellow-800">
-                Keep Rs. {activation.minimumBalance || 1000}+ in your wallet to
+                Keep ₹{activation.minimumBalance || 1000}+ in your wallet to
                 activate customer visibility.
               </p>
               <div className="mt-3 flex flex-wrap gap-2 text-sm">
                 <span className="rounded-full bg-white px-3 py-1">
-                  Wallet: Rs. {balance.toLocaleString()}
+                  Wallet: ₹{balance.toLocaleString()}
                 </span>
               </div>
             </div>

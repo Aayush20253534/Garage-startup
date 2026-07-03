@@ -184,7 +184,7 @@ export default function ActiveBookings() {
                 </div>
 
                 <div className="text-right font-bold sm:text-left">
-                  Rs. {getAmount(booking)}
+                  ₹{getAmount(booking)}
                 </div>
               </div>
 

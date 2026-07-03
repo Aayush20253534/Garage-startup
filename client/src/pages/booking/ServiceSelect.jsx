@@ -222,7 +222,7 @@ export default function ServiceSelect() {
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
             <span className="text-muted">Estimated</span>
             <span className="whitespace-nowrap text-right text-lg font-bold sm:text-xl">
-              Rs. {totalMin} - Rs. {totalMax}
+              ₹{totalMin} - ₹{totalMax}
             </span>
           </div>
 

@@ -71,7 +71,7 @@ export default function BookingCard({ booking, onAccept, onDecline }) {
               {Number(booking.distance || 0).toFixed(1)} km away
             </span>
             <span className="font-bold text-ink">
-              Rs. {Number(booking.estimatedBill || 0).toLocaleString()}
+              ₹{Number(booking.estimatedBill || 0).toLocaleString()}
             </span>
           </div>
         </div>

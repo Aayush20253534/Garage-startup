@@ -162,7 +162,7 @@ export default function Payments() {
                 </td>
 
                 <td className="px-4 py-3 font-semibold">
-                  Rs. {payment.amount}
+                  ₹{payment.amount}
                 </td>
 
                 <td className="px-4 py-3">

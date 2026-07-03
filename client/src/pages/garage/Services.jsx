@@ -84,7 +84,7 @@ export default function GarageServices() {
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
                     <span className="text-muted">Price</span>
                     <span className="font-semibold">
-                      Rs.{" "}
+                      ₹{" "}
                       {Number(
                         item.price || service.basePrice || 0,
                       ).toLocaleString()}

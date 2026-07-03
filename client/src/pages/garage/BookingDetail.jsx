@@ -179,7 +179,7 @@ export default function GarageBookingDetail() {
                     >
                       <span>{service.name}</span>
                       <span className="font-semibold">
-                        Rs. {Number(service.price || 0).toLocaleString()}
+                        ₹{Number(service.price || 0).toLocaleString()}
                       </span>
                     </div>
                   ))}
@@ -187,7 +187,7 @@ export default function GarageBookingDetail() {
                     <div className="flex justify-between font-bold">
                       <span>Estimated Total</span>
                       <span>
-                        Rs.{" "}
+                        ₹{" "}
                         {Number(booking.estimatedBill || 0).toLocaleString()}
                       </span>
                     </div>

@@ -121,8 +121,8 @@ export default function Services() {
       {cartItems.length > 0 && (
         <div className="fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
           <Link to="/checkout" className="btn-dark px-6 py-3.5 shadow-2xl">
-            {cartItems.length} service{cartItems.length > 1 ? "s" : ""} - Rs.{" "}
-            {cartTotal} - Continue <FiArrowRight />
+            {cartItems.length} service{cartItems.length > 1 ? "s" : ""} · ₹{" "}
+            {cartTotal} · Continue <FiArrowRight />
           </Link>
         </div>
       )}

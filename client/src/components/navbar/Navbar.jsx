@@ -287,7 +287,7 @@ export default function Navbar() {
                         {vehicle.brand} {vehicle.model}
                       </div>
                       <div className="text-xs text-muted">
-                        {vehicle.fuel} - {vehicle.reg}
+                        {vehicle.fuel} · {vehicle.reg}
                       </div>
                     </div>
                   </div>

@@ -149,7 +149,7 @@ export default function Home() {
           >
             <span className="chip-brand mb-4 bg-white/10 text-white border-white/10 backdrop-blur">
               <span className="h-1.5 w-1.5 rounded-full bg-brand animate-pulse" />
-              New in Delhi NCR - Mumbai - Bengaluru
+              New in Prayagraj
             </span>
 
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)]">
@@ -232,7 +232,7 @@ export default function Home() {
             </h2>
 
             <p className="text-muted mt-2">
-              Verified mechanics - Transparent pricing - 30-day warranty
+              Verified mechanics · Transparent pricing · 30-day warranty
             </p>
           </div>
 
@@ -375,7 +375,7 @@ export default function Home() {
 
                     <div className="text-right">
                       <div className="text-xs text-muted">From</div>
-                      <div className="font-bold text-xl">Rs. {price}</div>
+                      <div className="font-bold text-xl">₹{price}</div>
                     </div>
                   </div>
 
@@ -427,7 +427,7 @@ export default function Home() {
               {[
                 [partnerStats.garages, "Garages"],
                 [partnerStats.customers, "Customers"],
-                ["4.8 star", "Avg rating"],
+                ["4.8★", "Avg rating"],
               ].map(([number, label]) => (
                 <div
                   key={label}

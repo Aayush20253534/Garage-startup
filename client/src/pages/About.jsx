@@ -54,7 +54,7 @@ export default function About() {
           ["50,000+", "Happy Customers"],
           ["8,000+", "Verified Garages"],
           ["120+", "Cities"],
-          ["4.8 star", "Avg Rating"],
+          ["4.8★", "Avg Rating"],
         ].map(([n, l]) => (
           <div key={l} className="card-soft p-6 text-center">
             <div className="text-3xl sm:text-4xl font-bold text-ink">{n}</div>

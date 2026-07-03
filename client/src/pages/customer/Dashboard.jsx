@@ -168,7 +168,7 @@ export default function Dashboard() {
           </Link>
 
           <Link to="/dashboard/payments" className={heroButton}>
-            Wallet: Rs. {wallet?.balance || 0}
+            Wallet: ₹{wallet?.balance || 0}
           </Link>
         </div>
       </div>
@@ -273,8 +273,8 @@ export default function Dashboard() {
                     {activeBooking.vehicle?.brand}{" "}
                     {activeBooking.vehicle?.model}
                     {activeBooking.garage
-                      ? ` - ${activeBooking.garage.name}`
-                      : " - Waiting for garage"}
+                    ? ` · ${activeBooking.garage.name}`
+                    : " · Waiting for garage"}
                   </div>
                 </div>
 

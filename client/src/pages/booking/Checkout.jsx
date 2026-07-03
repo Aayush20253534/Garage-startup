@@ -438,7 +438,7 @@ export default function Checkout() {
           {cart.length === 0 ? (
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-muted">
               <span className="min-w-0 truncate">No services selected</span>
-              <span className="whitespace-nowrap text-right">Rs. 0</span>
+              <span className="whitespace-nowrap text-right">₹0</span>
             </div>
           ) : (
             cart.map((item) => (
@@ -455,7 +455,7 @@ export default function Checkout() {
           )}
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-muted">
             <span className="min-w-0">Platform fee</span>
-            <span className="whitespace-nowrap text-right">Rs. {fee}</span>
+            <span className="whitespace-nowrap text-right">₹{fee}</span>
           </div>
         </div>
 
@@ -465,13 +465,13 @@ export default function Checkout() {
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
             <span className="text-muted">Pay at garage</span>
             <span className="whitespace-nowrap text-right font-semibold">
-              Rs. {payAtGarageMin} - Rs. {payAtGarageMax}
+              ₹{payAtGarageMin} - ₹{payAtGarageMax}
             </span>
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-base">
             <span className="font-semibold">Pay now</span>
             <span className="whitespace-nowrap text-right text-xl font-bold">
-              Rs. {fee}
+              ₹{fee}
             </span>
           </div>
         </div>
@@ -482,7 +482,7 @@ export default function Checkout() {
           disabled={loading}
           className="btn-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <FiLock /> {loading ? "Processing..." : `Pay Rs. ${fee} & Book Slot`}
+          <FiLock /> {loading ? "Processing..." : `Pay ₹${fee} & Book Slot`}
         </button>
         <div className="mt-3 text-center text-xs text-muted">
           Secured by Cashfree. 100% refund on cancellation

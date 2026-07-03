@@ -35,11 +35,11 @@ export default function SOSCheckoutScreen() {
           <div className="mb-6">
             <div className="flex justify-between py-3 border-b border-gray-700">
               <span className="text-gray-300">Emergency Dispatch Fee</span>
-              <span className="font-bold text-brand">Rs. 49</span>
+              <span className="font-bold text-brand">₹49</span>
             </div>
             <div className="flex justify-between py-3">
               <span className="text-gray-300">Mechanic Visit (Est.)</span>
-              <span className="font-semibold">Rs. 200 - Rs. 300</span>
+              <span className="font-semibold">₹200 - ₹300</span>
             </div>
             <p className="text-xs text-gray-500 mt-2">
               Mechanic will confirm final cost after inspection
@@ -49,7 +49,7 @@ export default function SOSCheckoutScreen() {
             onClick={handlePay}
             className="w-full p-5 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-all"
           >
-            Pay Rs. 49 & Find Mechanic
+            Pay ₹49 & Find Mechanic
           </button>
         </div>
       </div>

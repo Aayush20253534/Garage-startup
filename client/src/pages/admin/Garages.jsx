@@ -17,7 +17,7 @@ const applicationStatuses = [
   "DENIED",
 ];
 
-const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
+const money = (value) => `₹${Number(value || 0).toLocaleString()}`;
 
 export default function Garages() {
   const [tab, setTab] = useState("applications");

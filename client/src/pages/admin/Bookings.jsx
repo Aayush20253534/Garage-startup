@@ -149,7 +149,7 @@ export default function Bookings() {
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-3">
-                      Rs.{" "}
+                      ₹{" "}
                       {Number(
                         booking.payableAmount || booking.payment?.amount || 0,
                       ).toLocaleString()}

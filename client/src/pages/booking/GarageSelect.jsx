@@ -6,6 +6,7 @@ import {
   FiMapPin,
   FiArrowRight,
   FiCheckCircle,
+  FiTool,
   FiZap,
 } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
@@ -190,7 +191,7 @@ export default function GarageSelect() {
               <span className="chip-brand">Recommended</span>
             </div>
             <h3 className="font-semibold text-xl mt-2">
-              ⭐ Auto Assign Best Garage
+              Auto Assign Best Garage
             </h3>
             <p
               className={`text-sm mt-1 ${picked === "auto" ? "text-white/70" : "text-muted"}`}
@@ -217,7 +218,7 @@ export default function GarageSelect() {
           >
             <div className="flex items-center gap-4 flex-wrap">
               <div className="grid place-items-center h-14 w-14 rounded-2xl bg-bg-soft text-2xl">
-                Tools
+                <FiTool />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -225,7 +226,7 @@ export default function GarageSelect() {
                   {g.verified && <span className="chip-brand">Verified</span>}
                 </div>
                 <div className="text-sm text-muted">
-                  {g.area} - {g.distance} away - ETA {g.eta}
+                  {g.area} · {g.distance} away · ETA {g.eta}
                 </div>
               </div>
               <div className="text-right">
@@ -233,7 +234,7 @@ export default function GarageSelect() {
                   <FiStar fill="currentColor" /> {g.rating}{" "}
                   <span className="text-muted">({g.reviews})</span>
                 </div>
-                <div className="font-bold mt-1">Rs. {g.cost}</div>
+                <div className="font-bold mt-1">₹{g.cost}</div>
               </div>
             </div>
           </button>

@@ -40,14 +40,14 @@ export default function Leads() {
                 </div>
                 <div className="mt-2 font-semibold">{l.vehicle}</div>
                 <div className="text-sm text-muted">
-                  {l.svc} - Est. Rs. {l.bill}
+                  {l.svc} · Est. ₹{l.bill}
                 </div>
                 <div className="text-xs text-muted mt-1 flex items-center gap-1">
-                  <FiMapPin /> {l.dist} away - Indirapuram
+                  <FiMapPin /> {l.dist} away · Indirapuram
                 </div>
               </div>
               <Link to={`/garage/magic/${l.id}`} className="btn-primary">
-                <FiCheck /> Accept (Rs. 40)
+                <FiCheck /> Accept (₹40)
               </Link>
               <button className="btn-ghost">
                 <FiX /> Reject

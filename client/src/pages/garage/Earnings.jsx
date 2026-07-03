@@ -12,9 +12,9 @@ export default function Earnings() {
     <div className="grid gap-6">
       <div className="grid sm:grid-cols-3 gap-4">
         {[
-          ["Rs. 48,200", "This month"],
-          ["Rs. 2.84L", "This quarter"],
-          ["Rs. 5.62L", "YTD"],
+          ["₹48,200", "This month"],
+          ["₹2.84L", "This quarter"],
+          ["₹5.62L", "YTD"],
         ].map(([n, l]) => (
           <div key={l} className="card-soft p-5">
             <div className="text-3xl font-bold">{n}</div>
@@ -23,7 +23,7 @@ export default function Earnings() {
         ))}
       </div>
       <div className="card-soft p-6">
-        <h3 className="font-semibold mb-4">Monthly earnings (Rs. K)</h3>
+        <h3 className="font-semibold mb-4">Monthly earnings (₹K)</h3>
         <div className="flex items-end gap-3 h-56">
           {monthly.map((d) => (
             <div key={d.m} className="flex-1 flex flex-col items-center gap-2">

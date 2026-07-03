@@ -324,7 +324,7 @@ export default function Revenue() {
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-3">
-                      Rs. {Number(range.minPrice).toLocaleString()} - Rs.{" "}
+                      ₹{Number(range.minPrice).toLocaleString()} - ₹{" "}
                       {Number(range.maxPrice).toLocaleString()}
                     </td>
 

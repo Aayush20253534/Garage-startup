@@ -68,7 +68,7 @@ export default function MagicLink() {
                 <div className="card-soft p-4 text-center">
                   <p className="text-muted text-sm">Est. Bill</p>
                   <p className="font-bold text-2xl">
-                    Rs. {booking.estimatedBill}
+                    ₹{booking.estimatedBill}
                   </p>
                 </div>
               </div>

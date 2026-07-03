@@ -109,7 +109,7 @@ export default function GarageProfile() {
           />
           <h3 className="mt-3 font-bold">Wallet Balance</h3>
           <p className="text-sm text-muted">
-            Rs. {Number(balance).toLocaleString()} / Rs.{" "}
+            ₹{Number(balance).toLocaleString()} / ₹{" "}
             {Number(minimumBalance).toLocaleString()}
           </p>
         </div>

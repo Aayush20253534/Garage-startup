@@ -94,7 +94,7 @@ export default function Footer() {
       <div className="border-t border-white/10">
         <div className="container-x py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/60">
           <p>
-            Copyright {new Date().getFullYear()} Rovauto. All rights reserved.
+            © {new Date().getFullYear()} Rovauto. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-2">

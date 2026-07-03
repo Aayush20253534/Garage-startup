@@ -31,10 +31,10 @@ export const getServicePriceRange = (service = {}) => {
   const min = getServiceMinPrice(service);
   const max = getServiceMaxPrice(service);
 
-  return { min, max, label: `Rs. ${min} - Rs. ${max}` };
+  return { min, max, label: `₹${min} - ₹${max}` };
 };
 
 export const formatServicePriceRange = (service = {}) => {
   const { min, max } = getServicePriceRange(service);
-  return min === max ? `Rs. ${min}` : `Rs. ${min} - Rs. ${max}`;
+  return min === max ? `₹${min}` : `₹${min} - ₹${max}`;
 };

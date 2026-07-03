@@ -161,7 +161,7 @@ export default function Tracking() {
               disabled={paying}
               className="btn-primary disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {paying ? "Processing..." : `Pay Rs. ${booking.payableAmount}`}
+              {paying ? "Processing..." : `Pay ₹${booking.payableAmount}`}
             </button>
             <Link to="/dashboard/bookings" className="btn-ghost">
               Back to Active Bookings
@@ -264,9 +264,9 @@ export default function Tracking() {
           <div className="card-soft mt-6 p-6">
             <h3 className="mb-3 font-semibold">Invoice</h3>
             <div className="grid gap-2 text-sm">
-              <Row l="Service estimate" r={`Rs. ${servicesTotal}`} />
-              <Row l="Platform fee" r={`Rs. ${platformFee}`} />
-              <Row l="Total" r={`Rs. ${servicesTotal + platformFee}`} bold />
+              <Row l="Service estimate" r={`₹${servicesTotal}`} />
+              <Row l="Platform fee" r={`₹${platformFee}`} />
+              <Row l="Total" r={`₹${servicesTotal + platformFee}`} bold />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button className="btn-dark">
