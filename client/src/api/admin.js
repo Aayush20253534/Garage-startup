@@ -147,4 +147,40 @@ export const adminApi = {
   async deleteCarModel(modelId) {
     return unwrap(await api.delete(`/admin/cars/models/${modelId}`));
   },
+
+  async getServiceCategories(params = {}) {
+    return unwrap(await api.get("/admin/services/categories", { params }));
+  },
+
+  async createServiceCategory(payload) {
+    return unwrap(await api.post("/admin/services/categories", payload));
+  },
+
+  async updateServiceCategory(categoryId, payload) {
+    return unwrap(
+      await api.patch(`/admin/services/categories/${categoryId}`, payload),
+    );
+  },
+
+  async deleteServiceCategory(categoryId) {
+    return unwrap(await api.delete(`/admin/services/categories/${categoryId}`));
+  },
+
+  async createService(payload) {
+    return unwrap(await api.post("/admin/services", payload));
+  },
+
+  async updateService(serviceId, payload) {
+    return unwrap(await api.patch(`/admin/services/${serviceId}`, payload));
+  },
+
+  async deleteService(serviceId) {
+    return unwrap(await api.delete(`/admin/services/${serviceId}`));
+  },
+
+  async uploadServiceThumbnail(serviceId, payload) {
+    return unwrap(
+      await api.post(`/admin/services/${serviceId}/thumbnail`, payload),
+    );
+  },
 };

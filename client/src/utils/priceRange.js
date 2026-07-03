@@ -9,8 +9,8 @@ export const getServiceMinPrice = (service = {}) =>
   toNumber(
     service.priceRange?.min ??
       service.estimatedMinPrice ??
-      service.basePrice ??
       service.minPrice ??
+      service.basePrice ??
       service.price,
     0,
   );

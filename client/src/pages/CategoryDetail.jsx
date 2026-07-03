@@ -19,6 +19,11 @@ const getIncludes = (service) => {
     .filter(Boolean);
 };
 
+const getServiceThumbnail = (service) =>
+  service?.media?.find((item) => item.isThumbnail)?.url ||
+  service?.media?.[0]?.url ||
+  "";
+
 export default function CategoryDetail() {
   const { categoryId } = useParams();
   const { user, addToCart } = useApp();
@@ -102,6 +107,7 @@ export default function CategoryDetail() {
           const minPrice = getServiceMinPrice(pkg);
           const maxPrice = getServiceMaxPrice(pkg);
           const includes = getIncludes(pkg);
+          const serviceImage = getServiceThumbnail(pkg) || categoryImage;
 
           return (
             <div
@@ -110,9 +116,9 @@ export default function CategoryDetail() {
             >
               <div className="flex flex-col gap-5 md:flex-row">
                 <div className="h-40 w-full flex-shrink-0 overflow-hidden rounded-2xl bg-bg-soft md:h-44 md:w-56">
-                  {categoryImage ? (
+                  {serviceImage ? (
                     <img
-                      src={categoryImage}
+                      src={serviceImage}
                       alt={pkg.name}
                       className="h-full w-full object-cover"
                     />
@@ -215,9 +221,9 @@ export default function CategoryDetail() {
               </div>
 
               <div className="mb-5 h-44 w-full overflow-hidden rounded-2xl bg-bg-soft">
-                {categoryImage ? (
+                {(getServiceThumbnail(selectedPackage) || categoryImage) ? (
                   <img
-                    src={categoryImage}
+                    src={getServiceThumbnail(selectedPackage) || categoryImage}
                     alt={selectedPackage.name}
                     className="h-full w-full object-cover"
                   />

@@ -120,6 +120,7 @@ const AdminBookings = lazy(() => import("@/pages/admin/Bookings"));
 const AdminRevenue = lazy(() => import("@/pages/admin/Revenue"));
 const AdminNotifications = lazy(() => import("@/pages/admin/Notifications"));
 const AdminCars = lazy(() => import("@/pages/admin/Cars"));
+const AdminServices = lazy(() => import("@/pages/admin/Services"));
 
 import {
   FiGrid,
@@ -269,6 +270,7 @@ const garageItems = [
 const adminItems = [
   { to: "/admin", label: "Dashboard", icon: FiGrid },
   { to: "/admin/cars", label: "Cars", icon: FiTruck },
+  { to: "/admin/services", label: "Services", icon: FiBriefcase },
   { to: "/admin/garages", label: "Garages", icon: FiHome },
   { to: "/admin/revenue", label: "Price Ranges", icon: FiDollarSign },
   { to: "/admin/customers", label: "Customers", icon: FiUsers },
@@ -553,6 +555,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminCars />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/services"
+            element={
+              <ProtectedRoute>
+                <AdminServices />
               </ProtectedRoute>
             }
           />

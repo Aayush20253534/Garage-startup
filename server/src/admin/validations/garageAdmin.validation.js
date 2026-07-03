@@ -28,7 +28,6 @@ const assignableServiceQuerySchema = [
 const upsertGarageServiceSchema = [
   ...garageIdSchema,
   body("serviceId").isUUID().withMessage("Valid service ID is required"),
-  body("price").optional({ nullable: true, checkFalsy: true }).isInt({ min: 0 }).withMessage("Price must be positive"),
   body("isActive").optional({ nullable: true }).isBoolean(),
 ];
 

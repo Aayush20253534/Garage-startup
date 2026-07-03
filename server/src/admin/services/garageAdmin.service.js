@@ -89,10 +89,6 @@ const upsertGarageService = async (garageId, payload) => {
   const service = await prisma.service.findUnique({ where: { id: payload.serviceId } });
   if (!service) throw new ApiError(404, "Service not found");
 
-  const price = payload.price === undefined || payload.price === null || payload.price === ""
-    ? null
-    : Number(payload.price);
-
   return prisma.garageService.upsert({
     where: {
       garageId_serviceId: {
@@ -103,11 +99,10 @@ const upsertGarageService = async (garageId, payload) => {
     create: {
       garageId,
       serviceId: payload.serviceId,
-      price,
+      price: null,
       isActive: parseBoolean(payload.isActive, true),
     },
     update: {
-      price,
       isActive: parseBoolean(payload.isActive, true),
     },
     include: {

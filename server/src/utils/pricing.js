@@ -6,7 +6,16 @@ const getServiceCurrentPrice = (service) => {
 };
 
 const getServicePriceRange = (service, options = {}) => {
-  const lower = getServiceCurrentPrice(service);
+  const lower = Number(service?.minPrice ?? getServiceCurrentPrice(service)) || 0;
+  const explicitMax = Number(service?.maxPrice);
+  if (Number.isFinite(explicitMax) && explicitMax >= lower) {
+    return {
+      min: lower,
+      max: explicitMax,
+      label: `Rs. ${lower} - Rs. ${explicitMax}`,
+    };
+  }
+
   const delta = Number(options.delta ?? process.env.SERVICE_PRICE_RANGE_DELTA ?? DEFAULT_SERVICE_RANGE_DELTA);
   const upper = lower + (Number.isFinite(delta) ? delta : DEFAULT_SERVICE_RANGE_DELTA);
 

@@ -27,7 +27,7 @@ export default function Garages() {
   const [services, setServices] = useState([]);
   const [selectedGarageId, setSelectedGarageId] = useState("");
   const [selectedGarageDetails, setSelectedGarageDetails] = useState(null);
-  const [serviceForm, setServiceForm] = useState({ serviceId: "", price: "" });
+  const [serviceForm, setServiceForm] = useState({ serviceId: "" });
   const [noteByApplication, setNoteByApplication] = useState({});
   const [selectedApplicationIds, setSelectedApplicationIds] = useState([]);
   const [selectedGarageIds, setSelectedGarageIds] = useState([]);
@@ -121,11 +121,10 @@ export default function Garages() {
     try {
       await adminApi.saveGarageService(selectedGarageId, {
         serviceId: serviceForm.serviceId,
-        price: serviceForm.price,
         isActive: true,
       });
       setSuccess("Garage service saved.");
-      setServiceForm({ serviceId: "", price: "" });
+      setServiceForm({ serviceId: "" });
       await loadGaragesAndServices();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save garage service");
@@ -149,7 +148,6 @@ export default function Garages() {
   const editGarageService = (item) => {
     setServiceForm({
       serviceId: item.serviceId,
-      price: item.price || "",
     });
   };
 
@@ -219,6 +217,9 @@ export default function Garages() {
     applicationStatus === "APPROVED" || applicationStatus === "DENIED";
   const allApplicationIds = applications.map((application) => application.id);
   const allGarageIds = garages.map((garage) => garage.id);
+  const selectedServiceForAssignment = services.find(
+    (service) => service.id === serviceForm.serviceId,
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1480px] space-y-6 overflow-hidden">
@@ -651,7 +652,7 @@ export default function Garages() {
 
             <form
               onSubmit={saveGarageService}
-              className="card-soft grid min-w-0 gap-3 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_150px_auto]"
+              className="card-soft grid min-w-0 gap-3 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_140px_140px_auto]"
             >
               <select
                 required
@@ -672,14 +673,24 @@ export default function Garages() {
                 ))}
               </select>
               <input
-                value={serviceForm.price}
-                onChange={(e) =>
-                  setServiceForm({ ...serviceForm, price: e.target.value })
+                readOnly
+                value={
+                  selectedServiceForAssignment?.minPrice !== undefined
+                    ? money(selectedServiceForAssignment.minPrice)
+                    : ""
                 }
-                type="number"
-                min="0"
-                placeholder="Price"
-                className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+                placeholder="Min price"
+                className="min-w-0 rounded-xl border border-line bg-bg-soft px-4 py-3 outline-none"
+              />
+              <input
+                readOnly
+                value={
+                  selectedServiceForAssignment?.maxPrice !== undefined
+                    ? money(selectedServiceForAssignment.maxPrice)
+                    : ""
+                }
+                placeholder="Max price"
+                className="min-w-0 rounded-xl border border-line bg-bg-soft px-4 py-3 outline-none"
               />
               <button
                 disabled={!selectedGarageId}
@@ -694,7 +705,7 @@ export default function Garages() {
                 <table className="w-full min-w-[620px] text-sm">
                   <thead className="bg-bg-soft text-left">
                     <tr>
-                      {["Service", "Category", "Price", ""].map((h) => (
+                      {["Service", "Category", "Min Price", "Max Price", ""].map((h) => (
                         <th key={h} className="px-4 py-3 font-semibold">
                           {h}
                         </th>
@@ -712,7 +723,10 @@ export default function Garages() {
                             {item.service?.category?.name || "General"}
                           </td>
                           <td className="px-4 py-3">
-                            {money(item.price || item.service?.basePrice)}
+                            {money(item.service?.minPrice)}
+                          </td>
+                          <td className="px-4 py-3">
+                            {money(item.service?.maxPrice)}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex justify-end gap-2">
@@ -738,7 +752,7 @@ export default function Garages() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="4" className="px-4 py-5 text-muted">
+                        <td colSpan="5" className="px-4 py-5 text-muted">
                           No services assigned yet.
                         </td>
                       </tr>
