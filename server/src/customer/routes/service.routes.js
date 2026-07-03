@@ -15,6 +15,7 @@ router.get("/", optionalProtect, serviceController.getServices);
 
 router.get(
   "/:id",
+  optionalProtect,
   serviceIdParamSchema,
   validate,
   serviceController.getServiceById

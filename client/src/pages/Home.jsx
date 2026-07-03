@@ -12,6 +12,7 @@ import {
 } from "react-icons/fi";
 import { CATEGORY_UI } from "@/data/services";
 import api from "@/api/axios";
+import { useApp } from "@/hooks/useApp";
 import homepageHero from "@/assets/Rovauto_home.png";
 import {
   getCategoryThumbnailUrl,
@@ -28,10 +29,6 @@ const TRUST = [
   { icon: FiClock, label: "Fast Booking" },
 ];
 
-const getServicePrice = (service) => {
-  return service?.basePrice || service?.minPrice || 0;
-};
-
 const formatCount = (value, fallback) => {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
@@ -40,6 +37,7 @@ const formatCount = (value, fallback) => {
 };
 
 export default function Home() {
+  const { user, vehicle, location } = useApp();
   const [categories, setCategories] = useState([]);
   const [popularServices, setPopularServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +70,14 @@ export default function Home() {
     let mounted = true;
 
     api
-      .get("/services/categories")
+      .get("/services/categories", {
+        params: user
+          ? {
+              ...(vehicle?.id && { vehicleId: vehicle.id }),
+              ...(location?.city && { city: location.city }),
+            }
+          : {},
+      })
       .then((response) => {
         if (!mounted) return;
 
@@ -102,7 +107,7 @@ export default function Home() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user, vehicle?.id, location?.city]);
 
   return (
     <div>
@@ -321,7 +326,8 @@ export default function Home() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {popularServices.map((service) => {
               const image = getServiceThumbnailUrl(service);
-              const price = getServicePrice(service);
+              const hasPrice = Boolean(user && service.priceRange);
+              const price = service.priceRange?.min;
 
               return (
                 <Link
@@ -350,10 +356,12 @@ export default function Home() {
                       </p>
                     </div>
 
-                    <div className="text-right">
+                    {hasPrice && (
+                      <div className="text-right">
                       <div className="text-xs text-muted">From</div>
                       <div className="font-bold text-xl">₹{price}</div>
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 flex items-center justify-between">

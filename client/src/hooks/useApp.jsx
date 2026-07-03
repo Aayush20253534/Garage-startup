@@ -477,6 +477,13 @@ export function AppProvider({ children }) {
   const fetchServiceCategories = async ({ force = false } = {}) => {
     const now = Date.now();
     const usePublicCache = !token;
+    const params =
+      token && user
+        ? {
+            ...(vehicle?.id && { vehicleId: vehicle.id }),
+            ...(location?.city && { city: location.city }),
+          }
+        : {};
 
     if (
       usePublicCache &&
@@ -489,7 +496,7 @@ export function AppProvider({ children }) {
       }
     }
 
-    const res = await api.get("/services/categories");
+    const res = await api.get("/services/categories", { params });
     const data = res.data.data || [];
     const fetchedAt = Date.now();
 
@@ -697,8 +704,8 @@ export function AppProvider({ children }) {
       garageToken,
       vehicle,
       vehicles,
-      cart,
       location,
+      cart,
       authLoading,
 
       dashboardCache,

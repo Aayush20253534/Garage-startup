@@ -27,7 +27,7 @@ const getIncludes = (service) => {
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
-  const { user, addToCart } = useApp();
+  const { user, vehicle, location, addToCart } = useApp();
 
   const nav = useNavigate();
 
@@ -41,7 +41,14 @@ export default function CategoryDetail() {
       try {
         setLoading(true);
 
-        const res = await api.get("/services/categories");
+        const res = await api.get("/services/categories", {
+          params: user
+            ? {
+                ...(vehicle?.id && { vehicleId: vehicle.id }),
+                ...(location?.city && { city: location.city }),
+              }
+            : {},
+        });
         const categories = res.data.data || [];
 
         const found = categories.find((item) => item.id === categoryId);
@@ -57,7 +64,7 @@ export default function CategoryDetail() {
     };
 
     loadCategory();
-  }, [categoryId]);
+  }, [categoryId, user, vehicle?.id, location?.city]);
 
   if (loading) {
     return (

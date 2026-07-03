@@ -12,7 +12,7 @@ import { getServiceImageUrls, warmImageCache } from "@/utils/imageCache";
 import { FiArrowRight, FiCheck, FiTruck, FiSettings } from "react-icons/fi";
 
 export default function ServiceSelect() {
-  const { vehicle, cart, addToCart, removeFromCart } = useApp();
+  const { user, vehicle, location, cart, addToCart, removeFromCart } = useApp();
 
   const [categories, setCategories] = useState([]);
   const [catId, setCatId] = useState(null);
@@ -37,7 +37,14 @@ export default function ServiceSelect() {
         setLoading(true);
         setError("");
 
-        const res = await api.get("/services/categories");
+        const res = await api.get("/services/categories", {
+          params: user
+            ? {
+                ...(vehicle?.id && { vehicleId: vehicle.id }),
+                ...(location?.city && { city: location.city }),
+              }
+            : {},
+        });
         const data = res.data.data || [];
 
         setCategories(data);
@@ -54,7 +61,7 @@ export default function ServiceSelect() {
     };
 
     loadServices();
-  }, []);
+  }, [user, vehicle?.id, location?.city]);
 
   if (loading) {
     return (

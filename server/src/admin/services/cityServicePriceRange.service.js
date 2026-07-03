@@ -102,6 +102,7 @@ const findBestPriceRangesForBooking = async ({ city, services, vehicle }) => {
       serviceId: { in: services.map((service) => service.id) },
       isActive: true,
     },
+    orderBy: { createdAt: "desc" },
   });
 
   const result = new Map();
@@ -110,7 +111,10 @@ const findBestPriceRangesForBooking = async ({ city, services, vehicle }) => {
       .filter((range) => range.serviceId === service.id)
       .map((range) => ({ range, score: scoreMatch(range, vehicle) }))
       .filter((item) => item.score >= 0)
-      .sort((a, b) => b.score - a.score)[0]?.range;
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.range.createdAt - a.range.createdAt;
+      })[0]?.range;
 
     if (best) result.set(service.id, best);
   }

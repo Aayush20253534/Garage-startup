@@ -3,6 +3,40 @@ const ApiError = require("../../utils/apiError");
 const { getCache, setCache } = require("../../utils/cache");
 const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
 
+const normalizeText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const parseCityFromAddress = async (address = "") => {
+  const addressKey = normalizeText(address);
+  if (!addressKey) return "";
+
+  const cities = await prisma.city.findMany({
+    where: { isActive: true },
+    select: { name: true, normalizedName: true },
+  });
+
+  const matchedCity = cities
+    .filter((city) => {
+      const keys = [city.normalizedName, city.name].map(normalizeText);
+      return keys.some((key) => key && addressKey.includes(key));
+    })
+    .sort((a, b) => normalizeText(b.name).length - normalizeText(a.name).length)[0];
+
+  if (matchedCity?.name) return matchedCity.name;
+
+  const parts = String(address)
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.replace(/\b\d{5,6}\b/g, "").trim())
+    .filter(Boolean);
+
+  return parts[parts.length - 1] || "";
+};
+
 const stripServicePrice = (service) => {
   const { basePrice, minPrice, maxPrice, priceRange, ...rest } = service;
   return {
@@ -11,25 +45,38 @@ const stripServicePrice = (service) => {
   };
 };
 
-const getCustomerPricingContext = async (userId) => {
-  if (!userId) return null;
+const getCustomerPricingContext = async (options = {}) => {
+  if (!options.userId) return null;
 
-  const [vehicle, location] = await Promise.all([
-    prisma.vehicle.findFirst({
-      where: { userId },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-    }),
-    prisma.customerLocation.findFirst({
-      where: { userId },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+  const [vehicle, location, profile] = await Promise.all([
+    options.vehicleId
+      ? prisma.vehicle.findFirst({
+          where: { id: options.vehicleId, userId: options.userId },
+        })
+      : prisma.vehicle.findFirst({
+          where: { userId: options.userId },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+        }),
+    options.city
+      ? Promise.resolve({ city: options.city })
+      : prisma.customerLocation.findFirst({
+          where: { userId: options.userId },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+        }),
+    prisma.customerProfile.findUnique({
+      where: { userId: options.userId },
+      select: { address: true },
     }),
   ]);
 
-  if (!vehicle || !location?.city) return null;
+  const city =
+    String(options.city || "").trim() ||
+    (await parseCityFromAddress(location?.address || profile?.address));
+  if (!vehicle || !city) return null;
 
   return {
     vehicle,
-    city: location.city,
+    city,
   };
 };
 
@@ -59,7 +106,7 @@ const applyContextualPriceRanges = async (services = [], context = null) => {
 };
 
 const getServiceCategories = async (options = {}) => {
-  const context = await getCustomerPricingContext(options.userId);
+  const context = await getCustomerPricingContext(options);
 
   if (context) {
     const categories = await prisma.serviceCategory.findMany({
@@ -118,7 +165,7 @@ const getServiceCategories = async (options = {}) => {
 };
 
 const getServices = async (query = {}, options = {}) => {
-  const context = await getCustomerPricingContext(options.userId);
+  const context = await getCustomerPricingContext(options);
   const { categoryId, search, minPrice, maxPrice } = query;
 
   const safeCategoryId =
@@ -183,10 +230,11 @@ const getServices = async (query = {}, options = {}) => {
   return result;
 };
 
-const getServiceById = async (serviceId) => {
-  const cacheKey = `services:detail:${serviceId}`;
+const getServiceById = async (serviceId, options = {}) => {
+  const context = await getCustomerPricingContext(options);
+  const cacheKey = context ? null : `services:detail:public:v2:${serviceId}`;
 
-  const cached = await getCache(cacheKey);
+  const cached = cacheKey ? await getCache(cacheKey) : null;
   if (cached) return cached;
 
   const service = await prisma.service.findFirst({
@@ -228,11 +276,11 @@ const getServiceById = async (serviceId) => {
   }
 
   const result = {
-    ...addServicePriceRange(service),
+    ...(await applyContextualPriceRanges([service], context))[0],
     thumbnail: service.media.find((item) => item.isThumbnail) || null,
   };
 
-  await setCache(cacheKey, result, 30 * 60);
+  if (cacheKey) await setCache(cacheKey, result, 30 * 60);
 
   return result;
 };

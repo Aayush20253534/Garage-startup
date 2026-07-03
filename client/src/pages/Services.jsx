@@ -8,6 +8,7 @@ import {
   getServiceImageUrls,
   warmImageCache,
 } from "@/utils/imageCache";
+import { getServiceMinPrice } from "@/utils/priceRange";
 
 export default function Services() {
   const [q, setQ] = useState("");
@@ -56,7 +57,7 @@ export default function Services() {
   );
 
   const cartTotal = cartItems.reduce((total, item) => {
-    return total + (item.basePrice || item.minPrice || item.price || 0);
+    return total + getServiceMinPrice(item);
   }, 0);
 
   return (
