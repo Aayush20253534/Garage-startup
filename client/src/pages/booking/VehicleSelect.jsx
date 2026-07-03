@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BRAND_ICONS, FUEL_TYPES } from "@/data/vehicles";
+import { FUEL_TYPES } from "@/data/vehicles";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import { FiArrowRight, FiCheck, FiPlus, FiTruck } from "react-icons/fi";
@@ -60,8 +60,8 @@ export default function VehicleSelect() {
 
       const mappedBrands = backendBrands.map((item) => ({
         ...item,
-        icon: BRAND_ICONS[item.name]?.icon || null,
-        image: BRAND_ICONS[item.name]?.image || null,
+        icon: null,
+        image: item.logoUrl || null,
         models: item.models || [],
       }));
 

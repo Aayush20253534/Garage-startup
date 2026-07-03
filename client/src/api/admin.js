@@ -117,4 +117,34 @@ export const adminApi = {
   async deletePriceRange(id) {
     return unwrap(await api.delete(`/admin/city-service-price-ranges/${id}`));
   },
+
+  async getCarBrands(params = {}) {
+    return unwrap(await api.get("/admin/cars/brands", { params }));
+  },
+
+  async createCarBrand(payload) {
+    return unwrap(await api.post("/admin/cars/brands", payload));
+  },
+
+  async updateCarBrand(brandId, payload) {
+    return unwrap(await api.patch(`/admin/cars/brands/${brandId}`, payload));
+  },
+
+  async deleteCarBrand(brandId) {
+    return unwrap(await api.delete(`/admin/cars/brands/${brandId}`));
+  },
+
+  async createCarModel(brandId, payload) {
+    return unwrap(
+      await api.post(`/admin/cars/brands/${brandId}/models`, payload),
+    );
+  },
+
+  async updateCarModel(modelId, payload) {
+    return unwrap(await api.patch(`/admin/cars/models/${modelId}`, payload));
+  },
+
+  async deleteCarModel(modelId) {
+    return unwrap(await api.delete(`/admin/cars/models/${modelId}`));
+  },
 };
