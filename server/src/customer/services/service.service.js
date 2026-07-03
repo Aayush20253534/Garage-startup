@@ -41,6 +41,7 @@ const stripServicePrice = (service) => {
   const { basePrice, minPrice, maxPrice, priceRange, ...rest } = service;
   return {
     ...rest,
+    ...(priceRange && { priceRange }),
     hasPrice: Boolean(priceRange),
   };
 };
