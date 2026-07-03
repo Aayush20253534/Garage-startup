@@ -5,6 +5,7 @@ import { STATUS_STEPS } from "@/data/garages";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import { isPaymentAuthError, payForBooking } from "@/utils/bookingPayment";
+import { addRecentActivity } from "@/utils/activityLog";
 import {
   FiPhone,
   FiNavigation,
@@ -71,6 +72,12 @@ export default function Tracking() {
       setError("");
 
       const verifiedBooking = await payForBooking({ booking, user });
+      addRecentActivity({
+        type: "PAYMENT",
+        title: "Completed booking payment",
+        detail: `${verifiedBooking.bookingCode || booking.bookingCode || "Booking"} · \u20b9${booking.payableAmount}`,
+        path: "/dashboard/payments",
+      });
 
       clearBookingCaches?.();
       setBooking(verifiedBooking);

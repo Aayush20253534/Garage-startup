@@ -222,6 +222,12 @@ export default function Checkout() {
       }
 
       const verifiedBooking = await payForBooking({ booking, user });
+      addRecentActivity({
+        type: "PAYMENT",
+        title: "Paid booking fee",
+        detail: `${verifiedBooking.bookingCode || booking.bookingCode || "Booking"} · \u20b9${booking.payableAmount}`,
+        path: "/dashboard/payments",
+      });
 
       clearCart();
       clearBookingCaches?.();

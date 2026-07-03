@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useApp } from "@/hooks/useApp";
-import { getRecentActivities } from "@/utils/activityLog";
+import {
+  fetchRecentActivities,
+  getRecentActivities,
+} from "@/utils/activityLog";
 import {
   FiTruck,
   FiCalendar,
@@ -40,7 +43,7 @@ export default function Dashboard() {
   );
   const [loading, setLoading] = useState(() => !dashboardCache);
   const [recentActivities, setRecentActivities] = useState(() =>
-    getRecentActivities().slice(0, 3),
+    getRecentActivities(),
   );
 
   const currentVehicles = Array.isArray(vehicles) ? vehicles : [];
@@ -103,11 +106,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     const refreshActivities = () =>
-      setRecentActivities(getRecentActivities().slice(0, 3));
+      setRecentActivities(getRecentActivities());
+    const refreshActivitiesFromDb = async () => {
+      const activities = await fetchRecentActivities();
+      setRecentActivities(activities);
+    };
+
+    refreshActivitiesFromDb();
+
     window.addEventListener("rov:activity", refreshActivities);
+    window.addEventListener("rov:activity-sync", refreshActivities);
     window.addEventListener("storage", refreshActivities);
     return () => {
       window.removeEventListener("rov:activity", refreshActivities);
+      window.removeEventListener("rov:activity-sync", refreshActivities);
       window.removeEventListener("storage", refreshActivities);
     };
   }, []);
@@ -315,14 +327,31 @@ export default function Dashboard() {
         <div className="card-soft p-6">
           <h3 className="mb-3 font-semibold">Quick Actions</h3>
 
-          <ul className="grid gap-3 text-sm">
-            {(recentActivities.length
-              ? recentActivities.map((activity) => [
-                  activity.title,
-                  activity.detail ||
-                    new Date(activity.createdAt).toLocaleString(),
-                  activity.path || "/dashboard",
-                ])
+          <ul className="grid max-h-72 gap-3 overflow-y-auto pr-2 text-sm">
+            {recentActivities.length
+              ? recentActivities.map((activity) => (
+                  <li key={activity.id}>
+                    <Link
+                      to={activity.path || "/dashboard"}
+                      className="flex items-start gap-3 rounded-xl p-1 transition hover:bg-bg-soft hover:text-ink"
+                    >
+                      <FiCheckCircle className="mt-0.5 shrink-0 text-brand-dark" />
+
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">
+                          {activity.title}
+                        </div>
+                        <div className="text-xs text-muted">
+                          {activity.detail ||
+                            new Date(activity.createdAt).toLocaleString()}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted">
+                          {new Date(activity.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    </Link>
+                  </li>
+                ))
               : [
                   hasVehicles
                     ? [
@@ -343,19 +372,21 @@ export default function Dashboard() {
                       : "Add and manage vehicles",
                     "/dashboard/vehicles",
                   ],
-                ]
-            ).map(([name, desc, to]) => (
-              <li key={name}>
-                <Link to={to} className="flex items-start gap-3 hover:text-ink">
-                  <FiCheckCircle className="mt-0.5 text-brand-dark" />
+                ].map(([name, desc, to]) => (
+                  <li key={name}>
+                    <Link
+                      to={to}
+                      className="flex items-start gap-3 rounded-xl p-1 transition hover:bg-bg-soft hover:text-ink"
+                    >
+                      <FiCheckCircle className="mt-0.5 shrink-0 text-brand-dark" />
 
-                  <div>
-                    <div className="font-medium">{name}</div>
-                    <div className="text-xs text-muted">{desc}</div>
-                  </div>
-                </Link>
-              </li>
-            ))}
+                      <div>
+                        <div className="font-medium">{name}</div>
+                        <div className="text-xs text-muted">{desc}</div>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
           </ul>
         </div>
       </div>

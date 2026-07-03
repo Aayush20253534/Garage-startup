@@ -32,11 +32,27 @@ model User {
   walletTransactions WalletTransaction[]
   chatbotConversations ChatbotConversation[]
   chatbotMessages    ChatbotMessage[]
+  customerActivities CustomerActivity[]
 
   @@unique([email, role])
   @@unique([phone, role])
   @@index([email])
   @@index([phone])
+}
+
+model CustomerActivity {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   @default("SYSTEM")
+  title     String
+  detail    String?
+  path      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("customer_activities")
 }
 
 model ChatbotConversation {

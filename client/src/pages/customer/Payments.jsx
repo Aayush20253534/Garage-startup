@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import { isPaymentAuthError, payForBooking } from "@/utils/bookingPayment";
+import { addRecentActivity } from "@/utils/activityLog";
 
 const formatDate = (date) => {
   if (!date) return "-";
@@ -66,6 +67,12 @@ export default function Payments() {
       const verifiedBooking = await payForBooking({
         booking: payment.booking,
         user,
+      });
+      addRecentActivity({
+        type: "PAYMENT",
+        title: "Completed payment",
+        detail: `${verifiedBooking.bookingCode || payment.booking?.bookingCode || "Booking"} · \u20b9${payment.amount}`,
+        path: "/dashboard/payments",
       });
 
       clearBookingCaches?.();
