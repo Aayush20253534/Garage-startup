@@ -5,7 +5,11 @@ import { FiLock, FiStar, FiTool } from "react-icons/fi";
 import api from "@/api/axios";
 import { setServices } from "@/store/garageSlice";
 import { CATEGORY_UI } from "@/data/services";
-import { formatServicePriceRange } from "@/utils/priceRange";
+import {
+  formatServicePriceRange,
+  getServiceMaxPrice,
+  getServiceMinPrice,
+} from "@/utils/priceRange";
 import { getServiceThumbnailUrl } from "@/utils/imageCache";
 
 const getIncludes = (service) => {
@@ -83,6 +87,8 @@ export default function GarageServices() {
             const Icon = ui.icon || FiTool;
             const serviceImage = getServiceThumbnailUrl(service);
             const includes = getIncludes(service);
+            const minPrice = getServiceMinPrice(service);
+            const maxPrice = getServiceMaxPrice(service);
 
             return (
               <motion.div
@@ -106,52 +112,66 @@ export default function GarageServices() {
                     )}
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
-                      <h3 className="text-xl font-bold sm:text-2xl">
-                        {service.name}
-                      </h3>
-                      <span className="chip-brand shrink-0">Assigned</span>
-                    </div>
+                  <div className="flex-1">
+                    <h2 className="mb-2 text-xl font-bold sm:text-2xl">
+                      {service.name}
+                    </h2>
 
-                    <div className="mb-2 flex flex-wrap items-baseline gap-3">
+                    <div className="mb-2 flex items-baseline gap-3">
                       <span className="text-2xl font-bold text-ink">
                         {formatServicePriceRange(service)}
                       </span>
-                      <span className="text-base text-muted">
-                        estimated range
-                      </span>
+
+                      {maxPrice > minPrice && (
+                        <span className="text-base text-muted">
+                          estimated range
+                        </span>
+                      )}
                     </div>
 
-                    <div className="mb-3 flex flex-wrap items-center gap-3">
+                    <div className="mb-3 flex items-center gap-2">
                       <div className="flex items-center gap-1">
                         <FiStar className="text-amber-400" fill="currentColor" />
                         <span className="font-semibold">4.8</span>
                       </div>
+
                       <span className="text-sm text-muted">
                         Verified service
                       </span>
-                      <span className="rounded-xl bg-bg-soft px-3 py-1.5 text-sm font-semibold text-muted">
-                        {categoryName}
-                      </span>
                     </div>
 
-                    <p className="mb-4 text-sm leading-6 text-muted">
-                      {service.description ||
-                        "Service details available to customers during booking."}
-                    </p>
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      <div className="inline-block rounded-xl bg-yellow-100 px-3 py-1.5 text-sm font-medium text-yellow-800">
+                        Popular service
+                      </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-xl bg-bg-soft px-4 py-3">
-                        <span className="text-sm text-muted">Warranty</span>
-                        <div className="font-semibold">Available</div>
+                      <div className="inline-block rounded-xl bg-bg-soft px-3 py-1.5 text-sm font-medium text-muted">
+                        {categoryName}
                       </div>
-                      <div className="rounded-xl bg-bg-soft px-4 py-3">
-                        <span className="text-sm text-muted">
-                          Services Included
+                    </div>
+
+                    <ul className="mb-5 space-y-2">
+                      <li className="flex items-start gap-2 text-base">
+                        <span className="font-bold text-ink">Warranty:</span>
+                        <span className="text-muted">
+                          Service warranty available
                         </span>
-                        <div className="font-semibold">{includes.length}</div>
-                      </div>
+                      </li>
+
+                      <li className="flex items-start gap-2 text-base">
+                        <span className="font-bold text-ink">Services:</span>
+                        <span className="text-muted">
+                          {includes.length} included
+                        </span>
+                      </li>
+                    </ul>
+
+                    <div className="my-4 border-t border-dashed border-gray-200"></div>
+
+                    <div className="rounded-2xl border border-gray-200 px-4 py-3">
+                      <span className="text-sm font-semibold text-muted">
+                        Assigned to this garage
+                      </span>
                     </div>
                   </div>
                 </div>
