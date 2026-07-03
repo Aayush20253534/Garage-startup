@@ -12,13 +12,13 @@ if (process.env.REDIS_URL) {
 
     lazyConnect: true,
     enableReadyCheck: false,
-    maxRetriesPerRequest: null,
-    connectTimeout: 10000,
-    commandTimeout: 5000,
+    maxRetriesPerRequest: 1,
+    connectTimeout: Number(process.env.REDIS_CONNECT_TIMEOUT_MS || 1500),
+    commandTimeout: Number(process.env.REDIS_COMMAND_TIMEOUT_MS || 1500),
 
     retryStrategy(times) {
-      if (times > 3) return null;
-      return Math.min(times * 300, 1500);
+      if (times > 1) return null;
+      return 300;
     },
 
     reconnectOnError(error) {

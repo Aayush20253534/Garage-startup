@@ -69,6 +69,12 @@ const verifyOtpValidation = [
     .withMessage("OTP is required")
     .isLength({ min: 6, max: 6 })
     .withMessage("OTP must be 6 digits"),
+
+  body("role")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isIn(["CUSTOMER", "GARAGE_OWNER"])
+    .withMessage("Role must be either CUSTOMER or GARAGE_OWNER"),
 ];
 
 const resendOtpValidation = [
@@ -86,6 +92,12 @@ const resendOtpValidation = [
     .withMessage("Phone number is required")
     .matches(/^\+91[6-9]\d{9}$/)
     .withMessage("Phone number must be a valid Indian mobile number, for example +919812345678"),
+
+  body("role")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isIn(["CUSTOMER", "GARAGE_OWNER"])
+    .withMessage("Role must be either CUSTOMER or GARAGE_OWNER"),
 ];
 
 const sendPhoneOtpValidation = [
@@ -124,6 +136,12 @@ const loginValidation = [
   body("password")
     .notEmpty()
     .withMessage("Password is required"),
+
+  body("role")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN"])
+    .withMessage("Invalid account role"),
 ];
 
 const googleAuthValidation = [
@@ -147,6 +165,12 @@ const forgotPasswordValidation = [
     .isEmail()
     .withMessage("Please enter a valid email")
     .normalizeEmail(),
+
+  body("role")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN"])
+    .withMessage("Invalid account role"),
 ];
 
 const resetPasswordValidation = [
@@ -170,6 +194,12 @@ const resetPasswordValidation = [
     .withMessage("New password is required")
     .matches(PASSWORD_REGEX)
     .withMessage(PASSWORD_MESSAGE),
+
+  body("role")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN"])
+    .withMessage("Invalid account role"),
 ];
 
 const changePasswordValidation = [

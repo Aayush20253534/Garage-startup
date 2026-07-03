@@ -16,7 +16,7 @@ export default function Forgot() {
     setError("");
 
     try {
-      await api.post("/auth/forgot-password", { email });
+      await api.post("/auth/forgot-password", { email, role: "CUSTOMER" });
       setSent(true);
     } catch (err) {
       setError(err.response?.data?.message || "Could not send reset OTP");
@@ -41,7 +41,7 @@ export default function Forgot() {
             </p>
 
             <button
-              onClick={() => nav("/reset-password", { state: { email } })}
+              onClick={() => nav("/reset-password", { state: { email, role: "CUSTOMER" } })}
               className="btn-dark mt-6 inline-flex"
             >
               Reset Password

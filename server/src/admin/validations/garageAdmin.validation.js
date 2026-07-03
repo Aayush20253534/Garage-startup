@@ -4,6 +4,11 @@ const garageIdSchema = [
   param("garageId").isUUID().withMessage("Invalid garage ID"),
 ];
 
+const deleteGaragesSchema = [
+  body("garageIds").isArray({ min: 1 }).withMessage("Select at least one garage to delete"),
+  body("garageIds.*").isUUID().withMessage("Invalid garage ID"),
+];
+
 const serviceIdSchema = [
   ...garageIdSchema,
   param("serviceId").isUUID().withMessage("Invalid service ID"),
@@ -29,6 +34,7 @@ const upsertGarageServiceSchema = [
 
 module.exports = {
   assignableServiceQuerySchema,
+  deleteGaragesSchema,
   garageIdSchema,
   garageQuerySchema,
   serviceIdSchema,

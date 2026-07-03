@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { FiTrendingUp, FiCircle, FiTool, FiTruck } from "react-icons/fi";
+import { addRecentActivity } from "@/utils/activityLog";
 
 const SOS_PROBLEMS = [
   { id: "flat-tire", icon: FiCircle, label: "Flat Tire", emoji: "🛞", desc: "Puncture repair" },
@@ -22,7 +23,15 @@ export default function SOSPanicScreen() {
           {SOS_PROBLEMS.map((p) => (
             <button
               key={p.id}
-              onClick={() => nav(`/sos/location?problem=${p.id}`)}
+              onClick={() => {
+                addRecentActivity({
+                  type: "SOS",
+                  title: "Selected SOS type",
+                  detail: p.label,
+                  path: "/sos",
+                });
+                nav(`/sos/location?problem=${p.id}`);
+              }}
               className="p-6 rounded-2xl bg-gray-800 border border-gray-700 hover:border-red-500 hover:bg-gray-750 transition-all text-left"
             >
               <div className="text-4xl mb-2">{p.emoji}</div>

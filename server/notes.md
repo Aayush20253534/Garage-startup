@@ -427,8 +427,6 @@ Activate existing garage by garage id: npm run db:activate-garage -- --garage-id
 
 Approve by application id and activate: npm run db:activate-garage -- --application-id=<application-id></application> --confirm --note="Welcome!"
 
-
-
 # Delete all garages
 
 npm run db:delete-garages --

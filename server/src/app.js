@@ -54,7 +54,7 @@ if (process.env.NODE_ENV === "development") {
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "Project X API is running",
+    message: "Rovauto API is running",
   });
 });
 

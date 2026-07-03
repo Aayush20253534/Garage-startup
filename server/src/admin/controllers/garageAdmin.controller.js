@@ -27,7 +27,13 @@ const removeGarageService = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Garage service removed successfully", garageService));
 });
 
+const deleteGarages = asyncHandler(async (req, res) => {
+  const result = await service.deleteGarages(req.body.garageIds);
+  return res.status(200).json(new ApiResponse(200, "Garage data deleted successfully", result));
+});
+
 module.exports = {
+  deleteGarages,
   getGarage,
   listAssignableServices,
   listGarages,

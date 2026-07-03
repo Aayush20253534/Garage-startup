@@ -1,4 +1,5 @@
 import api from "@/api/axios";
+import { hasUsableIndiaCoordinates } from "@/utils/address";
 
 /**
  * Geocoding service with rate limiting and caching.
@@ -34,17 +35,17 @@ const setCachedGeocode = (key, data) => {
   });
 };
 
-const getCacheKey = (address, city, state) => {
-  return `${address}|${city}|${state}`.toLowerCase();
+const getCacheKey = (address, city, area, pincode) => {
+  return `${address}|${city}|${area}|${pincode}`.toLowerCase();
 };
 
 /**
  * Geocoding API call with retry logic for rate limits
  */
-const geocodePrimary = async (address, city, state, attempt = 0) => {
+const geocodePrimary = async (address, city, area, pincode, attempt = 0) => {
   try {
     const response = await api.get("/locations/geocode", {
-      params: { address, city, state },
+      params: { address, city, area, pincode, country: "India", countrycodes: "in" },
     });
     const geocodeResult = response.data?.data ?? response.data;
     const result = {
@@ -56,13 +57,17 @@ const geocodePrimary = async (address, city, state, attempt = 0) => {
       throw new Error('Invalid coordinates received');
     }
 
+    if (!hasUsableIndiaCoordinates(result)) {
+      throw new Error("Could not find a valid Indian location for this address. Please check the city, area and pincode.");
+    }
+
     return result;
   } catch (err) {
     if (err.response?.status === 429 && attempt < MAX_RETRIES - 1) {
       const waitTime = RETRY_BACKOFF[attempt];
       console.warn(`Rate limited. Retrying after ${waitTime}ms...`);
       await new Promise((resolve) => setTimeout(resolve, waitTime));
-      return geocodePrimary(address, city, state, attempt + 1);
+      return geocodePrimary(address, city, area, pincode, attempt + 1);
     }
 
     console.error("Geocoding API error:", err);
@@ -81,24 +86,28 @@ const processGeocodeQueue = async () => {
   if (isGeocoding || geocodeRequestQueue.length === 0) return;
 
   isGeocoding = true;
-  const { resolve, reject, address, city, state } = geocodeRequestQueue.shift();
+  const { resolve, reject, address, city, area, pincode } = geocodeRequestQueue.shift();
 
   try {
-    const cacheKey = getCacheKey(address, city, state);
+    const cacheKey = getCacheKey(address, city, area, pincode);
 
     // Check cache first
     const cached = getCachedGeocode(cacheKey);
     if (cached) {
-      console.log('Using cached geocode result');
-      resolve(cached);
-      isGeocoding = false;
-      // Process next in queue after 1 second
-      setTimeout(processGeocodeQueue, 1000);
-      return;
+      if (hasUsableIndiaCoordinates(cached)) {
+        console.log('Using cached geocode result');
+        resolve(cached);
+        isGeocoding = false;
+        // Process next in queue after 1 second
+        setTimeout(processGeocodeQueue, 1000);
+        return;
+      }
+
+      geocodeCache.delete(cacheKey);
     }
 
     // Make API request with retry and fallback
-    const geocodeResult = await geocodePrimary(address, city, state);
+    const geocodeResult = await geocodePrimary(address, city, area, pincode);
 
     // Cache the result
     setCachedGeocode(cacheKey, geocodeResult);
@@ -116,9 +125,9 @@ const processGeocodeQueue = async () => {
 /**
  * Queue a geocoding request
  */
-export const queueGeocodeRequest = (address, city, state) => {
+export const queueGeocodeRequest = (address, city, area = "", pincode = "") => {
   return new Promise((resolve, reject) => {
-    geocodeRequestQueue.push({ resolve, reject, address, city, state });
+    geocodeRequestQueue.push({ resolve, reject, address, city, area, pincode });
     processGeocodeQueue();
   });
 };

@@ -21,6 +21,7 @@ const geocodeGarageApplicationSchema = [
   query("address").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 300 }),
   query("city").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
   query("state").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
+  query("pincode").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 20 }),
   query("country").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
   query("countrycodes").optional({ nullable: true, checkFalsy: true }).trim().isLength({ min: 2, max: 8 }),
 ];

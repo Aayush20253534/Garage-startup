@@ -1,4 +1,5 @@
 import api from "@/api/axios";
+import { hasUsableIndiaCoordinates } from "@/utils/address";
 
 const LOCATION_OPTIONS = {
   enableHighAccuracy: false,
@@ -64,9 +65,11 @@ export const requestSignupLocation = async () => {
 
 export const hasSavedUserLocation = (user) => {
   const locations = Array.isArray(user?.locations) ? user.locations : [];
-  const profileAddress = user?.customerProfile?.address || user?.address;
-
-  return locations.length > 0 || Boolean(profileAddress);
+  return locations.some(
+    (location) =>
+      hasUsableIndiaCoordinates(location) &&
+      Boolean(location.address)
+  );
 };
 
 export const saveSignupLocationToProfile = async (signupLocation) => {
@@ -78,8 +81,7 @@ export const saveSignupLocationToProfile = async (signupLocation) => {
     });
 
     if (
-      Number.isFinite(Number(signupLocation.latitude)) &&
-      Number.isFinite(Number(signupLocation.longitude))
+      hasUsableIndiaCoordinates(signupLocation)
     ) {
       await api.post("/locations", {
         latitude: Number(signupLocation.latitude),

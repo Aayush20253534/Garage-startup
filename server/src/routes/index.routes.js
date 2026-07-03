@@ -23,7 +23,9 @@ const serviceMediaRoutes = require("../customer/routes/serviceMedia.routes");
 const sosRoutes = require("../customer/routes/sos.routes");
 const contactRoutes = require("../customer/routes/contact.routes");
 const dashboardRoutes = require("../customer/routes/dashboard.routes");
+const chatbotRoutes = require("../customer/routes/chatbot.routes");
 const publicRoutes = require("./public.routes");
+const cityRoutes = require("./city.routes");
 const adminGarageApplicationRoutes = require("../admin/routes/garageApplication.routes");
 const cityServicePriceRangeRoutes = require("../admin/routes/cityServicePriceRange.routes");
 const adminGarageRoutes = require("../admin/routes/garageAdmin.routes");
@@ -45,6 +47,7 @@ const publicOtpRateLimit = rateLimit({
 
 router.use("/auth", authRoutes);
 router.use("/public", publicRoutes);
+router.use("/cities", cityRoutes);
 router.post("/send-otp", sendPhoneOtpValidation, validate, otpSendRateLimits, publicOtpRateLimit, authController.sendPhoneOtp);
 router.post("/verify-otp", publicOtpRateLimit, verifyPhoneOtpValidation, validate, authController.verifyPhoneOtp);
 router.use("/customer", customerRoutes);
@@ -63,6 +66,7 @@ router.use("/payments", paymentRoutes);
 router.use("/reviews", reviewRoutes);
 router.use("/complaints", complaintRoutes);
 router.use("/dashboard", dashboardRoutes);
+router.use("/chatbot", chatbotRoutes);
 router.use("/wallet", walletRoutes);
 router.use("/garage/wallet", newGarageWalletRoutes);
 router.use("/garage/wallet-legacy", garageWalletRoutes);

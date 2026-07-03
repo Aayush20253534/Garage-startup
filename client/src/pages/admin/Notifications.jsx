@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/api/admin";
+import CitySelect from "@/components/common/CitySelect";
 
 export default function Notifications() {
   const [customers, setCustomers] = useState([]);
@@ -64,7 +65,7 @@ export default function Notifications() {
           </select>
 
           {form.audience === "CITY" && (
-            <input required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="City name" className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink" />
+            <CitySelect required value={form.city} onChange={(city) => setForm({ ...form, city })} placeholder="Select city" className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink" />
           )}
 
           {form.audience === "USER" && (

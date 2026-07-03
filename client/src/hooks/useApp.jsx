@@ -331,8 +331,18 @@ const saveProfileCache = (data, fetchedAt) => {
 
       dispatch(setCustomerToken(localStorage.getItem("token") || "cookie"));
       return syncUserData(me);
-    } catch {
-      clearLocalSession();
+    } catch (err) {
+      if (err.response?.status === 401) {
+        clearLocalSession();
+        return null;
+      }
+
+      const cachedUser = readJson("user", readJson("rov_user", null));
+      if (cachedUser) {
+        dispatch(setCustomerToken(localStorage.getItem("token") || "cookie"));
+        return syncUserData(cachedUser);
+      }
+
       return null;
     } finally {
       setAuthLoading(false);
@@ -537,6 +547,49 @@ const saveProfileCache = (data, fetchedAt) => {
     }
 
     setAuthLoading(false);
+  }, []);
+
+  useEffect(() => {
+    let lastRefreshAt = Date.now();
+
+    const refreshRestoredSession = () => {
+      const now = Date.now();
+      if (now - lastRefreshAt < 30000) return;
+      lastRefreshAt = now;
+
+      const savedToken = localStorage.getItem("token");
+      const savedGarageToken = localStorage.getItem("garage_token");
+
+      if (savedToken) {
+        fetchMe();
+      }
+
+      if (savedGarageToken) {
+        refreshGarage(savedGarageToken).catch((err) => {
+          if (err.response?.status === 401) logoutGarage();
+        });
+      }
+    };
+
+    const onPageShow = (event) => {
+      if (event.persisted) refreshRestoredSession();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshRestoredSession();
+    };
+
+    const onOnline = () => refreshRestoredSession();
+
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("online", onOnline);
+    };
   }, []);
 
   useEffect(() => {

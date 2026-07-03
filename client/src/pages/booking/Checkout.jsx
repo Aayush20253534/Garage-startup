@@ -2,15 +2,18 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
+import CitySelect from "@/components/common/CitySelect";
 import { isPaymentAuthError, payForBooking } from "@/utils/bookingPayment";
+import { queueGeocodeRequest } from "@/utils/geocodeService";
 import {
   buildFullAddress,
   getDefaultUserLocation,
-  getLocationStateFromAddress,
   getProfileAddress,
   parseAddressParts,
 } from "@/utils/address";
 import { formatServicePriceRange, getServiceMinPrice, getServiceMaxPrice } from "@/utils/priceRange";
+import { isCityAvailable, UNAVAILABLE_CITY_MESSAGE } from "@/utils/cityAvailability";
+import { addRecentActivity } from "@/utils/activityLog";
 import { FiCheckCircle, FiLock, FiTrash2, FiTruck, FiEdit } from "react-icons/fi";
 
 const DEFAULT_LOCATION = {
@@ -91,21 +94,54 @@ export default function Checkout() {
   };
 
   const saveAddress = async () => {
+    if (!(await isCityAvailable(addressForm.city))) {
+      setError(UNAVAILABLE_CITY_MESSAGE);
+      return;
+    }
+
     const fullAddress = buildFullAddress(addressForm);
-    const defaultUserLocation = getDefaultUserLocation(user);
-    const nextLocation = getLocationStateFromAddress(fullAddress, {
-      latitude: location?.latitude ?? defaultUserLocation?.latitude,
-      longitude: location?.longitude ?? defaultUserLocation?.longitude,
-    });
+    let latitude = null;
+    let longitude = null;
+
+    try {
+      const geocode = await queueGeocodeRequest(
+        addressForm.address,
+        addressForm.city,
+        addressForm.area,
+        addressForm.pincode
+      );
+      latitude = geocode.latitude;
+      longitude = geocode.longitude;
+    } catch (err) {
+      setError(err.message || "Could not find coordinates for this address.");
+      return;
+    }
+
+    const nextLocation = {
+      ...addressForm,
+      fullAddress,
+      latitude,
+      longitude,
+    };
 
     setLocation(nextLocation);
 
     try {
-      await api.patch("/customer/profile", {
+      await api.post("/locations", {
+        latitude,
+        longitude,
         address: fullAddress,
+        source: "MANUAL",
+        isDefault: true,
       });
       clearProfileCache?.();
       await fetchProfile?.({ force: true });
+      addRecentActivity({
+        type: "LOCATION",
+        title: "Changed service location",
+        detail: `${addressForm.city}${addressForm.area ? `, ${addressForm.area}` : ""}`,
+        path: "/checkout",
+      });
     } catch (err) {
       console.error("Failed to save address to profile:", err);
     }
@@ -137,6 +173,12 @@ export default function Checkout() {
       });
 
       const booking = bookingRes.data.data;
+      addRecentActivity({
+        type: "BOOKING",
+        title: "Created booking",
+        detail: booking.bookingCode || cart.map((item) => item.name).join(", "),
+        path: "/dashboard/bookings",
+      });
 
       if (booking.payableAmount <= 0 || booking.status === "SEARCHING_GARAGE") {
         clearCart();
@@ -235,11 +277,10 @@ export default function Checkout() {
 
                 <label className="grid gap-1.5 text-sm">
                   <span className="font-semibold">City</span>
-                  <input
+                  <CitySelect
                     required
-                    name="city"
                     value={addressForm.city}
-                    onChange={handleAddressChange}
+                    onChange={(city) => setAddressForm((prev) => ({ ...prev, city }))}
                     placeholder="City"
                     className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
                   />

@@ -1,4 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
+import { hasUsableIndiaCoordinates } from "@/utils/address";
 
 const readJson = (key, fallback = null) => {
   try {
@@ -14,12 +15,6 @@ const readArray = (key) => {
   return Array.isArray(value) ? value : [];
 };
 
-const defaultLocation = {
-  area: "Indirapuram",
-  city: "Ghaziabad",
-  pincode: "201014",
-};
-
 const getDefaultVehicle = (vehicles = []) =>
   vehicles.find((item) => item.isDefault) || vehicles[0] || null;
 
@@ -30,7 +25,7 @@ const initialState = {
   token: localStorage.getItem("token") || null,
   vehicles: initialVehicles,
   vehicle: readJson("rov_vehicle", getDefaultVehicle(initialVehicles)),
-  location: readJson("rov_location", defaultLocation),
+  location: readJson("rov_location", null),
 };
 
 const customerSlice = createSlice({
@@ -52,7 +47,7 @@ const customerSlice = createSlice({
       state.vehicle = getDefaultVehicle(vehicles);
     },
     setCustomerLocation(state, action) {
-      state.location = action.payload || defaultLocation;
+      state.location = action.payload || null;
     },
     syncCustomerBundle(state, action) {
       const user = action.payload || null;
@@ -63,8 +58,12 @@ const customerSlice = createSlice({
       state.vehicles = vehicles;
       state.vehicle = getDefaultVehicle(vehicles);
 
-      if (locations.length > 0) {
-        state.location = locations.find((item) => item.isDefault) || locations[0];
+      const validLocations = locations.filter(
+        (item) => hasUsableIndiaCoordinates(item) && Boolean(item.address)
+      );
+
+      if (validLocations.length > 0) {
+        state.location = validLocations.find((item) => item.isDefault) || validLocations[0];
       }
     },
     clearCustomerState(state) {
@@ -72,7 +71,7 @@ const customerSlice = createSlice({
       state.token = null;
       state.vehicles = [];
       state.vehicle = null;
-      state.location = defaultLocation;
+      state.location = null;
     },
   },
 });

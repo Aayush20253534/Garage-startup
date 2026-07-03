@@ -2,9 +2,12 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
-import { buildFullAddress, getDefaultUserLocation, parseAddressParts } from "@/utils/address";
+import { buildFullAddress, getDefaultUserLocation, parseAddressParts, reverseGeocodeCoordinates } from "@/utils/address";
 import { queueGeocodeRequest, clearGeocodeCache } from "@/utils/geocodeService";
 import { FiCheckCircle, FiMapPin } from "react-icons/fi";
+import CitySelect from "@/components/common/CitySelect";
+import { isCityAvailable, UNAVAILABLE_CITY_MESSAGE } from "@/utils/cityAvailability";
+import { addRecentActivity } from "@/utils/activityLog";
 
 export default function AddressForm() {
   const nav = useNavigate();
@@ -60,33 +63,28 @@ export default function AddressForm() {
 
   const detectLocation = async () => {
     try {
+      setError("");
       const { latitude, longitude } = await getCurrentCoordinates();
-      setManualLocationEdited(false);
-
       try {
-        const url = new URL("https://nominatim.openstreetmap.org/reverse");
-        url.searchParams.set("format", "jsonv2");
-        url.searchParams.set("lat", String(latitude));
-        url.searchParams.set("lon", String(longitude));
-
-        const response = await fetch(url.toString(), {
-          headers: { Accept: "application/json" },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const fullAddress = data.display_name || "";
-          const parsed = parseAddressParts(fullAddress);
-          setForm({
-            address: parsed.address || fullAddress,
-            area: parsed.area,
-            city: parsed.city,
-            pincode: parsed.pincode,
-            latitude,
-            longitude,
-          });
+        const parsed = await reverseGeocodeCoordinates({ latitude, longitude });
+        if (!(await isCityAvailable(parsed.city))) {
+          setError(UNAVAILABLE_CITY_MESSAGE);
+          setManualLocationEdited(false);
+          return;
         }
+        setForm({
+          address: parsed.address,
+          area: parsed.area,
+          city: parsed.city,
+          pincode: parsed.pincode,
+          latitude,
+          longitude,
+        });
+        setManualLocationEdited(false);
       } catch {
         setForm((prev) => ({ ...prev, latitude, longitude }));
+        setManualLocationEdited(false);
+        setError("Location detected, but address details could not be filled. Please complete the boxes.");
       }
     } catch (err) {
       setError("Could not detect location. Please enter manually.");
@@ -95,13 +93,20 @@ export default function AddressForm() {
 
   const geocodeManualAddress = async () => {
     try {
+      if (!(await isCityAvailable(form.city))) {
+        setError(UNAVAILABLE_CITY_MESSAGE);
+        setLoading(false);
+        return;
+      }
+
       const fullAddress = buildFullAddress(form);
       
       // Use queued request with rate limiting and fallback
       const geocodeResult = await queueGeocodeRequest(
         form.address,
         form.city,
-        form.area
+        form.area,
+        form.pincode
       );
       
       return {
@@ -157,21 +162,13 @@ export default function AddressForm() {
         throw new Error("Could not determine coordinates. Please verify address.");
       }
 
-      // Save profile address
-      await api.patch("/customer/profile", {
+      await api.post("/locations", {
+        latitude,
+        longitude,
         address: fullAddress,
+        source: manualLocationEdited ? "MANUAL" : "GPS",
+        isDefault: true,
       });
-
-      // Save location with coordinates
-      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-        await api.post("/locations", {
-          latitude,
-          longitude,
-          address: fullAddress,
-          source: manualLocationEdited ? "MANUAL" : "GPS",
-          isDefault: true,
-        });
-      }
 
       setLocation({
         address: form.address,
@@ -181,6 +178,12 @@ export default function AddressForm() {
         fullAddress,
         latitude,
         longitude,
+      });
+      addRecentActivity({
+        type: "LOCATION",
+        title: manualLocationEdited ? "Saved manual location" : "Saved current location",
+        detail: `${form.city}${form.area ? `, ${form.area}` : ""}`,
+        path: "/dashboard/profile",
       });
 
       clearProfileCache();
@@ -256,12 +259,13 @@ export default function AddressForm() {
 
             <label className="grid gap-1.5 text-sm">
               <span className="font-semibold">City</span>
-              <input
-                required
-                name="city"
+              <CitySelect
                 value={form.city}
-                onChange={change}
-                placeholder="City"
+                onChange={(city) => {
+                  setForm((prev) => ({ ...prev, city, latitude: null, longitude: null }));
+                  setManualLocationEdited(true);
+                }}
+                required
                 className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
               />
             </label>

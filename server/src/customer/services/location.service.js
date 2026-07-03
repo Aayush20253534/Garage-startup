@@ -2,6 +2,39 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 
+const INDIA_COORDINATE_BOUNDS = {
+  minLatitude: 6,
+  maxLatitude: 38,
+  minLongitude: 68,
+  maxLongitude: 98,
+};
+
+const isWithinIndiaBounds = (latitude, longitude) => (
+  latitude >= INDIA_COORDINATE_BOUNDS.minLatitude
+  && latitude <= INDIA_COORDINATE_BOUNDS.maxLatitude
+  && longitude >= INDIA_COORDINATE_BOUNDS.minLongitude
+  && longitude <= INDIA_COORDINATE_BOUNDS.maxLongitude
+);
+
+const normalizeAndValidateCoordinates = (data, fallback = {}) => {
+  const latitude = Number(data.latitude !== undefined ? data.latitude : fallback.latitude);
+  const longitude = Number(data.longitude !== undefined ? data.longitude : fallback.longitude);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new ApiError(400, "Valid location coordinates are required");
+  }
+
+  if (latitude === 0 && longitude === 0) {
+    throw new ApiError(400, "Invalid location coordinates. Please choose your location again.");
+  }
+
+  if (!isWithinIndiaBounds(latitude, longitude)) {
+    throw new ApiError(400, "Rovauto is available only in India right now.");
+  }
+
+  return { latitude, longitude };
+};
+
 const syncDefaultLocationToProfile = async (tx, userId, address) => {
   await tx.customerProfile.upsert({
     where: { userId },
@@ -11,6 +44,8 @@ const syncDefaultLocationToProfile = async (tx, userId, address) => {
 };
 
 const createLocation = async (userId, data) => {
+  const coordinates = normalizeAndValidateCoordinates(data);
+
   const locationCount = await prisma.customerLocation.count({
     where: { userId },
   });
@@ -28,8 +63,8 @@ const createLocation = async (userId, data) => {
     const location = await tx.customerLocation.create({
       data: {
         userId,
-        latitude: Number(data.latitude),
-        longitude: Number(data.longitude),
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
         address: data.address || null,
         source: data.source || "GPS",
         isDefault: shouldBeDefault,
@@ -87,6 +122,9 @@ const updateLocation = async (userId, locationId, data) => {
   }
 
   const shouldBeDefault = data.isDefault === true;
+  const coordinates = data.latitude !== undefined || data.longitude !== undefined
+    ? normalizeAndValidateCoordinates(data, existingLocation)
+    : null;
 
   const result = await prisma.$transaction(async (tx) => {
     if (shouldBeDefault) {
@@ -99,12 +137,8 @@ const updateLocation = async (userId, locationId, data) => {
     const updatedLocation = await tx.customerLocation.update({
       where: { id: locationId },
       data: {
-        ...(data.latitude !== undefined && {
-          latitude: Number(data.latitude),
-        }),
-        ...(data.longitude !== undefined && {
-          longitude: Number(data.longitude),
-        }),
+        ...(coordinates && { latitude: coordinates.latitude }),
+        ...(coordinates && { longitude: coordinates.longitude }),
         ...(data.address !== undefined && {
           address: data.address || null,
         }),

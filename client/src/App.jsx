@@ -1,15 +1,20 @@
-import { lazy, Suspense } from "react";
+import { Component, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppProvider, useApp } from "@/hooks/useApp";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
+import { hasUsableIndiaCoordinates } from "@/utils/address";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
 function ProtectedRoute({ children }) {
-  const { user, garage } = useApp();
+  const { user, garage, authLoading } = useApp();
   const location = useLocation();
   const isGarageRoute = location.pathname.startsWith("/garage");
   const isAdminRoute = location.pathname.startsWith("/admin");
+
+  if (authLoading) {
+    return <RouteFallback />;
+  }
 
   if (isAdminRoute) {
     if (user?.role !== "ADMIN") {
@@ -29,9 +34,13 @@ function ProtectedRoute({ children }) {
 
 function AddressCheck({ children }) {
   const { user, location } = useApp();
+  const routeLocation = useLocation();
+  const hasLiveLocation =
+    Boolean(location?.address || location?.fullAddress) &&
+    hasUsableIndiaCoordinates(location);
 
-  if (user?.role === "CUSTOMER" && !hasSavedUserLocation(user) && !location?.address) {
-    return <Navigate to="/booking/address" replace />;
+  if (user?.role === "CUSTOMER" && !hasSavedUserLocation(user) && !hasLiveLocation) {
+    return <Navigate to="/booking/address" state={{ from: routeLocation }} replace />;
   }
 
   return children;
@@ -106,6 +115,102 @@ const AdminNotifications = lazy(() => import("@/pages/admin/Notifications"));
 import { FiGrid, FiTruck, FiPlusCircle, FiCalendar, FiClock, FiShield, FiCreditCard, FiBell, FiUser,
   FiInbox, FiBriefcase, FiTrendingUp, FiStar, FiUsers, FiSettings, FiDollarSign, FiHome } from "react-icons/fi";
 
+const isChunkLoadError = (error) => {
+  const message = String(error?.message || error || "");
+  return /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError/i.test(message);
+};
+
+class AppErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      error: null,
+      isRecovering: false,
+    };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error) {
+    if (!isChunkLoadError(error)) return;
+
+    const reloadKey = `rov_route_reload_attempted:${window.location.pathname}`;
+    if (sessionStorage.getItem(reloadKey) === "1") {
+      return;
+    }
+
+    sessionStorage.setItem(reloadKey, "1");
+    this.setState({ isRecovering: true });
+
+    window.setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("rov_reload", String(Date.now()));
+      window.location.replace(url.toString());
+    }, 250);
+  }
+
+  clearAndReload = () => {
+    Object.keys(sessionStorage)
+      .filter((key) => key.startsWith("rov_route_reload_attempted:") || key.startsWith("rov_chunk_reload_attempted:"))
+      .forEach((key) => sessionStorage.removeItem(key));
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("rov_reload", String(Date.now()));
+    window.location.replace(url.toString());
+  };
+
+  goHome = () => {
+    window.location.assign("/");
+  };
+
+  render() {
+    const { error, isRecovering } = this.state;
+
+    if (!error) {
+      return this.props.children;
+    }
+
+    const staleChunk = isChunkLoadError(error);
+
+    return (
+      <div className="min-h-screen bg-bg-soft px-4 py-10">
+        <div className="mx-auto max-w-lg rounded-2xl border border-line bg-white p-6 shadow-soft">
+          <p className="text-sm font-semibold uppercase tracking-wide text-muted">
+            {staleChunk ? "Updating Rovauto" : "Page could not load"}
+          </p>
+          <h1 className="mt-2 text-2xl font-bold text-ink">
+            {staleChunk ? "Refreshing the latest version" : "Something stopped this page from loading"}
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-muted">
+            {staleChunk
+              ? "A newer version of this page is available. The app is reloading it now."
+              : "You can reload the page or go back to the home page."}
+          </p>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={this.clearAndReload}
+              className="rounded-full bg-brand px-5 py-3 text-sm font-bold text-ink"
+            >
+              {isRecovering ? "Reloading..." : "Reload page"}
+            </button>
+            <button
+              type="button"
+              onClick={this.goHome}
+              className="rounded-full border border-line px-5 py-3 text-sm font-bold text-ink"
+            >
+              Go home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
+
 const customerItems = [
   { to: "/dashboard", label: "Dashboard", icon: FiGrid },
   { to: "/dashboard/vehicles", label: "My Vehicles", icon: FiTruck },
@@ -176,13 +281,13 @@ function AppRoutes() {
         </Route>
 
         <Route element={<DashboardLayout items={customerItems} title="Customer Portal" />}>
-          <Route path="/dashboard" element={<ProtectedRoute><VehicleCheck><CustomerDashboard /></VehicleCheck></ProtectedRoute>} />
-          <Route path="/dashboard/vehicles" element={<ProtectedRoute><MyVehicles /></ProtectedRoute>} />
-          <Route path="/dashboard/bookings" element={<ProtectedRoute><VehicleCheck><ActiveBookings /></VehicleCheck></ProtectedRoute>} />
-          <Route path="/dashboard/history" element={<ProtectedRoute><VehicleCheck><ServiceHistory /></VehicleCheck></ProtectedRoute>} />
-          <Route path="/dashboard/payments" element={<ProtectedRoute><VehicleCheck><Payments /></VehicleCheck></ProtectedRoute>} />
-          <Route path="/dashboard/notifications" element={<ProtectedRoute><VehicleCheck><Notifications /></VehicleCheck></ProtectedRoute>} />
-          <Route path="/dashboard/profile" element={<ProtectedRoute><VehicleCheck><Profile /></VehicleCheck></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><AddressCheck><VehicleCheck><CustomerDashboard /></VehicleCheck></AddressCheck></ProtectedRoute>} />
+          <Route path="/dashboard/vehicles" element={<ProtectedRoute><AddressCheck><MyVehicles /></AddressCheck></ProtectedRoute>} />
+          <Route path="/dashboard/bookings" element={<ProtectedRoute><AddressCheck><VehicleCheck><ActiveBookings /></VehicleCheck></AddressCheck></ProtectedRoute>} />
+          <Route path="/dashboard/history" element={<ProtectedRoute><AddressCheck><VehicleCheck><ServiceHistory /></VehicleCheck></AddressCheck></ProtectedRoute>} />
+          <Route path="/dashboard/payments" element={<ProtectedRoute><AddressCheck><VehicleCheck><Payments /></VehicleCheck></AddressCheck></ProtectedRoute>} />
+          <Route path="/dashboard/notifications" element={<ProtectedRoute><AddressCheck><VehicleCheck><Notifications /></VehicleCheck></AddressCheck></ProtectedRoute>} />
+          <Route path="/dashboard/profile" element={<ProtectedRoute><AddressCheck><VehicleCheck><Profile /></VehicleCheck></AddressCheck></ProtectedRoute>} />
         </Route>
 
         <Route element={<DashboardLayout items={garageItems} title="Garage Portal" />}>
@@ -221,7 +326,9 @@ function RouteFallback() {
 export default function App() {
   return (
     <AppProvider>
-      <AppRoutes />
+      <AppErrorBoundary>
+        <AppRoutes />
+      </AppErrorBoundary>
     </AppProvider>
   );
 }

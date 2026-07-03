@@ -40,19 +40,8 @@ const submitApplication = async (payload, files = []) => {
   let latitude = payload.latitude === undefined ? null : Number(payload.latitude);
   let longitude = payload.longitude === undefined ? null : Number(payload.longitude);
 
-  const existingOpenApplication = await prisma.garageApplication.findFirst({
-    where: {
-      OR: [{ email }, { phone }],
-      status: { in: ["PENDING", "CHANGES_REQUESTED"] },
-    },
-  });
-
-  if (existingOpenApplication) {
-    throw new ApiError(409, "A garage application is already pending or awaiting changes for this email/phone");
-  }
-
-  if (!files.length) {
-    throw new ApiError(400, "Upload at least one garage photo");
+  if (files.length < 10) {
+    throw new ApiError(400, "Upload at least 10 garage photos");
   }
 
   if (files.length > 15) {
@@ -185,7 +174,12 @@ const approveApplication = async (applicationId, adminNote) => {
 
   // perform owner creation/update, garage creation and update application in a transaction
   const result = await prisma.$transaction(async (tx) => {
-    const existingOwner = await tx.user.findUnique({ where: { email: application.email } });
+    const existingOwner = await tx.user.findFirst({
+      where: {
+        role: "GARAGE_OWNER",
+        OR: [{ email: application.email }, { phone: application.phone }],
+      },
+    });
     const owner = existingOwner
       ? await tx.user.update({
           where: { id: existingOwner.id },

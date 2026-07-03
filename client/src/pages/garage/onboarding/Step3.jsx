@@ -13,8 +13,8 @@ export default function OnboardingStep3({ data, onChange, onNext, onBack }) {
     e.preventDefault();
     setError("");
 
-    if (!data.images.length) {
-      setError("Upload at least one garage photo before continuing.");
+    if (data.images.length < 10) {
+      setError("Upload at least 10 garage photos before continuing.");
       return;
     }
 
@@ -34,12 +34,12 @@ export default function OnboardingStep3({ data, onChange, onNext, onBack }) {
           className="w-full max-w-2xl card-soft p-8"
         >
           <h1 className="text-3xl font-bold mb-2">Garage Images</h1>
-          <p className="text-muted mb-8">Upload up to 15 garage photos. Each photo must be 1 MB or less.</p>
+          <p className="text-muted mb-8">Upload 10 to 15 garage photos. Each photo must be 1 MB or less.</p>
           {error && <div className="mb-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <ImageUpload
-              min={1}
+              min={10}
               max={15}
               maxSizeMb={1}
               value={data.images}

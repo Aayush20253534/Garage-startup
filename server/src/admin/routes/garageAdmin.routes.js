@@ -6,6 +6,7 @@ const { authorizeRoles } = require("../../middlewares/role.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const {
   assignableServiceQuerySchema,
+  deleteGaragesSchema,
   garageIdSchema,
   garageQuerySchema,
   serviceIdSchema,
@@ -18,6 +19,7 @@ router.use(protect);
 router.use(authorizeRoles("ADMIN"));
 
 router.get("/", garageQuerySchema, validate, controller.listGarages);
+router.delete("/", deleteGaragesSchema, validate, controller.deleteGarages);
 router.get("/services", assignableServiceQuerySchema, validate, controller.listAssignableServices);
 router.get("/:garageId", garageIdSchema, validate, controller.getGarage);
 router.post("/:garageId/services", upsertGarageServiceSchema, validate, controller.upsertGarageService);

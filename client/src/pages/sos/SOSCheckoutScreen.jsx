@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
+import { addRecentActivity } from "@/utils/activityLog";
 
 export default function SOSCheckoutScreen() {
   const [searchParams] = useSearchParams();
@@ -12,6 +13,12 @@ export default function SOSCheckoutScreen() {
       nav("/login?redirect=/sos/checkout?problem=" + problem);
       return;
     }
+    addRecentActivity({
+      type: "SOS",
+      title: "Started SOS request",
+      detail: problem || "Emergency request",
+      path: "/sos",
+    });
     // Simulate payment
     setTimeout(() => nav("/sos/success"), 1500);
   };

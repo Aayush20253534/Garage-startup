@@ -85,7 +85,7 @@ export const mapGarageRequestToBooking = (request) => {
 
 export const garageApi = {
   async login(identifier, password) {
-    const result = unwrap(await api.post("/auth/login", { identifier, password }));
+    const result = unwrap(await api.post("/auth/login", { identifier, password, role: "GARAGE_OWNER" }));
     if (!["GARAGE_OWNER", "ADMIN"].includes(result.user?.role)) {
       throw new Error("This account is not a garage owner account");
     }

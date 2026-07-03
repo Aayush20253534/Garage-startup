@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FiArrowLeft, FiCheckCircle, FiLock } from "react-icons/fi";
 import api from "@/api/axios";
 
 export default function ResetPassword() {
+  const routeLocation = useLocation();
   const [step, setStep] = useState("form");
-  const [email, setEmail] = useState("");
+  const resetRole = routeLocation.state?.role || "CUSTOMER";
+  const [email, setEmail] = useState(routeLocation.state?.email || "");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -44,6 +46,7 @@ export default function ResetPassword() {
         email,
         otp,
         newPassword,
+        role: resetRole,
       });
 
       setStep("success");

@@ -1,10 +1,25 @@
 const { body, param, query } = require("express-validator");
 
+const INDIA_LATITUDE_RANGE = { min: 6, max: 38 };
+const INDIA_LONGITUDE_RANGE = { min: 68, max: 98 };
+
+const rejectZeroCoordinates = (_, { req }) => {
+  const latitude = Number(req.body.latitude);
+  const longitude = Number(req.body.longitude);
+
+  if (Number.isFinite(latitude) && Number.isFinite(longitude) && latitude === 0 && longitude === 0) {
+    throw new Error("Invalid location coordinates. Please choose your location again.");
+  }
+
+  return true;
+};
 
 const geocodeLocationValidation = [
   query("address").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 300 }),
+  query("area").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
   query("city").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
   query("state").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
+  query("pincode").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 20 }),
   query("country").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
   query("countrycodes").optional({ nullable: true, checkFalsy: true }).trim().isLength({ min: 2, max: 8 }),
 ];
@@ -16,14 +31,15 @@ const createLocationValidation = [
   body("latitude")
     .notEmpty()
     .withMessage("Latitude is required")
-    .isFloat({ min: -90, max: 90 })
-    .withMessage("Invalid latitude"),
+    .isFloat(INDIA_LATITUDE_RANGE)
+    .withMessage("Rovauto is available only in India right now"),
 
   body("longitude")
     .notEmpty()
     .withMessage("Longitude is required")
-    .isFloat({ min: -180, max: 180 })
-    .withMessage("Invalid longitude"),
+    .isFloat(INDIA_LONGITUDE_RANGE)
+    .withMessage("Rovauto is available only in India right now")
+    .custom(rejectZeroCoordinates),
 
   body("address")
     .optional({ nullable: true, checkFalsy: true })
@@ -45,13 +61,14 @@ const updateLocationValidation = [
 
   body("latitude")
     .optional()
-    .isFloat({ min: -90, max: 90 })
-    .withMessage("Invalid latitude"),
+    .isFloat(INDIA_LATITUDE_RANGE)
+    .withMessage("Rovauto is available only in India right now"),
 
   body("longitude")
     .optional()
-    .isFloat({ min: -180, max: 180 })
-    .withMessage("Invalid longitude"),
+    .isFloat(INDIA_LONGITUDE_RANGE)
+    .withMessage("Rovauto is available only in India right now")
+    .custom(rejectZeroCoordinates),
 
   body("address")
     .optional({ nullable: true, checkFalsy: true })

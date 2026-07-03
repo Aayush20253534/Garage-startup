@@ -1,6 +1,11 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
+console.log("API_KEY:", import.meta.env.VITE_FIREBASE_API_KEY);
+console.log("AUTH_DOMAIN:", import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
+console.log("PROJECT_ID:", import.meta.env.VITE_FIREBASE_PROJECT_ID);
+console.log("APP_ID:", import.meta.env.VITE_FIREBASE_APP_ID);
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,

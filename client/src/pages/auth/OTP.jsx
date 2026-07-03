@@ -22,6 +22,7 @@ const getPendingOtp = (state) => {
     return {
       email: state.email,
       phone: state.phone,
+      role: state.role || stored.role || "CUSTOMER",
       signupLocation: state.signupLocation || stored.signupLocation || null,
     };
   }
@@ -30,6 +31,7 @@ const getPendingOtp = (state) => {
     return {
       email: stored.email,
       phone: stored.phone,
+      role: stored.role || "CUSTOMER",
       signupLocation: stored.signupLocation || null,
     };
   }
@@ -37,6 +39,7 @@ const getPendingOtp = (state) => {
   return {
     email: "",
     phone: "",
+    role: "CUSTOMER",
     signupLocation: null,
   };
 };
@@ -46,7 +49,7 @@ export default function OTP() {
   const { state } = routeLocation;
   const nav = useNavigate();
 
-  const { email, phone, signupLocation } = getPendingOtp(state);
+  const { email, phone, role, signupLocation } = getPendingOtp(state);
 
   const [otp, setOtp] = useState(Array(6).fill(""));
   const [timer, setTimer] = useState(60);
@@ -93,6 +96,7 @@ export default function OTP() {
         email,
         phone,
         otp: finalOtp,
+        role,
       });
 
       const data = res.data.data;
@@ -147,7 +151,7 @@ export default function OTP() {
     setError("");
 
     try {
-      await api.post("/auth/resend-otp", { email, phone });
+      await api.post("/auth/resend-otp", { email, phone, role });
       setTimer(60);
     } catch (err) {
       setError(err.response?.data?.message || "Could not resend OTP");

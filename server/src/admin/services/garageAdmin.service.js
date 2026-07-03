@@ -1,5 +1,6 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
+const { deleteGaragesDeep } = require("./garageDeletion.service");
 
 const garageInclude = {
   owner: {
@@ -141,7 +142,14 @@ const removeGarageService = async (garageId, serviceId) => {
   });
 };
 
+const deleteGarages = async (garageIds = []) => {
+  const ids = Array.isArray(garageIds) ? garageIds.filter(Boolean) : [];
+  if (!ids.length) throw new ApiError(400, "Select at least one garage to delete");
+  return deleteGaragesDeep({ garageIds: ids });
+};
+
 module.exports = {
+  deleteGarages,
   getGarage,
   listAssignableServices,
   listGarages,

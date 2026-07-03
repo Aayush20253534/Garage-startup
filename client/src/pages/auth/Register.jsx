@@ -4,6 +4,7 @@ import api from "@/api/axios";
 import { FcGoogle } from "react-icons/fc";
 import completeGoogleAuth from "@/utils/googleAuth";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
+import { useApp } from "@/hooks/useApp";
 
 const COUNTRY_CODE = "+91";
 const PASSWORD_MESSAGE =
@@ -13,6 +14,7 @@ const PASSWORD_REGEX =
 
 export default function Register() {
   const nav = useNavigate();
+  const { login } = useApp();
 
   const [form, setForm] = useState({
     name: "",
@@ -73,6 +75,7 @@ export default function Register() {
         JSON.stringify({
           email: payload.email,
           phone: fullPhone,
+          role: payload.role,
           signupLocation,
           createdAt: Date.now(),
         })
@@ -82,12 +85,13 @@ export default function Register() {
         state: {
           email: payload.email,
           phone: fullPhone,
+          role: payload.role,
           signupLocation,
           fromSignup: true,
         },
       });
     } catch (err) {
-      setError(err.response?.data?.message || "Signup failed");
+      setError(err.response?.data?.message || err.message || "Signup failed");
     } finally {
       setLoading(false);
     }
@@ -99,13 +103,14 @@ export default function Register() {
 
     try {
       const data = await completeGoogleAuth("CUSTOMER");
-      let freshUser = data.user;
+      const freshUser = data.user;
+      login(freshUser, data.token);
 
       const redirectPath = hasSavedUserLocation(freshUser)
         ? "/dashboard"
         : "/booking/address";
 
-      window.location.href = redirectPath;
+      nav(redirectPath, { replace: true });
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -124,18 +129,14 @@ export default function Register() {
         <h1 className="text-5xl font-bold leading-tight mt-38">
           Create your <span className="text-brand-dark">Rovauto</span> account.
         </h1>
-
-        <p className="mt-4 max-w-md text-muted">
-          Book trusted services and manage your vehicle care.
-        </p>
       </div>
 
-      <div className="card-soft mx-auto w-full max-w-md p-7">
+      <div className="card-soft p-7 max-w-md w-full mx-auto">
         <h2 className="text-2xl font-bold">Create account</h2>
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-        <form onSubmit={submit} className="mt-6 grid gap-3">
+        <form onSubmit={submit} className="mt-5 grid gap-2.5">
           <button
             type="button"
             onClick={handleGoogleAuth}
@@ -158,7 +159,7 @@ export default function Register() {
             value={form.name}
             onChange={change}
             placeholder="Full name"
-            className="rounded-xl border border-ink px-4 py-3 outline-none focus:border-ink"
+            className="px-4 py-2.5 rounded-xl border border-line focus:border-ink outline-none"
           />
 
           <input
@@ -168,11 +169,11 @@ export default function Register() {
             onChange={change}
             type="email"
             placeholder="Email"
-            className="rounded-xl border border-ink px-4 py-3 outline-none focus:border-ink"
+            className="px-4 py-2.5 rounded-xl border border-line focus:border-ink outline-none"
           />
 
-          <div className="flex items-center overflow-hidden rounded-xl border border-ink bg-white transition focus-within:border-ink">
-            <div className="grid h-full w-16 shrink-0 place-items-center border-r border-ink bg-bg-soft px-3 py-3 font-semibold text-ink">
+          <div className="flex items-center overflow-hidden rounded-xl border border-line bg-white transition focus-within:border-ink">
+            <div className="grid h-full w-16 shrink-0 place-items-center border-r border-line bg-bg-soft px-3 py-2.5 font-semibold text-ink">
               {COUNTRY_CODE}
             </div>
 
@@ -184,12 +185,11 @@ export default function Register() {
               maxLength={15}
               inputMode="tel"
               placeholder="Mobile number"
-              className="min-w-0 flex-1 border-0 px-4 py-3 outline-none"
+              className="min-w-0 flex-1 border-0 px-4 py-2.5 outline-none"
             />
           </div>
 
-          <label className="grid gap-1.5 text-sm">
-            <span className="font-medium">Password</span>
+          <label className="grid gap-1 text-sm">
             <input
               required
               name="password"
@@ -200,12 +200,11 @@ export default function Register() {
               minLength={8}
               pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}"
               title={PASSWORD_MESSAGE}
-              className="rounded-xl border border-ink px-4 py-3 outline-none focus:border-ink"
+              className="px-4 py-2.5 rounded-xl border border-line focus:border-ink outline-none"
             />
           </label>
 
-          <label className="grid gap-1.5 text-sm">
-            <span className="font-medium">Confirm Password</span>
+          <label className="grid gap-1 text-sm">
             <input
               required
               name="confirmPassword"
@@ -214,7 +213,7 @@ export default function Register() {
               type="password"
               placeholder="Re-enter password"
               minLength={8}
-              className="rounded-xl border border-ink px-4 py-3 outline-none focus:border-ink"
+              className="px-4 py-2.5 rounded-xl border border-line focus:border-ink outline-none"
             />
           </label>
 
@@ -222,7 +221,7 @@ export default function Register() {
             <p className="text-xs text-red-600">Passwords do not match.</p>
           )}
 
-          <p className="text-xs leading-relaxed text-muted">
+          <p className="text-[11px] leading-snug text-muted">
             {PASSWORD_MESSAGE}
           </p>
 
@@ -232,7 +231,7 @@ export default function Register() {
 
           <div className="text-center text-sm text-muted">
             Already a member?{" "}
-            <Link to="/login" className="font-medium text-ink">
+            <Link to="/login" className="text-ink font-medium">
               Login
             </Link>
           </div>

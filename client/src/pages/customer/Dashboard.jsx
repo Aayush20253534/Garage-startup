@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useApp } from "@/hooks/useApp";
+import { getRecentActivities } from "@/utils/activityLog";
 import {
   FiTruck,
   FiCalendar,
@@ -38,6 +39,9 @@ export default function Dashboard() {
     () => dashboardCache?.completedBookingsCount || 0
   );
   const [loading, setLoading] = useState(() => !dashboardCache);
+  const [recentActivities, setRecentActivities] = useState(() =>
+    getRecentActivities().slice(0, 3)
+  );
 
   const currentVehicles = Array.isArray(vehicles) ? vehicles : [];
   const hasVehicles = currentVehicles.length > 0;
@@ -93,6 +97,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboard();
+  }, []);
+
+  useEffect(() => {
+    const refreshActivities = () => setRecentActivities(getRecentActivities().slice(0, 3));
+    window.addEventListener("rov:activity", refreshActivities);
+    window.addEventListener("storage", refreshActivities);
+    return () => {
+      window.removeEventListener("rov:activity", refreshActivities);
+      window.removeEventListener("storage", refreshActivities);
+    };
   }, []);
 
   if (loading) {
@@ -299,7 +313,13 @@ export default function Dashboard() {
           <h3 className="mb-3 font-semibold">Quick Actions</h3>
 
           <ul className="grid gap-3 text-sm">
-            {[
+            {(recentActivities.length
+              ? recentActivities.map((activity) => [
+                  activity.title,
+                  activity.detail || new Date(activity.createdAt).toLocaleString(),
+                  activity.path || "/dashboard",
+                ])
+              : [
               hasVehicles
                 ? [
                     "Book Service",
@@ -319,7 +339,7 @@ export default function Dashboard() {
                   : "Add and manage vehicles",
                 "/dashboard/vehicles",
               ],
-            ].map(([name, desc, to]) => (
+            ]).map(([name, desc, to]) => (
               <li key={name}>
                 <Link to={to} className="flex items-start gap-3 hover:text-ink">
                   <FiCheckCircle className="mt-0.5 text-brand-dark" />

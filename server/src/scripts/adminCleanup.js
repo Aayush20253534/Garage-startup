@@ -1,6 +1,11 @@
 require("dotenv/config");
 
 const prisma = require("../config/prisma");
+const {
+  buildDeletionSummary,
+  deleteGaragesDeep,
+  findGaragesForDeletion,
+} = require("../admin/services/garageDeletion.service");
 
 const args = process.argv.slice(2);
 
@@ -45,50 +50,15 @@ const printDryRun = () => {
   console.log("\nDry-run only. Re-run with --confirm to delete these records.");
 };
 
-const summarizeGarages = async (email = "") => {
-  const normalizedEmail = normalizeEmail(email);
-  const where = normalizedEmail
-    ? {
-        OR: [
-          { email: normalizedEmail },
-          { owner: { is: { email: normalizedEmail } } },
-        ],
-      }
-    : {};
-
-  const garages = await prisma.garage.findMany({
-    where,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      city: true,
-      owner: { select: { id: true, name: true, email: true } },
-      _count: {
-        select: {
-          bookings: true,
-          broadcasts: true,
-          images: true,
-          services: true,
-          videos: true,
-          walletTransactions: true,
-          reviews: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return garages;
-};
-
 const deleteGarages = async () => {
   const email = getArg("email");
-  const garages = await summarizeGarages(email);
+  const garages = await findGaragesForDeletion({ email });
   const garageIds = garages.map((garage) => garage.id);
+  const deleteAllApplications = !normalizeEmail(email);
+  const related = await buildDeletionSummary(garages, { deleteAllApplications });
 
   console.log(`Matched ${garages.length} garage(s).`);
+  console.log({ related });
   if (garages.length) {
     console.table(
       garages.map((garage) => ({
@@ -97,7 +67,7 @@ const deleteGarages = async () => {
         garageEmail: garage.email,
         ownerEmail: garage.owner?.email,
         city: garage.city,
-        bookingsDetached: garage._count.bookings,
+        bookingsDeleted: garage._count.bookings,
         services: garage._count.services,
         broadcasts: garage._count.broadcasts,
       }))
@@ -109,28 +79,13 @@ const deleteGarages = async () => {
     return;
   }
 
-  if (!garageIds.length) {
+  if (!garageIds.length && !deleteAllApplications) {
     console.log("No garages to delete.");
     return;
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.booking.updateMany({
-      where: { garageId: { in: garageIds } },
-      data: { garageId: null },
-    });
-
-    await tx.garageApplication.updateMany({
-      where: { approvedGarageId: { in: garageIds } },
-      data: { approvedGarageId: null },
-    });
-
-    await tx.garage.deleteMany({
-      where: { id: { in: garageIds } },
-    });
-  });
-
-  console.log(`Deleted ${garageIds.length} garage(s).`);
+  const result = await deleteGaragesDeep({ garageIds, deleteAllApplications });
+  console.log(`Deleted ${result.deletedGarages} garage(s), ${result.deletedApplications} application(s), ${result.deletedBookings} booking(s), and ${result.deletedOwnerUsers} owner user(s).`);
 };
 
 const deletePriceRanges = async () => {

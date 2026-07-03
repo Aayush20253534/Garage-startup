@@ -17,6 +17,7 @@ export default function Garages() {
   const [serviceForm, setServiceForm] = useState({ serviceId: "", price: "" });
   const [noteByApplication, setNoteByApplication] = useState({});
   const [selectedApplicationIds, setSelectedApplicationIds] = useState([]);
+  const [selectedGarageIds, setSelectedGarageIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -53,6 +54,7 @@ export default function Garages() {
       setSelectedGarageDetails((current) =>
         current && garageList?.some((garage) => garage.id === current.id) ? current : null
       );
+      setSelectedGarageIds((current) => current.filter((id) => garageList?.some((garage) => garage.id === id)));
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load garages/services");
     } finally {
@@ -153,8 +155,36 @@ export default function Garages() {
     }
   };
 
+  const toggleGarageSelection = (garageId) => {
+    setSelectedGarageIds((current) =>
+      current.includes(garageId)
+        ? current.filter((id) => id !== garageId)
+        : [...current, garageId]
+    );
+  };
+
+  const deleteGarages = async (garageIds) => {
+    if (!garageIds.length) return;
+    setError("");
+    setSuccess("");
+    try {
+      const result = await adminApi.deleteGarages(garageIds);
+      const deleted = result.deletedGarages || garageIds.length;
+      setSuccess(`${deleted} garage${deleted === 1 ? "" : "s"} and related DB records deleted.`);
+      setSelectedGarageIds([]);
+      if (garageIds.includes(selectedGarageId)) {
+        setSelectedGarageId("");
+        setSelectedGarageDetails(null);
+      }
+      await loadGaragesAndServices();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete garages");
+    }
+  };
+
   const canDeleteApplications = applicationStatus === "APPROVED" || applicationStatus === "DENIED";
   const allApplicationIds = applications.map((application) => application.id);
+  const allGarageIds = garages.map((garage) => garage.id);
 
   return (
     <div className="mx-auto w-full max-w-[1480px] space-y-6 overflow-hidden">
@@ -305,24 +335,62 @@ export default function Garages() {
         <div className="grid min-w-0 gap-5 2xl:grid-cols-[340px_minmax(0,1fr)]">
           <div className="card-soft min-w-0 overflow-hidden">
             <div className="border-b border-line p-4">
-              <h3 className="font-bold">Garage Tab</h3>
-              <p className="mt-1 text-xs text-muted">Click a garage to view onboarding details.</p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-bold">Garage Tab</h3>
+                  <p className="mt-1 text-xs text-muted">Click a garage to view onboarding details.</p>
+                </div>
+                <button onClick={loadGaragesAndServices} className="btn-ghost !px-3 !py-2 text-sm" type="button">
+                  <FiRefreshCw />
+                </button>
+              </div>
+              {garages.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <label className="inline-flex items-center gap-2 rounded-full bg-bg-soft px-3 py-2 text-xs font-semibold text-muted">
+                    <input
+                      type="checkbox"
+                      checked={selectedGarageIds.length === garages.length}
+                      onChange={(event) => setSelectedGarageIds(event.target.checked ? allGarageIds : [])}
+                    />
+                    Select all
+                  </label>
+                  <button
+                    onClick={() => deleteGarages(selectedGarageIds)}
+                    disabled={!selectedGarageIds.length}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-50"
+                    type="button"
+                  >
+                    <FiTrash2 /> Delete selected
+                  </button>
+                </div>
+              )}
             </div>
             <div className="max-h-[420px] overflow-y-auto 2xl:max-h-[680px]">
               {garages.map((garage) => (
-                <button
+                <div
                   key={garage.id}
-                  onClick={() => openGarageDetails(garage.id)}
-                  className={`block w-full border-b border-line p-4 text-left transition ${selectedGarageId === garage.id ? "bg-ink text-white" : "hover:bg-bg-soft"}`}
+                  className={`flex items-start gap-3 border-b border-line p-4 transition ${selectedGarageId === garage.id ? "bg-ink text-white" : "hover:bg-bg-soft"}`}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="truncate font-semibold">{garage.name}</span>
-                    <FiEye className="shrink-0" />
-                  </div>
-                  <div className={`text-xs ${selectedGarageId === garage.id ? "text-white/70" : "text-muted"}`}>
-                    {garage.city} · {garage.services?.length || 0} services · {garage.isActive ? "Active" : "Inactive"}
-                  </div>
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={selectedGarageIds.includes(garage.id)}
+                    onChange={() => toggleGarageSelection(garage.id)}
+                    className="mt-1"
+                  />
+                  <button
+                    onClick={() => openGarageDetails(garage.id)}
+                    className="min-w-0 flex-1 text-left"
+                    type="button"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate font-semibold">{garage.name}</span>
+                      <FiEye className="shrink-0" />
+                    </div>
+                    <div className={`text-xs ${selectedGarageId === garage.id ? "text-white/70" : "text-muted"}`}>
+                      {garage.city} · {garage.services?.length || 0} services · {garage.isActive ? "Active" : "Inactive"}
+                    </div>
+                  </button>
+                </div>
               ))}
             </div>
           </div>

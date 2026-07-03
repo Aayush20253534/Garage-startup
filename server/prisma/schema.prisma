@@ -9,8 +9,8 @@ datasource db {
 model User {
   id                 String              @id @default(uuid())
   name               String
-  email              String              @unique
-  phone              String?             @unique
+  email              String
+  phone              String?
   password           String
   role               Role                @default(CUSTOMER)
   isEmailVerified    Boolean             @default(false)
@@ -30,6 +30,45 @@ model User {
   vehicles           Vehicle[]
   wallet             Wallet?
   walletTransactions WalletTransaction[]
+  chatbotConversations ChatbotConversation[]
+  chatbotMessages    ChatbotMessage[]
+
+  @@unique([email, role])
+  @@unique([phone, role])
+  @@index([email])
+  @@index([phone])
+}
+
+model ChatbotConversation {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String?
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatbotMessage[]
+
+  @@index([userId])
+  @@index([userId, updatedAt])
+  @@map("chatbot_conversations")
+}
+
+model ChatbotMessage {
+  id             String              @id @default(uuid())
+  conversationId String
+  userId         String
+  role           ChatbotMessageRole
+  content        String
+  provider       String?
+  metadata       Json?
+  createdAt      DateTime            @default(now())
+  conversation   ChatbotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([userId, createdAt])
+  @@map("chatbot_messages")
 }
 
 model Otp {
@@ -48,8 +87,8 @@ model Otp {
 model PendingSignup {
   id              String   @id @default(uuid())
   name            String
-  email           String   @unique
-  phone           String   @unique
+  email           String
+  phone           String
   passwordHash    String
   role            Role     @default(CUSTOMER)
   isEmailVerified Boolean  @default(false)
@@ -58,6 +97,8 @@ model PendingSignup {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@unique([email, role])
+  @@unique([phone, role])
   @@index([email])
   @@index([phone])
   @@index([expiresAt])
@@ -293,6 +334,19 @@ model CityServicePriceRange {
   @@index([vehicleModel])
   @@index([fuelType])
   @@index([isActive])
+}
+
+model City {
+  id             String   @id @default(uuid())
+  name           String
+  normalizedName String   @unique
+  state          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([name])
 }
 
 model Booking {
@@ -625,6 +679,11 @@ enum Role {
   CUSTOMER
   GARAGE_OWNER
   ADMIN
+}
+
+enum ChatbotMessageRole {
+  USER
+  ASSISTANT
 }
 
 enum FuelType {

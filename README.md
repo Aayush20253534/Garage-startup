@@ -7,96 +7,79 @@
 ![ORM](https://img.shields.io/badge/ORM-Prisma-2D3748)
 ![Payments](https://img.shields.io/badge/Payments-Cashfree-purple)
 
-Rovauto is a full-stack vehicle service and roadside assistance platform. It connects customers with service providers, supports vehicle management, service booking, online payments, SOS requests, wallets, complaints, reviews, notifications, media uploads, and dashboard workflows.
+Rovauto is a full-stack vehicle service, garage partner, and roadside assistance platform for India. It connects customers with verified garages, supports service booking, vehicle management, location-aware garage matching, online payments, wallet flows, SOS requests, notifications, inspections, and admin operations.
 
-The customer flow is the most complete area today. Garage and admin routes/pages exist and are structured for expansion, with garage leads, jobs, wallet, earnings, media, and request handling already represented in the codebase.
+The app currently has three main portals:
 
----
+- Customer: auth, profile, city/location onboarding, vehicles, service selection, checkout, payments, dashboard, bookings, history, profile, SOS.
+- Garage owner: garage login, onboarding/application, services, bookings, wallet, profile/settings, handover and delivery workflows.
+- Admin: dashboard, customers, garage applications, approved garages, managed cities, price ranges, bookings, and notifications.
 
 ## Current Highlights
 
-- Customer registration, login, OTP verification, Google auth, password recovery, profile, and dashboard flows
-- JWT auth with an httpOnly cookie set by the backend and bearer-token fallback used by the frontend
-- Redux Toolkit store for central customer auth/profile/vehicle/location state
-- Login, Google auth, and OTP verification return the safe user bundle with `customerProfile`, `vehicles`, and `locations`
-- Location onboarding appears only when the customer has no saved profile address or `CustomerLocation`
-- Vehicle add/select/default management
-- Service category browsing, cart, booking checkout, and tracking
-- Cashfree order creation and payment verification
-- Pending-payment recovery from Checkout, Active Bookings, Payments, and Tracking
-- Garage request broadcasting after successful booking payment
-- Mandatory 5-photo pickup inspection after handover OTP verification and 5-photo delivery inspection before garage delivery marking
-- Customer dashboard caching with frontend cache and optional Redis backend cache
-- Route-level frontend code splitting with `React.lazy()` and `Suspense`
-- Customer backend modules grouped under `server/src/customer`
-- PostgreSQL persistence through Prisma
-- Cloudinary media upload support for garage/customer/admin media workflows, including booking inspection evidence
-- Resend email support and Fast2SMS-compatible OTP support
-- Database maintenance scripts for targeted cleanup and user-data backup/delete operations
-
----
+- India-first city and location flow with admin-managed service cities.
+- Customer and garage identities are role-scoped, so the same email can be used separately as customer and garage owner.
+- Manual address geocoding uses backend Nominatim first, then Groq address/coordinate fallback when provider lookup fails.
+- Current-location flow stores browser/device coordinates directly and reverse-geocodes only for display fields.
+- Invalid coordinates such as `0,0` and non-India coordinates are rejected by both frontend and backend.
+- Customer location is compulsory before vehicle selection and dashboard access.
+- Vehicle selection is compulsory before service booking dashboard flows.
+- Garage applications require at least 10 photos.
+- Garage approval is independent; one pending/unapproved garage no longer blocks another application.
+- Cashfree payment order and verification flow.
+- Garage request broadcast after successful payment, with accept/reject and timeout behavior.
+- Handover OTP plus mandatory inspection photos at pickup and delivery.
+- Admin can delete garages with related garage data cleaned up.
+- CLI cleanup scripts are dry-run by default and include explicit destructive flags.
+- Redis caching is optional and now fails fast so cache outages do not freeze dashboard or geocoding.
+- Cloudinary media upload support for garage, service, complaint, and inspection images.
+- Resend email, Fast2SMS-compatible SMS, Firebase Google auth, and Groq fallback support.
 
 ## Tech Stack
 
-### Frontend
+Frontend:
 
 - React 18
 - Vite
-- Redux Toolkit
-- React Redux
+- Redux Toolkit and React Redux
 - React Router DOM
 - Axios
 - Tailwind CSS
 - Framer Motion
 - React Icons
-- Firebase client auth for Google sign-in
+- Firebase client auth
 
-### Backend
+Backend:
 
 - Node.js
 - Express 5
-- Prisma ORM
+- Prisma 7
 - PostgreSQL
-- JWT
+- JWT and httpOnly cookie support
 - Argon2
-- Firebase Admin for Google ID token verification
+- Firebase Admin
 - Express Validator
 - Multer
 - Cloudinary
 - Cashfree
-- Redis with ioredis
+- Redis/ioredis
 - Resend
-
----
+- Fast2SMS-compatible SMS
+- Groq SDK
 
 ## Architecture
 
 ```text
-User -> React/Vite Client -> Axios -> Express API -> Services -> Prisma -> PostgreSQL
-                  |                            |
-                  |                            +-> Cashfree / Cloudinary / Resend / Redis / Firebase Admin
-                  +-> Redux Toolkit customer store
+React/Vite client
+  -> Axios API client
+  -> Express API under /api/v1
+  -> Service layer
+  -> Prisma
+  -> PostgreSQL
+
+External services:
+  Cashfree, Cloudinary, Firebase, Resend, Fast2SMS, Redis, Nominatim, Groq
 ```
-
-The API is served under:
-
-```text
-/api/v1
-```
-
-Customer backend code is grouped in:
-
-```text
-server/src/customer/
-|-- controllers/
-|-- routes/
-|-- services/
-|-- validations/
-```
-
-Shared backend infrastructure remains in `config`, `constants`, `middlewares`, and `utils`. Garage/admin-side files currently remain in the top-level backend module folders.
-
----
 
 ## Project Structure
 
@@ -107,7 +90,6 @@ Codebase/
 |   |   |-- api/
 |   |   |-- assets/
 |   |   |-- components/
-|   |   |-- data/
 |   |   |-- hooks/
 |   |   |-- layouts/
 |   |   |-- pages/
@@ -119,22 +101,20 @@ Codebase/
 |   |   |   |-- sos/
 |   |   |-- store/
 |   |   |-- utils/
-|   |   |-- App.jsx
-|   |   |-- index.css
-|   |   |-- main.jsx
 |   |-- README.md
 |   |-- package.json
-|   |-- vite.config.js
 |
 |-- server/
 |   |-- prisma/
 |   |   |-- migrations/
 |   |   |-- schema.prisma
 |   |-- src/
+|   |   |-- admin/
 |   |   |-- config/
-|   |   |-- constants/
-|   |   |-- customer/
 |   |   |-- controllers/
+|   |   |-- customer/
+|   |   |   |-- knowledge/
+|   |   |-- garage/
 |   |   |-- middlewares/
 |   |   |-- routes/
 |   |   |-- scripts/
@@ -142,18 +122,14 @@ Codebase/
 |   |   |-- services/
 |   |   |-- utils/
 |   |   |-- validations/
-|   |   |-- app.js
-|   |   |-- server.js
 |   |-- README.md
 |   |-- package.json
 |
+|-- docker-compose.yml
 |-- README.md
-|-- project-architecture.txt
 ```
 
----
-
-## Installation
+## Local Setup
 
 ### Backend
 
@@ -162,21 +138,20 @@ cd server
 npm install
 ```
 
-Create `server/.env` from `server/.env.example` and configure:
+Create `server/.env` from `server/.env.example` and fill required values.
+
+Common required values:
 
 ```env
 DATABASE_URL=""
 PORT=5000
 NODE_ENV=development
 
-JWT_SECRET="your_jwt_secret_here"
+JWT_SECRET=""
 JWT_EXPIRES_IN="7d"
 
-RESEND_API_KEY=""
-EMAIL_FROM=""
-
-SMS_PROVIDER="fast2sms_quick"
-FAST2SMS_API_KEY=""
+FRONTEND_URL="http://localhost:8080"
+CLIENT_URL="http://localhost:8080"
 
 FIREBASE_PROJECT_ID=""
 FIREBASE_CLIENT_EMAIL=""
@@ -191,9 +166,24 @@ CLOUDINARY_CLOUD_NAME=""
 CLOUDINARY_API_KEY=""
 CLOUDINARY_API_SECRET=""
 
+RESEND_API_KEY=""
+EMAIL_FROM=""
+
+SMS_PROVIDER="fast2sms_quick"
+FAST2SMS_API_KEY=""
+
 REDIS_URL=""
-CLIENT_URL="https://your-frontend-domain.com"
-FRONTEND_URL="https://your-frontend-domain.com"
+
+GEOCODER_PROVIDER="nominatim"
+GEOCODER_DEFAULT_COUNTRY="India"
+GEOCODER_COUNTRYCODES="in"
+NOMINATIM_USER_AGENT="Rovauto/1.0 (your-email@example.com)"
+NOMINATIM_TIMEOUT_MS=3000
+GROQ_API_KEY=""
+GROQ_MODEL="llama-3.1-8b-instant"
+CHATBOT_GROQ_MODEL="llama-3.1-8b-instant"
+CHATBOT_GROQ_TIMEOUT_MS=12000
+CHATBOT_RATE_LIMIT_PER_MINUTE=20
 ```
 
 Run Prisma:
@@ -203,20 +193,21 @@ npm run prisma:generate
 npm run prisma:migrate
 ```
 
-Optional seeds:
+Optional seed data:
 
 ```bash
+npm run seed:admin
 npm run seed:services
 npm run seed:garages
 ```
 
-Start backend:
+Start the backend:
 
 ```bash
 npm run dev
 ```
 
-Backend default:
+Default API base:
 
 ```text
 http://localhost:5000/api/v1
@@ -229,64 +220,73 @@ cd client
 npm install
 ```
 
-Optional `client/.env`:
+Create `client/.env`:
 
 ```env
 VITE_API_URL=http://localhost:5000/api/v1
+VITE_FIREBASE_API_KEY=""
+VITE_FIREBASE_AUTH_DOMAIN=""
+VITE_FIREBASE_PROJECT_ID=""
+VITE_FIREBASE_APP_ID=""
 ```
 
-Start frontend:
+Start the frontend:
 
 ```bash
 npm run dev
 ```
 
-Frontend default:
+Default frontend:
 
 ```text
 http://localhost:8080
 ```
 
----
-
 ## Scripts
 
-### Backend
+Backend:
 
 ```bash
-npm run dev                         # Start backend with nodemon
-npm start                           # Start backend with node
-npm run prisma:generate             # Generate Prisma client
-npm run prisma:migrate              # Run development migrations
-npm run prisma:deploy               # Deploy migrations
-npm run prisma:studio               # Open Prisma Studio
-npm run seed:services               # Seed service data
-npm run seed:garages                # Seed garage data
-npm run db:delete-user              # Dry-run/delete matched user data by id/email/phone/name
-npm run db:delete-active-bookings   # Dry-run/delete active bookings for one email
-npm run db:delete-payments          # Dry-run/delete payment records for one email
-npm run db:delete-service-history   # Dry-run/delete completed bookings for one email
-npm run db:nuke-users               # Dry-run/delete all users after JSON backup and explicit flags
+npm run dev
+npm start
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:deploy
+npm run prisma:studio
+npm run seed:admin
+npm run seed:services
+npm run seed:garages
+npm run db:delete-user
+npm run db:delete-active-bookings
+npm run db:delete-payments
+npm run db:delete-service-history
+npm run db:delete-garages
+npm run db:delete-price-ranges
+npm run db:delete-bookings
+npm run db:delete-notifications
+npm run db:nuke-users
+npm run db:approve-garage
+npm run db:activate-garage
 ```
 
-Targeted cleanup commands are dry-run by default. Add `--confirm` to delete. The nuke command also requires `--i-understand-delete-all-users` and writes a JSON backup first.
-
-### Frontend
+Frontend:
 
 ```bash
-npm run dev        # Start Vite dev server
-npm run build      # Build production bundle into dist/
-npm run build:dev  # Build in development mode
-npm run preview    # Preview production build
+npm run dev
+npm run build
+npm run build:dev
+npm run preview
 ```
-
----
 
 ## API Modules
 
 Mounted under `/api/v1`:
 
 - `/auth`
+- `/public`
+- `/cities`
+- `/send-otp`
+- `/verify-otp`
 - `/customer`
 - `/vehicles`
 - `/locations`
@@ -294,41 +294,104 @@ Mounted under `/api/v1`:
 - `/services`
 - `/vehicle-meta`
 - `/garages`
+- `/garage/applications`
 - `/notifications`
 - `/bookings`
 - `/payments`
 - `/reviews`
 - `/complaints`
 - `/dashboard`
+- `/chatbot`
 - `/wallet`
 - `/garage/wallet`
+- `/garage/wallet-legacy`
 - `/garage/requests`
+- `/admin/garage-applications`
+- `/admin/city-service-price-ranges`
+- `/admin/garages`
+- `/admin`
 - `/sos`
 
----
+## Location Behavior
 
-## Current Customer And Garage Flow
+Rovauto is configured for India.
 
-The current backend flow is API-ready for customer booking, garage acceptance, wallet deduction, handover OTP, delivery acceptance, and service history.
+Current location:
 
 ```text
-Customer selects vehicle/services/location
- -> Backend resolves manual address to lat/lng when /locations/geocode is used
- -> Backend calculates estimated service price range
- -> Customer pays Rovauto handling/platform fee through Cashfree
- -> Payment verification starts garage search
- -> Nearby active verified garages within GARAGE_BROADCAST_RADIUS_KM receive request notification/log
- -> Garage opens accept link and accepts on website
- -> Garage wallet platform fee is deducted
- -> Customer gets in-app accepted notification with handover OTP
- -> Garage verifies OTP before vehicle handover
- -> Booking moves to IN_PROGRESS
- -> Garage marks delivered
- -> Customer accepts delivery
- -> Booking moves to COMPLETED and appears in service history
+Browser/device geolocation -> save latitude/longitude directly -> reverse geocode for display fields.
 ```
 
-Important backend controls:
+Manual location:
+
+```text
+User enters address, area, city, pincode
+ -> frontend checks admin-managed city availability
+ -> backend geocodes with Nominatim, restricted to India
+ -> if provider fails, Groq can correct/estimate Indian coordinates
+ -> backend rejects 0,0 and non-India coordinates
+ -> valid coordinates are saved to CustomerLocation
+```
+
+The app should not call geocoding again for an unchanged saved location. Coordinates are stored in the database and reused.
+
+## AI Chatbot
+
+Rovauto has a customer-side RAG chatbot connected to the floating chat UI.
+
+```text
+Markdown knowledge files
+ -> lightweight section retrieval
+ -> safe customer account context
+ -> Groq answer generation
+ -> local RAG fallback if Groq is unavailable
+```
+
+Knowledge files live in:
+
+```text
+server/src/customer/knowledge/
+```
+
+The chatbot can answer customer-side questions about booking, vehicles, location, city availability, payments, SOS, complaints, reviews, profile settings, tracking, and service history. It is intentionally scoped away from random general-purpose chat and should not invent policies, prices, garage availability, refunds, or emergency dispatch.
+
+Chat memory is stored in the main PostgreSQL database, not a separate Neon database:
+
+```text
+chatbot_conversations
+chatbot_messages
+```
+
+Messages are always scoped by the logged-in `userId`, so one customer cannot read another customer's chat. The backend trims sensitive account context before sending prompts to Groq; exact saved addresses, customer names, and booking codes are not included in the model context.
+
+Chatbot endpoints:
+
+```text
+GET    /api/v1/chatbot/history
+POST   /api/v1/chatbot/ask
+DELETE /api/v1/chatbot/history
+```
+
+## Booking Lifecycle
+
+```text
+Customer selects location
+ -> selects/adds vehicle
+ -> selects services
+ -> selects garage or auto assignment
+ -> pays Rovauto handling/platform fee through Cashfree
+ -> backend verifies payment
+ -> nearby active verified garages are notified
+ -> garage accepts before timeout
+ -> customer receives accepted notification and handover OTP
+ -> garage verifies handover OTP and uploads pickup inspection photos
+ -> booking moves to IN_PROGRESS
+ -> garage uploads delivery inspection photos and marks delivered
+ -> customer accepts delivery
+ -> booking moves to COMPLETED and service history
+```
+
+Important controls:
 
 ```env
 GARAGE_BROADCAST_RADIUS_KM=15
@@ -337,85 +400,55 @@ HANDOVER_OTP_TTL_MINUTES=30
 SERVICE_PRICE_RANGE_DELTA=500
 ```
 
-If no garage accepts within the search window, the booking and pending garage requests expire and the customer receives an in-app notification asking them to try again.
+## Garage Applications
 
-Manual address flow uses OpenStreetMap Nominatim through the backend:
+- Garage owner accounts are separate from customer accounts even with the same email.
+- Each application is independent.
+- Minimum photos for garage application submission: 10.
+- Admin approval creates/updates garage records.
+- Admin city availability controls whether customer/garage location cities are serviceable.
 
-```text
-GET /api/v1/locations/geocode?address=Baneshwor&city=Kathmandu
+## Docker
+
+From the root:
+
+```bash
+docker compose up --build
 ```
 
-The frontend should send the returned `latitude` and `longitude` during checkout. Distance is calculated by the backend using the Haversine formula between customer coordinates and stored garage coordinates.
+Run in background:
 
-Key backend routes:
-
-```text
-POST /api/v1/garage/applications
-GET/POST/PATCH/DELETE /api/v1/admin/city-service-price-ranges
-POST /api/v1/garage/wallet/recharge/order
-POST /api/v1/garage/wallet/recharge/verify
-POST /api/v1/garages/:garageId/media
-GET /api/v1/garage/requests
-POST /api/v1/garage/requests/:requestId/accept
-POST /api/v1/garage/requests/:requestId/verify-handover-otp
-POST /api/v1/garage/requests/:requestId/mark-delivered
-POST /api/v1/bookings/:id/accept-delivery
-GET /api/v1/bookings/service-history
+```bash
+docker compose up -d
 ```
 
-WhatsApp provider envs can stay empty during testing. When empty, the backend logs the outgoing WhatsApp-style message and accept link instead of calling a real provider.
----
+Stop:
 
-
-### Booking Inspection Images
-
-Garage owners must upload exactly 5 car inspection photos at each handover checkpoint:
-
-```text
-PICKUP: after valid handover OTP verification, before booking moves to IN_PROGRESS
-DELIVERY: before garage marks the vehicle delivered
+```bash
+docker compose down
 ```
 
-Both sets are uploaded to Cloudinary and stored in PostgreSQL/Neon through `BookingInspectionImage` with `bookingId`, `garageId`, `phase`, `imageUrl`, `publicId`, and `order`. Booking responses include `inspectionImages` ordered by phase and photo order.
----
+Logs:
 
-## Auth And State Notes
-
-- Backend sets an `accessToken` cookie and also returns a token for bearer-token compatibility.
-- Frontend currently stores the token in localStorage and sends it through Axios authorization headers.
-- Redux Toolkit stores the safe customer bundle on the frontend: `user`, `customerProfile`, `vehicles`, `locations`, selected vehicle, and selected location.
-- Do not store passwords, OTPs, raw wallet transaction history, or other sensitive records in Redux/localStorage.
-- If frontend and backend move to a shared production domain setup, cookie-only auth can be revisited.
-
----
-
-## Media Notes
-
-- Static brand/core UI assets can stay in the frontend build.
-- Dynamic garage media, complaint images, booking pickup/delivery inspection images, and admin-managed service media should use Cloudinary.
-- Optimize large image assets before production traffic.
-
----
+```bash
+docker compose logs -f
+docker compose logs -f backend
+docker compose logs -f frontend
+```
 
 ## Production Notes
 
+- Use Google Maps API for production geocoding when funding/paid tier is available.
+- Set strict daily/monthly quotas on Google Maps, SMS, Groq, and Cloudinary.
+- Store chatbot conversations in the main database unless strict isolation or analytics scale later requires a separate database.
+- Keep all secrets in hosting environment variables.
+- Use separate development, staging, and production databases.
+- Run `npm run prisma:deploy` during production releases.
+- Configure production CORS with `CLIENT_URL` and `FRONTEND_URL`.
 - Add Cashfree webhooks before real production payment traffic.
-- Configure all production secrets in hosting environment variables.
-- Configure production CORS with `CLIENT_URL` / `FRONTEND_URL`.
-- Prefer one PostgreSQL database for core relational business data, with separate development/staging/production databases by environment.
-- Use Redis for cache/rate-limit/session-like volatile data where needed.
-- Confirm role protection for garage/admin routes before public launch.
-- Add automated tests for auth, booking, payments, wallet, media, and role access.
-- Run Prisma deploy migrations during production releases.
-
----
-
-## Build Output
-
-The frontend `dist/` folder is generated by Vite. It contains production-ready HTML, CSS, JavaScript, and assets. Do not edit `dist/` directly.
-
----
+- Keep Redis optional and non-blocking; it is a cache, not the source of truth.
+- Optimize large frontend images before production traffic.
 
 ## License
 
-ISC, based on the current backend package metadata.
+ISC, based on current package metadata.

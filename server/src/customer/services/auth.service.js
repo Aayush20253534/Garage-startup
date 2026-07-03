@@ -21,6 +21,8 @@ const PASSWORD_MESSAGE =
   "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol";
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+const normalizeAuthRole = (role, allowedRoles = ["CUSTOMER", "GARAGE_OWNER", "ADMIN"], fallback = "CUSTOMER") =>
+  allowedRoles.includes(role) ? role : fallback;
 
 const toSafeUser = (user) => ({
   id: user.id,
@@ -76,7 +78,7 @@ const signup = async ({
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
   const validRoles = ["CUSTOMER", "GARAGE_OWNER"];
-  const userRole = validRoles.includes(role) ? role : "CUSTOMER";
+  const userRole = normalizeAuthRole(role, validRoles, "CUSTOMER");
 
   if (!cleanName || !cleanEmail || !cleanPhone || !password) {
     throw new ApiError(400, "Name, email, phone and password are required");
@@ -100,6 +102,7 @@ const signup = async ({
 
   const existingUser = await prisma.user.findFirst({
     where: {
+      role: userRole,
       OR: [{ email: cleanEmail }, { phone: cleanPhone }],
     },
   });
@@ -115,6 +118,7 @@ const signup = async ({
 
   const conflictingPendingSignup = await prisma.pendingSignup.findFirst({
     where: {
+      role: userRole,
       OR: [{ email: cleanEmail }, { phone: cleanPhone }],
       NOT: {
         AND: [{ email: cleanEmail }, { phone: cleanPhone }],
@@ -129,7 +133,7 @@ const signup = async ({
   const hashedPassword = await argon2.hash(password);
 
   const pendingSignup = await prisma.pendingSignup.upsert({
-    where: { email: cleanEmail },
+    where: { email_role: { email: cleanEmail, role: userRole } },
     update: {
       name: cleanName,
       phone: cleanPhone,
@@ -180,14 +184,16 @@ const signup = async ({
   };
 };
 
-const verifyOtp = async ({ email, phone, otp }) => {
+const verifyOtp = async ({ email, phone, otp, role = "CUSTOMER" }) => {
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
+  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER"], "CUSTOMER");
 
   const pendingSignup = await prisma.pendingSignup.findFirst({
     where: {
       email: cleanEmail,
       phone: cleanPhone,
+      role: userRole,
     },
   });
 
@@ -236,14 +242,16 @@ const verifyOtp = async ({ email, phone, otp }) => {
   };
 };
 
-const resendOtp = async ({ email, phone }) => {
+const resendOtp = async ({ email, phone, role = "CUSTOMER" }) => {
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
+  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER"], "CUSTOMER");
 
   const pendingSignup = await prisma.pendingSignup.findFirst({
     where: {
       email: cleanEmail,
       phone: cleanPhone,
+      role: userRole,
     },
   });
 
@@ -300,11 +308,12 @@ const verifyPhoneNumberOtp = async ({ phone, otp }, userId = null) => {
   };
 };
 
-const login = async ({ identifier, password }) => {
+const login = async ({ identifier, password, role }) => {
   const rawIdentifier = identifier?.trim();
   const cleanIdentifier = rawIdentifier?.startsWith("+")
     ? normalizePhone(rawIdentifier)
     : normalizeEmail(rawIdentifier);
+  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER", "ADMIN"], "CUSTOMER");
 
   if (!cleanIdentifier || !password) {
     throw new ApiError(400, "Email/phone and password are required");
@@ -312,6 +321,7 @@ const login = async ({ identifier, password }) => {
 
   const user = await prisma.user.findFirst({
     where: {
+      role: userRole,
       OR: [{ email: cleanIdentifier }, { phone: cleanIdentifier }],
     },
   });
@@ -356,14 +366,14 @@ const googleAuth = async ({ idToken, role = "CUSTOMER" }) => {
     decodedToken.email?.split("@")[0] ||
     "Rovauto User";
   const validRoles = ["CUSTOMER", "GARAGE_OWNER"];
-  const userRole = validRoles.includes(role) ? role : "CUSTOMER";
+  const userRole = normalizeAuthRole(role, validRoles, "CUSTOMER");
 
   if (!cleanEmail || !decodedToken.email_verified) {
     throw new ApiError(400, "Google account email must be verified");
   }
 
-  let user = await prisma.user.findUnique({
-    where: { email: cleanEmail },
+  let user = await prisma.user.findFirst({
+    where: { email: cleanEmail, role: userRole },
   });
   let isNewUser = false;
 
@@ -397,7 +407,7 @@ const googleAuth = async ({ idToken, role = "CUSTOMER" }) => {
     });
 
     await prisma.pendingSignup.deleteMany({
-      where: { email: cleanEmail },
+      where: { email: cleanEmail, role: userRole },
     });
     await prisma.emailOtp.deleteMany({
       where: { email: cleanEmail },
@@ -415,14 +425,15 @@ const googleAuth = async ({ idToken, role = "CUSTOMER" }) => {
   };
 };
 
-const forgotPassword = async ({ email }) => {
+const forgotPassword = async ({ email, role = "CUSTOMER" }) => {
   const cleanEmail = normalizeEmail(email);
+  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER", "ADMIN"], "CUSTOMER");
   const genericResponse = {
     message: "If an account exists, a password reset OTP will be sent.",
   };
 
-  const user = await prisma.user.findUnique({
-    where: { email: cleanEmail },
+  const user = await prisma.user.findFirst({
+    where: { email: cleanEmail, role: userRole },
   });
 
   if (!user) {
@@ -438,11 +449,12 @@ const forgotPassword = async ({ email }) => {
   return genericResponse;
 };
 
-const resetPassword = async ({ email, otp, newPassword }) => {
+const resetPassword = async ({ email, otp, newPassword, role = "CUSTOMER" }) => {
   const cleanEmail = normalizeEmail(email);
+  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER", "ADMIN"], "CUSTOMER");
 
-  const user = await prisma.user.findUnique({
-    where: { email: cleanEmail },
+  const user = await prisma.user.findFirst({
+    where: { email: cleanEmail, role: userRole },
   });
 
   if (!user) {

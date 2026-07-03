@@ -1,5 +1,13 @@
 const redis = require("../config/redis");
 
+const withTimeout = (promise, ms = Number(process.env.CACHE_TIMEOUT_MS || 1500)) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Cache operation timed out")), ms)
+    ),
+  ]);
+
 const ensureRedisConnected = async () => {
   if (!redis) return false;
 
@@ -11,7 +19,7 @@ const ensureRedisConnected = async () => {
     redis.status === "close"
   ) {
     try {
-      await redis.connect();
+      await withTimeout(redis.connect());
       return redis.status === "ready";
     } catch (error) {
       console.error("Redis connect failed:", error.message);
@@ -27,7 +35,7 @@ const getCache = async (key) => {
     const connected = await ensureRedisConnected();
     if (!connected) return null;
 
-    const cached = await redis.get(key);
+    const cached = await withTimeout(redis.get(key));
 
     if (!cached) {
       console.log(`❌ Cache Miss: ${key}`);
@@ -47,7 +55,7 @@ const setCache = async (key, data, ttlSeconds = 60) => {
     const connected = await ensureRedisConnected();
     if (!connected) return false;
 
-    await redis.set(key, JSON.stringify(data), "EX", ttlSeconds);
+    await withTimeout(redis.set(key, JSON.stringify(data), "EX", ttlSeconds));
 
     console.log(`💾 Cache Set: ${key}`);
     return true;
@@ -62,7 +70,7 @@ const deleteCache = async (key) => {
     const connected = await ensureRedisConnected();
     if (!connected) return false;
 
-    await redis.del(key);
+    await withTimeout(redis.del(key));
 
     console.log(`🧹 Cache Deleted: ${key}`);
     return true;
@@ -81,7 +89,7 @@ const deletePattern = async (pattern) => {
     let cursor = "0";
 
     do {
-      const result = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
+      const result = await withTimeout(redis.scan(cursor, "MATCH", pattern, "COUNT", 100));
       cursor = result[0];
       keys.push(...result[1]);
     } while (cursor !== "0");
@@ -91,7 +99,7 @@ const deletePattern = async (pattern) => {
       return true;
     }
 
-    await redis.del(...keys);
+    await withTimeout(redis.del(...keys));
 
     console.log(`🧹 Cache Deleted Pattern: ${pattern} (${keys.length} keys)`);
     return true;
