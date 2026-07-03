@@ -344,8 +344,8 @@ export default function VehicleSelect() {
                     onClick={() => selectBrand(b)}
                     className={`flex min-h-36 flex-col items-center justify-center rounded-2xl border p-4 text-center transition ${
                       brand?.id === b.id
-                        ? "border-ink bg-ink text-white"
-                        : "border-line hover:border-ink"
+                        ? "border-brand bg-brand-soft text-ink ring-2 ring-brand"
+                        : "border-line bg-white hover:border-ink"
                     }`}
                   >
                     {b.image ? (
