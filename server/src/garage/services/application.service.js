@@ -1,15 +1,17 @@
 const argon2 = require("argon2");
-const crypto = require("crypto");
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/cloudinaryUpload");
 const { sendGarageApplicationEmail } = require("./applicationEmail.service");
-const { createResetPasswordOtp } = require("../../customer/services/otp.service");
 const geocodingService = require("../../customer/services/geocoding.service");
 const { GARAGE_MINIMUM_ACTIVATION_RECHARGE } = require("../constants");
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const normalizePhone = (phone) => String(phone || "").trim();
+const getDefaultGaragePassword = (phone) => {
+  const digits = normalizePhone(phone).replace(/\D/g, "");
+  return digits.length > 10 && digits.startsWith("91") ? digits.slice(2, 12) : digits.slice(0, 10);
+};
 const normalizeGarageType = (value) =>
   String(value || "MULTI_BRAND").trim().toUpperCase() === "AUTHORIZED"
     ? "AUTHORIZED"
@@ -196,6 +198,8 @@ const approveApplication = async (applicationId, adminNote) => {
 
   // perform owner creation/update, garage creation and update application in a transaction
   const result = await prisma.$transaction(async (tx) => {
+    const defaultPassword = getDefaultGaragePassword(application.phone);
+    const defaultPasswordHash = await argon2.hash(defaultPassword);
     const existingOwner = await tx.user.findFirst({
       where: {
         role: "GARAGE_OWNER",
@@ -208,6 +212,7 @@ const approveApplication = async (applicationId, adminNote) => {
           data: {
             name: application.ownerName,
             phone: application.phone,
+            password: defaultPasswordHash,
             role: "GARAGE_OWNER",
             isActive: true,
             isEmailVerified: true,
@@ -218,7 +223,7 @@ const approveApplication = async (applicationId, adminNote) => {
             name: application.ownerName,
             email: application.email,
             phone: application.phone,
-            password: await argon2.hash(crypto.randomBytes(32).toString("hex")),
+            password: defaultPasswordHash,
             role: "GARAGE_OWNER",
             isActive: true,
             isEmailVerified: true,
@@ -276,6 +281,7 @@ const approveApplication = async (applicationId, adminNote) => {
       application: updatedApplication,
       garage,
       owner,
+      defaultPassword,
       activationRequired: {
         minimumRecharge: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
         message: `Garage is verified but inactive until wallet has at least Rs. ${GARAGE_MINIMUM_ACTIVATION_RECHARGE} verified Cashfree balance.`,
@@ -283,12 +289,7 @@ const approveApplication = async (applicationId, adminNote) => {
     };
   });
 
-  // Generate a reset OTP for the owner so they can set a password.
-  // createResetPasswordOtp returns plaintext OTP (dev/testing only) and also logs it.
-  const resetOtp = await createResetPasswordOtp(result.owner.id, result.owner.email);
-
-  // Send the approval email including the OTP (development/testing)
-  const approvalMessage = `${result.application.adminNote}\n\nYour account has been created/verified.\n\nUse this OTP to set your password via Forgot Password -> Reset Password: ${resetOtp}\n\nIf you don't see an OTP, use 'Forgot Password' on login to receive one.`;
+  const approvalMessage = `${result.application.adminNote}\n\nYour account has been created/verified.\n\nYour default password is your 10-digit mobile number: ${result.defaultPassword}\n\nYou can change it anytime from Forgot Password on the garage login page.`;
 
   await sendGarageApplicationEmail({
     to: result.owner.email,
@@ -296,11 +297,7 @@ const approveApplication = async (applicationId, adminNote) => {
     message: approvalMessage,
   });
 
-  // Include resetOtp in the returned result for admin API responses (dev/testing)
-  return {
-    ...result,
-    resetOtp,
-  };
+  return result;
 };
 
 const deleteApplications = async (applicationIds = []) => {

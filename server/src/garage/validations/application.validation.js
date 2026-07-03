@@ -3,7 +3,10 @@ const { body, param, query } = require("express-validator");
 const submitGarageApplicationSchema = [
   body("ownerName").trim().notEmpty().withMessage("Owner name is required"),
   body("email").trim().isEmail().withMessage("Valid email is required").normalizeEmail(),
-  body("phone").trim().notEmpty().withMessage("Phone is required"),
+  body("phone")
+    .trim()
+    .matches(/^\+91[6-9]\d{9}$/)
+    .withMessage("Enter a valid 10-digit Indian mobile number"),
   body("garageName").trim().notEmpty().withMessage("Garage name is required"),
   body("description").optional({ nullable: true, checkFalsy: true }).trim(),
   body("address").trim().notEmpty().withMessage("Address is required"),

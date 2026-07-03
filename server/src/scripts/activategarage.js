@@ -286,10 +286,10 @@ const run = async () => {
 
   await activateGarageById(garageIdToActivate);
 
-  if (result.resetOtp) {
+  if (result.defaultPassword) {
     console.log(
-      `Reset OTP for owner (${result.owner?.email || application.email}): ${
-        result.resetOtp
+      `Default password for owner (${result.owner?.email || application.email}): ${
+        result.defaultPassword
       }`
     );
   }
