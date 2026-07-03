@@ -9,6 +9,7 @@ const WALLET_TRANSACTION_TYPE = require("../constants/walletTransactionType");
 const WALLET_TRANSACTION_STATUS = require("../constants/walletTransactionStatus");
 const { calculatePlatformFee } = require("../garage/constants");
 const { addGarageWhatsappLink } = require("../utils/whatsapp");
+const calculateDistanceKm = require("../utils/distance");
 const {
   getGarageAcceptUrl,
   getMapsLink,
@@ -19,11 +20,73 @@ const {
 const bookingLifecycleService = require("./bookingLifecycle.service");
 
 const SOS_CHARGE = 50;
-const serializeGarageRequest = (request) => ({
-  ...request,
-  acceptUrl: getGarageAcceptUrl(request.id),
-  garage: addGarageWhatsappLink(request.garage),
-});
+const estimateArrivalMinutes = (distanceKm) => {
+  const distance = Number(distanceKm);
+  if (!Number.isFinite(distance) || distance <= 0) return null;
+
+  const averageCitySpeedKmph = Number(process.env.GARAGE_ETA_SPEED_KMPH || 25);
+  const pickupBufferMinutes = Number(process.env.GARAGE_ETA_BUFFER_MINUTES || 10);
+  const speed = Number.isFinite(averageCitySpeedKmph) && averageCitySpeedKmph > 0 ? averageCitySpeedKmph : 25;
+  const buffer = Number.isFinite(pickupBufferMinutes) && pickupBufferMinutes >= 0 ? pickupBufferMinutes : 10;
+
+  return Math.max(5, Math.ceil((distance / speed) * 60 + buffer));
+};
+
+const getRequestDistanceKm = (request) => {
+  const booking = request.booking;
+  const garage = request.garage;
+
+  if (
+    !booking?.customerLatitude ||
+    !booking?.customerLongitude ||
+    !garage?.latitude ||
+    !garage?.longitude
+  ) {
+    return null;
+  }
+
+  return calculateDistanceKm(
+    booking.customerLatitude,
+    booking.customerLongitude,
+    garage.latitude,
+    garage.longitude
+  );
+};
+
+const redactPendingCustomerDetails = (request) => {
+  if (request.status !== BROADCAST_STATUS.SENT || !request.booking) return request;
+
+  return {
+    ...request,
+    booking: {
+      ...request.booking,
+      customerAddress: null,
+      customerLatitude: null,
+      customerLongitude: null,
+      user: request.booking.user
+        ? {
+            id: request.booking.user.id,
+            name: "Customer",
+            email: null,
+            phone: null,
+          }
+        : null,
+    },
+  };
+};
+
+const serializeGarageRequest = (request) => {
+  const safeRequest = redactPendingCustomerDetails(request);
+  const distanceKm = getRequestDistanceKm(request);
+
+  return {
+    ...safeRequest,
+    distanceKm,
+    etaMinutes: estimateArrivalMinutes(distanceKm),
+    acceptUrl: getGarageAcceptUrl(request.id),
+    garage: addGarageWhatsappLink(safeRequest.garage),
+  };
+};
 
 const serializeGarageRequests = (requests) => requests.map(serializeGarageRequest);
 
@@ -267,11 +330,16 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
     return { request: acceptedRequest, handoverOtp };
   });
 
+  const distanceKm = getRequestDistanceKm(result.request);
+  const etaMinutes = estimateArrivalMinutes(distanceKm);
+
   await Promise.allSettled([
     bookingLifecycleService.notifyGarageAccepted({
       booking: result.request.booking,
       garage: result.request.garage,
       otp: result.handoverOtp.otp,
+      distanceKm,
+      etaMinutes,
     }),
     sendCustomerGarageDetailsWhatsapp({
       customer: result.request.booking.user,

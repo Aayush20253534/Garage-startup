@@ -4,11 +4,13 @@ import { motion } from "framer-motion";
 import Logo from "@/components/common/Logo";
 import FAB from "@/components/FAB";
 import { useApp } from "@/hooks/useApp";
+import useUnreadNotifications from "@/hooks/useUnreadNotifications";
 import { FiMenu, FiX, FiLogOut } from "react-icons/fi";
 
 export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const { pathname } = useLocation();
   const { user, garage, logout, logoutGarage } = useApp();
+  const { unreadCount } = useUnreadNotifications();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -103,6 +105,11 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
                 >
                   <Icon className="shrink-0 text-lg" />
                   <span className="truncate">{item.label}</span>
+                  {item.to === "/dashboard/notifications" && unreadCount > 0 && (
+                    <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-ink">
+                      +{unreadCount}
+                    </span>
+                  )}
                 </NavLink>
               );
             })}

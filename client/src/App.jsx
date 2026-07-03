@@ -310,6 +310,7 @@ function AppRoutes() {
           />
           <Route path="/garage/onboarding" element={<GarageOnboarding />} />
           <Route path="/garage/magic/:id" element={<MagicLink />} />
+          <Route path="/garage/requests/:id" element={<MagicLink />} />
 
           <Route
             path="/booking/address"

@@ -47,11 +47,13 @@ export const mapGarageRequestToBooking = (request) => {
   const customer = booking.user || {};
   const services = Array.isArray(booking.services) ? booking.services : [];
   const status =
-    booking.deliveredAt && !booking.customerAcceptedAt
-      ? "DELIVERED"
-      : request.status === "SENT"
-        ? "NEW"
-        : booking.status || request.status;
+    request.status === "SENT"
+      ? "NEW"
+      : request.status === "ACCEPTED"
+        ? booking.deliveredAt && !booking.customerAcceptedAt
+          ? "DELIVERED"
+          : booking.status || request.status
+        : request.status;
 
   return {
     id: request.id,
@@ -60,6 +62,8 @@ export const mapGarageRequestToBooking = (request) => {
     status,
     createdAt: booking.createdAt || request.createdAt,
     distance: request.distanceKm || request.distance || 0,
+    etaMinutes: request.etaMinutes || null,
+    acceptUrl: request.acceptUrl,
     estimatedBill:
       booking.totalServiceMaxAmount || booking.totalServiceAmount || 0,
     raw: request,

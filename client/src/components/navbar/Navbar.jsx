@@ -10,9 +10,11 @@ import {
   FiTruck,
   FiPlus,
   FiLogOut,
+  FiBell,
 } from "react-icons/fi";
 import Logo from "@/components/common/Logo";
 import { useApp } from "@/hooks/useApp";
+import useUnreadNotifications from "@/hooks/useUnreadNotifications";
 
 const NAV = [
   { to: "/", label: "Home" },
@@ -28,6 +30,7 @@ export default function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [vehOpen, setVehOpen] = useState(false);
   const { user, vehicle, cart, logout } = useApp();
+  const { unreadCount } = useUnreadNotifications();
   const nav = useNavigate();
   const { pathname } = useLocation();
 
@@ -192,6 +195,19 @@ export default function Navbar() {
                 )}
               </Link>
 
+              <Link
+                to="/dashboard/notifications"
+                className="relative grid place-items-center h-10 w-10 rounded-full border border-line bg-white hover:border-ink transition"
+                aria-label="Notifications"
+              >
+                <FiBell />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 rounded-full bg-brand px-1.5 text-center text-[10px] font-bold text-ink">
+                    +{unreadCount}
+                  </span>
+                )}
+              </Link>
+
               <div className="relative">
                 <button
                   onClick={() => setProfileOpen((v) => !v)}
@@ -322,6 +338,20 @@ export default function Navbar() {
                   className="px-4 py-3 rounded-2xl hover:bg-bg-soft text-base font-medium"
                 >
                   Dashboard
+                </Link>
+              )}
+              {user && (
+                <Link
+                  to="/dashboard/notifications"
+                  onClick={closeMobileMenu}
+                  className="flex items-center justify-between px-4 py-3 rounded-2xl hover:bg-bg-soft text-base font-medium"
+                >
+                  <span>Notifications</span>
+                  {unreadCount > 0 && (
+                    <span className="rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-ink">
+                      +{unreadCount}
+                    </span>
+                  )}
                 </Link>
               )}
             </nav>

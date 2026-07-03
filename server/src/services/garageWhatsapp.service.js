@@ -6,7 +6,7 @@ const isWhatsappConfigured = () => Boolean(process.env.WHATSAPP_PROVIDER_URL && 
 const getFrontendBaseUrl = () => (process.env.FRONTEND_URL || process.env.CLIENT_URL || "https://rovauto.vercel.app").replace(/\/+$/, "");
 
 const getGarageAcceptUrl = (requestId) => {
-  const acceptPath = process.env.GARAGE_REQUEST_ACCEPT_PATH || "/garage/requests";
+  const acceptPath = process.env.GARAGE_REQUEST_ACCEPT_PATH || "/garage/magic";
   return `${getFrontendBaseUrl()}${acceptPath}/${requestId}`;
 };
 
@@ -65,7 +65,6 @@ const sendGarageBookingRequestWhatsapp = async ({ garage, request, booking }) =>
     "New Rovauto booking request",
     `Services: ${formatServiceList(booking.services)}`,
     `Vehicle: ${formatVehicleDetails(booking.vehicle)}`,
-    booking.customerAddress ? `Customer area: ${booking.customerAddress}` : null,
     `Accept here: ${acceptUrl}`,
   ].filter(Boolean).join("\n");
 

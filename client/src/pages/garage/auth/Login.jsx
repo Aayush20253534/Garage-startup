@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import { FiMail, FiLock, FiArrowRight, FiAlertCircle } from "react-icons/fi";
 import { garageApi } from "@/api/garage";
@@ -11,7 +11,11 @@ export default function GarageLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
   const { loginGarage } = useApp();
+  const returnTo = location.state?.from
+    ? `${location.state.from.pathname || "/garage"}${location.state.from.search || ""}`
+    : "/garage";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,7 +25,7 @@ export default function GarageLogin() {
     try {
       const result = await garageApi.login(email, password);
       loginGarage(result.garage, result.token);
-      navigate("/garage");
+      navigate(returnTo, { replace: true });
     } catch (err) {
       setError(
         err.response?.data?.message || err.message || "Unable to sign in",

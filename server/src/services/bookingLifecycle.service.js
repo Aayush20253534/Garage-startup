@@ -98,7 +98,7 @@ const notifySearchExpired = async (booking) => {
     type: "BOOKING",
     title: "Please try again",
     message: "No garage accepted your service request in time. Please try again - nearby garages may be busy right now.",
-    link: `/dashboard/bookings/${booking.id}`,
+    link: "/dashboard/bookings",
     metadata: { bookingId: booking.id, reason: "GARAGE_SEARCH_TIMEOUT" },
   });
 };
@@ -140,17 +140,23 @@ const expireStaleGarageSearchesForUser = async (userId) => {
   }
 };
 
-const notifyGarageAccepted = async ({ booking, garage, otp }) => {
+const notifyGarageAccepted = async ({ booking, garage, otp, distanceKm = null, etaMinutes = null }) => {
+  const etaText = etaMinutes
+    ? ` Estimated arrival: ${etaMinutes} min${distanceKm ? ` (${Number(distanceKm).toFixed(1)} km away)` : ""}.`
+    : "";
+
   return notificationService.createNotification({
     userId: booking.userId,
     type: "BOOKING",
     title: "Garage accepted your request",
-    message: `${garage.name} has accepted your service request. Your handover OTP is ${otp}. Share it with the garage only when handing over the vehicle.`,
-    link: `/dashboard/bookings/${booking.id}`,
+    message: `${garage.name} has accepted your service request.${etaText} Your handover OTP is ${otp}. Share it with the garage only when handing over the vehicle.`,
+    link: "/dashboard/bookings",
     metadata: {
       bookingId: booking.id,
       garageId: garage.id,
       otp,
+      distanceKm,
+      etaMinutes,
       purpose: "VEHICLE_HANDOVER",
     },
   });
@@ -162,7 +168,7 @@ const notifyVehicleDelivered = async ({ booking, garage }) => {
     type: "BOOKING",
     title: "Vehicle marked delivered",
     message: `${garage.name} has marked your vehicle as delivered. Please review and accept delivery to move it to service history.`,
-    link: `/dashboard/bookings/${booking.id}`,
+    link: "/dashboard/bookings",
     metadata: { bookingId: booking.id, garageId: garage.id, action: "ACCEPT_DELIVERY" },
   });
 };
