@@ -33,6 +33,10 @@ const emptyServiceForm = {
 };
 
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
+const fieldClass =
+  "min-w-0 rounded-xl border border-line px-4 py-3 text-base leading-6 outline-none placeholder:text-muted focus:border-ink";
+const compactFieldClass =
+  "min-w-0 rounded-xl border border-line px-4 py-3 text-base leading-6 outline-none placeholder:text-muted focus:border-ink";
 const getThumbnail = (service) =>
   service?.media?.find((item) => item.isThumbnail)?.url ||
   service?.media?.[0]?.url ||
@@ -341,7 +345,7 @@ export default function AdminServices() {
             setCategoryForm({ ...categoryForm, name: event.target.value })
           }
           placeholder="Service category"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+          className={fieldClass}
         />
         <input
           value={categoryForm.description}
@@ -352,7 +356,7 @@ export default function AdminServices() {
             })
           }
           placeholder="Category description"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+          className={fieldClass}
         />
         <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-line px-4 py-3 text-sm font-medium">
           <FiImage className="shrink-0" />
@@ -366,8 +370,11 @@ export default function AdminServices() {
             className="hidden"
           />
         </label>
-        <div className="flex min-w-0 flex-wrap gap-2">
-          <button disabled={saving} className="btn-primary flex-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <button
+            disabled={saving}
+            className="btn-primary min-h-12 whitespace-nowrap !rounded-xl px-6"
+          >
             {saving ? "Saving..." : categoryForm.id ? "Update Category" : "Add Category"}
           </button>
           {categoryForm.id && (
@@ -385,7 +392,7 @@ export default function AdminServices() {
 
       <form
         onSubmit={saveService}
-        className="card-soft grid gap-3 p-4 sm:p-5 lg:grid-cols-3 xl:grid-cols-6"
+        className="card-soft grid gap-4 p-4 sm:p-5 lg:grid-cols-2 xl:grid-cols-[minmax(220px,0.9fr)_minmax(280px,1.2fr)_repeat(3,minmax(150px,0.7fr))]"
       >
         <select
           required
@@ -393,7 +400,7 @@ export default function AdminServices() {
           onChange={(event) =>
             setServiceForm({ ...serviceForm, categoryId: event.target.value })
           }
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+          className={compactFieldClass}
         >
           <option value="">Select category</option>
           {categories.map((category) => (
@@ -409,7 +416,7 @@ export default function AdminServices() {
             setServiceForm({ ...serviceForm, name: event.target.value })
           }
           placeholder="Service name"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+          className={fieldClass}
         />
         <input
           type="number"
@@ -419,7 +426,7 @@ export default function AdminServices() {
             setServiceForm({ ...serviceForm, basePrice: event.target.value })
           }
           placeholder="Base price"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+          className={compactFieldClass}
         />
         <input
           required
@@ -430,7 +437,7 @@ export default function AdminServices() {
             setServiceForm({ ...serviceForm, minPrice: event.target.value })
           }
           placeholder="Min price"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+          className={compactFieldClass}
         />
         <input
           required
@@ -441,12 +448,12 @@ export default function AdminServices() {
             setServiceForm({ ...serviceForm, maxPrice: event.target.value })
           }
           placeholder="Max price"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+          className={compactFieldClass}
         />
-        <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-line px-4 py-3 text-sm font-medium">
+        <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-line px-4 py-3 text-sm font-medium lg:col-span-1 xl:col-span-2">
           <FiImage className="shrink-0" />
           <span className="truncate">
-            {serviceForm.thumbnail?.name || "Upload thumbnail"}
+            {serviceForm.thumbnail?.name || "Service thumbnail"}
           </span>
           <input
             type="file"
@@ -461,11 +468,14 @@ export default function AdminServices() {
             setServiceForm({ ...serviceForm, description: event.target.value })
           }
           placeholder="Service description"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink lg:col-span-2 xl:col-span-5"
+          className={`${fieldClass} lg:col-span-1 xl:col-span-3`}
           rows={2}
         />
-        <div className="flex min-w-0 flex-wrap gap-2">
-          <button disabled={saving} className="btn-primary flex-1">
+        <div className="flex min-w-0 flex-wrap items-start justify-end gap-2 xl:col-span-2">
+          <button
+            disabled={saving}
+            className="btn-primary min-h-12 whitespace-nowrap !rounded-xl px-6"
+          >
             {saving ? "Saving..." : serviceForm.id ? "Update Service" : "Add Service"}
           </button>
           {serviceForm.id && (
