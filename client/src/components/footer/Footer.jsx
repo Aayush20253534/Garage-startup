@@ -1,5 +1,7 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Logo from "@/components/common/Logo";
+import { useApp } from "@/hooks/useApp";
 import {
   FiInstagram,
   FiTwitter,
@@ -11,7 +13,83 @@ import {
 
 const SUPPORT_PHONE_DISPLAY = "+91 98993 19913";
 
+const serviceFooterLinks = [
+  {
+    label: "Scheduled Service",
+    aliases: ["Scheduled Service", "Periodic Service", "General Service"],
+  },
+  {
+    label: "Denting & Painting",
+    aliases: ["Denting & Painting", "Denting and Painting"],
+  },
+  { label: "AC Service", aliases: ["AC Service", "AC"] },
+  { label: "Battery", aliases: ["Battery", "Batteries"] },
+];
+
 export default function Footer() {
+  const { fetchServiceCategories } = useApp();
+  const [serviceCategories, setServiceCategories] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetchServiceCategories?.()
+      .then((categories) => {
+        if (mounted) {
+          setServiceCategories(Array.isArray(categories) ? categories : []);
+        }
+      })
+      .catch(() => {
+        if (mounted) setServiceCategories([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [fetchServiceCategories]);
+
+  const serviceLinks = useMemo(() => {
+    const categoriesByName = new Map(
+      serviceCategories.map((category) => [
+        String(category.name || "").toLowerCase(),
+        category,
+      ]),
+    );
+
+    return serviceFooterLinks.map(({ label, aliases }) => {
+      const category = aliases
+        .map((alias) => categoriesByName.get(alias.toLowerCase()))
+        .find(Boolean);
+
+      return [label, category?.id ? `/services/${category.id}` : "/services"];
+    });
+  }, [serviceCategories]);
+
+  const footerColumns = [
+    {
+      title: "Company",
+      links: [
+        ["About Us", "/about"],
+        ["How It Works", "/how-it-works"],
+        ["Partner With Us", "/partner"],
+        ["Contact", "/contact"],
+      ],
+    },
+    {
+      title: "Services",
+      links: serviceLinks,
+    },
+    {
+      title: "Support",
+      links: [
+        ["Warranty Center", "/warranty"],
+        ["FAQs", "/contact"],
+        ["Garage Login", "/garage"],
+        ["Admin", "/admin"],
+      ],
+    },
+  ];
+
   return (
     <footer className="bg-ink text-white mt-20">
       <div className="container-x py-12 lg:pt-14 lg:pb-10 grid gap-10 lg:grid-cols-5">
@@ -48,35 +126,7 @@ export default function Footer() {
             ))}
           </div>
         </div>
-        {[
-          {
-            title: "Company",
-            links: [
-              ["About Us", "/about"],
-              ["How It Works", "/how-it-works"],
-              ["Partner With Us", "/partner"],
-              ["Contact", "/contact"],
-            ],
-          },
-          {
-            title: "Services",
-            links: [
-              ["Scheduled Service", "/services"],
-              ["Denting & Painting", "/services"],
-              ["AC Service", "/services"],
-              ["Battery", "/services"],
-            ],
-          },
-          {
-            title: "Support",
-            links: [
-              ["Warranty Center", "/warranty"],
-              ["FAQs", "/contact"],
-              ["Garage Login", "/garage"],
-              ["Admin", "/admin"],
-            ],
-          },
-        ].map((col) => (
+        {footerColumns.map((col) => (
           <div key={col.title}>
             <h4 className="font-semibold mb-4">{col.title}</h4>
             <ul className="grid gap-2 text-sm text-white/70">

@@ -50,9 +50,6 @@ export default function HowItWorks() {
         <h1 className="text-4xl sm:text-5xl font-bold mt-4">
           Service your car in 6 effortless steps
         </h1>
-        <p className="text-muted mt-3">
-          Designed like Hoora & Swiggy, built for Indian car owners.
-        </p>
       </div>
       <div className="mt-14 grid md:grid-cols-2 gap-5">
         {STEPS.map((s, i) => (
