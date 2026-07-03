@@ -82,7 +82,7 @@ export default function GarageProfile() {
 
   const activation = garage?.activation || {};
   const uploadedImages = garage?.images || [];
-  const minimumBalance = activation.minimumBalance || 1000;
+  const minimumBalance = activation.minimumBalance || 100;
   const balance =
     activation.walletBalance ||
     garage?.walletBalance ||
@@ -534,3 +534,4 @@ export default function GarageProfile() {
     </div>
   );
 }
+

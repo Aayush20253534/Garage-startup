@@ -107,7 +107,7 @@ export default function OnboardingStep4({ data, onChange }) {
           <h1 className="text-4xl font-bold mb-4">Application Submitted</h1>
           <p className="text-muted text-lg mb-6">
             Your garage application is pending admin review. After approval,
-            recharge ₹1000 or more to activate your listing.
+            recharge Rs. 100 or more to activate your listing.
           </p>
           <Link to="/garage/login" className="btn-primary w-full">
             Go to Garage Login
@@ -231,3 +231,4 @@ export default function OnboardingStep4({ data, onChange }) {
     </div>
   );
 }
+

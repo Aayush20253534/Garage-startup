@@ -6,9 +6,9 @@ const { authorizeRoles } = require("../middlewares/role.middleware");
 const validate = require("../middlewares/validate.middleware");
 
 const {
-  walletRechargeSchema,
+  createRechargeOrderSchema: walletRechargeSchema,
   walletTransactionQuerySchema,
-} = require("../customer/validations/wallet.validation");
+} = require("../garage/validations/wallet.validation");
 
 const router = express.Router();
 

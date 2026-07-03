@@ -20,12 +20,14 @@ const loadCashfreeCheckout = () =>
     document.body.appendChild(script);
   });
 
+const MINIMUM_RECHARGE_AMOUNT = 100;
+
 export default function GarageWallet() {
   const { wallet } = useSelector((state) => state.garage);
   const dispatch = useDispatch();
   const { garageToken, refreshGarage } = useApp();
   const [showRechargeModal, setShowRechargeModal] = useState(false);
-  const [amount, setAmount] = useState(1000);
+  const [amount, setAmount] = useState(MINIMUM_RECHARGE_AMOUNT);
   const [pendingOrder, setPendingOrder] = useState(null);
   const [cashfreeMode, setCashfreeMode] = useState("sandbox");
   const [loading, setLoading] = useState(false);
@@ -117,7 +119,7 @@ export default function GarageWallet() {
       await garageApi.verifyRechargeOrder(garageToken, pendingOrder.id);
       setPendingOrder(null);
       setShowRechargeModal(false);
-      setAmount(1000);
+      setAmount(MINIMUM_RECHARGE_AMOUNT);
       await loadWallet();
       await refreshGarage(garageToken);
     } catch (err) {
@@ -148,7 +150,7 @@ export default function GarageWallet() {
           ₹{Number(wallet.balance || 0).toLocaleString()}
         </h2>
         <p className="text-sm text-muted mb-6">
-          Minimum ₹{wallet.activation?.minimumBalance || 1000} wallet balance
+          Minimum ₹{wallet.activation?.minimumBalance || MINIMUM_RECHARGE_AMOUNT} wallet balance
           required for activation
         </p>
         <button
@@ -208,14 +210,14 @@ export default function GarageWallet() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <h3 className="text-xl font-bold mb-2">Recharge Wallet</h3>
             <p className="text-muted mb-5">
-              Create a Cashfree recharge order. Minimum amount is ₹1000.
+              Create a Cashfree recharge order. Minimum amount is Rs. 100.
             </p>
 
             {!pendingOrder ? (
               <form onSubmit={createRecharge} className="space-y-4">
                 <input
                   type="number"
-                  min="1000"
+                  min={MINIMUM_RECHARGE_AMOUNT}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full rounded-xl border border-line px-4 py-3 focus:border-ink focus:outline-none"
@@ -277,3 +279,4 @@ export default function GarageWallet() {
     </div>
   );
 }
+

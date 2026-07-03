@@ -112,7 +112,7 @@ export default function GarageDashboard() {
             <div>
               <h2 className="font-bold text-yellow-900">Activation pending</h2>
               <p className="text-sm text-yellow-800">
-                Keep ₹{activation.minimumBalance || 1000}+ in your wallet to
+                Keep ₹{activation.minimumBalance || 100}+ in your wallet to
                 activate customer visibility.
               </p>
               <div className="mt-3 flex flex-wrap gap-2 text-sm">
@@ -182,3 +182,4 @@ export default function GarageDashboard() {
     </div>
   );
 }
+

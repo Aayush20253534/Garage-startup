@@ -1,6 +1,7 @@
 import api from "@/api/axios";
 
 const unwrap = (response) => response.data?.data ?? response.data;
+const GARAGE_MINIMUM_ACTIVATION_BALANCE = 100;
 
 const authConfig = (token, config = {}) => ({
   ...config,
@@ -27,15 +28,18 @@ export const normalizeGarage = (garage) => {
     email: garage.email || owner.email || "",
     walletBalance: wallet.balance || activation.walletBalance || 0,
     imageCount: images.length || activation.photoCount || 0,
-    minimumBalance: activation.minimumBalance || 1000,
+    minimumBalance:
+      activation.minimumBalance || GARAGE_MINIMUM_ACTIVATION_BALANCE,
     isOnboardingComplete: Boolean(garage.isVerified),
     activation: {
-      minimumBalance: activation.minimumBalance || 1000,
+      minimumBalance:
+        activation.minimumBalance || GARAGE_MINIMUM_ACTIVATION_BALANCE,
       walletBalance: wallet.balance || activation.walletBalance || 0,
       photoCount: images.length || activation.photoCount || 0,
       hasMinimumBalance:
         activation.hasMinimumBalance ??
-        (wallet.balance || 0) >= (activation.minimumBalance || 1000),
+        (wallet.balance || 0) >=
+          (activation.minimumBalance || GARAGE_MINIMUM_ACTIVATION_BALANCE),
       isActive: activation.isActive ?? garage.isActive,
     },
   };

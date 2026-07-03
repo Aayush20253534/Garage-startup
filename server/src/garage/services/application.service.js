@@ -6,6 +6,7 @@ const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/cloudi
 const { sendGarageApplicationEmail } = require("./applicationEmail.service");
 const { createResetPasswordOtp } = require("../../customer/services/otp.service");
 const geocodingService = require("../../customer/services/geocoding.service");
+const { GARAGE_MINIMUM_ACTIVATION_RECHARGE } = require("../constants");
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const normalizePhone = (phone) => String(phone || "").trim();
@@ -262,7 +263,9 @@ const approveApplication = async (applicationId, adminNote) => {
       where: { id: applicationId },
       data: {
         status: "APPROVED",
-        adminNote: adminNote || "Garage approved. Recharge at least Rs. 1000 to activate listing.",
+        adminNote:
+          adminNote ||
+          `Garage approved. Recharge at least Rs. ${GARAGE_MINIMUM_ACTIVATION_RECHARGE} to activate listing.`,
         reviewedAt: new Date(),
         approvedGarageId: garage.id,
       },
@@ -274,8 +277,8 @@ const approveApplication = async (applicationId, adminNote) => {
       garage,
       owner,
       activationRequired: {
-        minimumRecharge: 1000,
-        message: "Garage is verified but inactive until wallet has at least Rs. 1000 verified Cashfree balance.",
+        minimumRecharge: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
+        message: `Garage is verified but inactive until wallet has at least Rs. ${GARAGE_MINIMUM_ACTIVATION_RECHARGE} verified Cashfree balance.`,
       },
     };
   });
