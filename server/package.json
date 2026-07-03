@@ -13,12 +13,10 @@
   "prisma:studio": "prisma studio",
 
   "seed:services": "node src/seed/seedServices.js",
-  "seed:garages": "node src/seed/seedGarages.js",
   "seed:admin": "node src/seed/seedAdmin.js",
-  "seed:notifications": "node src/seed/seedNotifications.js",
   "seed:vehicle-meta": "node src/seed/seedVehicleMeta.js",
 
-  "seed:all": "npm run seed:services && npm run seed:garages && npm run seed:admin && npm run seed:notifications && npm run seed:vehicle-meta",
+  "seed:all": "npm run seed:services && npm run seed:admin && npm run seed:vehicle-meta",
 
   "db:delete-user": "node src/scripts/deleteUserData.js",
   "db:delete-active-bookings": "node src/scripts/deleteCustomerRecords.js --scope=active-bookings",
