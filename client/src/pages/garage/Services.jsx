@@ -22,7 +22,7 @@ export default function GarageServices() {
       setLoading(true);
       setError("");
       try {
-        const res = await api.get(`/garages/${garage.id}/services`);
+        const res = await api.get("/garages/me/services");
         const servicesList = res.data?.data || [];
         dispatch(setServices(servicesList));
       } catch (err) {
@@ -65,6 +65,8 @@ export default function GarageServices() {
         ) : services.length > 0 ? (
           services.map((item) => {
             const service = item.service || item;
+            const minPrice = service.minPrice ?? service.basePrice ?? item.price;
+            const maxPrice = service.maxPrice ?? service.basePrice ?? item.price;
             return (
               <motion.div
                 key={item.id || service.id}
@@ -82,12 +84,11 @@ export default function GarageServices() {
                 </p>
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted">Price</span>
+                    <span className="text-muted">Price range</span>
                     <span className="font-semibold">
                       ₹{" "}
-                      {Number(
-                        item.price || service.basePrice || 0,
-                      ).toLocaleString()}
+                      {Number(minPrice || 0).toLocaleString()} - ₹{" "}
+                      {Number(maxPrice || minPrice || 0).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs sm:text-sm gap-2">

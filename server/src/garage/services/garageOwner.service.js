@@ -53,6 +53,44 @@ const getGarageOwnerProfile = async (userId) => {
   };
 };
 
+const serializeGarageService = (garageService) => {
+  const service = garageService.service;
+  return {
+    ...garageService,
+    service: service
+      ? {
+          ...service,
+          minPrice: service.minPrice ?? service.basePrice ?? null,
+          maxPrice: service.maxPrice ?? service.basePrice ?? null,
+        }
+      : service,
+  };
+};
+
+const getGarageOwnerServices = async (userId) => {
+  const garage = await getGarageForOwner(userId);
+
+  const services = await prisma.garageService.findMany({
+    where: {
+      garageId: garage.id,
+      isActive: true,
+    },
+    include: {
+      service: {
+        include: {
+          category: true,
+          media: {
+            orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return services.map(serializeGarageService);
+};
+
 const normalizeGarageType = (value) =>
   String(value || "MULTI_BRAND").trim().toUpperCase() === "AUTHORIZED"
     ? "AUTHORIZED"
@@ -185,5 +223,6 @@ module.exports = {
   activateGarageIfEligible,
   getGarageForOwner,
   getGarageOwnerProfile,
+  getGarageOwnerServices,
   updateGarageOwnerProfile,
 };

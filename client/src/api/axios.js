@@ -23,6 +23,7 @@ api.interceptors.request.use(
     const isGarageRequest =
       url.startsWith("/garage/") ||
       url === "/garages/me" ||
+      url.startsWith("/garages/me/") ||
       /^\/garages\/[^/]+\/media$/.test(url);
     const token = isGarageRequest
       ? garageToken || customerToken

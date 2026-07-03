@@ -1,5 +1,6 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
+const { deleteCache, deletePattern } = require("../../utils/cache");
 const { deleteGaragesDeep } = require("./garageDeletion.service");
 
 const garageInclude = {
@@ -89,7 +90,7 @@ const upsertGarageService = async (garageId, payload) => {
   const service = await prisma.service.findUnique({ where: { id: payload.serviceId } });
   if (!service) throw new ApiError(404, "Service not found");
 
-  return prisma.garageService.upsert({
+  const garageService = await prisma.garageService.upsert({
     where: {
       garageId_serviceId: {
         garageId,
@@ -111,6 +112,14 @@ const upsertGarageService = async (garageId, payload) => {
       },
     },
   });
+
+  await Promise.all([
+    deleteCache(`garages:${garageId}:services`),
+    deleteCache(`garages:detail:${garageId}`),
+    deletePattern("garages:list:*"),
+  ]);
+
+  return garageService;
 };
 
 const removeGarageService = async (garageId, serviceId) => {
@@ -127,7 +136,7 @@ const removeGarageService = async (garageId, serviceId) => {
 
   if (!garageService) throw new ApiError(404, "Garage service not found");
 
-  return prisma.garageService.delete({
+  const deleted = await prisma.garageService.delete({
     where: { id: garageService.id },
     include: {
       service: {
@@ -135,6 +144,14 @@ const removeGarageService = async (garageId, serviceId) => {
       },
     },
   });
+
+  await Promise.all([
+    deleteCache(`garages:${garageId}:services`),
+    deleteCache(`garages:detail:${garageId}`),
+    deletePattern("garages:list:*"),
+  ]);
+
+  return deleted;
 };
 
 const deleteGarages = async (garageIds = []) => {
