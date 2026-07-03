@@ -19,6 +19,28 @@ const applicationStatuses = [
 
 const money = (value) => `₹${Number(value || 0).toLocaleString()}`;
 
+const getGarageBrands = (garage) => {
+  const value = garage?.supportedBrands;
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+};
+
+const getCleanGarageDescription = (description = "") =>
+  String(description || "")
+    .split("\n")
+    .filter((line) => !/^\s*(garage type|brands)\s*:/i.test(line))
+    .join("\n")
+    .trim();
+
+const getGarageImageUrl = (image) => image?.imageUrl || image?.url || "";
+
 export default function Garages() {
   const [tab, setTab] = useState("applications");
   const [applications, setApplications] = useState([]);
@@ -69,7 +91,7 @@ export default function Garages() {
       setSelectedGarageId((current) => current || garageList?.[0]?.id || "");
       setSelectedGarageDetails((current) =>
         current && garageList?.some((garage) => garage.id === current.id)
-          ? current
+          ? garageList.find((garage) => garage.id === current.id) || current
           : null,
       );
       setSelectedGarageIds((current) =>
@@ -358,13 +380,13 @@ export default function Garages() {
                           {application.images.map((image, index) => (
                             <a
                               key={image.id}
-                              href={image.imageUrl}
+                              href={getGarageImageUrl(image)}
                               target="_blank"
                               rel="noreferrer"
                               className="block overflow-hidden rounded-xl border border-line bg-bg-soft"
                             >
                               <img
-                                src={image.imageUrl}
+                                src={getGarageImageUrl(image)}
                                 alt={`${application.garageName} ${index + 1}`}
                                 className="aspect-square w-full object-cover"
                               />
@@ -546,9 +568,23 @@ export default function Garages() {
                 <div>
                   <h4 className="font-bold">Garage Details</h4>
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted">
-                    {selectedGarage.description ||
+                    {getCleanGarageDescription(selectedGarage.description) ||
                       "No garage description submitted."}
                   </p>
+                  <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                    <span className="text-muted">
+                      <strong className="text-ink">Garage type:</strong>{" "}
+                      {selectedGarage.garageType === "AUTHORIZED"
+                        ? "Authorized"
+                        : "Multi-brand"}
+                    </span>
+                    <span className="text-muted">
+                      <strong className="text-ink">Brands catered:</strong>{" "}
+                      {getGarageBrands(selectedGarage).length
+                        ? getGarageBrands(selectedGarage).join(", ")
+                        : "No brands selected"}
+                    </span>
+                  </div>
                 </div>
                 <div className="grid gap-3 text-sm text-muted sm:grid-cols-2 lg:grid-cols-3">
                   <span>
@@ -625,13 +661,13 @@ export default function Garages() {
                     {selectedGarage.images.map((image, index) => (
                       <a
                         key={image.id}
-                        href={image.imageUrl}
+                        href={getGarageImageUrl(image)}
                         target="_blank"
                         rel="noreferrer"
                         className="block overflow-hidden rounded-xl border border-line bg-bg-soft"
                       >
                         <img
-                          src={image.imageUrl}
+                          src={getGarageImageUrl(image)}
                           alt={`${selectedGarage.name} garage photo ${index + 1}`}
                           className="aspect-square w-full object-cover"
                         />
