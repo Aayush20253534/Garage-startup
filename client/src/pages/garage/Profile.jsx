@@ -54,7 +54,7 @@ export default function GarageProfile() {
 
   useEffect(() => {
     refreshGarage?.(garageToken).catch(() => {});
-  }, [garageToken, refreshGarage]);
+  }, [garageToken]);
 
   useEffect(() => {
     fetchVehicleMeta?.()
@@ -63,7 +63,7 @@ export default function GarageProfile() {
   }, [fetchVehicleMeta]);
 
   useEffect(() => {
-    if (!garage) return;
+    if (!garage || editingDetails) return;
 
     setForm({
       name: garage.name || "",
@@ -78,7 +78,7 @@ export default function GarageProfile() {
       garageType: garage.garageType || "MULTI_BRAND",
       supportedBrands: getSupportedBrands(garage),
     });
-  }, [garage]);
+  }, [garage, editingDetails]);
 
   const activation = garage?.activation || {};
   const uploadedImages = garage?.images || [];
@@ -391,30 +391,39 @@ export default function GarageProfile() {
                 required
               />
               <div className="mt-4 grid gap-4 md:grid-cols-3">
-                <CitySelect
-                  value={form.city}
-                  onChange={(city) => setField("city", city)}
-                  required
-                  className="rounded-xl border border-line px-4 py-3 focus:border-ink focus:outline-none"
-                />
-                <input
-                  value={form.area}
-                  onChange={(e) => setField("area", e.target.value)}
-                  placeholder="Area"
-                  className="rounded-xl border border-line px-4 py-3 focus:border-ink focus:outline-none"
-                  required
-                />
-                <input
-                  value={form.workingRadiusKm}
-                  onChange={(e) =>
-                    setField("workingRadiusKm", Number(e.target.value))
-                  }
-                  placeholder="Working radius"
-                  type="number"
-                  min="1"
-                  max="100"
-                  className="rounded-xl border border-line px-4 py-3 focus:border-ink focus:outline-none"
-                />
+                <label className="grid gap-2 text-sm font-semibold">
+                  City
+                  <CitySelect
+                    value={form.city}
+                    onChange={(city) => setField("city", city)}
+                    required
+                    className="rounded-xl border border-line px-4 py-3 font-normal focus:border-ink focus:outline-none"
+                  />
+                </label>
+                <label className="grid gap-2 text-sm font-semibold">
+                  Area
+                  <input
+                    value={form.area}
+                    onChange={(e) => setField("area", e.target.value)}
+                    placeholder="Area"
+                    className="rounded-xl border border-line px-4 py-3 font-normal focus:border-ink focus:outline-none"
+                    required
+                  />
+                </label>
+                <label className="grid gap-2 text-sm font-semibold">
+                  Working radius (km)
+                  <input
+                    value={form.workingRadiusKm}
+                    onChange={(e) =>
+                      setField("workingRadiusKm", Number(e.target.value))
+                    }
+                    placeholder="Radius in km"
+                    type="number"
+                    min="1"
+                    max="100"
+                    className="rounded-xl border border-line px-4 py-3 font-normal focus:border-ink focus:outline-none"
+                  />
+                </label>
               </div>
             </div>
 
