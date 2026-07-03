@@ -1,28 +1,52 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { FiCheckCircle, FiAlertCircle } from "react-icons/fi";
 import { garageApi } from "@/api/garage";
-import { mockBrands } from "@/data/garageData";
+import api from "@/api/axios";
+
+const getBrandLogo = (brand) =>
+  brand.logoUrl || brand.image || brand.logo || brand.logo_url || "";
 
 export default function OnboardingStep4({ data, onChange }) {
   const [loading, setLoading] = useState(false);
   const [complete, setComplete] = useState(false);
   const [error, setError] = useState("");
+  const [brands, setBrands] = useState([]);
+  const [brandsLoading, setBrandsLoading] = useState(true);
 
-  const toggleBrand = (brandId) => {
+  useEffect(() => {
+    const loadBrands = async () => {
+      try {
+        setBrandsLoading(true);
+        const res = await api.get("/vehicle-meta/brands");
+        setBrands(Array.isArray(res.data?.data) ? res.data.data : []);
+      } catch (err) {
+        setError(
+          err.response?.data?.message || "Unable to load vehicle brands",
+        );
+        setBrands([]);
+      } finally {
+        setBrandsLoading(false);
+      }
+    };
+
+    loadBrands();
+  }, []);
+
+  const toggleBrand = (brandName) => {
     if (data.garageType === "AUTHORIZED") {
       onChange({
         ...data,
-        brands: data.brands.includes(brandId) ? [] : [brandId],
+        brands: data.brands.includes(brandName) ? [] : [brandName],
       });
       return;
     }
 
-    const brands = data.brands.includes(brandId)
-      ? data.brands.filter((id) => id !== brandId)
-      : [...data.brands, brandId];
-    onChange({ ...data, brands });
+    const nextBrands = data.brands.includes(brandName)
+      ? data.brands.filter((item) => item !== brandName)
+      : [...data.brands, brandName];
+    onChange({ ...data, brands: nextBrands });
   };
 
   const handleSubmit = async (e) => {
@@ -153,25 +177,31 @@ export default function OnboardingStep4({ data, onChange }) {
                   ? "Select Authorized Brand"
                   : "Select Brands You Service"}
               </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {mockBrands.map((brand) => {
+              {brandsLoading ? (
+                <div className="rounded-xl border border-line bg-bg-soft p-4 text-sm text-muted">
+                  Loading vehicle brands...
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {brands.map((brand) => {
                   const Icon = brand.icon;
+                  const logo = getBrandLogo(brand);
                   return (
                     <button
-                      key={brand.id}
+                      key={brand.id || brand.name}
                       type="button"
-                      onClick={() => toggleBrand(brand.id)}
+                      onClick={() => toggleBrand(brand.name)}
                       className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center gap-2 ${
-                        data.brands.includes(brand.id)
+                        data.brands.includes(brand.name)
                           ? "border-brand bg-brand-soft"
                           : "border-line hover:border-ink-2"
                       }`}
                     >
-                      {brand.image ? (
+                      {logo ? (
                         <img
-                          src={brand.image}
+                          src={logo}
                           alt={brand.name}
-                          className="mb-2 h-10 w-auto object-contain"
+                          className="mb-2 h-10 max-w-20 object-contain"
                         />
                       ) : Icon ? (
                         <Icon className="mb-2 h-10 w-auto" />
@@ -183,13 +213,14 @@ export default function OnboardingStep4({ data, onChange }) {
                       <div className="text-sm font-semibold">{brand.name}</div>
                     </button>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
 
             <button
               type="submit"
-              disabled={loading || data.brands.length === 0}
+              disabled={loading || brandsLoading || data.brands.length === 0}
               className="btn-primary w-full py-4 text-lg"
             >
               {loading ? "Submitting..." : "Submit Application"}
