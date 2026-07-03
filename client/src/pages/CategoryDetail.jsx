@@ -9,6 +9,12 @@ import {
   getServiceMinPrice,
   getServiceMaxPrice,
 } from "@/utils/priceRange";
+import {
+  getCategoryThumbnailUrl,
+  getServiceImageUrls,
+  getServiceThumbnailUrl,
+  warmImageCache,
+} from "@/utils/imageCache";
 
 const getIncludes = (service) => {
   if (!service.description) return ["Service inspection", "Basic checks"];
@@ -18,13 +24,6 @@ const getIncludes = (service) => {
     .map((item) => item.trim())
     .filter(Boolean);
 };
-
-const getServiceThumbnail = (service) =>
-  service?.media?.find((item) => item.isThumbnail)?.url ||
-  service?.media?.[0]?.url ||
-  "";
-
-const getCategoryThumbnail = (category) => category?.thumbnailUrl || "";
 
 export default function CategoryDetail() {
   const { categoryId } = useParams();
@@ -49,6 +48,7 @@ export default function CategoryDetail() {
 
         setCategory(found || null);
         setPackages(found?.services || []);
+        if (found) warmImageCache(getServiceImageUrls([found]));
       } catch (err) {
         console.error("Failed to load category:", err);
       } finally {
@@ -72,14 +72,14 @@ export default function CategoryDetail() {
   }
 
   const ui = CATEGORY_UI[category.name] || {};
-  const categoryImage = getCategoryThumbnail(category);
+  const categoryImage = getCategoryThumbnailUrl(category);
   const Icon = ui.icon || FiTool;
 
   const handleBook = (service) => {
     const serviceItem = {
       ...service,
       price: getServiceMinPrice(service),
-      image: getServiceThumbnail(service) || categoryImage,
+      image: getServiceThumbnailUrl(service) || categoryImage,
       catId: category.id,
     };
 
@@ -109,7 +109,7 @@ export default function CategoryDetail() {
           const minPrice = getServiceMinPrice(pkg);
           const maxPrice = getServiceMaxPrice(pkg);
           const includes = getIncludes(pkg);
-          const serviceImage = getServiceThumbnail(pkg);
+          const serviceImage = getServiceThumbnailUrl(pkg);
 
           return (
             <div
@@ -223,9 +223,9 @@ export default function CategoryDetail() {
               </div>
 
               <div className="mb-5 h-44 w-full overflow-hidden rounded-2xl bg-bg-soft">
-                {getServiceThumbnail(selectedPackage) ? (
+                {getServiceThumbnailUrl(selectedPackage) ? (
                   <img
-                    src={getServiceThumbnail(selectedPackage)}
+                    src={getServiceThumbnailUrl(selectedPackage)}
                     alt={selectedPackage.name}
                     className="h-full w-full object-cover"
                   />

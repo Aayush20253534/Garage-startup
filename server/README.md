@@ -12,6 +12,8 @@ Express + Prisma backend for the Rovauto India vehicle service platform.
 - Customer profile, vehicles, locations, bookings, payments, wallet, notifications, dashboard, reviews, complaints, contact, SOS.
 - Customer RAG chatbot with Markdown knowledge, Groq generation, local fallback, and user-specific conversation memory.
 - Admin-managed cities for availability control and city dropdowns.
+- Admin-managed vehicle brands/models with Cloudinary brand logos.
+- Admin-managed service categories/services with Cloudinary category and service thumbnails.
 - Admin city/service/vehicle/fuel price ranges.
 - Manual geocoding for India with Nominatim first and Groq correction/coordinate fallback.
 - Backend rejects invalid coordinates, `0,0`, and non-India coordinates.
@@ -19,7 +21,7 @@ Express + Prisma backend for the Rovauto India vehicle service platform.
 - Garage request broadcasting after payment verification.
 - Garage application flow with minimum 10 photos.
 - Garage request accept/reject, wallet deduction, handover OTP, pickup/delivery inspection images.
-- Cloudinary uploads for garage media, service media, complaints, and booking inspection evidence.
+- Cloudinary uploads for garage media, vehicle brand logos, service category thumbnails, service media, complaints, and booking inspection evidence.
 - Redis cache utility with fail-fast fallback so cache outages do not block the API.
 - Resend email and Fast2SMS-compatible SMS support.
 - Admin/CLI cleanup scripts for users, garages, bookings, payments, notifications, price ranges.
@@ -152,8 +154,9 @@ Optional seed data:
 
 ```bash
 npm run seed:admin
-npm run seed:garages
 ```
+
+Vehicle metadata and service catalogs are managed through admin APIs, not seed scripts.
 
 ## Scripts
 
@@ -165,7 +168,6 @@ npm run prisma:migrate              # Run development migrations
 npm run prisma:deploy               # Deploy migrations
 npm run prisma:studio               # Open Prisma Studio
 npm run seed:admin                  # Seed admin user/data
-npm run seed:garages                # Seed garage data
 npm run db:delete-user              # Dry-run/delete matched user data
 npm run db:delete-active-bookings   # Dry-run/delete active bookings for one email
 npm run db:delete-payments          # Dry-run/delete payment records for one email
@@ -220,6 +222,9 @@ Mounted under `/api/v1`:
 /garage/wallet
 /garage/wallet-legacy
 /garage/requests
+/cities/admin
+/admin/cars
+/admin/services
 /admin/garage-applications
 /admin/city-service-price-ranges
 /admin/garages
@@ -356,6 +361,50 @@ GET  /api/v1/admin/garage-applications
 POST /api/v1/admin/garage-applications/:id/approve
 ```
 
+## Admin Catalog Management
+
+Vehicle metadata is admin-managed:
+
+```text
+GET    /api/v1/admin/cars/brands
+POST   /api/v1/admin/cars/brands
+PATCH  /api/v1/admin/cars/brands/:brandId
+DELETE /api/v1/admin/cars/brands/:brandId
+POST   /api/v1/admin/cars/brands/:brandId/models
+PATCH  /api/v1/admin/cars/models/:modelId
+DELETE /api/v1/admin/cars/models/:modelId
+```
+
+Brand logo uploads are Cloudinary-backed. Public customer vehicle metadata reads from:
+
+```text
+GET /api/v1/vehicle-meta/brands
+```
+
+Services are admin-managed:
+
+```text
+GET    /api/v1/admin/services/categories
+POST   /api/v1/admin/services/categories
+PATCH  /api/v1/admin/services/categories/:categoryId
+DELETE /api/v1/admin/services/categories/:categoryId
+POST   /api/v1/admin/services/categories/:categoryId/thumbnail
+POST   /api/v1/admin/services
+PATCH  /api/v1/admin/services/:serviceId
+DELETE /api/v1/admin/services/:serviceId
+POST   /api/v1/admin/services/:serviceId/thumbnail
+```
+
+Public service category responses include active categories, active services, category thumbnails, and service media:
+
+```text
+GET /api/v1/services/categories
+GET /api/v1/services
+GET /api/v1/services/:id
+```
+
+Category thumbnails and service thumbnails are stored in Cloudinary. Services keep `minPrice` and `maxPrice`; garage service assignment uses those service-level ranges rather than a single placeholder price.
+
 ## Booking Lifecycle
 
 ```text
@@ -423,6 +472,8 @@ Production note: add Cashfree webhooks before real production payment traffic.
 ## Media
 
 - Cloudinary is used for dynamic uploads.
+- Vehicle brand logos are uploaded through Admin Cars.
+- Service category thumbnails and service/package thumbnails are uploaded through Admin Services.
 - Garage application photos require at least 10 images.
 - Garage media/listing photos are validated server-side.
 - Complaint, service, and inspection images should go through backend upload middleware.
@@ -464,6 +515,7 @@ When deleting garages from admin or CLI cleanup, related garage records, applica
 - Configure production CORS with `CLIENT_URL` and `FRONTEND_URL`.
 - Use Redis as an optimization only.
 - Add tests around auth, role separation, location, booking, payments, garage requests, and admin cleanup.
+- Ensure Admin Cars and Admin Services are populated with logos/thumbnails before production launch.
 
 ## License
 

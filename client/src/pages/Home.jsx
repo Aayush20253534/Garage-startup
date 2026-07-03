@@ -13,6 +13,12 @@ import {
 import { CATEGORY_UI } from "@/data/services";
 import api from "@/api/axios";
 import homepageHero from "@/assets/Rovauto_home.png";
+import {
+  getCategoryThumbnailUrl,
+  getServiceImageUrls,
+  getServiceThumbnailUrl,
+  warmImageCache,
+} from "@/utils/imageCache";
 
 const TRUST = [
   { icon: FiCheckCircle, label: "Verified Garages" },
@@ -25,13 +31,6 @@ const TRUST = [
 const getServicePrice = (service) => {
   return service?.basePrice || service?.minPrice || 0;
 };
-
-const getServiceThumbnail = (service) =>
-  service?.media?.find((item) => item.isThumbnail)?.url ||
-  service?.media?.[0]?.url ||
-  "";
-
-const getCategoryThumbnail = (category) => category?.thumbnailUrl || "";
 
 const formatCount = (value, fallback) => {
   const number = Number(value);
@@ -89,6 +88,7 @@ export default function Home() {
 
         setCategories(serviceCategories);
         setPopularServices(services);
+        warmImageCache(getServiceImageUrls(serviceCategories));
       })
       .catch(() => {
         if (!mounted) return;
@@ -225,7 +225,7 @@ export default function Home() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
             {categories.slice(0, 8).map((category) => {
               const ui = CATEGORY_UI[category.name] || {};
-              const image = getCategoryThumbnail(category);
+              const image = getCategoryThumbnailUrl(category);
               const isSos = ui.isSos;
 
               return (
@@ -320,7 +320,7 @@ export default function Home() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {popularServices.map((service) => {
-              const image = getServiceThumbnail(service);
+              const image = getServiceThumbnailUrl(service);
               const price = getServicePrice(service);
 
               return (

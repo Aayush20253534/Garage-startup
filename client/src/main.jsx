@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import { store } from "./store";
+import { registerImageCacheWorker } from "./utils/imageCache";
 import "./index.css";
 
 const reloadOnStaleChunk = (error) => {
@@ -42,6 +43,8 @@ window.setTimeout(() => {
     .filter((key) => key.startsWith("rov_chunk_reload_attempted:"))
     .forEach((key) => sessionStorage.removeItem(key));
 }, 5000);
+
+registerImageCacheWorker();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

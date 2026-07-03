@@ -3,8 +3,11 @@ import { Link } from "react-router-dom";
 import { CATEGORY_UI } from "@/data/services";
 import { FiSearch, FiArrowRight, FiSettings } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
-
-const getCategoryThumbnail = (category) => category?.thumbnailUrl || "";
+import {
+  getCategoryThumbnailUrl,
+  getServiceImageUrls,
+  warmImageCache,
+} from "@/utils/imageCache";
 
 export default function Services() {
   const [q, setQ] = useState("");
@@ -19,6 +22,7 @@ export default function Services() {
       try {
         const data = await fetchServiceCategories();
         setCategories(data || []);
+        warmImageCache(getServiceImageUrls(data || []));
       } catch (error) {
         console.error("Failed to load service categories:", error);
       } finally {
@@ -84,7 +88,7 @@ export default function Services() {
           {filteredCategories.map((category) => {
             const ui = CATEGORY_UI[category.name] || {};
             const Icon = ui.icon || FiSettings;
-            const image = getCategoryThumbnail(category);
+            const image = getCategoryThumbnailUrl(category);
 
             return (
               <Link

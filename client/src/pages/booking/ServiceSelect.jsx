@@ -8,6 +8,7 @@ import {
   getServiceMinPrice,
   getServiceMaxPrice,
 } from "@/utils/priceRange";
+import { getServiceImageUrls, warmImageCache } from "@/utils/imageCache";
 import { FiArrowRight, FiCheck, FiTruck, FiSettings } from "react-icons/fi";
 
 export default function ServiceSelect() {
@@ -40,6 +41,7 @@ export default function ServiceSelect() {
         const data = res.data.data || [];
 
         setCategories(data);
+        warmImageCache(getServiceImageUrls(data));
 
         if (data.length > 0) {
           setCatId(data[0].id);

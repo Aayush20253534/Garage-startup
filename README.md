@@ -13,7 +13,7 @@ The app currently has three main portals:
 
 - Customer: auth, profile, city/location onboarding, vehicles, service selection, checkout, payments, dashboard, bookings, history, profile, SOS.
 - Garage owner: garage login, onboarding/application, services, bookings, wallet, profile/settings, handover and delivery workflows.
-- Admin: dashboard, customers, garage applications, approved garages, managed cities, price ranges, bookings, and notifications.
+- Admin: dashboard, customers, garage applications, approved garages, managed cities, cars, services, price ranges, bookings, and notifications.
 
 ## Current Highlights
 
@@ -30,9 +30,12 @@ The app currently has three main portals:
 - Garage request broadcast after successful payment, with accept/reject and timeout behavior.
 - Handover OTP plus mandatory inspection photos at pickup and delivery.
 - Admin can delete garages with related garage data cleaned up.
+- Admin manages vehicle brands/models and Cloudinary brand logos; vehicle metadata is no longer seeded from local assets.
+- Admin manages service categories/services plus Cloudinary category and service thumbnails; service data is no longer seeded from local assets.
 - CLI cleanup scripts are dry-run by default and include explicit destructive flags.
 - Redis caching is optional and now fails fast so cache outages do not freeze dashboard or geocoding.
 - Cloudinary media upload support for garage, service, complaint, and inspection images.
+- Frontend service worker caches Cloudinary service/category images in production for faster repeat loads.
 - Resend email, Fast2SMS-compatible SMS, Firebase Google auth, and Groq fallback support.
 
 ## Tech Stack
@@ -86,6 +89,8 @@ External services:
 ```text
 Codebase/
 |-- client/
+|   |-- public/
+|   |   |-- sw.js
 |   |-- src/
 |   |   |-- api/
 |   |   |-- assets/
@@ -197,9 +202,9 @@ Optional seed data:
 
 ```bash
 npm run seed:admin
-npm run seed:services
-npm run seed:garages
 ```
+
+Vehicle metadata and service catalogs are managed from the admin portal. Upload brand logos, category thumbnails, and service thumbnails through Admin instead of using seed files or bundled service images.
 
 Start the backend:
 
@@ -254,8 +259,6 @@ npm run prisma:migrate
 npm run prisma:deploy
 npm run prisma:studio
 npm run seed:admin
-npm run seed:services
-npm run seed:garages
 npm run db:delete-user
 npm run db:delete-active-bookings
 npm run db:delete-payments
@@ -306,6 +309,9 @@ Mounted under `/api/v1`:
 - `/garage/wallet`
 - `/garage/wallet-legacy`
 - `/garage/requests`
+- `/cities/admin`
+- `/admin/cars`
+- `/admin/services`
 - `/admin/garage-applications`
 - `/admin/city-service-price-ranges`
 - `/admin/garages`
@@ -408,6 +414,32 @@ SERVICE_PRICE_RANGE_DELTA=500
 - Admin approval creates/updates garage records.
 - Admin city availability controls whether customer/garage location cities are serviceable.
 
+## Admin-Managed Catalogs
+
+Vehicle brands and models are managed through the Admin Cars page:
+
+```text
+GET/POST/PATCH/DELETE /api/v1/admin/cars/...
+```
+
+Brand logos are uploaded to Cloudinary from admin. Customer vehicle selection reads logo URLs from the database and falls back to text placeholders when no logo is available.
+
+Service categories and services are managed through the Admin Services page:
+
+```text
+GET/POST/PATCH/DELETE /api/v1/admin/services/...
+POST /api/v1/admin/services/categories/:categoryId/thumbnail
+POST /api/v1/admin/services/:serviceId/thumbnail
+```
+
+Category cards use category thumbnails. Service/package cards use individual service thumbnails. Old local service image assets and service seed data have been removed.
+
+## Frontend Image Cache
+
+The production frontend registers `public/sw.js`, a small service worker that caches Cloudinary images in browser Cache Storage. Home, Services, Category Detail, and Booking Service Selection warm the browser cache after service data loads.
+
+This improves navigation and repeat visits. The first-ever request for a new Cloudinary image can still be limited by network/CDN transformation time, so keep uploads reasonably compressed and prefer Cloudinary optimized transformations where possible.
+
 ## Docker
 
 From the root:
@@ -447,7 +479,7 @@ docker compose logs -f frontend
 - Configure production CORS with `CLIENT_URL` and `FRONTEND_URL`.
 - Add Cashfree webhooks before real production payment traffic.
 - Keep Redis optional and non-blocking; it is a cache, not the source of truth.
-- Optimize large frontend images before production traffic.
+- Upload optimized Cloudinary thumbnails for service/category/brand catalog media before production traffic.
 
 ## License
 

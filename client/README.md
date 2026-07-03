@@ -12,13 +12,15 @@ React + Vite frontend for the Rovauto customer, garage owner, admin, and SOS exp
 - Floating Rovauto Assistant chatbot connected to backend RAG, Groq, and user-specific chat history.
 - Profile location editor: opens a location card, supports manual geocoding and current-location update.
 - Garage owner portal: login, OTP login, onboarding/application, dashboard, services, bookings, wallet, profile, settings, magic links.
-- Admin portal: dashboard, customers, garages, garage applications, bookings, price ranges, notifications, managed cities.
+- Admin portal: dashboard, customers, garages, garage applications, cars, services, bookings, price ranges, notifications, managed cities.
 - SOS flow: panic, location, checkout, success screens.
 - City dropdowns use admin-managed city data.
 - If selected/detected city is unavailable, the UI shows: `Rovauto isn't available in your area yet.`
 - Route-level code splitting with `React.lazy()` and `Suspense`.
 - Redux Toolkit customer state with local cache for dashboard/profile/vehicles/bookings/service data.
 - Axios API client with bearer token and cookie-compatible requests.
+- Production service worker caches Cloudinary service/category images in browser Cache Storage for faster repeat loads.
+- Vehicle brand logos and service thumbnails come from admin-managed Cloudinary uploads.
 
 ## Tech Stack
 
@@ -63,9 +65,12 @@ npm run preview    # Preview production build on port 8080
 ## Important Folders
 
 ```text
+public/
+|-- sw.js        # Production Cloudinary image cache service worker
+
 src/
 |-- api/          # Axios wrappers and API helpers
-|-- assets/       # Bundled static images/assets
+|-- assets/       # Bundled brand/static site images only
 |-- components/   # Shared UI components
 |-- data/         # Local display data
 |-- hooks/        # useApp compatibility layer and shared hooks
@@ -78,7 +83,7 @@ src/
 |   |-- garage/
 |   |-- sos/
 |-- store/        # Redux store and customer slice
-|-- utils/        # Auth, payment, address, geocode, cities, activity helpers
+|-- utils/        # Auth, payment, address, geocode, cities, image cache, activity helpers
 ```
 
 ## Rovauto Assistant
@@ -191,6 +196,36 @@ Any city dropdown value not in the active city list is treated as unavailable.
 
 `AddressCheck` and `VehicleCheck` in `App.jsx` protect routes so the user cannot skip compulsory onboarding.
 
+## Catalog Media
+
+Vehicle and service catalog media is not bundled into the client anymore.
+
+- Vehicle brand logos are loaded from `/api/v1/vehicle-meta/brands`.
+- Service category thumbnails and service thumbnails are loaded from `/api/v1/services/categories`.
+- Admin uploads these images to Cloudinary from the Cars and Services pages.
+- If an image is missing, the UI falls back to a text/icon placeholder.
+
+The client only keeps Rovauto brand/home assets in `src/assets`.
+
+## Image Caching
+
+Production builds register:
+
+```text
+public/sw.js
+```
+
+The service worker caches Cloudinary image responses using browser Cache Storage. The app warms the cache after service/category data loads on:
+
+```text
+/
+/services
+/services/:categoryId
+/booking/services
+```
+
+This improves repeat visits and navigation after first load. The service worker is production-only to avoid stale image caches during local development.
+
 ## Main Backend APIs Used
 
 Customer:
@@ -232,6 +267,10 @@ Admin:
 
 ```text
 GET/POST/PATCH /api/v1/cities/admin
+GET/POST/PATCH/DELETE /api/v1/admin/cars/...
+GET/POST/PATCH/DELETE /api/v1/admin/services/...
+POST /api/v1/admin/services/categories/:categoryId/thumbnail
+POST /api/v1/admin/services/:serviceId/thumbnail
 GET/POST/PATCH/DELETE /api/v1/admin/city-service-price-ranges
 GET/POST/PATCH /api/v1/admin/garage-applications
 GET/DELETE /api/v1/admin/garages
@@ -255,8 +294,8 @@ src/utils/activityLog.js
 
 ## Media Notes
 
-- Static site images live in the client bundle.
-- Dynamic garage/customer/admin media should go through Cloudinary-backed backend endpoints.
+- Static Rovauto brand/site images live in the client bundle.
+- Vehicle logos, service category thumbnails, service thumbnails, garage/customer/admin media should go through Cloudinary-backed backend endpoints.
 - Garage application uploads require at least 10 photos.
 - Booking pickup/delivery inspection images are uploaded through garage request endpoints.
 
