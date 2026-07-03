@@ -88,7 +88,11 @@ export default function Garages() {
       ]);
       setGarages(garageList || []);
       setServices(serviceList || []);
-      setSelectedGarageId((current) => current || garageList?.[0]?.id || "");
+      setSelectedGarageId((current) =>
+        current && garageList?.some((garage) => garage.id === current)
+          ? current
+          : "",
+      );
       setSelectedGarageDetails((current) =>
         current && garageList?.some((garage) => garage.id === current.id)
           ? garageList.find((garage) => garage.id === current.id) || current
@@ -136,7 +140,14 @@ export default function Garages() {
 
   const saveGarageService = async (event) => {
     event.preventDefault();
-    if (!selectedGarageId || !serviceForm.serviceId) return;
+    if (!selectedGarageId) {
+      setError("Select a garage before assigning a service.");
+      return;
+    }
+    if (!serviceForm.serviceId) {
+      setError("Select a service to assign.");
+      return;
+    }
 
     setError("");
     setSuccess("");
@@ -685,8 +696,25 @@ export default function Garages() {
 
             <form
               onSubmit={saveGarageService}
-              className="card-soft grid min-w-0 gap-3 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_140px_140px_auto]"
+              className="card-soft grid min-w-0 gap-3 p-4 sm:p-5 xl:grid-cols-[minmax(180px,0.9fr)_minmax(220px,1fr)_140px_140px_auto]"
             >
+              <select
+                required
+                value={selectedGarageId}
+                onChange={(e) => {
+                  setSelectedGarageId(e.target.value);
+                  setSelectedGarageDetails(null);
+                }}
+                className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+              >
+                <option value="">Select garage</option>
+                {garages.map((garage) => (
+                  <option key={garage.id} value={garage.id}>
+                    {garage.name}
+                    {garage.city ? ` - ${garage.city}` : ""}
+                  </option>
+                ))}
+              </select>
               <select
                 required
                 value={serviceForm.serviceId}
@@ -726,7 +754,7 @@ export default function Garages() {
                 className="min-w-0 rounded-xl border border-line bg-bg-soft px-4 py-3 outline-none"
               />
               <button
-                disabled={!selectedGarageId}
+                disabled={!selectedGarageId || !serviceForm.serviceId}
                 className="btn-primary !px-5"
               >
                 Save
