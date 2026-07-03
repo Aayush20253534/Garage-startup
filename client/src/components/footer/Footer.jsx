@@ -7,7 +7,7 @@ const SUPPORT_PHONE_DISPLAY = "+91 98993 19913";
 export default function Footer() {
   return (
     <footer className="bg-ink text-white mt-20">
-      <div className="container-x py-16 grid gap-10 lg:grid-cols-5">
+      <div className="container-x py-12 lg:pt-14 lg:pb-10 grid gap-10 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <div className="bg-white rounded-2xl p-3 inline-block"><Logo /></div>
           <p className="mt-5 text-white/70 max-w-sm">India's trusted vehicle service platform. Verified garages, transparent pricing, live tracking & warranty.</p>
@@ -36,7 +36,7 @@ export default function Footer() {
         ))}
       </div>
       <div className="border-t border-white/10">
-        <div className="container-x py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/60">
+        <div className="container-x py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/60">
           <p>© {new Date().getFullYear()} Rovauto. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-2"><FiMail /> rovauto.offical@gmail.com</span>
