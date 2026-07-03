@@ -15,8 +15,19 @@ const router = express.Router();
 router.use(protect);
 router.use(authorizeRoles("ADMIN"));
 
-router.get("/customers", customerQuerySchema, validate, controller.listCustomers);
+router.get("/stats", controller.getDashboardStats);
+router.get(
+  "/customers",
+  customerQuerySchema,
+  validate,
+  controller.listCustomers,
+);
 router.get("/bookings", bookingQuerySchema, validate, controller.listBookings);
-router.post("/notifications", sendNotificationSchema, validate, controller.sendNotification);
+router.post(
+  "/notifications",
+  sendNotificationSchema,
+  validate,
+  controller.sendNotification,
+);
 
 module.exports = router;

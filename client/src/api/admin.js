@@ -13,6 +13,10 @@ export const adminApi = {
     return result;
   },
 
+  async getStats() {
+    return unwrap(await api.get("/admin/stats"));
+  },
+
   async getApplications(status = "") {
     return unwrap(
       await api.get("/admin/garage-applications", {

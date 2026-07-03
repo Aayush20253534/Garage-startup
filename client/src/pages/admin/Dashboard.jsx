@@ -20,26 +20,13 @@ export default function AdminDashboard() {
       setError("");
 
       try {
-        const [garages, pendingApplications, priceRanges, customers, bookings] =
-          await Promise.all([
-            adminApi.getGarages(),
-            adminApi.getApplications("PENDING"),
-            adminApi.getPriceRanges(),
-            adminApi.getCustomers(),
-            adminApi.getBookings(),
-          ]);
+        const dashboard = await adminApi.getStats();
 
-        setStats({
-          garages: garages?.length || 0,
-          activeGarages:
-            garages?.filter((garage) => garage.isActive)?.length || 0,
-          pendingApplications: pendingApplications?.length || 0,
-          priceRanges: priceRanges?.length || 0,
-          customers: customers?.length || 0,
-          bookings: bookings?.length || 0,
-        });
-
-        setRecentApplications((pendingApplications || []).slice(0, 5));
+        setStats((current) => ({
+          ...current,
+          ...(dashboard.stats || {}),
+        }));
+        setRecentApplications(dashboard.recentApplications || []);
       } catch (err) {
         setError(
           err.response?.data?.message || "Unable to load admin dashboard",

@@ -37,11 +37,21 @@ const listCustomers = async (query = {}) => {
     }),
     ...(query.city && {
       OR: [
-        { customerProfile: { is: { address: { contains: query.city, mode: "insensitive" } } } },
-        { locations: { some: { address: { contains: query.city, mode: "insensitive" } } } },
+        {
+          customerProfile: {
+            is: { address: { contains: query.city, mode: "insensitive" } },
+          },
+        },
+        {
+          locations: {
+            some: { address: { contains: query.city, mode: "insensitive" } },
+          },
+        },
       ],
     }),
-    ...(query.isActive !== undefined && { isActive: query.isActive === "true" }),
+    ...(query.isActive !== undefined && {
+      isActive: query.isActive === "true",
+    }),
   };
 
   return prisma.user.findMany({
@@ -59,9 +69,21 @@ const listBookings = async (query = {}) => {
     ...(query.search && {
       OR: [
         { bookingCode: { contains: query.search, mode: "insensitive" } },
-        { user: { is: { name: { contains: query.search, mode: "insensitive" } } } },
-        { user: { is: { email: { contains: query.search, mode: "insensitive" } } } },
-        { garage: { is: { name: { contains: query.search, mode: "insensitive" } } } },
+        {
+          user: {
+            is: { name: { contains: query.search, mode: "insensitive" } },
+          },
+        },
+        {
+          user: {
+            is: { email: { contains: query.search, mode: "insensitive" } },
+          },
+        },
+        {
+          garage: {
+            is: { name: { contains: query.search, mode: "insensitive" } },
+          },
+        },
       ],
     }),
   };
@@ -80,8 +102,54 @@ const listBookings = async (query = {}) => {
   });
 };
 
+const getDashboardStats = async () => {
+  const [
+    garages,
+    activeGarages,
+    pendingApplications,
+    priceRanges,
+    customers,
+    bookings,
+    recentApplications,
+  ] = await Promise.all([
+    prisma.garage.count(),
+    prisma.garage.count({ where: { isActive: true } }),
+    prisma.garageApplication.count({ where: { status: "PENDING" } }),
+    prisma.cityServicePriceRange.count(),
+    prisma.user.count({ where: { role: "CUSTOMER" } }),
+    prisma.booking.count(),
+    prisma.garageApplication.findMany({
+      where: { status: "PENDING" },
+      select: {
+        id: true,
+        garageName: true,
+        ownerName: true,
+        city: true,
+        phone: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+  ]);
+
+  return {
+    stats: {
+      garages,
+      activeGarages,
+      pendingApplications,
+      priceRanges,
+      customers,
+      bookings,
+    },
+    recentApplications,
+  };
+};
+
 const invalidateUsersNotificationCache = async (userIds = []) => {
-  await Promise.all(userIds.map((userId) => deletePattern(`customer:${userId}:notifications*`)));
+  await Promise.all(
+    userIds.map((userId) => deletePattern(`customer:${userId}:notifications*`)),
+  );
 };
 
 const getCityUsers = async (city) => {
@@ -90,16 +158,33 @@ const getCityUsers = async (city) => {
       role: "CUSTOMER",
       isActive: true,
       OR: [
-        { customerProfile: { is: { address: { contains: city, mode: "insensitive" } } } },
-        { locations: { some: { address: { contains: city, mode: "insensitive" } } } },
+        {
+          customerProfile: {
+            is: { address: { contains: city, mode: "insensitive" } },
+          },
+        },
+        {
+          locations: {
+            some: { address: { contains: city, mode: "insensitive" } },
+          },
+        },
       ],
     },
     select: { id: true },
   });
 };
 
-const sendNotification = async ({ audience, userId, city, title, message, type = "SYSTEM", link = null }) => {
-  if (!title || !message) throw new ApiError(400, "Title and message are required");
+const sendNotification = async ({
+  audience,
+  userId,
+  city,
+  title,
+  message,
+  type = "SYSTEM",
+  link = null,
+}) => {
+  if (!title || !message)
+    throw new ApiError(400, "Title and message are required");
 
   if (audience === "ALL") {
     return prisma.notification.create({
@@ -136,7 +221,11 @@ const sendNotification = async ({ audience, userId, city, title, message, type =
     if (!city) throw new ApiError(400, "City is required");
     const users = await getCityUsers(city);
     if (users.length === 0) {
-      return { sent: 0, city, message: "No active customers found for this city" };
+      return {
+        sent: 0,
+        city,
+        message: "No active customers found for this city",
+      };
     }
 
     await prisma.notification.createMany({
@@ -157,6 +246,7 @@ const sendNotification = async ({ audience, userId, city, title, message, type =
 };
 
 module.exports = {
+  getDashboardStats,
   listBookings,
   listCustomers,
   sendNotification,

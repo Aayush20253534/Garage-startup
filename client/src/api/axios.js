@@ -1,8 +1,13 @@
 import axios from "axios";
 
+const apiBaseUrl = import.meta.env.VITE_API_URL;
+
+if (!apiBaseUrl && import.meta.env.PROD) {
+  throw new Error("VITE_API_URL is required for production builds.");
+}
+
 const api = axios.create({
-  baseURL:
-    import.meta.env.VITE_API_URL || "https://rovauto.onrender.com/api/v1",
+  baseURL: apiBaseUrl || "http://localhost:5000/api/v1",
   withCredentials: true,
   timeout: 20000,
   headers: {
