@@ -4,8 +4,7 @@ import api from "@/api/axios";
 
 const welcomeMessage = {
   from: "bot",
-  text:
-    "Hi, I am Rovauto Assistant. Ask me about booking, location, vehicles, payments, SOS, complaints, or tracking.",
+  text: "Hi, I am Rovauto Assistant. Ask me about booking, location, vehicles, payments, SOS, complaints, or tracking.",
 };
 
 export default function ChatbotPopup({ onClose }) {
@@ -29,7 +28,7 @@ export default function ChatbotPopup({ onClose }) {
             savedMessages.map((message) => ({
               from: message.from,
               text: message.text,
-            }))
+            })),
           );
         }
       } catch (error) {
@@ -113,7 +112,9 @@ export default function ChatbotPopup({ onClose }) {
         ...current,
         {
           from: "bot",
-          text: error.response?.data?.message || "Could not clear chat history right now.",
+          text:
+            error.response?.data?.message ||
+            "Could not clear chat history right now.",
         },
       ]);
     } finally {
@@ -135,12 +136,19 @@ export default function ChatbotPopup({ onClose }) {
           >
             <FiTrash2 className="text-lg" />
           </button>
-          <button type="button" onClick={onClose} className="hover:bg-black/10 rounded-full p-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="hover:bg-black/10 rounded-full p-1"
+          >
             <FiX className="text-xl" />
           </button>
         </div>
       </div>
-      <div ref={scrollRef} className="h-80 overflow-y-auto bg-gray-50 p-4 flex flex-col gap-3">
+      <div
+        ref={scrollRef}
+        className="h-80 overflow-y-auto bg-gray-50 p-4 flex flex-col gap-3"
+      >
         {isLoadingHistory && (
           <div className="max-w-[80%] p-3 rounded-2xl bg-gray-200 self-start rounded-tl-none text-sm text-muted">
             Loading previous chat...

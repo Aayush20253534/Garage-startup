@@ -7,11 +7,19 @@ import { motion } from "framer-motion";
 
 export default function MainLayout() {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <motion.main key={pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="flex-1 pt-16 sm:pt-20">
+      <motion.main
+        key={pathname}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="flex-1 pt-16 sm:pt-20"
+      >
         <Outlet />
       </motion.main>
       <Footer />

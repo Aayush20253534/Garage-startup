@@ -3,10 +3,34 @@ import { FiTrendingUp, FiCircle, FiTool, FiTruck } from "react-icons/fi";
 import { addRecentActivity } from "@/utils/activityLog";
 
 const SOS_PROBLEMS = [
-  { id: "flat-tire", icon: FiCircle, label: "Flat Tire", emoji: "🛞", desc: "Puncture repair" },
-  { id: "dead-battery", icon: FiTrendingUp, label: "Dead Battery", emoji: "🔋", desc: "Jumpstart" },
-  { id: "engine-failure", icon: FiTool, label: "Engine Won't Start", emoji: "⚙️", desc: "Engine issues" },
-  { id: "towing", icon: FiTruck, label: "Need Towing", emoji: "🏗️", desc: "Vehicle tow" },
+  {
+    id: "flat-tire",
+    icon: FiCircle,
+    label: "Flat Tire",
+    emoji: "🛞",
+    desc: "Puncture repair",
+  },
+  {
+    id: "dead-battery",
+    icon: FiTrendingUp,
+    label: "Dead Battery",
+    emoji: "🔋",
+    desc: "Jumpstart",
+  },
+  {
+    id: "engine-failure",
+    icon: FiTool,
+    label: "Engine Won't Start",
+    emoji: "⚙️",
+    desc: "Engine issues",
+  },
+  {
+    id: "towing",
+    icon: FiTruck,
+    label: "Need Towing",
+    emoji: "🏗️",
+    desc: "Vehicle tow",
+  },
 ];
 
 export default function SOSPanicScreen() {
@@ -16,8 +40,12 @@ export default function SOSPanicScreen() {
       <div className="container-x py-10">
         <div className="text-center mb-10">
           <div className="text-6xl mb-3">🚨</div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-red-500 mb-2">SOS Rescue</h1>
-          <p className="text-gray-400">Select your problem to get instant help</p>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-red-500 mb-2">
+            SOS Rescue
+          </h1>
+          <p className="text-gray-400">
+            Select your problem to get instant help
+          </p>
         </div>
         <div className="grid sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
           {SOS_PROBLEMS.map((p) => (

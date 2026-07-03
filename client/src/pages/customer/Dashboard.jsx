@@ -26,21 +26,21 @@ export default function Dashboard() {
   } = useApp();
 
   const [bookings, setBookings] = useState(
-    () => dashboardCache?.activeBookings || []
+    () => dashboardCache?.activeBookings || [],
   );
   const [activeBookingsCount, setActiveBookingsCount] = useState(
     () =>
       dashboardCache?.activeBookingsCount ??
       dashboardCache?.activeBookings?.length ??
-      0
+      0,
   );
   const [wallet, setWallet] = useState(() => dashboardCache?.wallet || null);
   const [completedCount, setCompletedCount] = useState(
-    () => dashboardCache?.completedBookingsCount || 0
+    () => dashboardCache?.completedBookingsCount || 0,
   );
   const [loading, setLoading] = useState(() => !dashboardCache);
   const [recentActivities, setRecentActivities] = useState(() =>
-    getRecentActivities().slice(0, 3)
+    getRecentActivities().slice(0, 3),
   );
 
   const currentVehicles = Array.isArray(vehicles) ? vehicles : [];
@@ -53,7 +53,7 @@ export default function Dashboard() {
       "GARAGE_ASSIGNED",
       "CONFIRMED",
       "IN_PROGRESS",
-    ].includes(booking.status)
+    ].includes(booking.status),
   );
 
   const activeBooking = activeBookings[0];
@@ -82,7 +82,9 @@ export default function Dashboard() {
 
       setBookings(dashboard?.activeBookings || []);
       setActiveBookingsCount(
-        dashboard?.activeBookingsCount ?? dashboard?.activeBookings?.length ?? 0
+        dashboard?.activeBookingsCount ??
+          dashboard?.activeBookings?.length ??
+          0,
       );
       setWallet(dashboard?.wallet || null);
       setCompletedCount(dashboard?.completedBookingsCount || 0);
@@ -100,7 +102,8 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const refreshActivities = () => setRecentActivities(getRecentActivities().slice(0, 3));
+    const refreshActivities = () =>
+      setRecentActivities(getRecentActivities().slice(0, 3));
     window.addEventListener("rov:activity", refreshActivities);
     window.addEventListener("storage", refreshActivities);
     return () => {
@@ -128,7 +131,7 @@ export default function Dashboard() {
         <div className="relative grid gap-5 sm:flex sm:items-start sm:justify-between sm:gap-4">
           <div className="min-w-0">
             <h2 className="max-w-[13rem] text-4xl font-bold leading-tight sm:max-w-none sm:text-3xl">
-              Hello {user?.name || "there"} 👋
+              Hello {user?.name || "there"}
             </h2>
 
             <p className="mt-3 max-w-[18rem] text-base leading-relaxed text-white/70 sm:mt-2 sm:max-w-none">
@@ -165,7 +168,7 @@ export default function Dashboard() {
           </Link>
 
           <Link to="/dashboard/payments" className={heroButton}>
-            Wallet: ₹{wallet?.balance || 0}
+            Wallet: Rs. {wallet?.balance || 0}
           </Link>
         </div>
       </div>
@@ -270,8 +273,8 @@ export default function Dashboard() {
                     {activeBooking.vehicle?.brand}{" "}
                     {activeBooking.vehicle?.model}
                     {activeBooking.garage
-                      ? ` · ${activeBooking.garage.name}`
-                      : " · Waiting for garage"}
+                      ? ` - ${activeBooking.garage.name}`
+                      : " - Waiting for garage"}
                   </div>
                 </div>
 
@@ -288,14 +291,14 @@ export default function Dashboard() {
                       activeBooking.status === "PENDING_PAYMENT"
                         ? "20%"
                         : activeBooking.status === "SEARCHING_GARAGE"
-                        ? "40%"
-                        : activeBooking.status === "GARAGE_ASSIGNED"
-                        ? "55%"
-                        : activeBooking.status === "CONFIRMED"
-                        ? "65%"
-                        : activeBooking.status === "IN_PROGRESS"
-                        ? "80%"
-                        : "100%",
+                          ? "40%"
+                          : activeBooking.status === "GARAGE_ASSIGNED"
+                            ? "55%"
+                            : activeBooking.status === "CONFIRMED"
+                              ? "65%"
+                              : activeBooking.status === "IN_PROGRESS"
+                                ? "80%"
+                                : "100%",
                   }}
                 />
               </div>
@@ -316,30 +319,32 @@ export default function Dashboard() {
             {(recentActivities.length
               ? recentActivities.map((activity) => [
                   activity.title,
-                  activity.detail || new Date(activity.createdAt).toLocaleString(),
+                  activity.detail ||
+                    new Date(activity.createdAt).toLocaleString(),
                   activity.path || "/dashboard",
                 ])
               : [
-              hasVehicles
-                ? [
-                    "Book Service",
-                    "Choose services and request nearby garages",
-                    "/booking/vehicle",
-                  ]
-                : [
-                    "Add Vehicle",
-                    "Save your first vehicle to start booking",
-                    "/booking/vehicle",
+                  hasVehicles
+                    ? [
+                        "Book Service",
+                        "Choose services and request nearby garages",
+                        "/booking/vehicle",
+                      ]
+                    : [
+                        "Add Vehicle",
+                        "Save your first vehicle to start booking",
+                        "/booking/vehicle",
+                      ],
+                  ["SOS", "Emergency roadside request", "/sos"],
+                  [
+                    "My Vehicles",
+                    hasVehicles
+                      ? "Manage your saved vehicles"
+                      : "Add and manage vehicles",
+                    "/dashboard/vehicles",
                   ],
-              ["SOS", "Emergency roadside request", "/sos"],
-              [
-                "My Vehicles",
-                hasVehicles
-                  ? "Manage your saved vehicles"
-                  : "Add and manage vehicles",
-                "/dashboard/vehicles",
-              ],
-            ]).map(([name, desc, to]) => (
+                ]
+            ).map(([name, desc, to]) => (
               <li key={name}>
                 <Link to={to} className="flex items-start gap-3 hover:text-ink">
                   <FiCheckCircle className="mt-0.5 text-brand-dark" />

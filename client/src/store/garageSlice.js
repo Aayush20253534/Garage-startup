@@ -1,4 +1,3 @@
-
 import { createSlice } from "@reduxjs/toolkit";
 
 const readJson = (key, fallback = null) => {
@@ -20,12 +19,12 @@ const initialState = {
   services: [],
   wallet: {
     balance: 0,
-    transactions: []
+    transactions: [],
   },
   reviews: [],
   notifications: {
     whatsapp: true,
-    sms: true
+    sms: true,
   },
   loading: false,
 };
@@ -38,7 +37,8 @@ const garageSlice = createSlice({
   reducers: {
     setGarage: (state, action) => {
       state.garage = action.payload;
-      state.isOnboardingComplete = action.payload?.isOnboardingComplete || false;
+      state.isOnboardingComplete =
+        action.payload?.isOnboardingComplete || false;
     },
     setGarageToken: (state, action) => {
       state.token = action.payload;
@@ -63,14 +63,16 @@ const garageSlice = createSlice({
     },
     acceptBooking: (state, action) => {
       const bookingId = action.payload;
-      state.bookings = state.bookings.map(booking =>
-        booking.id === bookingId ? { ...booking, status: "ACCEPTED" } : booking
+      state.bookings = state.bookings.map((booking) =>
+        booking.id === bookingId ? { ...booking, status: "ACCEPTED" } : booking,
       );
     },
     declineBooking: (state, action) => {
       const bookingId = action.payload;
-      state.bookings = state.bookings.map(booking =>
-        booking.id === bookingId ? { ...booking, status: "CANCELLED" } : booking
+      state.bookings = state.bookings.map((booking) =>
+        booking.id === bookingId
+          ? { ...booking, status: "CANCELLED" }
+          : booking,
       );
     },
     clearGarageState: (state) => {
@@ -85,8 +87,18 @@ const garageSlice = createSlice({
   },
 });
 
-export const { 
-  setGarage, setGarageToken, setBookings, setServices, setWallet, setReviews, setLoading, setNotifications, acceptBooking, declineBooking, clearGarageState
+export const {
+  setGarage,
+  setGarageToken,
+  setBookings,
+  setServices,
+  setWallet,
+  setReviews,
+  setLoading,
+  setNotifications,
+  acceptBooking,
+  declineBooking,
+  clearGarageState,
 } = garageSlice.actions;
 
 export default garageSlice.reducer;

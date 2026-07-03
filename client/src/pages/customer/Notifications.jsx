@@ -50,11 +50,13 @@ export default function Notifications() {
 
       setNotifications((current) =>
         current.map((item) =>
-          item.id === notification.id ? { ...item, isRead: true } : item
-        )
+          item.id === notification.id ? { ...item, isRead: true } : item,
+        ),
       );
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to mark notification read");
+      setError(
+        err.response?.data?.message || "Failed to mark notification read",
+      );
     }
   };
 
@@ -63,7 +65,7 @@ export default function Notifications() {
       await api.patch("/notifications/read-all");
 
       setNotifications((current) =>
-        current.map((item) => ({ ...item, isRead: true }))
+        current.map((item) => ({ ...item, isRead: true })),
       );
     } catch (err) {
       setError(err.response?.data?.message || "Failed to mark all as read");
@@ -85,7 +87,11 @@ export default function Notifications() {
         <h2 className="text-2xl font-bold">Notifications</h2>
 
         {notifications.some((item) => !item.isRead) && (
-          <button type="button" onClick={markAllRead} className="btn-ghost text-sm">
+          <button
+            type="button"
+            onClick={markAllRead}
+            className="btn-ghost text-sm"
+          >
             Mark all read
           </button>
         )}
@@ -134,7 +140,9 @@ export default function Notifications() {
                   Mark as read
                 </button>
               ) : (
-                <span className="chip-brand shrink-0 bg-bg-soft text-muted">Read</span>
+                <span className="chip-brand shrink-0 bg-bg-soft text-muted">
+                  Read
+                </span>
               )}
             </div>
           );

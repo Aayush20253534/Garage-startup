@@ -19,11 +19,16 @@ export default function AdminLogin() {
     setError("");
 
     try {
-      const result = await adminApi.login(form.identifier.trim(), form.password);
+      const result = await adminApi.login(
+        form.identifier.trim(),
+        form.password,
+      );
       login(result.user, result.token);
       navigate(state?.from?.pathname || "/admin", { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Admin login failed");
+      setError(
+        err.response?.data?.message || err.message || "Admin login failed",
+      );
     } finally {
       setLoading(false);
     }
@@ -39,11 +44,17 @@ export default function AdminLogin() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">Admin Login</h1>
-            <p className="text-sm text-muted">Use an account with ADMIN role.</p>
+            <p className="text-sm text-muted">
+              Use an account with ADMIN role.
+            </p>
           </div>
         </div>
 
-        {error && <div className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+        {error && (
+          <div className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={submit} className="mt-6 grid gap-3">
           <input
@@ -64,7 +75,13 @@ export default function AdminLogin() {
             className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
           />
           <button disabled={loading} className="btn-primary mt-2">
-            {loading ? "Logging in..." : <>Login <FiArrowRight /></>}
+            {loading ? (
+              "Logging in..."
+            ) : (
+              <>
+                Login <FiArrowRight />
+              </>
+            )}
           </button>
         </form>
       </div>

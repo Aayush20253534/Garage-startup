@@ -33,7 +33,7 @@ export default function Customers() {
 
     try {
       const params = Object.fromEntries(
-        Object.entries(filters).filter(([, value]) => value)
+        Object.entries(filters).filter(([, value]) => value),
       );
 
       const data = await adminApi.getCustomers(params);
@@ -113,22 +113,29 @@ export default function Customers() {
         <div>
           <h3 className="font-bold">Cities</h3>
           <div className="mt-3 flex flex-wrap gap-2">
-            {cities.length ? cities.map((city) => (
-              <button
-                key={city.id}
-                type="button"
-                onClick={() => toggleCity(city)}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${city.isActive ? "bg-brand-soft text-ink" : "bg-bg-soft text-muted"}`}
-              >
-                {city.name}{city.state ? `, ${city.state}` : ""}{city.isActive ? "" : " (Inactive)"}
-              </button>
-            )) : (
+            {cities.length ? (
+              cities.map((city) => (
+                <button
+                  key={city.id}
+                  type="button"
+                  onClick={() => toggleCity(city)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ${city.isActive ? "bg-brand-soft text-ink" : "bg-bg-soft text-muted"}`}
+                >
+                  {city.name}
+                  {city.state ? `, ${city.state}` : ""}
+                  {city.isActive ? "" : " (Inactive)"}
+                </button>
+              ))
+            ) : (
               <span className="text-sm text-muted">No cities added yet.</span>
             )}
           </div>
         </div>
 
-        <form onSubmit={addCity} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:grid-cols-1">
+        <form
+          onSubmit={addCity}
+          className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:grid-cols-1"
+        >
           <input
             required
             value={cityForm.name}
@@ -138,11 +145,16 @@ export default function Customers() {
           />
           <input
             value={cityForm.state}
-            onChange={(e) => setCityForm({ ...cityForm, state: e.target.value })}
+            onChange={(e) =>
+              setCityForm({ ...cityForm, state: e.target.value })
+            }
             placeholder="State optional"
             className="min-w-0 rounded-xl border border-line px-4 py-2 outline-none focus:border-ink"
           />
-          <button disabled={citySaving} className="btn-primary justify-center !py-2">
+          <button
+            disabled={citySaving}
+            className="btn-primary justify-center !py-2"
+          >
             <FiPlus /> {citySaving ? "Adding..." : "Add"}
           </button>
         </form>
@@ -151,9 +163,7 @@ export default function Customers() {
       <div className="flex w-full max-w-full flex-col gap-2 sm:flex-row">
         <input
           value={filters.search}
-          onChange={(e) =>
-            setFilters({ ...filters, search: e.target.value })
-          }
+          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
           placeholder="Search name, email, phone"
           className="min-w-0 flex-1 rounded-xl border border-line px-4 py-2 outline-none focus:border-ink"
         />
@@ -236,7 +246,9 @@ export default function Customers() {
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-3">
-                      <span className={customer.isActive ? "chip-brand" : "chip"}>
+                      <span
+                        className={customer.isActive ? "chip-brand" : "chip"}
+                      >
                         {customer.isActive ? "Active" : "Disabled"}
                       </span>
                     </td>

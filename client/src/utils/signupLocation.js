@@ -16,7 +16,7 @@ const getCurrentPosition = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => resolve(position),
       () => resolve(null),
-      LOCATION_OPTIONS
+      LOCATION_OPTIONS,
     );
   });
 };
@@ -67,8 +67,7 @@ export const hasSavedUserLocation = (user) => {
   const locations = Array.isArray(user?.locations) ? user.locations : [];
   return locations.some(
     (location) =>
-      hasUsableIndiaCoordinates(location) &&
-      Boolean(location.address)
+      hasUsableIndiaCoordinates(location) && Boolean(location.address),
   );
 };
 
@@ -80,9 +79,7 @@ export const saveSignupLocationToProfile = async (signupLocation) => {
       address: signupLocation.address,
     });
 
-    if (
-      hasUsableIndiaCoordinates(signupLocation)
-    ) {
+    if (hasUsableIndiaCoordinates(signupLocation)) {
       await api.post("/locations", {
         latitude: Number(signupLocation.latitude),
         longitude: Number(signupLocation.longitude),

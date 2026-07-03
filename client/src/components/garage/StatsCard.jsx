@@ -1,7 +1,11 @@
-
 import { motion } from "framer-motion";
 
-export default function StatsCard({ label, value, icon: Icon, color = "brand" }) {
+export default function StatsCard({
+  label,
+  value,
+  icon: Icon,
+  color = "brand",
+}) {
   const colorMap = {
     brand: "bg-brand-soft text-ink",
     blue: "bg-blue-50 text-blue-700",

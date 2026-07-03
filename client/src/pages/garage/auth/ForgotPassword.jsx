@@ -20,7 +20,10 @@ export default function GarageForgotPassword() {
     setError("");
 
     try {
-      const res = await api.post("/auth/forgot-password", { email, role: "GARAGE_OWNER" });
+      const res = await api.post("/auth/forgot-password", {
+        email,
+        role: "GARAGE_OWNER",
+      });
       const data = res.data.data || {};
 
       if (data.otp) {
@@ -30,7 +33,9 @@ export default function GarageForgotPassword() {
       setStep("reset");
     } catch (err) {
       setError(
-        err.response?.data?.message || err.message || "Unable to send reset OTP"
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to send reset OTP",
       );
     } finally {
       setLoading(false);
@@ -69,7 +74,9 @@ export default function GarageForgotPassword() {
       setStep("success");
     } catch (err) {
       setError(
-        err.response?.data?.message || err.message || "Unable to reset password"
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to reset password",
       );
     } finally {
       setLoading(false);

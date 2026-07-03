@@ -24,7 +24,10 @@ const getServiceText = (payment) => {
 };
 
 const canPay = (payment) => {
-  return payment.status === "CREATED" && payment.booking?.status === "PENDING_PAYMENT";
+  return (
+    payment.status === "CREATED" &&
+    payment.booking?.status === "PENDING_PAYMENT"
+  );
 };
 
 export default function Payments() {
@@ -87,7 +90,7 @@ export default function Payments() {
       setError(
         err.response?.data?.message ||
           err.message ||
-          "Could not complete payment. Please try again."
+          "Could not complete payment. Please try again.",
       );
     } finally {
       setPayingId(null);
@@ -137,7 +140,9 @@ export default function Payments() {
             {items.map((payment) => (
               <tr key={payment.id} className="border-t border-line">
                 <td className="px-4 py-3 font-medium">
-                  {payment.cashfreePaymentId || payment.cashfreeOrderId || payment.id}
+                  {payment.cashfreePaymentId ||
+                    payment.cashfreeOrderId ||
+                    payment.id}
                 </td>
 
                 <td className="px-4 py-3">{getServiceText(payment)}</td>
@@ -148,15 +153,17 @@ export default function Payments() {
                   {payment.walletAmountUsed > 0 && payment.upiAmountPaid > 0
                     ? "Wallet + UPI"
                     : payment.walletAmountUsed > 0
-                    ? "Wallet"
-                    : "Cashfree"}
+                      ? "Wallet"
+                      : "Cashfree"}
                 </td>
 
                 <td className="px-4 py-3">
                   <span className="chip-brand">{payment.status}</span>
                 </td>
 
-                <td className="px-4 py-3 font-semibold">Rs. {payment.amount}</td>
+                <td className="px-4 py-3 font-semibold">
+                  Rs. {payment.amount}
+                </td>
 
                 <td className="px-4 py-3">
                   {canPay(payment) ? (

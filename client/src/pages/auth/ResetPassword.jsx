@@ -51,7 +51,11 @@ export default function ResetPassword() {
 
       setStep("success");
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Unable to reset password");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to reset password",
+      );
     } finally {
       setLoading(false);
     }
@@ -61,7 +65,10 @@ export default function ResetPassword() {
     return (
       <div className="min-h-screen flex flex-col bg-bg-soft">
         <div className="container-x py-8">
-          <Link to="/garage/login" className="inline-flex items-center gap-2 text-muted hover:text-ink">
+          <Link
+            to="/garage/login"
+            className="inline-flex items-center gap-2 text-muted hover:text-ink"
+          >
             <FiArrowLeft className="w-4 h-4" />
             <span>Back to Login</span>
           </Link>
@@ -75,8 +82,16 @@ export default function ResetPassword() {
           >
             <FiCheckCircle className="w-16 h-16 mx-auto text-brand mb-4" />
             <h1 className="text-3xl font-bold mb-2">Password updated</h1>
-            <p className="text-muted mb-6">Your password has been set. Use your email and new password to login.</p>
-            <button onClick={() => nav('/garage/login')} className="btn-primary w-full">Go to Login</button>
+            <p className="text-muted mb-6">
+              Your password has been set. Use your email and new password to
+              login.
+            </p>
+            <button
+              onClick={() => nav("/garage/login")}
+              className="btn-primary w-full"
+            >
+              Go to Login
+            </button>
           </motion.div>
         </div>
       </div>
@@ -86,7 +101,10 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen flex flex-col bg-bg-soft">
       <div className="container-x py-8">
-        <Link to="/garage/login" className="inline-flex items-center gap-2 text-muted hover:text-ink">
+        <Link
+          to="/garage/login"
+          className="inline-flex items-center gap-2 text-muted hover:text-ink"
+        >
           <FiArrowLeft className="w-4 h-4" />
           <span>Back to Login</span>
         </Link>
@@ -98,8 +116,12 @@ export default function ResetPassword() {
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md card-soft p-8"
         >
-          <h1 className="text-2xl font-bold mb-1 flex items-center gap-2"><FiLock /> Reset password</h1>
-          <p className="text-muted mb-6">Enter the OTP you received and set a new password.</p>
+          <h1 className="text-2xl font-bold mb-1 flex items-center gap-2">
+            <FiLock /> Reset password
+          </h1>
+          <p className="text-muted mb-6">
+            Enter the OTP you received and set a new password.
+          </p>
 
           {error && <div className="mb-4 text-sm text-red-600">{error}</div>}
 
@@ -121,7 +143,9 @@ export default function ResetPassword() {
               <input
                 type="text"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+                onChange={(e) =>
+                  setOtp(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))
+                }
                 placeholder="123456"
                 className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink outline-none"
                 required
@@ -129,7 +153,9 @@ export default function ResetPassword() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">New password</label>
+              <label className="block text-sm font-medium mb-2">
+                New password
+              </label>
               <input
                 type="password"
                 value={newPassword}
@@ -141,7 +167,9 @@ export default function ResetPassword() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Confirm password</label>
+              <label className="block text-sm font-medium mb-2">
+                Confirm password
+              </label>
               <input
                 type="password"
                 value={confirmPassword}
@@ -152,7 +180,11 @@ export default function ResetPassword() {
               />
             </div>
 
-            <button type="submit" disabled={loading} className="btn-primary w-full py-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full py-3"
+            >
               {loading ? "Setting..." : "Set password"}
             </button>
           </form>

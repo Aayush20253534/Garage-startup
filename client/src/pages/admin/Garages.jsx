@@ -1,8 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
-import { FiCheck, FiEdit3, FiEye, FiImage, FiRefreshCw, FiTrash2, FiX } from "react-icons/fi";
+import {
+  FiCheck,
+  FiEdit3,
+  FiEye,
+  FiImage,
+  FiRefreshCw,
+  FiTrash2,
+  FiX,
+} from "react-icons/fi";
 
-const applicationStatuses = ["PENDING", "CHANGES_REQUESTED", "APPROVED", "DENIED"];
+const applicationStatuses = [
+  "PENDING",
+  "CHANGES_REQUESTED",
+  "APPROVED",
+  "DENIED",
+];
 
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
 
@@ -23,8 +36,11 @@ export default function Garages() {
   const [success, setSuccess] = useState("");
 
   const selectedGarage = useMemo(
-    () => selectedGarageDetails || garages.find((garage) => garage.id === selectedGarageId) || null,
-    [garages, selectedGarageDetails, selectedGarageId]
+    () =>
+      selectedGarageDetails ||
+      garages.find((garage) => garage.id === selectedGarageId) ||
+      null,
+    [garages, selectedGarageDetails, selectedGarageId],
   );
 
   const loadApplications = async () => {
@@ -52,11 +68,17 @@ export default function Garages() {
       setServices(serviceList || []);
       setSelectedGarageId((current) => current || garageList?.[0]?.id || "");
       setSelectedGarageDetails((current) =>
-        current && garageList?.some((garage) => garage.id === current.id) ? current : null
+        current && garageList?.some((garage) => garage.id === current.id)
+          ? current
+          : null,
       );
-      setSelectedGarageIds((current) => current.filter((id) => garageList?.some((garage) => garage.id === id)));
+      setSelectedGarageIds((current) =>
+        current.filter((id) => garageList?.some((garage) => garage.id === id)),
+      );
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to load garages/services");
+      setError(
+        err.response?.data?.message || "Unable to load garages/services",
+      );
     } finally {
       setLoading(false);
     }
@@ -73,13 +95,20 @@ export default function Garages() {
     const note = noteByApplication[application.id] || "";
 
     try {
-      if (action === "approve") await adminApi.approveApplication(application.id, note);
-      if (action === "changes") await adminApi.requestApplicationChanges(application.id, note);
-      if (action === "deny") await adminApi.denyApplication(application.id, note);
-      setSuccess(`Application ${action === "changes" ? "sent for changes" : `${action}d`}.`);
+      if (action === "approve")
+        await adminApi.approveApplication(application.id, note);
+      if (action === "changes")
+        await adminApi.requestApplicationChanges(application.id, note);
+      if (action === "deny")
+        await adminApi.denyApplication(application.id, note);
+      setSuccess(
+        `Application ${action === "changes" ? "sent for changes" : `${action}d`}.`,
+      );
       await loadApplications();
     } catch (err) {
-      setError(err.response?.data?.message || `Unable to ${action} application`);
+      setError(
+        err.response?.data?.message || `Unable to ${action} application`,
+      );
     }
   };
 
@@ -111,7 +140,9 @@ export default function Garages() {
       setSuccess("Garage service removed.");
       await loadGaragesAndServices();
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to remove garage service");
+      setError(
+        err.response?.data?.message || "Unable to remove garage service",
+      );
     }
   };
 
@@ -137,7 +168,7 @@ export default function Garages() {
     setSelectedApplicationIds((current) =>
       current.includes(applicationId)
         ? current.filter((id) => id !== applicationId)
-        : [...current, applicationId]
+        : [...current, applicationId],
     );
   };
 
@@ -159,7 +190,7 @@ export default function Garages() {
     setSelectedGarageIds((current) =>
       current.includes(garageId)
         ? current.filter((id) => id !== garageId)
-        : [...current, garageId]
+        : [...current, garageId],
     );
   };
 
@@ -170,7 +201,9 @@ export default function Garages() {
     try {
       const result = await adminApi.deleteGarages(garageIds);
       const deleted = result.deletedGarages || garageIds.length;
-      setSuccess(`${deleted} garage${deleted === 1 ? "" : "s"} and related DB records deleted.`);
+      setSuccess(
+        `${deleted} garage${deleted === 1 ? "" : "s"} and related DB records deleted.`,
+      );
       setSelectedGarageIds([]);
       if (garageIds.includes(selectedGarageId)) {
         setSelectedGarageId("");
@@ -182,7 +215,8 @@ export default function Garages() {
     }
   };
 
-  const canDeleteApplications = applicationStatus === "APPROVED" || applicationStatus === "DENIED";
+  const canDeleteApplications =
+    applicationStatus === "APPROVED" || applicationStatus === "DENIED";
   const allApplicationIds = applications.map((application) => application.id);
   const allGarageIds = garages.map((garage) => garage.id);
 
@@ -191,7 +225,9 @@ export default function Garages() {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Garages</h2>
-          <p className="text-muted">Approve garage applications and assign services.</p>
+          <p className="text-muted">
+            Approve garage applications and assign services.
+          </p>
         </div>
         <div className="flex w-full gap-2 rounded-xl bg-bg-soft p-1 sm:w-auto">
           {[
@@ -209,8 +245,14 @@ export default function Garages() {
         </div>
       </div>
 
-      {error && <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>}
-      {success && <div className="rounded-xl bg-green-50 p-4 text-green-700">{success}</div>}
+      {error && (
+        <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>
+      )}
+      {success && (
+        <div className="rounded-xl bg-green-50 p-4 text-green-700">
+          {success}
+        </div>
+      )}
 
       {tab === "applications" ? (
         <div className="space-y-4">
@@ -224,7 +266,10 @@ export default function Garages() {
                 {status.replaceAll("_", " ")}
               </button>
             ))}
-            <button onClick={loadApplications} className="btn-ghost !py-2 text-sm">
+            <button
+              onClick={loadApplications}
+              className="btn-ghost !py-2 text-sm"
+            >
               <FiRefreshCw /> Refresh
             </button>
             {canDeleteApplications && applications.length > 0 && (
@@ -232,8 +277,14 @@ export default function Garages() {
                 <label className="inline-flex items-center gap-2 rounded-full bg-bg-soft px-4 py-2 text-xs font-semibold text-muted sm:text-sm">
                   <input
                     type="checkbox"
-                    checked={selectedApplicationIds.length === applications.length}
-                    onChange={(event) => setSelectedApplicationIds(event.target.checked ? allApplicationIds : [])}
+                    checked={
+                      selectedApplicationIds.length === applications.length
+                    }
+                    onChange={(event) =>
+                      setSelectedApplicationIds(
+                        event.target.checked ? allApplicationIds : [],
+                      )
+                    }
                   />
                   Select all
                 </label>
@@ -256,78 +307,124 @@ export default function Garages() {
 
           <div className="grid gap-4">
             {loading ? (
-              <div className="card-soft p-5 text-muted">Loading applications...</div>
-            ) : applications.length ? applications.map((application) => (
-              <div key={application.id} className="card-soft p-4 sm:p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0 space-y-2">
-                    {canDeleteApplications && (
-                      <label className="inline-flex items-center gap-2 text-sm font-semibold text-muted">
-                        <input
-                          type="checkbox"
-                          checked={selectedApplicationIds.includes(application.id)}
-                          onChange={() => toggleApplicationSelection(application.id)}
-                        />
-                        Select
-                      </label>
-                    )}
-                    <div>
-                      <h3 className="text-lg font-bold">{application.garageName}</h3>
-                      <p className="text-sm text-muted">{application.ownerName} · {application.email} · {application.phone}</p>
+              <div className="card-soft p-5 text-muted">
+                Loading applications...
+              </div>
+            ) : applications.length ? (
+              applications.map((application) => (
+                <div key={application.id} className="card-soft p-4 sm:p-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 space-y-2">
+                      {canDeleteApplications && (
+                        <label className="inline-flex items-center gap-2 text-sm font-semibold text-muted">
+                          <input
+                            type="checkbox"
+                            checked={selectedApplicationIds.includes(
+                              application.id,
+                            )}
+                            onChange={() =>
+                              toggleApplicationSelection(application.id)
+                            }
+                          />
+                          Select
+                        </label>
+                      )}
+                      <div>
+                        <h3 className="text-lg font-bold">
+                          {application.garageName}
+                        </h3>
+                        <p className="text-sm text-muted">
+                          {application.ownerName} - {application.email} -{" "}
+                          {application.phone}
+                        </p>
+                      </div>
+                      <p className="break-words text-sm">
+                        {application.address}, {application.area},{" "}
+                        {application.city}
+                      </p>
+                      <p className="text-sm text-muted">
+                        Radius: {application.workingRadiusKm || 15} km -
+                        Lat/Lng: {application.latitude ?? "N/A"},{" "}
+                        {application.longitude ?? "N/A"}
+                      </p>
+                      {application.description && (
+                        <p className="whitespace-pre-wrap text-sm text-muted">
+                          {application.description}
+                        </p>
+                      )}
+                      {application.images?.length > 0 && (
+                        <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4 lg:grid-cols-6">
+                          {application.images.map((image, index) => (
+                            <a
+                              key={image.id}
+                              href={image.imageUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block overflow-hidden rounded-xl border border-line bg-bg-soft"
+                            >
+                              <img
+                                src={image.imageUrl}
+                                alt={`${application.garageName} ${index + 1}`}
+                                className="aspect-square w-full object-cover"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <p className="break-words text-sm">{application.address}, {application.area}, {application.city}</p>
-                    <p className="text-sm text-muted">
-                      Radius: {application.workingRadiusKm || 15} km ·
-                      Lat/Lng: {application.latitude ?? "N/A"}, {application.longitude ?? "N/A"}
-                    </p>
-                    {application.description && <p className="whitespace-pre-wrap text-sm text-muted">{application.description}</p>}
-                    {application.images?.length > 0 && (
-                      <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4 lg:grid-cols-6">
-                        {application.images.map((image, index) => (
-                          <a
-                            key={image.id}
-                            href={image.imageUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block overflow-hidden rounded-xl border border-line bg-bg-soft"
+                    <span className="chip-brand self-start">
+                      {application.status}
+                    </span>
+                  </div>
+
+                  {application.status !== "APPROVED" &&
+                    application.status !== "DENIED" && (
+                      <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(280px,1fr)_auto]">
+                        <input
+                          value={noteByApplication[application.id] || ""}
+                          onChange={(e) =>
+                            setNoteByApplication({
+                              ...noteByApplication,
+                              [application.id]: e.target.value,
+                            })
+                          }
+                          placeholder="Optional admin note"
+                          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+                        />
+                        <div className="flex flex-wrap gap-2 xl:flex-nowrap">
+                          <button
+                            onClick={() =>
+                              runApplicationAction(application, "approve")
+                            }
+                            className="btn-primary !px-4 !py-3 text-sm"
                           >
-                            <img
-                              src={image.imageUrl}
-                              alt={`${application.garageName} ${index + 1}`}
-                              className="aspect-square w-full object-cover"
-                            />
-                          </a>
-                        ))}
+                            <FiCheck /> Approve
+                          </button>
+                          <button
+                            onClick={() =>
+                              runApplicationAction(application, "changes")
+                            }
+                            className="btn-ghost !px-4 !py-3 text-sm"
+                          >
+                            <FiEdit3 /> Changes
+                          </button>
+                          <button
+                            onClick={() =>
+                              runApplicationAction(application, "deny")
+                            }
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-3 text-sm font-semibold text-white"
+                          >
+                            <FiX /> Deny
+                          </button>
+                        </div>
                       </div>
                     )}
-                  </div>
-                  <span className="chip-brand self-start">{application.status}</span>
                 </div>
-
-                {application.status !== "APPROVED" && application.status !== "DENIED" && (
-                  <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(280px,1fr)_auto]">
-                    <input
-                      value={noteByApplication[application.id] || ""}
-                      onChange={(e) => setNoteByApplication({ ...noteByApplication, [application.id]: e.target.value })}
-                      placeholder="Optional admin note"
-                      className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-                    />
-                    <div className="flex flex-wrap gap-2 xl:flex-nowrap">
-                      <button onClick={() => runApplicationAction(application, "approve")} className="btn-primary !px-4 !py-3 text-sm">
-                        <FiCheck /> Approve
-                      </button>
-                      <button onClick={() => runApplicationAction(application, "changes")} className="btn-ghost !px-4 !py-3 text-sm">
-                        <FiEdit3 /> Changes
-                      </button>
-                      <button onClick={() => runApplicationAction(application, "deny")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-3 text-sm font-semibold text-white">
-                        <FiX /> Deny
-                      </button>
-                    </div>
-                  </div>
-                )}
+              ))
+            ) : (
+              <div className="card-soft p-5 text-muted">
+                No applications found.
               </div>
-            )) : (
-              <div className="card-soft p-5 text-muted">No applications found.</div>
             )}
           </div>
         </div>
@@ -338,9 +435,15 @@ export default function Garages() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-bold">Garage Tab</h3>
-                  <p className="mt-1 text-xs text-muted">Click a garage to view onboarding details.</p>
+                  <p className="mt-1 text-xs text-muted">
+                    Click a garage to view onboarding details.
+                  </p>
                 </div>
-                <button onClick={loadGaragesAndServices} className="btn-ghost !px-3 !py-2 text-sm" type="button">
+                <button
+                  onClick={loadGaragesAndServices}
+                  className="btn-ghost !px-3 !py-2 text-sm"
+                  type="button"
+                >
                   <FiRefreshCw />
                 </button>
               </div>
@@ -350,7 +453,11 @@ export default function Garages() {
                     <input
                       type="checkbox"
                       checked={selectedGarageIds.length === garages.length}
-                      onChange={(event) => setSelectedGarageIds(event.target.checked ? allGarageIds : [])}
+                      onChange={(event) =>
+                        setSelectedGarageIds(
+                          event.target.checked ? allGarageIds : [],
+                        )
+                      }
                     />
                     Select all
                   </label>
@@ -383,11 +490,16 @@ export default function Garages() {
                     type="button"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="truncate font-semibold">{garage.name}</span>
+                      <span className="truncate font-semibold">
+                        {garage.name}
+                      </span>
                       <FiEye className="shrink-0" />
                     </div>
-                    <div className={`text-xs ${selectedGarageId === garage.id ? "text-white/70" : "text-muted"}`}>
-                      {garage.city} · {garage.services?.length || 0} services · {garage.isActive ? "Active" : "Inactive"}
+                    <div
+                      className={`text-xs ${selectedGarageId === garage.id ? "text-white/70" : "text-muted"}`}
+                    >
+                      {garage.city} - {garage.services?.length || 0} services -{" "}
+                      {garage.isActive ? "Active" : "Inactive"}
                     </div>
                   </button>
                 </div>
@@ -399,23 +511,31 @@ export default function Garages() {
             <div className="card-soft p-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <h3 className="break-words text-xl font-bold">{selectedGarage?.name || "Select a garage"}</h3>
+                  <h3 className="break-words text-xl font-bold">
+                    {selectedGarage?.name || "Select a garage"}
+                  </h3>
                   {selectedGarage && (
                     <p className="mt-1 break-words text-sm text-muted">
-                      {selectedGarage.address}, {selectedGarage.area}, {selectedGarage.city}
+                      {selectedGarage.address}, {selectedGarage.area},{" "}
+                      {selectedGarage.city}
                     </p>
                   )}
                 </div>
                 {selectedGarage && (
                   <div className="flex flex-wrap gap-2">
-                    <span className="chip-brand">{selectedGarage.isVerified ? "Verified" : "Unverified"}</span>
-                    <span className="chip-brand">{selectedGarage.isActive ? "Active" : "Inactive"}</span>
+                    <span className="chip-brand">
+                      {selectedGarage.isVerified ? "Verified" : "Unverified"}
+                    </span>
+                    <span className="chip-brand">
+                      {selectedGarage.isActive ? "Active" : "Inactive"}
+                    </span>
                   </div>
                 )}
               </div>
               {selectedGarage && (
                 <p className="break-words text-sm text-muted">
-                  {selectedGarage.address}, {selectedGarage.city} · Wallet {money(selectedGarage.wallet?.balance)}
+                  {selectedGarage.address}, {selectedGarage.city} - Wallet{" "}
+                  {money(selectedGarage.wallet?.balance)}
                 </p>
               )}
             </div>
@@ -425,28 +545,79 @@ export default function Garages() {
                 <div>
                   <h4 className="font-bold">Garage Details</h4>
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted">
-                    {selectedGarage.description || "No garage description submitted."}
+                    {selectedGarage.description ||
+                      "No garage description submitted."}
                   </p>
                 </div>
                 <div className="grid gap-3 text-sm text-muted sm:grid-cols-2 lg:grid-cols-3">
-                  <span><strong className="text-ink">Owner:</strong> {selectedGarage.owner?.name || "N/A"}</span>
-                  <span><strong className="text-ink">Owner email:</strong> {selectedGarage.owner?.email || "N/A"}</span>
-                  <span><strong className="text-ink">Owner phone:</strong> {selectedGarage.owner?.phone || "N/A"}</span>
-                  <span><strong className="text-ink">Garage email:</strong> {selectedGarage.email || "N/A"}</span>
-                  <span><strong className="text-ink">Garage phone:</strong> {selectedGarage.phone || "N/A"}</span>
-                  <span><strong className="text-ink">WhatsApp:</strong> {selectedGarage.whatsappNo || "N/A"}</span>
-                  <span><strong className="text-ink">City:</strong> {selectedGarage.city || "N/A"}</span>
-                  <span><strong className="text-ink">Area:</strong> {selectedGarage.area || "N/A"}</span>
-                  <span><strong className="text-ink">Radius:</strong> {selectedGarage.workingRadiusKm || 15} km</span>
-                  <span><strong className="text-ink">Latitude:</strong> {selectedGarage.latitude ?? "N/A"}</span>
-                  <span><strong className="text-ink">Longitude:</strong> {selectedGarage.longitude ?? "N/A"}</span>
-                  <span><strong className="text-ink">Hours:</strong> {selectedGarage.openingTime || "N/A"} - {selectedGarage.closingTime || "N/A"}</span>
-                  <span><strong className="text-ink">Rating:</strong> {selectedGarage.ratingAvg || 0} ({selectedGarage.ratingCount || 0})</span>
-                  <span><strong className="text-ink">Application:</strong> {selectedGarage.applicationId || "N/A"}</span>
-                  <span><strong className="text-ink">Created:</strong> {selectedGarage.createdAt ? new Date(selectedGarage.createdAt).toLocaleDateString() : "N/A"}</span>
+                  <span>
+                    <strong className="text-ink">Owner:</strong>{" "}
+                    {selectedGarage.owner?.name || "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Owner email:</strong>{" "}
+                    {selectedGarage.owner?.email || "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Owner phone:</strong>{" "}
+                    {selectedGarage.owner?.phone || "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Garage email:</strong>{" "}
+                    {selectedGarage.email || "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Garage phone:</strong>{" "}
+                    {selectedGarage.phone || "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">WhatsApp:</strong>{" "}
+                    {selectedGarage.whatsappNo || "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">City:</strong>{" "}
+                    {selectedGarage.city || "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Area:</strong>{" "}
+                    {selectedGarage.area || "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Radius:</strong>{" "}
+                    {selectedGarage.workingRadiusKm || 15} km
+                  </span>
+                  <span>
+                    <strong className="text-ink">Latitude:</strong>{" "}
+                    {selectedGarage.latitude ?? "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Longitude:</strong>{" "}
+                    {selectedGarage.longitude ?? "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Hours:</strong>{" "}
+                    {selectedGarage.openingTime || "N/A"} -{" "}
+                    {selectedGarage.closingTime || "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Rating:</strong>{" "}
+                    {selectedGarage.ratingAvg || 0} (
+                    {selectedGarage.ratingCount || 0})
+                  </span>
+                  <span>
+                    <strong className="text-ink">Application:</strong>{" "}
+                    {selectedGarage.applicationId || "N/A"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Created:</strong>{" "}
+                    {selectedGarage.createdAt
+                      ? new Date(selectedGarage.createdAt).toLocaleDateString()
+                      : "N/A"}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 pt-2 text-sm font-bold">
-                  <FiImage /> Uploaded Garage Photos ({selectedGarage.images?.length || 0}/15)
+                  <FiImage /> Uploaded Garage Photos (
+                  {selectedGarage.images?.length || 0}/15)
                 </div>
                 {selectedGarage.images?.length > 0 && (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
@@ -463,7 +634,9 @@ export default function Garages() {
                           alt={`${selectedGarage.name} garage photo ${index + 1}`}
                           className="aspect-square w-full object-cover"
                         />
-                        <div className="px-2 py-1 text-xs text-muted">Photo {index + 1}</div>
+                        <div className="px-2 py-1 text-xs text-muted">
+                          Photo {index + 1}
+                        </div>
                       </a>
                     ))}
                   </div>
@@ -476,55 +649,102 @@ export default function Garages() {
               </div>
             )}
 
-            <form onSubmit={saveGarageService} className="card-soft grid min-w-0 gap-3 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_150px_auto]">
+            <form
+              onSubmit={saveGarageService}
+              className="card-soft grid min-w-0 gap-3 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_150px_auto]"
+            >
               <select
                 required
                 value={serviceForm.serviceId}
-                onChange={(e) => setServiceForm({ ...serviceForm, serviceId: e.target.value })}
+                onChange={(e) =>
+                  setServiceForm({ ...serviceForm, serviceId: e.target.value })
+                }
                 className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
               >
                 <option value="">Select service</option>
                 {services.map((service) => (
                   <option key={service.id} value={service.id}>
-                    {service.category?.name ? `${service.category.name} - ` : ""}{service.name}
+                    {service.category?.name
+                      ? `${service.category.name} - `
+                      : ""}
+                    {service.name}
                   </option>
                 ))}
               </select>
               <input
                 value={serviceForm.price}
-                onChange={(e) => setServiceForm({ ...serviceForm, price: e.target.value })}
+                onChange={(e) =>
+                  setServiceForm({ ...serviceForm, price: e.target.value })
+                }
                 type="number"
                 min="0"
                 placeholder="Price"
                 className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
               />
-              <button disabled={!selectedGarageId} className="btn-primary !px-5">Save</button>
+              <button
+                disabled={!selectedGarageId}
+                className="btn-primary !px-5"
+              >
+                Save
+              </button>
             </form>
 
             <div className="card-soft min-w-0 overflow-hidden">
               <div className="overflow-x-auto">
-              <table className="w-full min-w-[620px] text-sm">
-                <thead className="bg-bg-soft text-left">
-                  <tr>{["Service", "Category", "Price", ""].map((h) => <th key={h} className="px-4 py-3 font-semibold">{h}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {selectedGarage?.services?.length ? selectedGarage.services.map((item) => (
-                    <tr key={item.id} className="border-t border-line">
-                      <td className="px-4 py-3 font-medium">{item.service?.name}</td>
-                      <td className="px-4 py-3">{item.service?.category?.name || "General"}</td>
-                      <td className="px-4 py-3">{money(item.price || item.service?.basePrice)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          <button onClick={() => editGarageService(item)} className="btn-ghost !px-3 !py-2" type="button"><FiEdit3 /></button>
-                          <button onClick={() => removeGarageService(item.serviceId)} className="rounded-xl bg-red-50 px-3 py-2 text-red-700" type="button"><FiTrash2 /></button>
-                        </div>
-                      </td>
+                <table className="w-full min-w-[620px] text-sm">
+                  <thead className="bg-bg-soft text-left">
+                    <tr>
+                      {["Service", "Category", "Price", ""].map((h) => (
+                        <th key={h} className="px-4 py-3 font-semibold">
+                          {h}
+                        </th>
+                      ))}
                     </tr>
-                  )) : (
-                    <tr><td colSpan="4" className="px-4 py-5 text-muted">No services assigned yet.</td></tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {selectedGarage?.services?.length ? (
+                      selectedGarage.services.map((item) => (
+                        <tr key={item.id} className="border-t border-line">
+                          <td className="px-4 py-3 font-medium">
+                            {item.service?.name}
+                          </td>
+                          <td className="px-4 py-3">
+                            {item.service?.category?.name || "General"}
+                          </td>
+                          <td className="px-4 py-3">
+                            {money(item.price || item.service?.basePrice)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => editGarageService(item)}
+                                className="btn-ghost !px-3 !py-2"
+                                type="button"
+                              >
+                                <FiEdit3 />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  removeGarageService(item.serviceId)
+                                }
+                                className="rounded-xl bg-red-50 px-3 py-2 text-red-700"
+                                type="button"
+                              >
+                                <FiTrash2 />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="4" className="px-4 py-5 text-muted">
+                          No services assigned yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

@@ -1,11 +1,18 @@
-
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { 
-  FiBell, FiMessageSquare, FiPhone, FiLock, FiLogOut, 
-  FiTrash2, FiChevronDown, FiChevronUp, FiCheck, 
-  FiX, FiAlertTriangle 
+import {
+  FiBell,
+  FiMessageSquare,
+  FiPhone,
+  FiLock,
+  FiLogOut,
+  FiTrash2,
+  FiChevronDown,
+  FiChevronUp,
+  FiCheck,
+  FiX,
+  FiAlertTriangle,
 } from "react-icons/fi";
 import { setNotifications } from "@/store/garageSlice";
 import { useApp } from "@/hooks/useApp";
@@ -14,7 +21,7 @@ import { garageApi } from "@/api/garage";
 export default function GarageSettings() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const notifications = useSelector(state => state.garage.notifications);
+  const notifications = useSelector((state) => state.garage.notifications);
   const { garageToken, logoutGarage } = useApp();
 
   // State for expandable sections
@@ -24,7 +31,7 @@ export default function GarageSettings() {
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
-    confirmPassword: ""
+    confirmPassword: "",
   });
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
@@ -41,29 +48,29 @@ export default function GarageSettings() {
       icon: FiBell,
       title: "Notifications",
       description: "Manage your notification preferences",
-      type: "toggle-group"
+      type: "toggle-group",
     },
     {
       id: "password",
       icon: FiLock,
       title: "Change Password",
       description: "Update your password",
-      type: "form"
+      type: "form",
     },
     {
       id: "logout",
       icon: FiLogOut,
       title: "Logout",
       description: "Sign out of your account",
-      type: "danger"
+      type: "danger",
     },
     {
       id: "delete",
       icon: FiTrash2,
       title: "Delete Account",
       description: "Permanently delete your account",
-      type: "danger"
-    }
+      type: "danger",
+    },
   ];
 
   // Handle notification toggle
@@ -99,12 +106,20 @@ export default function GarageSettings() {
       await garageApi.changePassword(
         garageToken,
         passwordForm.currentPassword,
-        passwordForm.newPassword
+        passwordForm.newPassword,
       );
       setPasswordSuccess("Password changed successfully!");
-      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
     } catch (err) {
-      setPasswordError(err.response?.data?.message || err.message || "Unable to change password");
+      setPasswordError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to change password",
+      );
     } finally {
       setPasswordLoading(false);
     }
@@ -146,60 +161,74 @@ export default function GarageSettings() {
               className="w-full p-6 text-left flex items-center justify-between hover:bg-bg-soft transition-colors rounded-2xl"
             >
               <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-xl ${
-                  item.type === "danger" ? "bg-red-100 text-red-700" : "bg-bg-soft"
-                }`}>
+                <div
+                  className={`p-3 rounded-xl ${
+                    item.type === "danger"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-bg-soft"
+                  }`}
+                >
                   <item.icon className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className={`font-bold ${item.type === "danger" ? "text-red-700" : ""}`}>
+                  <h3
+                    className={`font-bold ${item.type === "danger" ? "text-red-700" : ""}`}
+                  >
                     {item.title}
                   </h3>
                   <p className="text-muted text-sm">{item.description}</p>
                 </div>
               </div>
-              {item.type !== "danger" && (
-                activeSection === item.id ? <FiChevronUp /> : <FiChevronDown />
-              )}
+              {item.type !== "danger" &&
+                (activeSection === item.id ? (
+                  <FiChevronUp />
+                ) : (
+                  <FiChevronDown />
+                ))}
             </button>
 
             {/* Notifications */}
-            {item.id === "notifications" && activeSection === "notifications" && (
-              <div 
-                onClick={(e) => e.stopPropagation()} 
-                className="p-6 pt-0 border-t border-line"
-              >
-                <div className="flex items-center justify-between p-4 bg-bg-soft rounded-xl mb-4">
-                  <div className="flex items-center gap-3">
-                    <FiMessageSquare className="w-5 h-5 text-muted" />
-                    <span>WhatsApp Notifications</span>
+            {item.id === "notifications" &&
+              activeSection === "notifications" && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-6 pt-0 border-t border-line"
+                >
+                  <div className="flex items-center justify-between p-4 bg-bg-soft rounded-xl mb-4">
+                    <div className="flex items-center gap-3">
+                      <FiMessageSquare className="w-5 h-5 text-muted" />
+                      <span>WhatsApp Notifications</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifications.whatsapp}
+                      onChange={(e) =>
+                        handleNotificationToggle("whatsapp", e.target.checked)
+                      }
+                      className="w-5 h-5 accent-emerald-500"
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={notifications.whatsapp}
-                    onChange={(e) => handleNotificationToggle("whatsapp", e.target.checked)}
-                    className="w-5 h-5 accent-emerald-500"
-                  />
-                </div>
-                <div className="flex items-center justify-between p-4 bg-bg-soft rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <FiPhone className="w-5 h-5 text-muted" />
-                    <span>SMS Notifications</span>
+                  <div className="flex items-center justify-between p-4 bg-bg-soft rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <FiPhone className="w-5 h-5 text-muted" />
+                      <span>SMS Notifications</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifications.sms}
+                      onChange={(e) =>
+                        handleNotificationToggle("sms", e.target.checked)
+                      }
+                      className="w-5 h-5 accent-emerald-500"
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={notifications.sms}
-                    onChange={(e) => handleNotificationToggle("sms", e.target.checked)}
-                    className="w-5 h-5 accent-emerald-500"
-                  />
                 </div>
-              </div>
-            )}
+              )}
 
             {/* Change Password */}
             {item.id === "password" && activeSection === "password" && (
-              <div 
-                onClick={(e) => e.stopPropagation()} 
+              <div
+                onClick={(e) => e.stopPropagation()}
                 className="p-6 pt-0 border-t border-line"
               >
                 <form onSubmit={handlePasswordChange} className="space-y-4">
@@ -214,33 +243,54 @@ export default function GarageSettings() {
                     </div>
                   )}
                   <div>
-                    <label className="block text-sm font-medium mb-2">Current Password</label>
+                    <label className="block text-sm font-medium mb-2">
+                      Current Password
+                    </label>
                     <input
                       type="password"
                       value={passwordForm.currentPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                      onChange={(e) =>
+                        setPasswordForm({
+                          ...passwordForm,
+                          currentPassword: e.target.value,
+                        })
+                      }
                       className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
                       placeholder="Enter current password"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">New Password</label>
+                    <label className="block text-sm font-medium mb-2">
+                      New Password
+                    </label>
                     <input
                       type="password"
                       value={passwordForm.newPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      onChange={(e) =>
+                        setPasswordForm({
+                          ...passwordForm,
+                          newPassword: e.target.value,
+                        })
+                      }
                       className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
                       placeholder="Enter new password"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">Confirm Password</label>
+                    <label className="block text-sm font-medium mb-2">
+                      Confirm Password
+                    </label>
                     <input
                       type="password"
                       value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                      onChange={(e) =>
+                        setPasswordForm({
+                          ...passwordForm,
+                          confirmPassword: e.target.value,
+                        })
+                      }
                       className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
                       placeholder="Confirm new password"
                       required
@@ -251,7 +301,9 @@ export default function GarageSettings() {
                     disabled={passwordLoading}
                     className="btn-primary w-full"
                   >
-                    {passwordLoading ? "Changing Password..." : "Change Password"}
+                    {passwordLoading
+                      ? "Changing Password..."
+                      : "Change Password"}
                   </button>
                 </form>
               </div>
@@ -301,7 +353,8 @@ export default function GarageSettings() {
               </div>
               <h3 className="text-xl font-bold mb-2">Delete Account</h3>
               <p className="text-muted">
-                Are you sure you want to permanently delete your account? This action cannot be undone.
+                Are you sure you want to permanently delete your account? This
+                action cannot be undone.
               </p>
             </div>
             <div className="flex gap-3">

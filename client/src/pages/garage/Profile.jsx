@@ -50,9 +50,7 @@ export default function GarageProfile() {
                 </h2>
                 <p className="text-muted">
                   Owned by{" "}
-                  {garage?.ownerName ||
-                    garage?.owner?.name ||
-                    "Garage owner"}
+                  {garage?.ownerName || garage?.owner?.name || "Garage owner"}
                 </p>
               </div>
 

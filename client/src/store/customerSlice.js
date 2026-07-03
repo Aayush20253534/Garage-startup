@@ -59,11 +59,12 @@ const customerSlice = createSlice({
       state.vehicle = getDefaultVehicle(vehicles);
 
       const validLocations = locations.filter(
-        (item) => hasUsableIndiaCoordinates(item) && Boolean(item.address)
+        (item) => hasUsableIndiaCoordinates(item) && Boolean(item.address),
       );
 
       if (validLocations.length > 0) {
-        state.location = validLocations.find((item) => item.isDefault) || validLocations[0];
+        state.location =
+          validLocations.find((item) => item.isDefault) || validLocations[0];
       }
     },
     clearCustomerState(state) {

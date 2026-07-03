@@ -24,10 +24,7 @@ export default function Login() {
   const [error, setError] = useState("");
 
   const change = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const submit = async (e) => {
@@ -66,7 +63,7 @@ export default function Login() {
         err.response?.data?.message ||
           err.response?.data?.error ||
           err.message ||
-          "Login failed"
+          "Login failed",
       );
     } finally {
       setLoading(false);
@@ -95,7 +92,7 @@ export default function Login() {
         err.response?.data?.message ||
           err.response?.data?.error ||
           err.message ||
-          "Google login failed"
+          "Google login failed",
       );
     } finally {
       setLoading(false);
@@ -115,20 +112,12 @@ export default function Login() {
       <div className="card-soft p-7 max-w-md w-full mx-auto">
         <h2 className="text-2xl font-bold">Login to Rovauto</h2>
 
-        <p className="text-sm text-muted mt-1">
-          Use email/phone and password
-        </p>
+        <p className="text-sm text-muted mt-1">Use email/phone and password</p>
 
-        {error && (
-          <p className="mt-3 text-sm text-red-600">
-            {error}
-          </p>
-        )}
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
         {notice && !error && (
-          <p className="mt-3 text-sm text-red-600">
-            {notice}
-          </p>
+          <p className="mt-3 text-sm text-red-600">{notice}</p>
         )}
 
         <form onSubmit={submit} className="mt-6 grid gap-3">

@@ -60,52 +60,52 @@ export function AppProvider({ children }) {
   const [authLoading, setAuthLoading] = useState(true);
 
   const [dashboardCache, setDashboardCache] = useState(() =>
-    readJson("rov_dashboard", null)
+    readJson("rov_dashboard", null),
   );
   const [dashboardFetchedAt, setDashboardFetchedAt] = useState(() =>
-    readNumber("rov_dashboard_time", null)
+    readNumber("rov_dashboard_time", null),
   );
 
   const [serviceCategoriesCache, setServiceCategoriesCache] = useState(() =>
-    readJson("rov_service_categories", null)
+    readJson("rov_service_categories", null),
   );
-  const [serviceCategoriesFetchedAt, setServiceCategoriesFetchedAt] = useState(() =>
-    readNumber("rov_service_categories_time", null)
+  const [serviceCategoriesFetchedAt, setServiceCategoriesFetchedAt] = useState(
+    () => readNumber("rov_service_categories_time", null),
   );
 
   const [vehicleMetaCache, setVehicleMetaCache] = useState(() =>
-    readJson("rov_vehicle_meta", null)
+    readJson("rov_vehicle_meta", null),
   );
   const [vehicleMetaFetchedAt, setVehicleMetaFetchedAt] = useState(() =>
-    readNumber("rov_vehicle_meta_time", null)
+    readNumber("rov_vehicle_meta_time", null),
   );
 
   const [vehiclesCache, setVehiclesCache] = useState(() =>
-    readJson("rov_vehicles_cache", null)
+    readJson("rov_vehicles_cache", null),
   );
   const [vehiclesFetchedAt, setVehiclesFetchedAt] = useState(() =>
-    readNumber("rov_vehicles_cache_time", null)
+    readNumber("rov_vehicles_cache_time", null),
   );
 
   const [activeBookingsCache, setActiveBookingsCache] = useState(() =>
-    readJson("rov_active_bookings", null)
+    readJson("rov_active_bookings", null),
   );
   const [activeBookingsFetchedAt, setActiveBookingsFetchedAt] = useState(() =>
-    readNumber("rov_active_bookings_time", null)
+    readNumber("rov_active_bookings_time", null),
   );
 
   const [serviceHistoryCache, setServiceHistoryCache] = useState(() =>
-    readJson("rov_service_history", null)
+    readJson("rov_service_history", null),
   );
   const [serviceHistoryFetchedAt, setServiceHistoryFetchedAt] = useState(() =>
-    readNumber("rov_service_history_time", null)
+    readNumber("rov_service_history_time", null),
   );
   const [profileCache, setProfileCache] = useState(() =>
-    readJson("rov_profile", null)
+    readJson("rov_profile", null),
   );
 
   const [profileFetchedAt, setProfileFetchedAt] = useState(() =>
-    readNumber("rov_profile_time", null)
+    readNumber("rov_profile_time", null),
   );
   const clearDashboardCache = () => {
     setDashboardCache(null);
@@ -192,20 +192,20 @@ export function AppProvider({ children }) {
   };
 
   const clearProfileCache = () => {
-  setProfileCache(null);
-  setProfileFetchedAt(null);
+    setProfileCache(null);
+    setProfileFetchedAt(null);
 
-  localStorage.removeItem("rov_profile");
-  localStorage.removeItem("rov_profile_time");
-};
+    localStorage.removeItem("rov_profile");
+    localStorage.removeItem("rov_profile_time");
+  };
 
-const saveProfileCache = (data, fetchedAt) => {
-  setProfileCache(data);
-  setProfileFetchedAt(fetchedAt);
+  const saveProfileCache = (data, fetchedAt) => {
+    setProfileCache(data);
+    setProfileFetchedAt(fetchedAt);
 
-  localStorage.setItem("rov_profile", JSON.stringify(data));
-  localStorage.setItem("rov_profile_time", String(fetchedAt));
-};
+    localStorage.setItem("rov_profile", JSON.stringify(data));
+    localStorage.setItem("rov_profile_time", String(fetchedAt));
+  };
 
   const clearBookingCaches = () => {
     clearDashboardCache();
@@ -292,7 +292,9 @@ const saveProfileCache = (data, fetchedAt) => {
     dispatch(setGarage(garageData));
   };
 
-  const refreshGarage = async (authToken = garageToken || localStorage.getItem("garage_token")) => {
+  const refreshGarage = async (
+    authToken = garageToken || localStorage.getItem("garage_token"),
+  ) => {
     if (!authToken) return null;
 
     const garageData = await garageApi.getProfile(authToken);
@@ -447,31 +449,31 @@ const saveProfileCache = (data, fetchedAt) => {
   };
 
   const fetchProfile = async ({ force = false } = {}) => {
-  const now = Date.now();
+    const now = Date.now();
 
-  if (!force && profileCache && profileFetchedAt) {
-    if (now - profileFetchedAt < PROFILE_CACHE_TTL) {
-      return profileCache;
+    if (!force && profileCache && profileFetchedAt) {
+      if (now - profileFetchedAt < PROFILE_CACHE_TTL) {
+        return profileCache;
+      }
     }
-  }
 
-  const res = await api.get("/customer/profile");
-  const data = res.data.data;
-  const fetchedAt = Date.now();
+    const res = await api.get("/customer/profile");
+    const data = res.data.data;
+    const fetchedAt = Date.now();
 
-  saveProfileCache(data, fetchedAt);
-  dispatch(syncCustomerBundle(data));
+    saveProfileCache(data, fetchedAt);
+    dispatch(syncCustomerBundle(data));
 
-  const syncedLocation = getLocationStateFromUser(data, location);
-  if (syncedLocation) {
-    dispatch(setCustomerLocation(syncedLocation));
-  }
+    const syncedLocation = getLocationStateFromUser(data, location);
+    if (syncedLocation) {
+      dispatch(setCustomerLocation(syncedLocation));
+    }
 
-  localStorage.setItem("user", JSON.stringify(data));
-  localStorage.setItem("rov_user", JSON.stringify(data));
+    localStorage.setItem("user", JSON.stringify(data));
+    localStorage.setItem("rov_user", JSON.stringify(data));
 
-  return data;
-};
+    return data;
+  };
   const fetchServiceCategories = async ({ force = false } = {}) => {
     const now = Date.now();
 
@@ -519,7 +521,8 @@ const saveProfileCache = (data, fetchedAt) => {
         if (savedGarageToken) {
           dispatch(setGarageToken(savedGarageToken));
           // Refresh garage profile in background but don't log out on error
-          garageApi.getProfile(savedGarageToken)
+          garageApi
+            .getProfile(savedGarageToken)
             .then((freshGarage) => {
               localStorage.setItem("garage", JSON.stringify(freshGarage));
               dispatch(setGarage(freshGarage));
@@ -780,7 +783,7 @@ const saveProfileCache = (data, fetchedAt) => {
       activeBookingsFetchedAt,
       serviceHistoryCache,
       serviceHistoryFetchedAt,
-    ]
+    ],
   );
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;

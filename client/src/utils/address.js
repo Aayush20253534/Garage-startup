@@ -1,11 +1,11 @@
 const compactParts = (parts = []) =>
-  parts.map((part) => String(part || '').trim()).filter(Boolean);
+  parts.map((part) => String(part || "").trim()).filter(Boolean);
 
 const normalizeKey = (value) =>
-  String(value || '')
+  String(value || "")
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, ' ');
+    .replace(/\s+/g, " ");
 
 const uniqueParts = (parts = []) => {
   const seen = new Set();
@@ -45,26 +45,32 @@ const withoutLocationParts = (parts = [], locationParts = []) => {
 };
 
 export const buildFullAddress = (parts = {}) =>
-  compactParts([parts.address, parts.area, parts.city, parts.pincode]).join(', ');
+  compactParts([parts.address, parts.area, parts.city, parts.pincode]).join(
+    ", ",
+  );
 
-export const parseAddressParts = (fullAddress = '') => {
-  const value = String(fullAddress || '').trim();
-  if (!value) return { address: '', area: '', city: '', pincode: '' };
+export const parseAddressParts = (fullAddress = "") => {
+  const value = String(fullAddress || "").trim();
+  if (!value) return { address: "", area: "", city: "", pincode: "" };
 
-  const parts = compactParts(value.split(','));
-  const lastPart = parts[parts.length - 1] || '';
+  const parts = compactParts(value.split(","));
+  const lastPart = parts[parts.length - 1] || "";
   const pincodeMatch = value.match(/\b\d{5,6}\b/);
-  const pincode = pincodeMatch?.[0] || '';
+  const pincode = pincodeMatch?.[0] || "";
   const withoutPincode = pincode
-    ? parts.map((part) => part.replace(pincode, '').trim()).filter(Boolean)
+    ? parts.map((part) => part.replace(pincode, "").trim()).filter(Boolean)
     : parts;
 
-  const city = withoutPincode[withoutPincode.length - 1] || '';
-  const area = withoutPincode.length > 1 ? withoutPincode[withoutPincode.length - 2] : '';
-  const addressParts = withoutPincode.length > 2 ? withoutPincode.slice(0, -2) : withoutPincode.slice(0, 1);
+  const city = withoutPincode[withoutPincode.length - 1] || "";
+  const area =
+    withoutPincode.length > 1 ? withoutPincode[withoutPincode.length - 2] : "";
+  const addressParts =
+    withoutPincode.length > 2
+      ? withoutPincode.slice(0, -2)
+      : withoutPincode.slice(0, 1);
 
   return {
-    address: addressParts.join(', ') || value,
+    address: addressParts.join(", ") || value,
     area,
     city,
     pincode,
@@ -73,7 +79,7 @@ export const parseAddressParts = (fullAddress = '') => {
 
 export const getAddressPartsFromNominatim = (data = {}) => {
   const address = data.address || {};
-  const pincode = address.postcode || '';
+  const pincode = address.postcode || "";
   const city =
     address.city ||
     address.town ||
@@ -81,7 +87,7 @@ export const getAddressPartsFromNominatim = (data = {}) => {
     address.municipality ||
     address.county ||
     address.state_district ||
-    '';
+    "";
   const area =
     address.suburb ||
     address.neighbourhood ||
@@ -89,9 +95,9 @@ export const getAddressPartsFromNominatim = (data = {}) => {
     address.city_district ||
     address.hamlet ||
     address.road ||
-    '';
+    "";
   const namedetails = data.namedetails || {};
-  const name = data.name || namedetails.name || namedetails['name:en'] || '';
+  const name = data.name || namedetails.name || namedetails["name:en"] || "";
   const landmark = compactParts([
     address.landmark,
     address.amenity,
@@ -104,28 +110,42 @@ export const getAddressPartsFromNominatim = (data = {}) => {
     address.aeroway,
     address.highway,
     address.public_building,
-    data.category && data.type ? name : '',
+    data.category && data.type ? name : "",
     address.building,
   ])[0];
-  const streetParts = withoutLocationParts([
-    address.house_number,
-    address.building,
-    address.road,
-    address.pedestrian,
-    address.footway,
-  ], [area, city, pincode]);
-  const landmarkPart = landmark && !streetParts.some((part) => normalizeKey(part) === normalizeKey(landmark))
-    ? `Near ${landmark}`
-    : '';
-  const street = uniqueParts([...streetParts, landmarkPart]).join(', ');
-  const parsedFallback = parseAddressParts(data.display_name || '');
+  const streetParts = withoutLocationParts(
+    [
+      address.house_number,
+      address.building,
+      address.road,
+      address.pedestrian,
+      address.footway,
+    ],
+    [area, city, pincode],
+  );
+  const landmarkPart =
+    landmark &&
+    !streetParts.some((part) => normalizeKey(part) === normalizeKey(landmark))
+      ? `Near ${landmark}`
+      : "";
+  const street = uniqueParts([...streetParts, landmarkPart]).join(", ");
+  const parsedFallback = parseAddressParts(data.display_name || "");
   const fallbackAddress = withoutLocationParts(
     [parsedFallback.address],
-    [area || parsedFallback.area, city || parsedFallback.city, pincode || parsedFallback.pincode]
-  ).join(', ');
+    [
+      area || parsedFallback.area,
+      city || parsedFallback.city,
+      pincode || parsedFallback.pincode,
+    ],
+  ).join(", ");
 
   return {
-    address: street || fallbackAddress || parsedFallback.address || data.display_name || '',
+    address:
+      street ||
+      fallbackAddress ||
+      parsedFallback.address ||
+      data.display_name ||
+      "",
     area: area || parsedFallback.area,
     city: city || parsedFallback.city,
     pincode: pincode || parsedFallback.pincode,
@@ -134,24 +154,24 @@ export const getAddressPartsFromNominatim = (data = {}) => {
 };
 
 export const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
-  const url = new URL('https://nominatim.openstreetmap.org/reverse');
-  url.searchParams.set('format', 'jsonv2');
-  url.searchParams.set('addressdetails', '1');
-  url.searchParams.set('namedetails', '1');
-  url.searchParams.set('extratags', '1');
-  url.searchParams.set('zoom', '18');
-  url.searchParams.set('lat', String(latitude));
-  url.searchParams.set('lon', String(longitude));
+  const url = new URL("https://nominatim.openstreetmap.org/reverse");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("namedetails", "1");
+  url.searchParams.set("extratags", "1");
+  url.searchParams.set("zoom", "18");
+  url.searchParams.set("lat", String(latitude));
+  url.searchParams.set("lon", String(longitude));
 
   const response = await fetch(url.toString(), {
     headers: {
-      Accept: 'application/json',
-      'Accept-Language': 'en-IN,en',
+      Accept: "application/json",
+      "Accept-Language": "en-IN,en",
     },
   });
 
   if (!response.ok) {
-    throw new Error('Could not resolve address for current location.');
+    throw new Error("Could not resolve address for current location.");
   }
 
   return getAddressPartsFromNominatim(await response.json());
@@ -160,20 +180,24 @@ export const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
 export const getDefaultUserLocation = (user) => {
   const locations = Array.isArray(user?.locations) ? user.locations : [];
   const validLocations = locations.filter(
-    (item) => hasUsableIndiaCoordinates(item) && Boolean(item.address)
+    (item) => hasUsableIndiaCoordinates(item) && Boolean(item.address),
   );
-  return validLocations.find((item) => item.isDefault) || validLocations[0] || null;
+  return (
+    validLocations.find((item) => item.isDefault) || validLocations[0] || null
+  );
 };
 
 export const getProfileAddress = (user) =>
-  user?.customerProfile?.address || user?.address || '';
+  user?.customerProfile?.address || user?.address || "";
 
 export const getLocationAddress = (location) => {
-  if (!location) return '';
-  return location.fullAddress || buildFullAddress(location) || location.address || '';
+  if (!location) return "";
+  return (
+    location.fullAddress || buildFullAddress(location) || location.address || ""
+  );
 };
 
-export const getLocationStateFromAddress = (fullAddress = '', base = {}) => {
+export const getLocationStateFromAddress = (fullAddress = "", base = {}) => {
   const parsed = parseAddressParts(fullAddress);
   const addressText = fullAddress || buildFullAddress(parsed);
 

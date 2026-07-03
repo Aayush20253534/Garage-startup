@@ -7,7 +7,13 @@ const getPreview = (image) => {
   return image.preview || image.imageUrl || "";
 };
 
-export default function ImageUpload({ min, max, value = [], onChange, maxSizeMb = 1 }) {
+export default function ImageUpload({
+  min,
+  max,
+  value = [],
+  onChange,
+  maxSizeMb = 1,
+}) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState("");
 
@@ -29,7 +35,9 @@ export default function ImageUpload({ min, max, value = [], onChange, maxSizeMb 
   const handleFiles = (files) => {
     setError("");
     const maxSizeBytes = maxSizeMb * 1024 * 1024;
-    const oversizedFile = files.find((file) => file.type.startsWith("image/") && file.size > maxSizeBytes);
+    const oversizedFile = files.find(
+      (file) => file.type.startsWith("image/") && file.size > maxSizeBytes,
+    );
     if (oversizedFile) {
       setError(`Each image must be less than or equal to ${maxSizeMb} MB.`);
       return;
@@ -57,7 +65,9 @@ export default function ImageUpload({ min, max, value = [], onChange, maxSizeMb 
     <div className="space-y-4">
       <div
         className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
-          isDragging ? "border-brand bg-brand-soft" : "border-line hover:border-ink-2"
+          isDragging
+            ? "border-brand bg-brand-soft"
+            : "border-line hover:border-ink-2"
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}

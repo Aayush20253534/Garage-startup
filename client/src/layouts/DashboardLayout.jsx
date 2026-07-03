@@ -32,7 +32,13 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     : account?.role || "CUSTOMER";
 
   const isDashboardLink = (to) =>
-    ["/dashboard", "/customer/dashboard", "/dashboard/customer", "/garage", "/admin"].includes(to);
+    [
+      "/dashboard",
+      "/customer/dashboard",
+      "/dashboard/customer",
+      "/garage",
+      "/admin",
+    ].includes(to);
 
   const handleLogout = async () => {
     if (isGaragePortal) {

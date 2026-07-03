@@ -41,15 +41,21 @@ export default function CitySelect({
       required={required}
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
-      className={className || "min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"}
+      className={
+        className ||
+        "min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+      }
     >
       <option value="">{loading ? "Loading cities..." : placeholder}</option>
-      {value && !cities.some((city) => city.name.toLowerCase() === String(value).toLowerCase()) && (
-        <option value={value}>{value} (Unavailable)</option>
-      )}
+      {value &&
+        !cities.some(
+          (city) => city.name.toLowerCase() === String(value).toLowerCase(),
+        ) && <option value={value}>{value} (Unavailable)</option>}
       {cities.map((city) => (
         <option key={city.id} value={city.name}>
-          {city.name}{city.state ? `, ${city.state}` : ""}{city.isActive === false ? " (Inactive)" : ""}
+          {city.name}
+          {city.state ? `, ${city.state}` : ""}
+          {city.isActive === false ? " (Inactive)" : ""}
         </option>
       ))}
     </select>

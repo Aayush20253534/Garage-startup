@@ -97,7 +97,7 @@ export default function ActiveBookings() {
       setError(
         err.response?.data?.message ||
           err.message ||
-          "Could not complete payment. Please try again."
+          "Could not complete payment. Please try again.",
       );
     } finally {
       setPayingId(null);
@@ -113,7 +113,10 @@ export default function ActiveBookings() {
       await loadBookings({ force: true });
       nav("/dashboard/history");
     } catch (err) {
-      setError(err.response?.data?.message || "Could not accept delivery. Please try again.");
+      setError(
+        err.response?.data?.message ||
+          "Could not accept delivery. Please try again.",
+      );
     } finally {
       setAcceptingId(null);
     }
@@ -133,7 +136,9 @@ export default function ActiveBookings() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-4">
-        <h2 className="min-w-0 text-2xl font-bold sm:text-3xl">Active Bookings</h2>
+        <h2 className="min-w-0 text-2xl font-bold sm:text-3xl">
+          Active Bookings
+        </h2>
 
         <button
           type="button"
@@ -154,7 +159,9 @@ export default function ActiveBookings() {
       <div className="grid gap-4">
         {bookings.map((booking) => {
           const isPendingPayment = booking.status === "PENDING_PAYMENT";
-          const isAwaitingDeliveryAcceptance = Boolean(booking.deliveredAt && !booking.customerAcceptedAt);
+          const isAwaitingDeliveryAcceptance = Boolean(
+            booking.deliveredAt && !booking.customerAcceptedAt,
+          );
 
           return (
             <div
@@ -171,7 +178,9 @@ export default function ActiveBookings() {
                     {getServicesText(booking)}
                   </div>
 
-                  <div className="mt-1 text-sm text-muted">{getGarageText(booking)}</div>
+                  <div className="mt-1 text-sm text-muted">
+                    {getGarageText(booking)}
+                  </div>
                 </div>
 
                 <div className="text-right font-bold sm:text-left">
@@ -209,7 +218,9 @@ export default function ActiveBookings() {
                   disabled={acceptingId === booking.id}
                   className="btn-primary w-full whitespace-nowrap px-4 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                 >
-                  {acceptingId === booking.id ? "Accepting..." : "Accept Delivery"}
+                  {acceptingId === booking.id
+                    ? "Accepting..."
+                    : "Accept Delivery"}
                 </button>
               ) : (
                 <Link

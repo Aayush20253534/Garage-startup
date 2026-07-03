@@ -26,7 +26,7 @@ export default function Bookings() {
 
     try {
       const params = Object.fromEntries(
-        Object.entries(filters).filter(([, value]) => value)
+        Object.entries(filters).filter(([, value]) => value),
       );
 
       const data = await adminApi.getBookings(params);
@@ -60,18 +60,14 @@ export default function Bookings() {
       <div className="flex w-full max-w-full flex-col gap-2 sm:flex-row">
         <input
           value={filters.search}
-          onChange={(e) =>
-            setFilters({ ...filters, search: e.target.value })
-          }
+          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
           placeholder="Search booking, customer, garage"
           className="min-w-0 flex-1 rounded-xl border border-line px-4 py-2 outline-none focus:border-ink"
         />
 
         <select
           value={filters.status}
-          onChange={(e) =>
-            setFilters({ ...filters, status: e.target.value })
-          }
+          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
           className="min-w-0 rounded-xl border border-line px-4 py-2 outline-none focus:border-ink sm:w-56"
         >
           {statuses.map((status) => (
@@ -155,7 +151,7 @@ export default function Bookings() {
                     <td className="whitespace-nowrap px-4 py-3">
                       Rs.{" "}
                       {Number(
-                        booking.payableAmount || booking.payment?.amount || 0
+                        booking.payableAmount || booking.payment?.amount || 0,
                       ).toLocaleString()}
                     </td>
 

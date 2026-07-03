@@ -23,7 +23,9 @@ export default function GarageLogin() {
       loginGarage(result.garage, result.token);
       navigate("/garage");
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Unable to sign in");
+      setError(
+        err.response?.data?.message || err.message || "Unable to sign in",
+      );
     } finally {
       setLoading(false);
     }
@@ -49,7 +51,9 @@ export default function GarageLogin() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium mb-2">Email or Phone</label>
+              <label className="block text-sm font-medium mb-2">
+                Email or Phone
+              </label>
               <div className="relative">
                 <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
                 <input
@@ -79,15 +83,25 @@ export default function GarageLogin() {
             </div>
 
             <div className="flex justify-between items-center text-sm">
-              <Link to="/garage/forgot-password" className="text-muted hover:text-ink">
+              <Link
+                to="/garage/forgot-password"
+                className="text-muted hover:text-ink"
+              >
                 Forgot Password?
               </Link>
-              <Link to="/garage/onboarding" className="text-ink font-semibold hover:underline">
+              <Link
+                to="/garage/onboarding"
+                className="text-ink font-semibold hover:underline"
+              >
                 Apply as garage
               </Link>
             </div>
 
-            <button type="submit" disabled={loading} className="btn-primary w-full py-4 text-lg">
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full py-4 text-lg"
+            >
               {loading ? "Signing in..." : "Sign In"}
               <FiArrowRight className="w-5 h-5" />
             </button>

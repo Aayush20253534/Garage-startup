@@ -9,18 +9,26 @@ import {
   buildFullAddress,
   getDefaultUserLocation,
   getProfileAddress,
+  hasUsableIndiaCoordinates,
   parseAddressParts,
 } from "@/utils/address";
-import { formatServicePriceRange, getServiceMinPrice, getServiceMaxPrice } from "@/utils/priceRange";
-import { isCityAvailable, UNAVAILABLE_CITY_MESSAGE } from "@/utils/cityAvailability";
+import {
+  formatServicePriceRange,
+  getServiceMinPrice,
+  getServiceMaxPrice,
+} from "@/utils/priceRange";
+import {
+  isCityAvailable,
+  UNAVAILABLE_CITY_MESSAGE,
+} from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
-import { FiCheckCircle, FiLock, FiTrash2, FiTruck, FiEdit } from "react-icons/fi";
-
-const DEFAULT_LOCATION = {
-  latitude: 28.6369,
-  longitude: 77.3696,
-  address: "Indirapuram, Ghaziabad, 201014",
-};
+import {
+  FiCheckCircle,
+  FiLock,
+  FiTrash2,
+  FiTruck,
+  FiEdit,
+} from "react-icons/fi";
 
 const getCheckoutAddressForm = ({ location, user }) => {
   const defaultUserLocation = getDefaultUserLocation(user);
@@ -44,19 +52,34 @@ const calculateHandlingFee = (totalServiceAmount) => {
 };
 
 export default function Checkout() {
-  const { cart, vehicle, location, setLocation, user, clearCart, clearBookingCaches, clearProfileCache, fetchProfile } =
-    useApp();
+  const {
+    cart,
+    vehicle,
+    location,
+    setLocation,
+    user,
+    clearCart,
+    clearBookingCaches,
+    clearProfileCache,
+    fetchProfile,
+  } = useApp();
   const nav = useNavigate();
   const routeLocation = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressForm, setAddressForm] = useState(() =>
-    getCheckoutAddressForm({ location, user })
+    getCheckoutAddressForm({ location, user }),
   );
 
-  const subTotalMin = cart.reduce((sum, item) => sum + getServiceMinPrice(item), 0);
-  const subTotalMax = cart.reduce((sum, item) => sum + getServiceMaxPrice(item), 0);
+  const subTotalMin = cart.reduce(
+    (sum, item) => sum + getServiceMinPrice(item),
+    0,
+  );
+  const subTotalMax = cart.reduce(
+    (sum, item) => sum + getServiceMaxPrice(item),
+    0,
+  );
   const feeBaseAmount = subTotalMax || subTotalMin || 0;
   const fee = cart.length === 0 ? 0 : calculateHandlingFee(feeBaseAmount);
   const payAtGarageMin = subTotalMin;
@@ -70,27 +93,33 @@ export default function Checkout() {
 
   const buildLocationPayload = () => {
     const defaultUserLocation = getDefaultUserLocation(user);
-    const fullAddress =
-      buildFullAddress(addressForm) ||
-      location?.fullAddress ||
-      defaultUserLocation?.address ||
-      getProfileAddress(user) ||
-      DEFAULT_LOCATION.address;
+    const currentAddress =
+      location?.fullAddress || buildFullAddress(location) || location?.address;
 
-    return {
-      latitude:
-        location?.latitude || defaultUserLocation?.latitude || DEFAULT_LOCATION.latitude,
-      longitude:
-        location?.longitude || defaultUserLocation?.longitude || DEFAULT_LOCATION.longitude,
-      address: fullAddress,
-    };
+    if (hasUsableIndiaCoordinates(location) && currentAddress) {
+      return {
+        latitude: Number(location.latitude),
+        longitude: Number(location.longitude),
+        address: currentAddress,
+      };
+    }
+
+    if (
+      defaultUserLocation?.address &&
+      hasUsableIndiaCoordinates(defaultUserLocation)
+    ) {
+      return {
+        latitude: Number(defaultUserLocation.latitude),
+        longitude: Number(defaultUserLocation.longitude),
+        address: defaultUserLocation.address,
+      };
+    }
+
+    return null;
   };
 
   const handleAddressChange = (e) => {
-    setAddressForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setAddressForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const saveAddress = async () => {
@@ -108,7 +137,7 @@ export default function Checkout() {
         addressForm.address,
         addressForm.city,
         addressForm.area,
-        addressForm.pincode
+        addressForm.pincode,
       );
       latitude = geocode.latitude;
       longitude = geocode.longitude;
@@ -117,12 +146,7 @@ export default function Checkout() {
       return;
     }
 
-    const nextLocation = {
-      ...addressForm,
-      fullAddress,
-      latitude,
-      longitude,
-    };
+    const nextLocation = { ...addressForm, fullAddress, latitude, longitude };
 
     setLocation(nextLocation);
 
@@ -162,6 +186,14 @@ export default function Checkout() {
       return;
     }
 
+    const checkoutLocation = buildLocationPayload();
+
+    if (!checkoutLocation) {
+      setError("Please save a valid service location before checkout.");
+      setEditingAddress(true);
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
@@ -169,7 +201,7 @@ export default function Checkout() {
       const bookingRes = await api.post("/bookings/checkout", {
         vehicleId: vehicle.id,
         serviceIds: cart.map((item) => item.id),
-        location: buildLocationPayload(),
+        location: checkoutLocation,
       });
 
       const booking = bookingRes.data.data;
@@ -213,7 +245,7 @@ export default function Checkout() {
       setError(
         err.response?.data?.message ||
           err.message ||
-          "Could not complete payment. Please try again."
+          "Could not complete payment. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -280,7 +312,9 @@ export default function Checkout() {
                   <CitySelect
                     required
                     value={addressForm.city}
-                    onChange={(city) => setAddressForm((prev) => ({ ...prev, city }))}
+                    onChange={(city) =>
+                      setAddressForm((prev) => ({ ...prev, city }))
+                    }
                     placeholder="City"
                     className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
                   />
@@ -309,7 +343,11 @@ export default function Checkout() {
                 >
                   Cancel
                 </button>
-                <button type="button" onClick={saveAddress} className="flex-1 btn-primary">
+                <button
+                  type="button"
+                  onClick={saveAddress}
+                  className="flex-1 btn-primary"
+                >
                   Save Address
                 </button>
               </div>
@@ -324,30 +362,34 @@ export default function Checkout() {
         <div className="card-soft mt-6 p-6">
           <h3 className="mb-4 text-lg font-semibold">Payment Method</h3>
           <div className="grid gap-3 sm:grid-cols-2">
-            {[["Cashfree", "UPI, cards, wallets"]].map(([name, description], index) => (
-              <label
-                key={name}
-                className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${
-                  index === 0 ? "border-ink bg-bg-soft" : "border-line"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="pay"
-                  defaultChecked={index === 0}
-                  className="mt-1 accent-ink"
-                />
-                <div>
-                  <div className="font-semibold">{name}</div>
-                  <div className="text-xs text-muted">{description}</div>
-                </div>
-              </label>
-            ))}
+            {[["Cashfree", "UPI, cards, wallets"]].map(
+              ([name, description], index) => (
+                <label
+                  key={name}
+                  className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${
+                    index === 0 ? "border-ink bg-bg-soft" : "border-line"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="pay"
+                    defaultChecked={index === 0}
+                    className="mt-1 accent-ink"
+                  />
+                  <div>
+                    <div className="font-semibold">{name}</div>
+                    <div className="text-xs text-muted">{description}</div>
+                  </div>
+                </label>
+              ),
+            )}
           </div>
         </div>
 
         <div className="card-soft mt-6 p-6">
-          <h3 className="mb-4 text-lg font-semibold">Benefits with this booking</h3>
+          <h3 className="mb-4 text-lg font-semibold">
+            Benefits with this booking
+          </h3>
           <ul className="grid gap-3 text-sm sm:grid-cols-2">
             {[
               "Booking Confirmation",

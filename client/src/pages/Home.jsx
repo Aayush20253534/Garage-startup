@@ -13,9 +13,9 @@ import {
 import { CATEGORY_UI } from "@/data/services";
 import api from "@/api/axios";
 import homepageHero from "@/assets/Rovauto_home.png";
-import acserviceimg from "@/assets/AC service.png"
-import serviceimg from "@/assets/Service And Repair.png"
-import washimg from "@/assets/car_wash.png"
+import acserviceimg from "@/assets/AC service.png";
+import serviceimg from "@/assets/Service And Repair.png";
+import washimg from "@/assets/car_wash.png";
 
 const TRUST = [
   { icon: FiCheckCircle, label: "Verified Garages" },
@@ -34,44 +34,48 @@ const HARDCODED_POPULAR_SERVICES = [
     basePrice: 299,
     category: { name: "Cleaning" },
     customImage: washimg,
-    rating: 4.7
+    rating: 4.7,
   },
   {
     id: "2",
     name: "Full Car Wash & Interior",
-    description: "Foam Wash, Underbody Wash, Interior Vacuum, Dashboard Polish, Window Cleaning",
+    description:
+      "Foam Wash, Underbody Wash, Interior Vacuum, Dashboard Polish, Window Cleaning",
     basePrice: 999,
     category: { name: "Cleaning" },
     customImage: washimg,
-    rating: 4.9
+    rating: 4.9,
   },
   {
     id: "3",
     name: "Standard Car Service",
-    description: "Engine Oil Change, Oil Filter Replacement, Air Filter Cleaning, Coolant Top-up, Brake Inspection",
+    description:
+      "Engine Oil Change, Oil Filter Replacement, Air Filter Cleaning, Coolant Top-up, Brake Inspection",
     basePrice: 3292,
     category: { name: "General Service" },
     customImage: serviceimg,
-    rating: 4.6
+    rating: 4.6,
   },
   {
     id: "4",
     name: "Comprehensive Car Service",
-    description: "Synthetic Engine Oil, All Filters (Oil, Air, Fuel), AC Vent Cleaning, Brake Inspection, Spark Plug Check",
+    description:
+      "Synthetic Engine Oil, All Filters (Oil, Air, Fuel), AC Vent Cleaning, Brake Inspection, Spark Plug Check",
     basePrice: 4820,
     category: { name: "General Service" },
     customImage: serviceimg,
-    rating: 4.8
+    rating: 4.8,
   },
   {
     id: "5",
     name: "Regular AC Service",
-    description: "AC Gas Top-up, Condenser Cleaning, Cooling Coil Service, Leak Test, AC Vent Sanitization",
+    description:
+      "AC Gas Top-up, Condenser Cleaning, Cooling Coil Service, Leak Test, AC Vent Sanitization",
     basePrice: 2161,
     category: { name: "AC" },
     customImage: acserviceimg,
-    rating: 4.5
-  }
+    rating: 4.5,
+  },
 ];
 
 const getServicePrice = (service) => {
@@ -145,14 +149,12 @@ export default function Home() {
           >
             <span className="chip-brand mb-4 bg-white/10 text-white border-white/10 backdrop-blur">
               <span className="h-1.5 w-1.5 rounded-full bg-brand animate-pulse" />
-              New in Delhi NCR · Mumbai · Bengaluru
+              New in Delhi NCR - Mumbai - Bengaluru
             </span>
 
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)]">
               India&apos;s Trusted{" "}
-              <span className="relative inline-block">
-                Vehicle Service
-              </span>{" "}
+              <span className="relative inline-block">Vehicle Service</span>{" "}
               Platform
             </h1>
 
@@ -230,7 +232,7 @@ export default function Home() {
             </h2>
 
             <p className="text-muted mt-2">
-              Verified mechanics · Transparent pricing · 30-day warranty
+              Verified mechanics - Transparent pricing - 30-day warranty
             </p>
           </div>
 
@@ -293,10 +295,7 @@ export default function Home() {
           <div className="mt-12 grid md:grid-cols-4 gap-5">
             {[
               ["Add your car", "Tell us your brand, model & fuel."],
-              [
-                "Pick a service",
-                "Choose from transparent service packages.",
-              ],
+              ["Pick a service", "Choose from transparent service packages."],
               [
                 "Auto-assign garage",
                 "We match you with the best nearby verified garage.",
@@ -329,9 +328,7 @@ export default function Home() {
 
       <section className="container-x py-20">
         <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
-          <h2 className="text-3xl sm:text-4xl font-bold">
-            Popular this week
-          </h2>
+          <h2 className="text-3xl sm:text-4xl font-bold">Popular this week</h2>
 
           <Link to="/services" className="btn-ghost">
             Browse all services <FiArrowRight />
@@ -345,7 +342,8 @@ export default function Home() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {popularServices.map((service) => {
-              const image = service.customImage || getServiceImage(service.category?.name);
+              const image =
+                service.customImage || getServiceImage(service.category?.name);
               const price = getServicePrice(service);
 
               return (
@@ -377,7 +375,7 @@ export default function Home() {
 
                     <div className="text-right">
                       <div className="text-xs text-muted">From</div>
-                      <div className="font-bold text-xl">₹{price}</div>
+                      <div className="font-bold text-xl">Rs. {price}</div>
                     </div>
                   </div>
 
@@ -429,15 +427,13 @@ export default function Home() {
               {[
                 [partnerStats.garages, "Garages"],
                 [partnerStats.customers, "Customers"],
-                ["4.8★", "Avg rating"],
+                ["4.8 star", "Avg rating"],
               ].map(([number, label]) => (
                 <div
                   key={label}
                   className="rounded-2xl bg-white/5 border border-white/10 p-5"
                 >
-                  <div className="text-3xl font-bold text-brand">
-                    {number}
-                  </div>
+                  <div className="text-3xl font-bold text-brand">{number}</div>
 
                   <div className="text-xs text-white/70 mt-1">{label}</div>
                 </div>

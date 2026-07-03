@@ -29,15 +29,24 @@ export default function FAB() {
       {/* Options Menu */}
       {isOpen && (
         <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-2xl p-4 w-56 flex flex-col gap-3">
-          <button onClick={handleChat} className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-xl transition-all">
+          <button
+            onClick={handleChat}
+            className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-xl transition-all"
+          >
             <FiMessageCircle className="text-xl text-gray-700" />
             <span className="font-medium text-gray-800">Chat bot</span>
           </button>
-          <button onClick={handleCall} className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-xl transition-all">
+          <button
+            onClick={handleCall}
+            className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-xl transition-all"
+          >
             <FiPhone className="text-xl text-gray-700" />
             <span className="font-medium text-gray-800">Call support</span>
           </button>
-          <button onClick={handleWhatsApp} className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-xl transition-all">
+          <button
+            onClick={handleWhatsApp}
+            className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-xl transition-all"
+          >
             <FiMessageSquare className="text-xl text-gray-700" />
             <span className="font-medium text-gray-800">WhatsApp</span>
           </button>
@@ -52,7 +61,11 @@ export default function FAB() {
         onClick={() => setIsOpen(!isOpen)}
         className="w-16 h-16 rounded-full bg-white border-4 border-[#b9f000] shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
       >
-        {isOpen ? <FiX className="text-3xl text-gray-700" /> : <FiMessageCircle className="text-3xl text-gray-700" />}
+        {isOpen ? (
+          <FiX className="text-3xl text-gray-700" />
+        ) : (
+          <FiMessageCircle className="text-3xl text-gray-700" />
+        )}
       </button>
     </div>
   );

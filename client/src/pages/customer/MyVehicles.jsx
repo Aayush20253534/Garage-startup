@@ -61,10 +61,7 @@ export default function MyVehicles() {
       }));
 
       setVehicles(updatedVehicles);
-      setVehicle({
-        ...selectedVehicle,
-        isDefault: true,
-      });
+      setVehicle({ ...selectedVehicle, isDefault: true });
 
       clearVehiclesCache?.();
       clearDashboardCache?.();
@@ -150,7 +147,7 @@ export default function MyVehicles() {
                     </div>
 
                     <div className="text-xs text-muted">
-                      {v.fuelType || "Fuel"} ·{" "}
+                      {v.fuelType || "Fuel"} -{" "}
                       {v.registrationNumber || "No registration"}
                     </div>
 

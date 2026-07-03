@@ -1,8 +1,12 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, useNavigate } from "react-router-dom";
-import { FiCheckCircle, FiPhone, FiMessageSquare, FiMapPin } from "react-icons/fi";
+import {
+  FiCheckCircle,
+  FiPhone,
+  FiMessageSquare,
+  FiMapPin,
+} from "react-icons/fi";
 import { mockBookings } from "@/data/garageData";
 import Logo from "@/components/common/Logo";
 
@@ -11,11 +15,11 @@ export default function MagicLink() {
   const navigate = useNavigate();
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const booking = mockBookings.find(b => b.id === id) || mockBookings[0];
+  const booking = mockBookings.find((b) => b.id === id) || mockBookings[0];
 
   const handleAccept = async () => {
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 1000));
     setLoading(false);
     setAccepted(true);
   };
@@ -49,19 +53,23 @@ export default function MagicLink() {
                 <h2 className="text-2xl font-bold">
                   {booking.vehicle.brand} {booking.vehicle.model}
                 </h2>
-                <p className="text-muted">{booking.vehicle.year} • {booking.vehicle.number}</p>
+                <p className="text-muted">
+                  {booking.vehicle.year} • {booking.vehicle.number}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="card-soft p-4 text-center">
                   <p className="text-muted text-sm">Services</p>
                   <p className="font-bold">
-                    {booking.services.map(s => s.name).join(", ")}
+                    {booking.services.map((s) => s.name).join(", ")}
                   </p>
                 </div>
                 <div className="card-soft p-4 text-center">
                   <p className="text-muted text-sm">Est. Bill</p>
-                  <p className="font-bold text-2xl">₹{booking.estimatedBill}</p>
+                  <p className="font-bold text-2xl">
+                    Rs. {booking.estimatedBill}
+                  </p>
                 </div>
               </div>
 
@@ -77,22 +85,44 @@ export default function MagicLink() {
                       Customer Details
                     </h3>
                     <div className="space-y-3">
-                      <p><span className="text-muted">Name:</span> <span className="font-semibold">{booking.customer.name}</span></p>
-                      <p><span className="text-muted">Phone:</span> <span className="font-semibold">{booking.customer.phone}</span></p>
-                      <p><span className="text-muted">Address:</span> <span className="font-semibold">{booking.customer.address}</span></p>
+                      <p>
+                        <span className="text-muted">Name:</span>{" "}
+                        <span className="font-semibold">
+                          {booking.customer.name}
+                        </span>
+                      </p>
+                      <p>
+                        <span className="text-muted">Phone:</span>{" "}
+                        <span className="font-semibold">
+                          {booking.customer.phone}
+                        </span>
+                      </p>
+                      <p>
+                        <span className="text-muted">Address:</span>{" "}
+                        <span className="font-semibold">
+                          {booking.customer.address}
+                        </span>
+                      </p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
                     <button
-                      onClick={() => window.open(`tel:${booking.customer.phone}`, "_blank")}
+                      onClick={() =>
+                        window.open(`tel:${booking.customer.phone}`, "_blank")
+                      }
                       className="btn-ghost flex-col gap-2 py-4"
                     >
                       <FiPhone className="w-6 h-6" />
                       <span className="text-sm font-semibold">Call</span>
                     </button>
                     <button
-                      onClick={() => window.open(`https://wa.me/${booking.customer.phone.replace(/\D/g, '')}`, "_blank")}
+                      onClick={() =>
+                        window.open(
+                          `https://wa.me/${booking.customer.phone.replace(/\D/g, "")}`,
+                          "_blank",
+                        )
+                      }
                       className="btn-ghost flex-col gap-2 py-4"
                     >
                       <FiMessageSquare className="w-6 h-6" />
@@ -122,7 +152,9 @@ export default function MagicLink() {
                   disabled={loading}
                   className="btn-primary w-full py-5 text-xl"
                 >
-                  {loading ? "Verifying Wallet..." : "Accept Booking & Unlock Customer Details"}
+                  {loading
+                    ? "Verifying Wallet..."
+                    : "Accept Booking & Unlock Customer Details"}
                 </button>
               )}
             </div>

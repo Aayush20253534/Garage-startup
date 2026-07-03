@@ -28,10 +28,7 @@ export default function Register() {
   const [error, setError] = useState("");
 
   const change = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const submit = async (e) => {
@@ -78,7 +75,7 @@ export default function Register() {
           role: payload.role,
           signupLocation,
           createdAt: Date.now(),
-        })
+        }),
       );
 
       nav("/otp", {
@@ -116,7 +113,7 @@ export default function Register() {
         err.response?.data?.message ||
           err.response?.data?.error ||
           err.message ||
-          "Google signup failed"
+          "Google signup failed",
       );
     } finally {
       setLoading(false);

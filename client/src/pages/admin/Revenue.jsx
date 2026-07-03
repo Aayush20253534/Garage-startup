@@ -3,7 +3,15 @@ import { adminApi } from "@/api/admin";
 import CitySelect from "@/components/common/CitySelect";
 import { FiEdit3, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 
-const fuelTypes = ["", "PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"];
+const fuelTypes = [
+  "",
+  "PETROL",
+  "DIESEL",
+  "ELECTRIC",
+  "HYBRID",
+  "CNG",
+  "OTHER",
+];
 
 const emptyForm = {
   id: "",
@@ -268,16 +276,22 @@ export default function Revenue() {
           <table className="min-w-[900px] w-full text-sm">
             <thead className="bg-bg-soft text-left">
               <tr>
-                {["City", "Service", "Vehicle", "Fuel", "Range", "Status", ""].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="whitespace-nowrap px-4 py-3 font-semibold"
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
+                {[
+                  "City",
+                  "Service",
+                  "Vehicle",
+                  "Fuel",
+                  "Range",
+                  "Status",
+                  "",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="whitespace-nowrap px-4 py-3 font-semibold"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
 

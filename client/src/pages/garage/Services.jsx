@@ -18,7 +18,7 @@ export default function GarageServices() {
         setLoading(false);
         return;
       }
-      
+
       setLoading(true);
       setError("");
       try {
@@ -28,7 +28,9 @@ export default function GarageServices() {
       } catch (err) {
         // Only show error if it's not a 404 (no services yet) or 403 (not approved)
         if (err.response?.status !== 404 && err.response?.status !== 403) {
-          setError(err.response?.data?.message || "Unable to load garage services");
+          setError(
+            err.response?.data?.message || "Unable to load garage services",
+          );
         }
         // Set empty services list instead of erroring
         dispatch(setServices([]));
@@ -53,32 +55,54 @@ export default function GarageServices() {
         </button>
       </div>
 
-      {error && <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>}
+      {error && (
+        <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
           <div className="card-soft p-5 text-muted">Loading services...</div>
-        ) : services.length > 0 ? services.map((item) => {
-          const service = item.service || item;
-          return (
-            <motion.div key={item.id || service.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card-soft p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold break-words mb-2">{service.name}</h3>
-              <p className="text-muted text-xs sm:text-sm mb-4 break-words">{service.description || service.category?.name || "Garage service"}</p>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs sm:text-sm gap-2">
-                  <span className="text-muted">Price</span>
-                  <span className="font-semibold">Rs. {Number(item.price || service.basePrice || 0).toLocaleString()}</span>
+        ) : services.length > 0 ? (
+          services.map((item) => {
+            const service = item.service || item;
+            return (
+              <motion.div
+                key={item.id || service.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="card-soft p-4 sm:p-6"
+              >
+                <h3 className="text-lg sm:text-xl font-bold break-words mb-2">
+                  {service.name}
+                </h3>
+                <p className="text-muted text-xs sm:text-sm mb-4 break-words">
+                  {service.description ||
+                    service.category?.name ||
+                    "Garage service"}
+                </p>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs sm:text-sm gap-2">
+                    <span className="text-muted">Price</span>
+                    <span className="font-semibold">
+                      Rs.{" "}
+                      {Number(
+                        item.price || service.basePrice || 0,
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs sm:text-sm gap-2">
+                    <span className="text-muted">Category</span>
+                    <span className="font-semibold">
+                      {service.category?.name || service.category || "General"}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-xs sm:text-sm gap-2">
-                  <span className="text-muted">Category</span>
-                  <span className="font-semibold">{service.category?.name || service.category || "General"}</span>
-                </div>
-              </div>
-            </motion.div>
-          );
-        }) : (
+              </motion.div>
+            );
+          })
+        ) : (
           <div className="card-soft p-5 text-muted">
-            {!garage?.id 
+            {!garage?.id
               ? "Garage profile not loaded. Try refreshing the page."
               : "No services are linked to this garage yet. Services will be assigned by admin after approval."}
           </div>

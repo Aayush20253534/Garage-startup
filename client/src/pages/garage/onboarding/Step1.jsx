@@ -1,7 +1,13 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { FiArrowRight, FiHome, FiUser, FiPhone, FiMail, FiFileText } from "react-icons/fi";
+import {
+  FiArrowRight,
+  FiHome,
+  FiUser,
+  FiPhone,
+  FiMail,
+  FiFileText,
+} from "react-icons/fi";
 import Logo from "@/components/common/Logo";
 
 export default function OnboardingStep1({ data, onChange, onNext }) {
@@ -10,14 +16,13 @@ export default function OnboardingStep1({ data, onChange, onNext }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
     setLoading(false);
     onNext();
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-bg-soft">
-      
       <div className="flex-1 flex items-center justify-center px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -25,11 +30,15 @@ export default function OnboardingStep1({ data, onChange, onNext }) {
           className="w-full max-w-lg card-soft p-8"
         >
           <h1 className="text-3xl font-bold mb-2">Garage Details</h1>
-          <p className="text-muted mb-8">Let's start with your basic information</p>
+          <p className="text-muted mb-8">
+            Let's start with your basic information
+          </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium mb-2">Garage Name</label>
+              <label className="block text-sm font-medium mb-2">
+                Garage Name
+              </label>
               <div className="relative">
                 <FiHome className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
                 <input
@@ -44,13 +53,17 @@ export default function OnboardingStep1({ data, onChange, onNext }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Owner Name</label>
+              <label className="block text-sm font-medium mb-2">
+                Owner Name
+              </label>
               <div className="relative">
                 <FiUser className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
                 <input
                   type="text"
                   value={data.ownerName}
-                  onChange={(e) => onChange({ ...data, ownerName: e.target.value })}
+                  onChange={(e) =>
+                    onChange({ ...data, ownerName: e.target.value })
+                  }
                   placeholder="Enter owner name"
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
                   required
@@ -59,7 +72,9 @@ export default function OnboardingStep1({ data, onChange, onNext }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Phone Number</label>
+              <label className="block text-sm font-medium mb-2">
+                Phone Number
+              </label>
               <div className="relative">
                 <FiPhone className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
                 <input
@@ -89,7 +104,9 @@ export default function OnboardingStep1({ data, onChange, onNext }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">GST Number (Optional)</label>
+              <label className="block text-sm font-medium mb-2">
+                GST Number (Optional)
+              </label>
               <div className="relative">
                 <FiFileText className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
                 <input

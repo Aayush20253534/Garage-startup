@@ -4,7 +4,9 @@ const unwrap = (response) => response.data?.data ?? response.data;
 
 export const adminApi = {
   async login(identifier, password) {
-    const result = unwrap(await api.post("/auth/login", { identifier, password, role: "ADMIN" }));
+    const result = unwrap(
+      await api.post("/auth/login", { identifier, password, role: "ADMIN" }),
+    );
     if (result.user?.role !== "ADMIN") {
       throw new Error("This account is not an admin account");
     }
@@ -12,25 +14,44 @@ export const adminApi = {
   },
 
   async getApplications(status = "") {
-    return unwrap(await api.get("/admin/garage-applications", {
-      params: status ? { status } : {},
-    }));
+    return unwrap(
+      await api.get("/admin/garage-applications", {
+        params: status ? { status } : {},
+      }),
+    );
   },
 
   async approveApplication(applicationId, adminNote = "") {
-    return unwrap(await api.post(`/admin/garage-applications/${applicationId}/approve`, { adminNote }));
+    return unwrap(
+      await api.post(`/admin/garage-applications/${applicationId}/approve`, {
+        adminNote,
+      }),
+    );
   },
 
   async requestApplicationChanges(applicationId, adminNote = "") {
-    return unwrap(await api.post(`/admin/garage-applications/${applicationId}/request-changes`, { adminNote }));
+    return unwrap(
+      await api.post(
+        `/admin/garage-applications/${applicationId}/request-changes`,
+        { adminNote },
+      ),
+    );
   },
 
   async denyApplication(applicationId, adminNote = "") {
-    return unwrap(await api.post(`/admin/garage-applications/${applicationId}/deny`, { adminNote }));
+    return unwrap(
+      await api.post(`/admin/garage-applications/${applicationId}/deny`, {
+        adminNote,
+      }),
+    );
   },
 
   async deleteApplications(applicationIds = []) {
-    return unwrap(await api.delete("/admin/garage-applications", { data: { applicationIds } }));
+    return unwrap(
+      await api.delete("/admin/garage-applications", {
+        data: { applicationIds },
+      }),
+    );
   },
 
   async getGarages(params = {}) {
@@ -50,15 +71,21 @@ export const adminApi = {
   },
 
   async saveGarageService(garageId, payload) {
-    return unwrap(await api.post(`/admin/garages/${garageId}/services`, payload));
+    return unwrap(
+      await api.post(`/admin/garages/${garageId}/services`, payload),
+    );
   },
 
   async removeGarageService(garageId, serviceId) {
-    return unwrap(await api.delete(`/admin/garages/${garageId}/services/${serviceId}`));
+    return unwrap(
+      await api.delete(`/admin/garages/${garageId}/services/${serviceId}`),
+    );
   },
 
   async getPriceRanges(params = {}) {
-    return unwrap(await api.get("/admin/city-service-price-ranges", { params }));
+    return unwrap(
+      await api.get("/admin/city-service-price-ranges", { params }),
+    );
   },
 
   async getCustomers(params = {}) {
@@ -78,7 +105,9 @@ export const adminApi = {
   },
 
   async updatePriceRange(id, payload) {
-    return unwrap(await api.patch(`/admin/city-service-price-ranges/${id}`, payload));
+    return unwrap(
+      await api.patch(`/admin/city-service-price-ranges/${id}`, payload),
+    );
   },
 
   async deletePriceRange(id) {

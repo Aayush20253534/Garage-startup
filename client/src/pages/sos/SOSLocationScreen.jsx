@@ -14,14 +14,17 @@ export default function SOSLocationScreen() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+          setLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
           setLoading(false);
           nav(`/sos/checkout?problem=${problem}`);
         },
         () => {
           setLoading(false);
           alert("Unable to get location");
-        }
+        },
       );
     } else {
       alert("Geolocation not supported");
@@ -32,8 +35,10 @@ export default function SOSLocationScreen() {
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="container-x py-10">
         <div className="text-center mb-10">
-          <div className="text-5xl mb-3">📍</div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold mb-2">Where are you stuck?</h1>
+          <div className="text-5xl mb-3"></div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold mb-2">
+            Where are you stuck?
+          </h1>
           <p className="text-gray-400">Use GPS for fastest help</p>
         </div>
         <div className="max-w-md mx-auto space-y-4">

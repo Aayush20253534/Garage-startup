@@ -34,36 +34,62 @@ export default function BookingCard({ booking, onAccept, onDecline }) {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card-soft p-5 hover:shadow-lg transition-shadow">
-      <div className="cursor-pointer" onClick={() => navigate(`/garage/bookings/${booking.id}`)}>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="card-soft p-5 hover:shadow-lg transition-shadow"
+    >
+      <div
+        className="cursor-pointer"
+        onClick={() => navigate(`/garage/bookings/${booking.id}`)}
+      >
         <div className="flex items-start justify-between mb-4">
           <div>
-            <p className="text-muted text-sm font-medium">{booking.bookingId || booking.id}</p>
-            <h3 className="text-lg font-bold">{booking.vehicle.brand} {booking.vehicle.model}</h3>
+            <p className="text-muted text-sm font-medium">
+              {booking.bookingId || booking.id}
+            </p>
+            <h3 className="text-lg font-bold">
+              {booking.vehicle.brand} {booking.vehicle.model}
+            </h3>
           </div>
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[booking.status] || "bg-gray-100 text-gray-700"}`}>
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[booking.status] || "bg-gray-100 text-gray-700"}`}
+          >
             {String(booking.status).replaceAll("_", " ")}
           </span>
         </div>
 
         <div className="space-y-2 mb-4">
           <div className="flex items-center gap-2 text-sm text-muted">
-            <span className="font-medium text-ink">{booking.services.map((s) => s.name).join(", ") || "Service request"}</span>
+            <span className="font-medium text-ink">
+              {booking.services.map((s) => s.name).join(", ") ||
+                "Service request"}
+            </span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted">{Number(booking.distance || 0).toFixed(1)} km away</span>
-            <span className="font-bold text-ink">Rs. {Number(booking.estimatedBill || 0).toLocaleString()}</span>
+            <span className="text-muted">
+              {Number(booking.distance || 0).toFixed(1)} km away
+            </span>
+            <span className="font-bold text-ink">
+              Rs. {Number(booking.estimatedBill || 0).toLocaleString()}
+            </span>
           </div>
         </div>
       </div>
 
       {isNewBooking && onAccept && onDecline && (
         <div className="flex gap-2">
-          <button onClick={handleAccept} className="flex-1 bg-green-600 text-white hover:bg-green-700 transition-colors px-4 py-2 rounded-lg flex items-center justify-center gap-2">
+          <button
+            onClick={handleAccept}
+            className="flex-1 bg-green-600 text-white hover:bg-green-700 transition-colors px-4 py-2 rounded-lg flex items-center justify-center gap-2"
+          >
             <FiCheck className="w-4 h-4" />
             Accept
           </button>
-          <button onClick={handleDecline} className="flex-1 bg-red-600 text-white hover:bg-red-700 transition-colors px-4 py-2 rounded-lg flex items-center justify-center gap-2">
+          <button
+            onClick={handleDecline}
+            className="flex-1 bg-red-600 text-white hover:bg-red-700 transition-colors px-4 py-2 rounded-lg flex items-center justify-center gap-2"
+          >
             <FiX className="w-4 h-4" />
             Decline
           </button>

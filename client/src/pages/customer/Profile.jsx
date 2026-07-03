@@ -2,13 +2,23 @@ import { useEffect, useState } from "react";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import CitySelect from "@/components/common/CitySelect";
-import { buildFullAddress, getLocationStateFromUser, hasUsableIndiaCoordinates, parseAddressParts, reverseGeocodeCoordinates } from "@/utils/address";
+import {
+  buildFullAddress,
+  getLocationStateFromUser,
+  hasUsableIndiaCoordinates,
+  parseAddressParts,
+  reverseGeocodeCoordinates,
+} from "@/utils/address";
 import { queueGeocodeRequest } from "@/utils/geocodeService";
-import { isCityAvailable, UNAVAILABLE_CITY_MESSAGE } from "@/utils/cityAvailability";
+import {
+  isCityAvailable,
+  UNAVAILABLE_CITY_MESSAGE,
+} from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 import { FiMapPin, FiNavigation, FiX } from "react-icons/fi";
 
-const hasCoordinateValue = (value) => value !== null && value !== undefined && value !== "";
+const hasCoordinateValue = (value) =>
+  value !== null && value !== undefined && value !== "";
 
 export default function Profile() {
   const {
@@ -52,7 +62,8 @@ export default function Profile() {
 
   const fillForm = (data) => {
     const addressText = data.customerProfile?.address || data.address || "";
-    const defaultLocation = data.locations?.find((item) => item.isDefault) || data.locations?.[0];
+    const defaultLocation =
+      data.locations?.find((item) => item.isDefault) || data.locations?.[0];
 
     setForm({
       name: data.name || "",
@@ -93,10 +104,7 @@ export default function Profile() {
   }, []);
 
   const change = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const openLocationEditor = () => {
@@ -127,7 +135,8 @@ export default function Profile() {
 
   const getCurrentCoordinates = async () => {
     const position = await new Promise((resolve, reject) => {
-      if (!navigator.geolocation) reject(new Error("Geolocation not supported"));
+      if (!navigator.geolocation)
+        reject(new Error("Geolocation not supported"));
       navigator.geolocation.getCurrentPosition(resolve, reject, {
         enableHighAccuracy: true,
         timeout: 15000,
@@ -180,8 +189,12 @@ export default function Profile() {
       const hasDraftCoordinates =
         hasCoordinateValue(locationDraft.latitude) &&
         hasCoordinateValue(locationDraft.longitude);
-      let latitude = hasDraftCoordinates ? Number(locationDraft.latitude) : null;
-      let longitude = hasDraftCoordinates ? Number(locationDraft.longitude) : null;
+      let latitude = hasDraftCoordinates
+        ? Number(locationDraft.latitude)
+        : null;
+      let longitude = hasDraftCoordinates
+        ? Number(locationDraft.longitude)
+        : null;
       let source = locationDraft.source || "MANUAL";
 
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -189,7 +202,7 @@ export default function Profile() {
           locationDraft.address,
           locationDraft.city,
           locationDraft.area,
-          locationDraft.pincode
+          locationDraft.pincode,
         );
         latitude = result.latitude;
         longitude = result.longitude;
@@ -197,7 +210,9 @@ export default function Profile() {
       }
 
       if (!hasUsableIndiaCoordinates({ latitude, longitude })) {
-        throw new Error("Could not find valid Indian coordinates for this address.");
+        throw new Error(
+          "Could not find valid Indian coordinates for this address.",
+        );
       }
 
       await api.post("/locations", {
@@ -233,7 +248,10 @@ export default function Profile() {
 
       addRecentActivity({
         type: "LOCATION",
-        title: source === "GPS" ? "Updated location from GPS" : "Updated location manually",
+        title:
+          source === "GPS"
+            ? "Updated location from GPS"
+            : "Updated location manually",
         detail: `${locationDraft.city}${locationDraft.area ? `, ${locationDraft.area}` : ""}`,
         path: "/dashboard/profile",
       });
@@ -243,7 +261,7 @@ export default function Profile() {
       setLocationError(
         err.response?.data?.message ||
           err.message ||
-          "Could not determine coordinates for this address."
+          "Could not determine coordinates for this address.",
       );
     } finally {
       setLocationSaving(false);
@@ -272,7 +290,10 @@ export default function Profile() {
       const changed = [];
       if ((user?.name || "") !== form.name) changed.push("name");
       if ((user?.phone || "") !== form.phone) changed.push("phone");
-      if ((user?.customerProfile?.address || user?.address || "") !== form.address) changed.push("address");
+      if (
+        (user?.customerProfile?.address || user?.address || "") !== form.address
+      )
+        changed.push("address");
       if (changed.length) {
         addRecentActivity({
           type: "PROFILE",
@@ -399,9 +420,15 @@ export default function Profile() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-xl font-bold">Address</h3>
-                <p className="mt-1 text-sm text-muted">Set your service location details.</p>
+                <p className="mt-1 text-sm text-muted">
+                  Set your service location details.
+                </p>
               </div>
-              <button type="button" onClick={() => setLocationOpen(false)} className="btn-ghost !px-3 !py-2">
+              <button
+                type="button"
+                onClick={() => setLocationOpen(false)}
+                className="btn-ghost !px-3 !py-2"
+              >
                 <FiX />
               </button>
             </div>
@@ -459,10 +486,16 @@ export default function Profile() {
               />
 
               <div className="text-xs text-muted">
-                Lat: {locationDraft.latitude || "Not set"}, Lng: {locationDraft.longitude || "Not set"}
+                Lat: {locationDraft.latitude || "Not set"}, Lng:{" "}
+                {locationDraft.longitude || "Not set"}
               </div>
 
-              <button type="button" onClick={applyLocationDraft} disabled={locationSaving} className="btn-primary">
+              <button
+                type="button"
+                onClick={applyLocationDraft}
+                disabled={locationSaving}
+                className="btn-primary"
+              >
                 {locationSaving ? "Saving..." : "Save Address"}
               </button>
             </div>

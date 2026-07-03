@@ -41,7 +41,9 @@ export default function Forgot() {
             </p>
 
             <button
-              onClick={() => nav("/reset-password", { state: { email, role: "CUSTOMER" } })}
+              onClick={() =>
+                nav("/reset-password", { state: { email, role: "CUSTOMER" } })
+              }
               className="btn-dark mt-6 inline-flex"
             >
               Reset Password
@@ -51,9 +53,7 @@ export default function Forgot() {
           <form onSubmit={submit} className="mt-4 grid gap-3">
             <h2 className="text-2xl font-bold">Forgot password</h2>
 
-            <p className="text-sm text-muted">
-              Enter your registered email.
-            </p>
+            <p className="text-sm text-muted">Enter your registered email.</p>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -68,7 +68,10 @@ export default function Forgot() {
 
             <button className="btn-primary">Send OTP</button>
 
-            <Link to="/login" className="text-sm text-muted text-center hover:text-ink">
+            <Link
+              to="/login"
+              className="text-sm text-muted text-center hover:text-ink"
+            >
               Back to login
             </Link>
           </form>

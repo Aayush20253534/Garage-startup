@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { motion, useMotionValue, useSpring } from "framer-motion";
 import { FiArrowRight, FiCheckCircle } from "react-icons/fi";
@@ -27,7 +26,9 @@ export default function SwipeToComplete({ onComplete }) {
         className="flex items-center justify-center gap-3 py-4 bg-brand rounded-2xl"
       >
         <FiCheckCircle className="w-8 h-8 text-black" />
-        <span className="text-xl font-bold text-black">Service Completed Successfully!</span>
+        <span className="text-xl font-bold text-black">
+          Service Completed Successfully!
+        </span>
       </motion.div>
     );
   }
@@ -51,7 +52,9 @@ export default function SwipeToComplete({ onComplete }) {
         <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center">
           <FiArrowRight className="w-5 h-5 text-black" />
         </div>
-        <span className="text-black font-bold whitespace-nowrap">Complete Service</span>
+        <span className="text-black font-bold whitespace-nowrap">
+          Complete Service
+        </span>
       </motion.div>
     </div>
   );

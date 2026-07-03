@@ -1,4 +1,3 @@
-
 import {
   SiSuzuki,
   SiHyundai,
@@ -50,7 +49,12 @@ export const mockBookings = [
   {
     id: "RVT-2026-1022",
     status: "NEW",
-    vehicle: { brand: "Hyundai", model: "i 20", year: 2022, number: "KA01AB1234" },
+    vehicle: {
+      brand: "Hyundai",
+      model: "i 20",
+      year: 2022,
+      number: "KA01AB1234",
+    },
     services: [{ name: "General Service", price: 3500 }],
     estimatedBill: 3500,
     distance: 2.4,
@@ -65,8 +69,16 @@ export const mockBookings = [
   {
     id: "RVT-2026-1023",
     status: "ACCEPTED",
-    vehicle: { brand: "Maruti Suzuki", model: "Swift", year: 2021, number: "KA02CD5678" },
-    services: [{ name: "Oil Change", price: 1800 }, { name: "Wheel Alignment", price: 1200 }],
+    vehicle: {
+      brand: "Maruti Suzuki",
+      model: "Swift",
+      year: 2021,
+      number: "KA02CD5678",
+    },
+    services: [
+      { name: "Oil Change", price: 1800 },
+      { name: "Wheel Alignment", price: 1200 },
+    ],
     estimatedBill: 3000,
     distance: 3.1,
     createdAt: new Date(Date.now() - 3600000).toISOString(),
@@ -80,8 +92,16 @@ export const mockBookings = [
   {
     id: "RVT-2026-1024",
     status: "SERVICE_STARTED",
-    vehicle: { brand: "Tata", model: "Nexon", year: 2023, number: "KA03EF9012" },
-    services: [{ name: "AC Service", price: 2500 }, { name: "Car Wash", price: 500 }],
+    vehicle: {
+      brand: "Tata",
+      model: "Nexon",
+      year: 2023,
+      number: "KA03EF9012",
+    },
+    services: [
+      { name: "AC Service", price: 2500 },
+      { name: "Car Wash", price: 500 },
+    ],
     estimatedBill: 3000,
     distance: 1.8,
     createdAt: new Date(Date.now() - 7200000).toISOString(),
@@ -98,7 +118,8 @@ export const mockServices = [
   {
     id: "service_1",
     name: "General Service",
-    description: "Complete general service including oil change, filter replacement, and inspection",
+    description:
+      "Complete general service including oil change, filter replacement, and inspection",
     estimatedTime: "2 Hours",
     startingPrice: 2500,
     maximumPrice: 4000,
@@ -156,14 +177,44 @@ export const mockBrands = [
 ];
 
 export const mockTransactions = [
-  { id: "txn_1", type: "BOOKING_DEDUCTION", amount: -250, description: "Booking RVT-2026-1020", date: new Date(Date.now() - 86400000).toISOString() },
-  { id: "txn_2", type: "COMMISSION", amount: 2800, description: "Booking RVT-2026-1019 Completed", date: new Date(Date.now() - 172800000).toISOString() },
-  { id: "txn_3", type: "RECHARGE", amount: 10000, description: "Wallet Recharge", date: new Date(Date.now() - 259200000).toISOString() },
+  {
+    id: "txn_1",
+    type: "BOOKING_DEDUCTION",
+    amount: -250,
+    description: "Booking RVT-2026-1020",
+    date: new Date(Date.now() - 86400000).toISOString(),
+  },
+  {
+    id: "txn_2",
+    type: "COMMISSION",
+    amount: 2800,
+    description: "Booking RVT-2026-1019 Completed",
+    date: new Date(Date.now() - 172800000).toISOString(),
+  },
+  {
+    id: "txn_3",
+    type: "RECHARGE",
+    amount: 10000,
+    description: "Wallet Recharge",
+    date: new Date(Date.now() - 259200000).toISOString(),
+  },
 ];
 
 export const mockReviews = [
-  { id: "review_1", name: "Rahul M.", rating: 5, comment: "Excellent service, very professional team!", date: "2 days ago" },
-  { id: "review_2", name: "Anita K.", rating: 4, comment: "Good service, reasonable pricing.", date: "1 week ago" },
+  {
+    id: "review_1",
+    name: "Rahul M.",
+    rating: 5,
+    comment: "Excellent service, very professional team!",
+    date: "2 days ago",
+  },
+  {
+    id: "review_2",
+    name: "Anita K.",
+    rating: 4,
+    comment: "Good service, reasonable pricing.",
+    date: "1 week ago",
+  },
 ];
 
 export const mockGarages = [
@@ -183,4 +234,3 @@ export const mockGarages = [
     ],
   },
 ];
-

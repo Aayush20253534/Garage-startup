@@ -12,7 +12,10 @@ export default function OnboardingStep4({ data, onChange }) {
 
   const toggleBrand = (brandId) => {
     if (data.garageType === "AUTHORIZED") {
-      onChange({ ...data, brands: data.brands.includes(brandId) ? [] : [brandId] });
+      onChange({
+        ...data,
+        brands: data.brands.includes(brandId) ? [] : [brandId],
+      });
       return;
     }
 
@@ -39,7 +42,9 @@ export default function OnboardingStep4({ data, onChange }) {
           data.garageType ? `Garage type: ${data.garageType}` : "",
           data.brands.length ? `Brands: ${data.brands.join(", ")}` : "",
           data.gst ? `GST: ${data.gst}` : "",
-        ].filter(Boolean).join("\n"),
+        ]
+          .filter(Boolean)
+          .join("\n"),
         address: data.address,
         city: data.city,
         area: data.area,
@@ -77,7 +82,8 @@ export default function OnboardingStep4({ data, onChange }) {
           <FiCheckCircle className="w-20 h-20 mx-auto text-brand mb-6" />
           <h1 className="text-4xl font-bold mb-4">Application Submitted</h1>
           <p className="text-muted text-lg mb-6">
-            Your garage application is pending admin review. After approval, recharge Rs. 1000 or more to activate your listing.
+            Your garage application is pending admin review. After approval,
+            recharge Rs. 1000 or more to activate your listing.
           </p>
           <Link to="/garage/login" className="btn-primary w-full">
             Go to Garage Login
@@ -96,7 +102,9 @@ export default function OnboardingStep4({ data, onChange }) {
           className="w-full max-w-2xl card-soft p-8"
         >
           <h1 className="text-3xl font-bold mb-2">Garage Type</h1>
-          <p className="text-muted mb-8">Select your garage type and supported brands</p>
+          <p className="text-muted mb-8">
+            Select your garage type and supported brands
+          </p>
 
           {error && (
             <div className="mb-5 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
@@ -111,7 +119,9 @@ export default function OnboardingStep4({ data, onChange }) {
                 type="button"
                 onClick={() => onChange({ ...data, garageType: "MULTI_BRAND" })}
                 className={`p-6 rounded-2xl border-2 text-center transition-all ${
-                  data.garageType === "MULTI_BRAND" ? "border-brand bg-brand-soft" : "border-line hover:border-ink-2"
+                  data.garageType === "MULTI_BRAND"
+                    ? "border-brand bg-brand-soft"
+                    : "border-line hover:border-ink-2"
                 }`}
               >
                 <h3 className="font-bold text-lg mb-1">Multi-Brand</h3>
@@ -119,9 +129,17 @@ export default function OnboardingStep4({ data, onChange }) {
               </button>
               <button
                 type="button"
-                onClick={() => onChange({ ...data, garageType: "AUTHORIZED", brands: data.brands.slice(0, 1) })}
+                onClick={() =>
+                  onChange({
+                    ...data,
+                    garageType: "AUTHORIZED",
+                    brands: data.brands.slice(0, 1),
+                  })
+                }
                 className={`p-6 rounded-2xl border-2 text-center transition-all ${
-                  data.garageType === "AUTHORIZED" ? "border-brand bg-brand-soft" : "border-line hover:border-ink-2"
+                  data.garageType === "AUTHORIZED"
+                    ? "border-brand bg-brand-soft"
+                    : "border-line hover:border-ink-2"
                 }`}
               >
                 <h3 className="font-bold text-lg mb-1">Authorized</h3>
@@ -131,7 +149,9 @@ export default function OnboardingStep4({ data, onChange }) {
 
             <div className="space-y-4">
               <h4 className="font-semibold">
-                {data.garageType === "AUTHORIZED" ? "Select Authorized Brand" : "Select Brands You Service"}
+                {data.garageType === "AUTHORIZED"
+                  ? "Select Authorized Brand"
+                  : "Select Brands You Service"}
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {mockBrands.map((brand) => {
@@ -142,11 +162,17 @@ export default function OnboardingStep4({ data, onChange }) {
                       type="button"
                       onClick={() => toggleBrand(brand.id)}
                       className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center gap-2 ${
-                        data.brands.includes(brand.id) ? "border-brand bg-brand-soft" : "border-line hover:border-ink-2"
+                        data.brands.includes(brand.id)
+                          ? "border-brand bg-brand-soft"
+                          : "border-line hover:border-ink-2"
                       }`}
                     >
                       {brand.image ? (
-                        <img src={brand.image} alt={brand.name} className="mb-2 h-10 w-auto object-contain" />
+                        <img
+                          src={brand.image}
+                          alt={brand.name}
+                          className="mb-2 h-10 w-auto object-contain"
+                        />
                       ) : Icon ? (
                         <Icon className="mb-2 h-10 w-auto" />
                       ) : (
@@ -161,7 +187,11 @@ export default function OnboardingStep4({ data, onChange }) {
               </div>
             </div>
 
-            <button type="submit" disabled={loading || data.brands.length === 0} className="btn-primary w-full py-4 text-lg">
+            <button
+              type="submit"
+              disabled={loading || data.brands.length === 0}
+              className="btn-primary w-full py-4 text-lg"
+            >
               {loading ? "Submitting..." : "Submit Application"}
             </button>
           </form>

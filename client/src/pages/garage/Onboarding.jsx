@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Step1 from "./onboarding/Step1";
 import Step2 from "./onboarding/Step2";
@@ -25,13 +24,27 @@ export default function GarageOnboarding() {
     brands: [],
   });
 
-  const handleNext = () => setStep(s => s + 1);
-  const handleBack = () => setStep(s => s - 1);
+  const handleNext = () => setStep((s) => s + 1);
+  const handleBack = () => setStep((s) => s - 1);
 
   const steps = {
     1: <Step1 data={data} onChange={setData} onNext={handleNext} />,
-    2: <Step2 data={data} onChange={setData} onNext={handleNext} onBack={handleBack} />,
-    3: <Step3 data={data} onChange={setData} onNext={handleNext} onBack={handleBack} />,
+    2: (
+      <Step2
+        data={data}
+        onChange={setData}
+        onNext={handleNext}
+        onBack={handleBack}
+      />
+    ),
+    3: (
+      <Step3
+        data={data}
+        onChange={setData}
+        onNext={handleNext}
+        onBack={handleBack}
+      />
+    ),
     4: <Step4 data={data} onChange={setData} onBack={handleBack} />,
   };
 

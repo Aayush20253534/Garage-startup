@@ -3,13 +3,12 @@ import { Link } from "react-router-dom";
 import { CATEGORY_UI } from "@/data/services";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
-import { formatServicePriceRange, getServiceMinPrice, getServiceMaxPrice } from "@/utils/priceRange";
 import {
-  FiArrowRight,
-  FiCheck,
-  FiTruck,
-  FiSettings,
-} from "react-icons/fi";
+  formatServicePriceRange,
+  getServiceMinPrice,
+  getServiceMaxPrice,
+} from "@/utils/priceRange";
+import { FiArrowRight, FiCheck, FiTruck, FiSettings } from "react-icons/fi";
 
 export default function ServiceSelect() {
   const { vehicle, cart, addToCart, removeFromCart } = useApp();
@@ -22,8 +21,14 @@ export default function ServiceSelect() {
   const selectedCategory = categories.find((c) => c.id === catId);
   const list = selectedCategory?.services || [];
 
-  const totalMin = cart.reduce((sum, item) => sum + getServiceMinPrice(item), 0);
-  const totalMax = cart.reduce((sum, item) => sum + getServiceMaxPrice(item), 0);
+  const totalMin = cart.reduce(
+    (sum, item) => sum + getServiceMinPrice(item),
+    0,
+  );
+  const totalMax = cart.reduce(
+    (sum, item) => sum + getServiceMaxPrice(item),
+    0,
+  );
 
   useEffect(() => {
     const loadServices = async () => {
@@ -123,9 +128,7 @@ export default function ServiceSelect() {
                 <div className="min-w-0 flex-1">
                   <span className="chip">{duration}</span>
 
-                  <h3 className="mt-2 text-lg font-semibold">
-                    {service.name}
-                  </h3>
+                  <h3 className="mt-2 text-lg font-semibold">{service.name}</h3>
 
                   <p className="mt-1 text-sm text-muted">
                     {service.description ||
@@ -150,7 +153,9 @@ export default function ServiceSelect() {
                 <div className="flex shrink-0 items-center justify-between gap-3 text-right sm:w-56 sm:flex-col sm:items-end">
                   <div>
                     <div className="text-xs text-muted">Estimated</div>
-                    <div className="whitespace-nowrap text-lg font-bold leading-tight sm:text-xl">{priceRange}</div>
+                    <div className="whitespace-nowrap text-lg font-bold leading-tight sm:text-xl">
+                      {priceRange}
+                    </div>
                   </div>
 
                   <button
@@ -216,7 +221,9 @@ export default function ServiceSelect() {
 
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
             <span className="text-muted">Estimated</span>
-            <span className="whitespace-nowrap text-right text-lg font-bold sm:text-xl">Rs. {totalMin} - Rs. {totalMax}</span>
+            <span className="whitespace-nowrap text-right text-lg font-bold sm:text-xl">
+              Rs. {totalMin} - Rs. {totalMax}
+            </span>
           </div>
 
           <Link

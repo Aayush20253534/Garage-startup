@@ -4,12 +4,7 @@ import { motion } from "framer-motion";
 import { BRAND_ICONS, FUEL_TYPES } from "@/data/vehicles";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
-import {
-  FiArrowRight,
-  FiCheck,
-  FiPlus,
-  FiTruck,
-} from "react-icons/fi";
+import { FiArrowRight, FiCheck, FiPlus, FiTruck } from "react-icons/fi";
 
 export default function VehicleSelect() {
   const nav = useNavigate();
@@ -83,9 +78,7 @@ export default function VehicleSelect() {
       setLoading(true);
       setError("");
 
-      const list = fetchVehicles
-        ? await fetchVehicles({ force: true })
-        : [];
+      const list = fetchVehicles ? await fetchVehicles({ force: true }) : [];
 
       const safeList = syncVehicleState(list || []);
 
@@ -214,9 +207,7 @@ export default function VehicleSelect() {
           <span className="chip-brand">Step 1 of 3</span>
         </div>
 
-        <h1 className="text-3xl font-bold sm:text-5xl">
-          Select your vehicle
-        </h1>
+        <h1 className="text-3xl font-bold sm:text-5xl">Select your vehicle</h1>
 
         <p className="mt-2 text-muted">
           Choose a saved vehicle or add a new one before picking services.
@@ -253,7 +244,7 @@ export default function VehicleSelect() {
                     </div>
 
                     <div className="text-xs text-muted">
-                      {item.fuelType || "Fuel"} ·{" "}
+                      {item.fuelType || "Fuel"} -{" "}
                       {item.registrationNumber || "No registration"}
                     </div>
 
@@ -485,8 +476,8 @@ export default function VehicleSelect() {
                   </div>
 
                   <div className="text-sm text-muted">
-                    {fuel.label} · {year}
-                    {registrationNumber ? ` · ${registrationNumber}` : ""}
+                    {fuel.label} - {year}
+                    {registrationNumber ? ` - ${registrationNumber}` : ""}
                   </div>
                 </div>
 

@@ -77,10 +77,7 @@ export default function Contact() {
   }, [user, fetchProfile]);
 
   const change = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const submit = async (e) => {
@@ -97,10 +94,7 @@ export default function Contact() {
       });
 
       setSent(true);
-      setForm((prev) => ({
-        ...prev,
-        message: "",
-      }));
+      setForm((prev) => ({ ...prev, message: "" }));
     } catch (err) {
       setError(err.response?.data?.message || "Failed to send message");
     } finally {
@@ -216,7 +210,9 @@ export default function Contact() {
               />
 
               <button
-                disabled={loading || profileLoading || !form.name || !form.email}
+                disabled={
+                  loading || profileLoading || !form.name || !form.email
+                }
                 className="btn-primary disabled:opacity-60"
               >
                 {loading ? "Sending..." : "Send Message"}
@@ -253,4 +249,4 @@ export default function Contact() {
       </div>
     </div>
   );
-}  
+}

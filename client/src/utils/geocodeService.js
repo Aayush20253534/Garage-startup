@@ -45,20 +45,34 @@ const getCacheKey = (address, city, area, pincode) => {
 const geocodePrimary = async (address, city, area, pincode, attempt = 0) => {
   try {
     const response = await api.get("/locations/geocode", {
-      params: { address, city, area, pincode, country: "India", countrycodes: "in" },
+      params: {
+        address,
+        city,
+        area,
+        pincode,
+        country: "India",
+        countrycodes: "in",
+      },
     });
     const geocodeResult = response.data?.data ?? response.data;
     const result = {
       latitude: Number(geocodeResult.data?.latitude || geocodeResult.latitude),
-      longitude: Number(geocodeResult.data?.longitude || geocodeResult.longitude),
+      longitude: Number(
+        geocodeResult.data?.longitude || geocodeResult.longitude,
+      ),
     };
 
-    if (!Number.isFinite(result.latitude) || !Number.isFinite(result.longitude)) {
-      throw new Error('Invalid coordinates received');
+    if (
+      !Number.isFinite(result.latitude) ||
+      !Number.isFinite(result.longitude)
+    ) {
+      throw new Error("Invalid coordinates received");
     }
 
     if (!hasUsableIndiaCoordinates(result)) {
-      throw new Error("Could not find a valid Indian location for this address. Please check the city, area and pincode.");
+      throw new Error(
+        "Could not find a valid Indian location for this address. Please check the city, area and pincode.",
+      );
     }
 
     return result;
@@ -74,7 +88,7 @@ const geocodePrimary = async (address, city, area, pincode, attempt = 0) => {
     throw new Error(
       err.response?.data?.message ||
         err.message ||
-        "Could not find coordinates. Please verify the address and try again."
+        "Could not find coordinates. Please verify the address and try again.",
     );
   }
 };
@@ -86,7 +100,8 @@ const processGeocodeQueue = async () => {
   if (isGeocoding || geocodeRequestQueue.length === 0) return;
 
   isGeocoding = true;
-  const { resolve, reject, address, city, area, pincode } = geocodeRequestQueue.shift();
+  const { resolve, reject, address, city, area, pincode } =
+    geocodeRequestQueue.shift();
 
   try {
     const cacheKey = getCacheKey(address, city, area, pincode);
@@ -95,7 +110,7 @@ const processGeocodeQueue = async () => {
     const cached = getCachedGeocode(cacheKey);
     if (cached) {
       if (hasUsableIndiaCoordinates(cached)) {
-        console.log('Using cached geocode result');
+        console.log("Using cached geocode result");
         resolve(cached);
         isGeocoding = false;
         // Process next in queue after 1 second
@@ -113,7 +128,7 @@ const processGeocodeQueue = async () => {
     setCachedGeocode(cacheKey, geocodeResult);
     resolve(geocodeResult);
   } catch (err) {
-    console.error('Geocoding queue processing failed:', err);
+    console.error("Geocoding queue processing failed:", err);
     reject(err);
   } finally {
     isGeocoding = false;

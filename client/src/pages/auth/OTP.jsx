@@ -112,17 +112,18 @@ export default function OTP() {
             ...(freshUser.customerProfile || {}),
             address: signupLocation.address,
           },
-          locations: signupLocation.latitude && signupLocation.longitude
-            ? [
-                {
-                  latitude: signupLocation.latitude,
-                  longitude: signupLocation.longitude,
-                  address: signupLocation.address,
-                  isDefault: true,
-                },
-                ...(freshUser.locations || []),
-              ]
-            : freshUser.locations || [],
+          locations:
+            signupLocation.latitude && signupLocation.longitude
+              ? [
+                  {
+                    latitude: signupLocation.latitude,
+                    longitude: signupLocation.longitude,
+                    address: signupLocation.address,
+                    isDefault: true,
+                  },
+                  ...(freshUser.locations || []),
+                ]
+              : freshUser.locations || [],
         };
       }
       localStorage.setItem("user", JSON.stringify(freshUser));
@@ -133,7 +134,11 @@ export default function OTP() {
         nav("/garage");
       } else {
         if (!hasSavedUserLocation(freshUser)) {
-          nav("/booking/address", { state: { from: routeLocation.state?.from || { pathname: "/dashboard" } } });
+          nav("/booking/address", {
+            state: {
+              from: routeLocation.state?.from || { pathname: "/dashboard" },
+            },
+          });
         } else if (!freshUser.isOnboarded) {
           nav("/booking/vehicle");
         } else {
@@ -195,7 +200,11 @@ export default function OTP() {
             {timer > 0 ? (
               `Resend in ${timer}s`
             ) : (
-              <button type="button" onClick={resend} className="text-ink font-medium">
+              <button
+                type="button"
+                onClick={resend}
+                className="text-ink font-medium"
+              >
                 Resend OTP
               </button>
             )}

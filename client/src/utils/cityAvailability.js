@@ -1,6 +1,7 @@
 import { cityApi } from "@/api/cities";
 
-export const UNAVAILABLE_CITY_MESSAGE = "Rovauto isn't available in your area yet.";
+export const UNAVAILABLE_CITY_MESSAGE =
+  "Rovauto isn't available in your area yet.";
 
 let activeCityCache = null;
 

@@ -12,7 +12,7 @@ export const getServiceMinPrice = (service = {}) =>
       service.basePrice ??
       service.minPrice ??
       service.price,
-    0
+    0,
   );
 
 export const getServiceMaxPrice = (service = {}) => {

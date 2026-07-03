@@ -4,7 +4,11 @@ import { CATEGORY_UI } from "@/data/services";
 import api from "@/api/axios";
 import { FiStar, FiArrowLeft, FiX, FiTool } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
-import { formatServicePriceRange, getServiceMinPrice, getServiceMaxPrice } from "@/utils/priceRange";
+import {
+  formatServicePriceRange,
+  getServiceMinPrice,
+  getServiceMaxPrice,
+} from "@/utils/priceRange";
 
 const getIncludes = (service) => {
   if (!service.description) return ["Service inspection", "Basic checks"];
@@ -90,9 +94,7 @@ export default function CategoryDetail() {
         <FiArrowLeft /> Back to Services
       </Link>
 
-      <h1 className="mb-5 text-2xl font-bold sm:text-3xl">
-        {category.name}
-      </h1>
+      <h1 className="mb-5 text-2xl font-bold sm:text-3xl">{category.name}</h1>
 
       <div className="grid gap-4">
         {packages.map((pkg) => {
@@ -102,7 +104,10 @@ export default function CategoryDetail() {
           const includes = getIncludes(pkg);
 
           return (
-            <div key={pkg.id} className="rounded-2xl bg-white p-4 shadow-lg sm:p-5">
+            <div
+              key={pkg.id}
+              className="rounded-2xl bg-white p-4 shadow-lg sm:p-5"
+            >
               <div className="flex flex-col gap-5 md:flex-row">
                 <div className="h-40 w-full flex-shrink-0 overflow-hidden rounded-2xl bg-bg-soft md:h-44 md:w-56">
                   {categoryImage ? (
@@ -129,7 +134,9 @@ export default function CategoryDetail() {
                     </span>
 
                     {maxPrice > minPrice && (
-                      <span className="text-base text-muted">estimated range</span>
+                      <span className="text-base text-muted">
+                        estimated range
+                      </span>
                     )}
                   </div>
 
@@ -139,9 +146,7 @@ export default function CategoryDetail() {
                       <span className="font-semibold">4.8</span>
                     </div>
 
-                    <span className="text-sm text-muted">
-                      Verified service
-                    </span>
+                    <span className="text-sm text-muted">Verified service</span>
                   </div>
 
                   <div className="mb-4 inline-block rounded-xl bg-yellow-100 px-3 py-1.5 text-sm font-medium text-yellow-800">
@@ -151,7 +156,9 @@ export default function CategoryDetail() {
                   <ul className="mb-5 space-y-2">
                     <li className="flex items-start gap-2 text-base">
                       <span className="font-bold text-ink">Warranty:</span>
-                      <span className="text-muted">Service warranty available</span>
+                      <span className="text-muted">
+                        Service warranty available
+                      </span>
                     </li>
 
                     <li className="flex items-start gap-2 text-base">
@@ -197,9 +204,7 @@ export default function CategoryDetail() {
           <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white">
             <div className="p-5">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-bold">
-                  {selectedPackage.name}
-                </h2>
+                <h2 className="text-xl font-bold">{selectedPackage.name}</h2>
 
                 <button
                   onClick={() => setSelectedPackage(null)}
@@ -244,9 +249,7 @@ export default function CategoryDetail() {
               <div className="mb-5 grid grid-cols-2 gap-3">
                 <div>
                   <span className="text-sm text-muted">Warranty</span>
-                  <div className="font-semibold">
-                    Available
-                  </div>
+                  <div className="font-semibold">Available</div>
                 </div>
 
                 <div>
@@ -259,15 +262,13 @@ export default function CategoryDetail() {
                 <div>
                   <span className="text-sm text-muted">Estimated Price</span>
                   <div className="font-semibold">
-                    ₹{getPrice(selectedPackage)}
+                    {formatServicePriceRange(selectedPackage)}
                   </div>
                 </div>
               </div>
 
               <div className="mb-5">
-                <h3 className="mb-3 text-lg font-bold">
-                  Included Services
-                </h3>
+                <h3 className="mb-3 text-lg font-bold">Included Services</h3>
 
                 <ul className="grid gap-2">
                   {getIncludes(selectedPackage).map((item, index) => (

@@ -28,9 +28,7 @@ export default function Warranty() {
         </span>
 
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold">
-            Warranty Center
-          </h1>
+          <h1 className="text-3xl sm:text-4xl font-bold">Warranty Center</h1>
           <p className="text-muted">
             Every Rovauto service is backed by a 30-day warranty.
           </p>
@@ -58,27 +56,19 @@ export default function Warranty() {
             <div className="relative mt-6">
               <div className="text-xs text-white/60">Service</div>
 
-              <div className="text-xl font-semibold mt-1">
-                {w.service}
-              </div>
+              <div className="text-xl font-semibold mt-1">{w.service}</div>
 
-              <div className="mt-3 text-sm text-white/70">
-                {w.vehicle}
-              </div>
+              <div className="mt-3 text-sm text-white/70">{w.vehicle}</div>
             </div>
 
             <div className="relative mt-6 grid grid-cols-2 gap-4">
               <div>
-                <div className="text-xs text-white/60">
-                  Activated
-                </div>
+                <div className="text-xs text-white/60">Activated</div>
                 <div className="font-semibold">{w.start}</div>
               </div>
 
               <div>
-                <div className="text-xs text-white/60">
-                  Valid till
-                </div>
+                <div className="text-xs text-white/60">Valid till</div>
                 <div className="font-semibold">{w.end}</div>
               </div>
             </div>

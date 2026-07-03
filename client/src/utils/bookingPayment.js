@@ -9,7 +9,7 @@ export const isPaymentAuthError = (error) => {
     error?.code === PAYMENT_AUTH_REQUIRED ||
     (error?.response?.status === 401 &&
       /authentication token|invalid or expired token|user no longer exists/i.test(
-        message
+        message,
       ))
   );
 };
@@ -24,7 +24,8 @@ export const loadCashfreeCheckout = () =>
     const script = document.createElement("script");
     script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
     script.onload = () => resolve(true);
-    script.onerror = () => reject(new Error("Unable to load Cashfree checkout"));
+    script.onerror = () =>
+      reject(new Error("Unable to load Cashfree checkout"));
     document.body.appendChild(script);
   });
 
@@ -56,7 +57,7 @@ export const payForBooking = async ({ booking }) => {
 
   if (checkoutResult?.error) {
     throw new Error(
-      checkoutResult.error.message || "Payment cancelled or failed"
+      checkoutResult.error.message || "Payment cancelled or failed",
     );
   }
 

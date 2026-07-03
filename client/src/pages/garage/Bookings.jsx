@@ -5,7 +5,16 @@ import { setBookings } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
 
-const statusFilters = ["All", "New", "Accepted", "Confirmed", "In Progress", "Completed", "Rejected", "Expired"];
+const statusFilters = [
+  "All",
+  "New",
+  "Accepted",
+  "Confirmed",
+  "In Progress",
+  "Completed",
+  "Rejected",
+  "Expired",
+];
 
 const toStatus = (filter) => {
   if (filter === "All") return "";
@@ -26,7 +35,10 @@ export default function GarageBookings() {
     setLoading(true);
     setError("");
     try {
-      const data = await garageApi.getRequests(garageToken, toStatus(activeFilter));
+      const data = await garageApi.getRequests(
+        garageToken,
+        toStatus(activeFilter),
+      );
       dispatch(setBookings(data));
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load bookings");
@@ -41,8 +53,15 @@ export default function GarageBookings() {
 
   const handleAccept = async (booking) => {
     try {
-      const updated = await garageApi.acceptRequest(garageToken, booking.requestId || booking.id);
-      dispatch(setBookings(bookings.map((item) => item.id === booking.id ? updated : item)));
+      const updated = await garageApi.acceptRequest(
+        garageToken,
+        booking.requestId || booking.id,
+      );
+      dispatch(
+        setBookings(
+          bookings.map((item) => (item.id === booking.id ? updated : item)),
+        ),
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to accept booking");
     }
@@ -50,8 +69,15 @@ export default function GarageBookings() {
 
   const handleDecline = async (booking) => {
     try {
-      const updated = await garageApi.rejectRequest(garageToken, booking.requestId || booking.id);
-      dispatch(setBookings(bookings.map((item) => item.id === booking.id ? updated : item)));
+      const updated = await garageApi.rejectRequest(
+        garageToken,
+        booking.requestId || booking.id,
+      );
+      dispatch(
+        setBookings(
+          bookings.map((item) => (item.id === booking.id ? updated : item)),
+        ),
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to decline booking");
     }
@@ -76,13 +102,22 @@ export default function GarageBookings() {
         ))}
       </div>
 
-      {error && <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>}
+      {error && (
+        <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>
+      )}
 
       <div className="grid gap-4">
         {loading ? (
           <div className="card-soft p-5 text-muted">Loading bookings...</div>
         ) : bookings.length > 0 ? (
-          bookings.map((booking) => <BookingCard key={booking.id} booking={booking} onAccept={handleAccept} onDecline={handleDecline} />)
+          bookings.map((booking) => (
+            <BookingCard
+              key={booking.id}
+              booking={booking}
+              onAccept={handleAccept}
+              onDecline={handleDecline}
+            />
+          ))
         ) : (
           <div className="card-soft p-5 text-muted">No bookings found.</div>
         )}

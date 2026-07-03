@@ -10,7 +10,12 @@ export const getRecentActivities = () => {
   }
 };
 
-export const addRecentActivity = ({ type = "SYSTEM", title, detail = "", path = "" }) => {
+export const addRecentActivity = ({
+  type = "SYSTEM",
+  title,
+  detail = "",
+  path = "",
+}) => {
   if (!title) return;
 
   const activity = {

@@ -19,7 +19,9 @@ const getServicesTotal = (booking) => {
   return (
     booking?.services?.reduce((sum, item) => {
       return sum + (item.finalPrice || item.estimatedPrice || 0);
-    }, 0) || booking?.totalServiceAmount || 0
+    }, 0) ||
+    booking?.totalServiceAmount ||
+    0
   );
 };
 
@@ -93,7 +95,7 @@ export default function Tracking() {
       setError(
         err.response?.data?.message ||
           err.message ||
-          "Could not complete payment. Please try again."
+          "Could not complete payment. Please try again.",
       );
     } finally {
       setPaying(false);
@@ -106,7 +108,8 @@ export default function Tracking() {
         <div className="card-soft p-8 text-center">
           <h1 className="text-2xl font-bold">Select a booking to track</h1>
           <p className="mt-2 text-muted">
-            Tracking opens after a paid booking is selected from active bookings.
+            Tracking opens after a paid booking is selected from active
+            bookings.
           </p>
           <Link to="/dashboard/bookings" className="btn-primary mt-5">
             View Active Bookings
@@ -172,7 +175,8 @@ export default function Tracking() {
   const current = STATUS_STEPS[step];
   const servicesTotal = getServicesTotal(booking);
   const platformFee = booking?.handlingFee || booking?.payment?.amount || 0;
-  const bookingCode = booking?.bookingCode || location.state?.bookingCode || "RV2384";
+  const bookingCode =
+    booking?.bookingCode || location.state?.bookingCode || "RV2384";
 
   return (
     <div className="container-x grid max-w-6xl gap-8 py-12 lg:grid-cols-[1fr_380px]">
@@ -189,7 +193,9 @@ export default function Tracking() {
                   <motion.div
                     animate={index <= step ? { scale: [0.8, 1.1, 1] } : {}}
                     className={`grid h-9 w-9 place-items-center rounded-full ${
-                      index <= step ? "bg-brand text-ink" : "bg-bg-soft text-muted"
+                      index <= step
+                        ? "bg-brand text-ink"
+                        : "bg-bg-soft text-muted"
                     }`}
                   >
                     {index < step ? (
@@ -236,7 +242,9 @@ export default function Tracking() {
                 "Test drive",
               ].map((item, index) => (
                 <div key={item} className="flex items-center gap-2">
-                  <FiCheck className={index < 4 ? "text-brand-dark" : "text-muted"} />
+                  <FiCheck
+                    className={index < 4 ? "text-brand-dark" : "text-muted"}
+                  />
                   <span className={index < 4 ? "" : "text-muted"}>{item}</span>
                 </div>
               ))}
@@ -278,7 +286,8 @@ export default function Tracking() {
               <FiShield /> 30-Day Warranty Card
             </h3>
             <p className="mt-2 text-sm text-white/70">
-              Valid after service completion. Any issue? Tap Claim from your dashboard.
+              Valid after service completion. Any issue? Tap Claim from your
+              dashboard.
             </p>
           </div>
         )}
@@ -309,7 +318,8 @@ export default function Tracking() {
                   {booking?.garage?.name || "Garage matching in progress"}
                 </div>
                 <div className="mt-1 flex items-center gap-1 text-xs text-amber-500">
-                  <FiStar fill="currentColor" /> {booking?.garage?.rating || "4.9"}
+                  <FiStar fill="currentColor" />{" "}
+                  {booking?.garage?.rating || "4.9"}
                 </div>
               </div>
             </div>
@@ -318,7 +328,11 @@ export default function Tracking() {
               <Row l="ETA" r="25 min" />
               <Row
                 l="OTP"
-                r={<span className="font-mono font-bold tracking-wider">3-8-9-4</span>}
+                r={
+                  <span className="font-mono font-bold tracking-wider">
+                    3-8-9-4
+                  </span>
+                }
               />
             </div>
             <div className="mt-5 grid grid-cols-3 gap-2">

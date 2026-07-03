@@ -2,17 +2,26 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
-import { buildFullAddress, getDefaultUserLocation, parseAddressParts, reverseGeocodeCoordinates } from "@/utils/address";
+import {
+  buildFullAddress,
+  getDefaultUserLocation,
+  parseAddressParts,
+  reverseGeocodeCoordinates,
+} from "@/utils/address";
 import { queueGeocodeRequest, clearGeocodeCache } from "@/utils/geocodeService";
 import { FiCheckCircle, FiMapPin } from "react-icons/fi";
 import CitySelect from "@/components/common/CitySelect";
-import { isCityAvailable, UNAVAILABLE_CITY_MESSAGE } from "@/utils/cityAvailability";
+import {
+  isCityAvailable,
+  UNAVAILABLE_CITY_MESSAGE,
+} from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 
 export default function AddressForm() {
   const nav = useNavigate();
   const routeLocation = useLocation();
-  const { user, setUser, setLocation, fetchProfile, clearProfileCache } = useApp();
+  const { user, setUser, setLocation, fetchProfile, clearProfileCache } =
+    useApp();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [manualLocationEdited, setManualLocationEdited] = useState(false);
@@ -31,8 +40,10 @@ export default function AddressForm() {
     area: initialParts.area || "",
     city: initialParts.city || "",
     pincode: initialParts.pincode || "",
-    latitude: routeLocation.state?.latitude || defaultUserLocation?.latitude || null,
-    longitude: routeLocation.state?.longitude || defaultUserLocation?.longitude || null,
+    latitude:
+      routeLocation.state?.latitude || defaultUserLocation?.latitude || null,
+    longitude:
+      routeLocation.state?.longitude || defaultUserLocation?.longitude || null,
   });
 
   const change = (e) => {
@@ -47,11 +58,12 @@ export default function AddressForm() {
 
   const getCurrentCoordinates = async () => {
     const position = await new Promise((resolve, reject) => {
-      if (!navigator.geolocation) reject(new Error("Geolocation not supported"));
+      if (!navigator.geolocation)
+        reject(new Error("Geolocation not supported"));
       navigator.geolocation.getCurrentPosition(
         (pos) => resolve(pos),
         (err) => reject(err),
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 10000 },
       );
     });
 
@@ -84,7 +96,9 @@ export default function AddressForm() {
       } catch {
         setForm((prev) => ({ ...prev, latitude, longitude }));
         setManualLocationEdited(false);
-        setError("Location detected, but address details could not be filled. Please complete the boxes.");
+        setError(
+          "Location detected, but address details could not be filled. Please complete the boxes.",
+        );
       }
     } catch (err) {
       setError("Could not detect location. Please enter manually.");
@@ -100,23 +114,23 @@ export default function AddressForm() {
       }
 
       const fullAddress = buildFullAddress(form);
-      
+
       // Use queued request with rate limiting and fallback
       const geocodeResult = await queueGeocodeRequest(
         form.address,
         form.city,
         form.area,
-        form.pincode
+        form.pincode,
       );
-      
+
       return {
         latitude: geocodeResult.latitude,
         longitude: geocodeResult.longitude,
         address: fullAddress,
       };
     } catch (err) {
-      const errorMessage = 
-        err.response?.data?.message || 
+      const errorMessage =
+        err.response?.data?.message ||
         err.message ||
         "Could not find coordinates for this address. Please check and try again.";
       throw new Error(errorMessage);
@@ -159,7 +173,9 @@ export default function AddressForm() {
 
       // Validate coordinates
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-        throw new Error("Could not determine coordinates. Please verify address.");
+        throw new Error(
+          "Could not determine coordinates. Please verify address.",
+        );
       }
 
       await api.post("/locations", {
@@ -181,7 +197,9 @@ export default function AddressForm() {
       });
       addRecentActivity({
         type: "LOCATION",
-        title: manualLocationEdited ? "Saved manual location" : "Saved current location",
+        title: manualLocationEdited
+          ? "Saved manual location"
+          : "Saved current location",
         detail: `${form.city}${form.area ? `, ${form.area}` : ""}`,
         path: "/dashboard/profile",
       });
@@ -190,18 +208,16 @@ export default function AddressForm() {
       clearGeocodeCache(); // Clear cache after successful save
       const refreshedUser = await fetchProfile({ force: true });
 
-      setUser((prev) => ({
-        ...(refreshedUser || prev),
-        isOnboarded: true,
-      }));
+      setUser((prev) => ({ ...(refreshedUser || prev), isOnboarded: true }));
 
-      const nextPath = routeLocation.state?.from?.pathname || "/booking/vehicle";
+      const nextPath =
+        routeLocation.state?.from?.pathname || "/booking/vehicle";
       nav(nextPath, { state: routeLocation.state?.from?.state });
     } catch (err) {
       setError(
         err.response?.data?.message ||
           err.message ||
-          "Could not save address. Please try again."
+          "Could not save address. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -262,7 +278,12 @@ export default function AddressForm() {
               <CitySelect
                 value={form.city}
                 onChange={(city) => {
-                  setForm((prev) => ({ ...prev, city, latitude: null, longitude: null }));
+                  setForm((prev) => ({
+                    ...prev,
+                    city,
+                    latitude: null,
+                    longitude: null,
+                  }));
                   setManualLocationEdited(true);
                 }}
                 required
@@ -287,7 +308,9 @@ export default function AddressForm() {
         </div>
 
         <button disabled={loading} type="submit" className="btn-primary mt-4">
-          {loading ? "Saving..." : (
+          {loading ? (
+            "Saving..."
+          ) : (
             <>
               <FiCheckCircle />
               Save & Continue

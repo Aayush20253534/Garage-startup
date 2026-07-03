@@ -39,8 +39,14 @@ function AddressCheck({ children }) {
     Boolean(location?.address || location?.fullAddress) &&
     hasUsableIndiaCoordinates(location);
 
-  if (user?.role === "CUSTOMER" && !hasSavedUserLocation(user) && !hasLiveLocation) {
-    return <Navigate to="/booking/address" state={{ from: routeLocation }} replace />;
+  if (
+    user?.role === "CUSTOMER" &&
+    !hasSavedUserLocation(user) &&
+    !hasLiveLocation
+  ) {
+    return (
+      <Navigate to="/booking/address" state={{ from: routeLocation }} replace />
+    );
   }
 
   return children;
@@ -94,7 +100,9 @@ const Notifications = lazy(() => import("@/pages/customer/Notifications"));
 const GarageDashboard = lazy(() => import("@/pages/garage/Dashboard"));
 const GarageLogin = lazy(() => import("@/pages/garage/auth/Login"));
 const GarageOtpLogin = lazy(() => import("@/pages/garage/auth/OtpLogin"));
-const GarageForgotPassword = lazy(() => import("@/pages/garage/auth/ForgotPassword"));
+const GarageForgotPassword = lazy(
+  () => import("@/pages/garage/auth/ForgotPassword"),
+);
 const GarageOnboarding = lazy(() => import("@/pages/garage/Onboarding"));
 const GarageServices = lazy(() => import("@/pages/garage/Services"));
 const GarageBookings = lazy(() => import("@/pages/garage/Bookings"));
@@ -112,12 +120,31 @@ const AdminBookings = lazy(() => import("@/pages/admin/Bookings"));
 const AdminRevenue = lazy(() => import("@/pages/admin/Revenue"));
 const AdminNotifications = lazy(() => import("@/pages/admin/Notifications"));
 
-import { FiGrid, FiTruck, FiPlusCircle, FiCalendar, FiClock, FiShield, FiCreditCard, FiBell, FiUser,
-  FiInbox, FiBriefcase, FiTrendingUp, FiStar, FiUsers, FiSettings, FiDollarSign, FiHome } from "react-icons/fi";
+import {
+  FiGrid,
+  FiTruck,
+  FiPlusCircle,
+  FiCalendar,
+  FiClock,
+  FiShield,
+  FiCreditCard,
+  FiBell,
+  FiUser,
+  FiInbox,
+  FiBriefcase,
+  FiTrendingUp,
+  FiStar,
+  FiUsers,
+  FiSettings,
+  FiDollarSign,
+  FiHome,
+} from "react-icons/fi";
 
 const isChunkLoadError = (error) => {
   const message = String(error?.message || error || "");
-  return /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError/i.test(message);
+  return /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError/i.test(
+    message,
+  );
 };
 
 class AppErrorBoundary extends Component {
@@ -153,7 +180,11 @@ class AppErrorBoundary extends Component {
 
   clearAndReload = () => {
     Object.keys(sessionStorage)
-      .filter((key) => key.startsWith("rov_route_reload_attempted:") || key.startsWith("rov_chunk_reload_attempted:"))
+      .filter(
+        (key) =>
+          key.startsWith("rov_route_reload_attempted:") ||
+          key.startsWith("rov_chunk_reload_attempted:"),
+      )
       .forEach((key) => sessionStorage.removeItem(key));
 
     const url = new URL(window.location.href);
@@ -181,7 +212,9 @@ class AppErrorBoundary extends Component {
             {staleChunk ? "Updating Rovauto" : "Page could not load"}
           </p>
           <h1 className="mt-2 text-2xl font-bold text-ink">
-            {staleChunk ? "Refreshing the latest version" : "Something stopped this page from loading"}
+            {staleChunk
+              ? "Refreshing the latest version"
+              : "Something stopped this page from loading"}
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted">
             {staleChunk
@@ -267,46 +300,284 @@ function AppRoutes() {
 
           <Route path="/garage/login" element={<GarageLogin />} />
           <Route path="/garage/otp-login" element={<GarageOtpLogin />} />
-          <Route path="/garage/forgot-password" element={<GarageForgotPassword />} />
+          <Route
+            path="/garage/forgot-password"
+            element={<GarageForgotPassword />}
+          />
           <Route path="/garage/onboarding" element={<GarageOnboarding />} />
           <Route path="/garage/magic/:id" element={<MagicLink />} />
 
-          <Route path="/booking/address" element={<ProtectedRoute><AddressForm /></ProtectedRoute>} />
-          <Route path="/booking/vehicle" element={<ProtectedRoute><AddressCheck><VehicleSelect /></AddressCheck></ProtectedRoute>} />
-          <Route path="/booking/services" element={<ProtectedRoute><AddressCheck><VehicleCheck><ServiceSelect /></VehicleCheck></AddressCheck></ProtectedRoute>} />
-          <Route path="/booking/garage" element={<ProtectedRoute><AddressCheck><VehicleCheck><GarageSelect /></VehicleCheck></AddressCheck></ProtectedRoute>} />
-          <Route path="/checkout" element={<ProtectedRoute><AddressCheck><VehicleCheck><Checkout /></VehicleCheck></AddressCheck></ProtectedRoute>} />
-          <Route path="/tracking" element={<ProtectedRoute><AddressCheck><VehicleCheck><Tracking /></VehicleCheck></AddressCheck></ProtectedRoute>} />
-
+          <Route
+            path="/booking/address"
+            element={
+              <ProtectedRoute>
+                <AddressForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/booking/vehicle"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleSelect />
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/booking/services"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleCheck>
+                    <ServiceSelect />
+                  </VehicleCheck>
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/booking/garage"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleCheck>
+                    <GarageSelect />
+                  </VehicleCheck>
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleCheck>
+                    <Checkout />
+                  </VehicleCheck>
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tracking"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleCheck>
+                    <Tracking />
+                  </VehicleCheck>
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
-        <Route element={<DashboardLayout items={customerItems} title="Customer Portal" />}>
-          <Route path="/dashboard" element={<ProtectedRoute><AddressCheck><VehicleCheck><CustomerDashboard /></VehicleCheck></AddressCheck></ProtectedRoute>} />
-          <Route path="/dashboard/vehicles" element={<ProtectedRoute><AddressCheck><MyVehicles /></AddressCheck></ProtectedRoute>} />
-          <Route path="/dashboard/bookings" element={<ProtectedRoute><AddressCheck><VehicleCheck><ActiveBookings /></VehicleCheck></AddressCheck></ProtectedRoute>} />
-          <Route path="/dashboard/history" element={<ProtectedRoute><AddressCheck><VehicleCheck><ServiceHistory /></VehicleCheck></AddressCheck></ProtectedRoute>} />
-          <Route path="/dashboard/payments" element={<ProtectedRoute><AddressCheck><VehicleCheck><Payments /></VehicleCheck></AddressCheck></ProtectedRoute>} />
-          <Route path="/dashboard/notifications" element={<ProtectedRoute><AddressCheck><VehicleCheck><Notifications /></VehicleCheck></AddressCheck></ProtectedRoute>} />
-          <Route path="/dashboard/profile" element={<ProtectedRoute><AddressCheck><VehicleCheck><Profile /></VehicleCheck></AddressCheck></ProtectedRoute>} />
+        <Route
+          element={
+            <DashboardLayout items={customerItems} title="Customer Portal" />
+          }
+        >
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleCheck>
+                    <CustomerDashboard />
+                  </VehicleCheck>
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/vehicles"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <MyVehicles />
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/bookings"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleCheck>
+                    <ActiveBookings />
+                  </VehicleCheck>
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/history"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleCheck>
+                    <ServiceHistory />
+                  </VehicleCheck>
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/payments"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleCheck>
+                    <Payments />
+                  </VehicleCheck>
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/notifications"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleCheck>
+                    <Notifications />
+                  </VehicleCheck>
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/profile"
+            element={
+              <ProtectedRoute>
+                <AddressCheck>
+                  <VehicleCheck>
+                    <Profile />
+                  </VehicleCheck>
+                </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
-        <Route element={<DashboardLayout items={garageItems} title="Garage Portal" />}>
-          <Route path="/garage" element={<ProtectedRoute><GarageDashboard /></ProtectedRoute>} />
-          <Route path="/garage/bookings" element={<ProtectedRoute><GarageBookings /></ProtectedRoute>} />
-          <Route path="/garage/bookings/:id" element={<ProtectedRoute><GarageBookingDetail /></ProtectedRoute>} />
-          <Route path="/garage/services" element={<ProtectedRoute><GarageServices /></ProtectedRoute>} />
-          <Route path="/garage/wallet" element={<ProtectedRoute><GarageWallet /></ProtectedRoute>} />
-          <Route path="/garage/profile" element={<ProtectedRoute><GarageProfile /></ProtectedRoute>} />
-          <Route path="/garage/settings" element={<ProtectedRoute><GarageSettings /></ProtectedRoute>} />
+        <Route
+          element={
+            <DashboardLayout items={garageItems} title="Garage Portal" />
+          }
+        >
+          <Route
+            path="/garage"
+            element={
+              <ProtectedRoute>
+                <GarageDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/garage/bookings"
+            element={
+              <ProtectedRoute>
+                <GarageBookings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/garage/bookings/:id"
+            element={
+              <ProtectedRoute>
+                <GarageBookingDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/garage/services"
+            element={
+              <ProtectedRoute>
+                <GarageServices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/garage/wallet"
+            element={
+              <ProtectedRoute>
+                <GarageWallet />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/garage/profile"
+            element={
+              <ProtectedRoute>
+                <GarageProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/garage/settings"
+            element={
+              <ProtectedRoute>
+                <GarageSettings />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
-        <Route element={<DashboardLayout items={adminItems} title="Admin Console" />}>
-          <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/customers" element={<ProtectedRoute><AdminCustomers /></ProtectedRoute>} />
-          <Route path="/admin/garages" element={<ProtectedRoute><AdminGarages /></ProtectedRoute>} />
-          <Route path="/admin/bookings" element={<ProtectedRoute><AdminBookings /></ProtectedRoute>} />
-          <Route path="/admin/revenue" element={<ProtectedRoute><AdminRevenue /></ProtectedRoute>} />
-          <Route path="/admin/notifications" element={<ProtectedRoute><AdminNotifications /></ProtectedRoute>} />
+        <Route
+          element={<DashboardLayout items={adminItems} title="Admin Console" />}
+        >
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/customers"
+            element={
+              <ProtectedRoute>
+                <AdminCustomers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/garages"
+            element={
+              <ProtectedRoute>
+                <AdminGarages />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/bookings"
+            element={
+              <ProtectedRoute>
+                <AdminBookings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/revenue"
+            element={
+              <ProtectedRoute>
+                <AdminRevenue />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/notifications"
+            element={
+              <ProtectedRoute>
+                <AdminNotifications />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
         <Route path="*" element={<NotFound />} />

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { FiArrowRight, FiArrowLeft } from "react-icons/fi";
@@ -19,14 +18,13 @@ export default function OnboardingStep3({ data, onChange, onNext, onBack }) {
     }
 
     setLoading(true);
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
     setLoading(false);
     onNext();
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-bg-soft">
-      
       <div className="flex-1 flex items-center justify-center px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -34,8 +32,14 @@ export default function OnboardingStep3({ data, onChange, onNext, onBack }) {
           className="w-full max-w-2xl card-soft p-8"
         >
           <h1 className="text-3xl font-bold mb-2">Garage Images</h1>
-          <p className="text-muted mb-8">Upload 10 to 15 garage photos. Each photo must be 1 MB or less.</p>
-          {error && <div className="mb-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+          <p className="text-muted mb-8">
+            Upload 10 to 15 garage photos. Each photo must be 1 MB or less.
+          </p>
+          {error && (
+            <div className="mb-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <ImageUpload

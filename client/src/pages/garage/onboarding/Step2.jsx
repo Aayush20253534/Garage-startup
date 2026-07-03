@@ -1,12 +1,19 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { FiArrowRight, FiMapPin, FiNavigation, FiArrowLeft } from "react-icons/fi";
+import {
+  FiArrowRight,
+  FiMapPin,
+  FiNavigation,
+  FiArrowLeft,
+} from "react-icons/fi";
 import Logo from "@/components/common/Logo";
 import { garageApi } from "@/api/garage";
 import { reverseGeocodeCoordinates } from "@/utils/address";
 import CitySelect from "@/components/common/CitySelect";
-import { isCityAvailable, UNAVAILABLE_CITY_MESSAGE } from "@/utils/cityAvailability";
+import {
+  isCityAvailable,
+  UNAVAILABLE_CITY_MESSAGE,
+} from "@/utils/cityAvailability";
 
 export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
   const [loading, setLoading] = useState(false);
@@ -14,7 +21,8 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
   const [locationError, setLocationError] = useState("");
 
   const hasCoordinates = (location) =>
-    Number.isFinite(Number(location?.lat)) && Number.isFinite(Number(location?.lng));
+    Number.isFinite(Number(location?.lat)) &&
+    Number.isFinite(Number(location?.lng));
 
   const updateAddressField = (field, value) => {
     onChange({
@@ -46,8 +54,13 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
           area: data.area,
         });
 
-        if (!Number.isFinite(result.latitude) || !Number.isFinite(result.longitude)) {
-          throw new Error("Could not determine coordinates for this garage address.");
+        if (
+          !Number.isFinite(result.latitude) ||
+          !Number.isFinite(result.longitude)
+        ) {
+          throw new Error(
+            "Could not determine coordinates for this garage address.",
+          );
         }
 
         nextData = {
@@ -66,7 +79,7 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
       setLocationError(
         err.response?.data?.message ||
           err.message ||
-          "Could not find this garage location. Please verify the address and try again."
+          "Could not find this garage location. Please verify the address and try again.",
       );
     } finally {
       setLoading(false);
@@ -88,7 +101,10 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
         const longitude = Number(position.coords.longitude.toFixed(6));
 
         try {
-          const parsed = await reverseGeocodeCoordinates({ latitude, longitude });
+          const parsed = await reverseGeocodeCoordinates({
+            latitude,
+            longitude,
+          });
           if (!(await isCityAvailable(parsed.city))) {
             setLocationError(UNAVAILABLE_CITY_MESSAGE);
             setLocationLoading(false);
@@ -114,7 +130,9 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
             },
             locationSource: "GPS",
           });
-          setLocationError("Location detected, but address details could not be filled. Please complete the address boxes.");
+          setLocationError(
+            "Location detected, but address details could not be filled. Please complete the address boxes.",
+          );
         }
         setLocationLoading(false);
       },
@@ -122,13 +140,12 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
         setLocationError(error.message || "Unable to fetch current location.");
         setLocationLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     );
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-bg-soft">
-      
       <div className="flex-1 flex items-center justify-center px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -136,16 +153,22 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
           className="w-full max-w-lg card-soft p-8"
         >
           <h1 className="text-3xl font-bold mb-2">Location Details</h1>
-          <p className="text-muted mb-8">Set your garage address and working radius</p>
+          <p className="text-muted mb-8">
+            Set your garage address and working radius
+          </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium mb-2">Garage Address</label>
+              <label className="block text-sm font-medium mb-2">
+                Garage Address
+              </label>
               <div className="relative">
                 <FiMapPin className="absolute left-4 top-4 text-muted" />
                 <textarea
                   value={data.address}
-                  onChange={(e) => updateAddressField("address", e.target.value)}
+                  onChange={(e) =>
+                    updateAddressField("address", e.target.value)
+                  }
                   placeholder="Enter full address"
                   rows={3}
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors resize-none"
@@ -178,10 +201,14 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Short Description</label>
+              <label className="block text-sm font-medium mb-2">
+                Short Description
+              </label>
               <textarea
                 value={data.description}
-                onChange={(e) => onChange({ ...data, description: e.target.value })}
+                onChange={(e) =>
+                  onChange({ ...data, description: e.target.value })
+                }
                 placeholder="Tell customers what your garage specializes in"
                 rows={2}
                 className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors resize-none"
@@ -191,15 +218,23 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
             <div className="card-soft p-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="font-semibold">GPS Location</span>
-                <button type="button" onClick={getCurrentLocation} disabled={locationLoading} className="btn-ghost text-sm py-2 px-3">
+                <button
+                  type="button"
+                  onClick={getCurrentLocation}
+                  disabled={locationLoading}
+                  className="btn-ghost text-sm py-2 px-3"
+                >
                   <FiNavigation className="w-4 h-4" />
                   {locationLoading ? "Fetching..." : "Get Current Location"}
                 </button>
               </div>
               <div className="text-muted text-sm">
-                Lat: {data.location?.lat || "Not set"}, Lng: {data.location?.lng || "Not set"}
+                Lat: {data.location?.lat || "Not set"}, Lng:{" "}
+                {data.location?.lng || "Not set"}
               </div>
-              {locationError && <div className="mt-2 text-sm text-red-600">{locationError}</div>}
+              {locationError && (
+                <div className="mt-2 text-sm text-red-600">{locationError}</div>
+              )}
             </div>
 
             <div>
@@ -211,7 +246,9 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
                 min="5"
                 max="30"
                 value={data.workingRadius}
-                onChange={(e) => onChange({ ...data, workingRadius: Number(e.target.value) })}
+                onChange={(e) =>
+                  onChange({ ...data, workingRadius: Number(e.target.value) })
+                }
                 className="w-full h-2 bg-line rounded-full appearance-none cursor-pointer accent-brand"
               />
               <div className="flex justify-between text-xs text-muted mt-1">

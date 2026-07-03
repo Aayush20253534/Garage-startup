@@ -6,7 +6,10 @@ export default function GarageOtpLogin() {
   return (
     <div className="min-h-screen flex flex-col bg-bg-soft">
       <div className="container-x py-8">
-        <Link to="/garage/login" className="inline-flex items-center gap-2 text-muted hover:text-ink">
+        <Link
+          to="/garage/login"
+          className="inline-flex items-center gap-2 text-muted hover:text-ink"
+        >
           <FiArrowLeft className="w-4 h-4" />
           <span>Back to Login</span>
         </Link>
@@ -21,7 +24,8 @@ export default function GarageOtpLogin() {
           <FiAlertCircle className="mx-auto mb-4 h-14 w-14 text-yellow-700" />
           <h1 className="text-3xl font-bold mb-2">OTP Login Unavailable</h1>
           <p className="text-muted mb-6">
-            SMS OTP is currently disabled on the backend. Use email or phone with password login for garage accounts.
+            SMS OTP is currently disabled on the backend. Use email or phone
+            with password login for garage accounts.
           </p>
           <Link to="/garage/login" className="btn-primary w-full">
             Use Password Login

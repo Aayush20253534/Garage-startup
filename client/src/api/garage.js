@@ -34,7 +34,8 @@ export const normalizeGarage = (garage) => {
       walletBalance: wallet.balance || activation.walletBalance || 0,
       photoCount: images.length || activation.photoCount || 0,
       hasMinimumBalance:
-        activation.hasMinimumBalance ?? (wallet.balance || 0) >= (activation.minimumBalance || 1000),
+        activation.hasMinimumBalance ??
+        (wallet.balance || 0) >= (activation.minimumBalance || 1000),
       isActive: activation.isActive ?? garage.isActive,
     },
   };
@@ -45,7 +46,12 @@ export const mapGarageRequestToBooking = (request) => {
   const vehicle = booking.vehicle || {};
   const customer = booking.user || {};
   const services = Array.isArray(booking.services) ? booking.services : [];
-  const status = booking.deliveredAt && !booking.customerAcceptedAt ? "DELIVERED" : request.status === "SENT" ? "NEW" : booking.status || request.status;
+  const status =
+    booking.deliveredAt && !booking.customerAcceptedAt
+      ? "DELIVERED"
+      : request.status === "SENT"
+        ? "NEW"
+        : booking.status || request.status;
 
   return {
     id: request.id,
@@ -54,7 +60,8 @@ export const mapGarageRequestToBooking = (request) => {
     status,
     createdAt: booking.createdAt || request.createdAt,
     distance: request.distanceKm || request.distance || 0,
-    estimatedBill: booking.totalServiceMaxAmount || booking.totalServiceAmount || 0,
+    estimatedBill:
+      booking.totalServiceMaxAmount || booking.totalServiceAmount || 0,
     raw: request,
     customerLocationLink: request.customerLocationLink,
     handoverOtpExpiresAt: booking.handoverOtpExpiresAt,
@@ -64,7 +71,11 @@ export const mapGarageRequestToBooking = (request) => {
       brand: vehicle.brand || vehicle.make || "Vehicle",
       model: vehicle.model || "",
       year: vehicle.year || "",
-      number: vehicle.registrationNumber || vehicle.number || vehicle.plateNumber || "",
+      number:
+        vehicle.registrationNumber ||
+        vehicle.number ||
+        vehicle.plateNumber ||
+        "",
     },
     customer: {
       name: customer.name || "Customer",
@@ -85,7 +96,13 @@ export const mapGarageRequestToBooking = (request) => {
 
 export const garageApi = {
   async login(identifier, password) {
-    const result = unwrap(await api.post("/auth/login", { identifier, password, role: "GARAGE_OWNER" }));
+    const result = unwrap(
+      await api.post("/auth/login", {
+        identifier,
+        password,
+        role: "GARAGE_OWNER",
+      }),
+    );
     if (!["GARAGE_OWNER", "ADMIN"].includes(result.user?.role)) {
       throw new Error("This account is not a garage owner account");
     }
@@ -110,7 +127,7 @@ export const garageApi = {
           city,
           state: area,
         },
-      })
+      }),
     );
 
     return {
@@ -126,19 +143,39 @@ export const garageApi = {
   },
 
   async getWalletTransactions(token) {
-    return unwrap(await api.get("/garage/wallet/transactions", authConfig(token)));
+    return unwrap(
+      await api.get("/garage/wallet/transactions", authConfig(token)),
+    );
   },
 
   async createRechargeOrder(token, amount) {
-    return unwrap(await api.post("/garage/wallet/recharge/order", { amount }, authConfig(token)));
+    return unwrap(
+      await api.post(
+        "/garage/wallet/recharge/order",
+        { amount },
+        authConfig(token),
+      ),
+    );
   },
 
   async verifyRechargeOrder(token, cashfreeOrderId) {
-    return unwrap(await api.post("/garage/wallet/recharge/verify", { cashfreeOrderId }, authConfig(token)));
+    return unwrap(
+      await api.post(
+        "/garage/wallet/recharge/verify",
+        { cashfreeOrderId },
+        authConfig(token),
+      ),
+    );
   },
 
   async changePassword(token, currentPassword, newPassword) {
-    return unwrap(await api.post("/auth/change-password", { currentPassword, newPassword }, authConfig(token)));
+    return unwrap(
+      await api.post(
+        "/auth/change-password",
+        { currentPassword, newPassword },
+        authConfig(token),
+      ),
+    );
   },
 
   async uploadPhotos(token, garageId, files) {
@@ -150,9 +187,13 @@ export const garageApi = {
     });
 
     const garage = unwrap(
-      await api.post(`/garages/${garageId}/media`, formData, authConfig(token, {
-        headers: { "Content-Type": "multipart/form-data" },
-      }))
+      await api.post(
+        `/garages/${garageId}/media`,
+        formData,
+        authConfig(token, {
+          headers: { "Content-Type": "multipart/form-data" },
+        }),
+      ),
     );
 
     return normalizeGarage(garage);
@@ -160,34 +201,68 @@ export const garageApi = {
 
   async getRequests(token, status = "") {
     const params = status ? { status } : {};
-    const requests = unwrap(await api.get("/garage/requests", authConfig(token, { params })));
-    return Array.isArray(requests) ? requests.map(mapGarageRequestToBooking) : [];
+    const requests = unwrap(
+      await api.get("/garage/requests", authConfig(token, { params })),
+    );
+    return Array.isArray(requests)
+      ? requests.map(mapGarageRequestToBooking)
+      : [];
   },
 
   async acceptRequest(token, requestId, note = "") {
-    const request = unwrap(await api.post(`/garage/requests/${requestId}/accept`, { note }, authConfig(token)));
+    const request = unwrap(
+      await api.post(
+        `/garage/requests/${requestId}/accept`,
+        { note },
+        authConfig(token),
+      ),
+    );
     return mapGarageRequestToBooking(request);
   },
 
   async rejectRequest(token, requestId, note = "") {
-    const request = unwrap(await api.post(`/garage/requests/${requestId}/reject`, { note }, authConfig(token)));
+    const request = unwrap(
+      await api.post(
+        `/garage/requests/${requestId}/reject`,
+        { note },
+        authConfig(token),
+      ),
+    );
     return mapGarageRequestToBooking(request);
   },
 
   async verifyHandoverOtp(token, requestId, otp, images = []) {
     const formData = new FormData();
     formData.append("otp", otp);
-    images.map((item) => item.file || item).filter(Boolean).forEach((file) => formData.append("images", file));
-    return unwrap(await api.post(`/garage/requests/${requestId}/verify-handover-otp`, formData, authConfig(token, {
-      headers: { "Content-Type": "multipart/form-data" },
-    })));
+    images
+      .map((item) => item.file || item)
+      .filter(Boolean)
+      .forEach((file) => formData.append("images", file));
+    return unwrap(
+      await api.post(
+        `/garage/requests/${requestId}/verify-handover-otp`,
+        formData,
+        authConfig(token, {
+          headers: { "Content-Type": "multipart/form-data" },
+        }),
+      ),
+    );
   },
 
   async markDelivered(token, requestId, images = []) {
     const formData = new FormData();
-    images.map((item) => item.file || item).filter(Boolean).forEach((file) => formData.append("images", file));
-    return unwrap(await api.post(`/garage/requests/${requestId}/mark-delivered`, formData, authConfig(token, {
-      headers: { "Content-Type": "multipart/form-data" },
-    })));
+    images
+      .map((item) => item.file || item)
+      .filter(Boolean)
+      .forEach((file) => formData.append("images", file));
+    return unwrap(
+      await api.post(
+        `/garage/requests/${requestId}/mark-delivered`,
+        formData,
+        authConfig(token, {
+          headers: { "Content-Type": "multipart/form-data" },
+        }),
+      ),
+    );
   },
 };
