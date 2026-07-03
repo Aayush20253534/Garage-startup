@@ -13,9 +13,6 @@ import {
 import { CATEGORY_UI } from "@/data/services";
 import api from "@/api/axios";
 import homepageHero from "@/assets/Rovauto_home.png";
-import acserviceimg from "@/assets/AC service.png";
-import serviceimg from "@/assets/Service And Repair.png";
-import washimg from "@/assets/car_wash.png";
 
 const TRUST = [
   { icon: FiCheckCircle, label: "Verified Garages" },
@@ -25,66 +22,17 @@ const TRUST = [
   { icon: FiClock, label: "Fast Booking" },
 ];
 
-// Hardcoded popular services as per user's attached images
-const HARDCODED_POPULAR_SERVICES = [
-  {
-    id: "1",
-    name: "Express Exterior Wash",
-    description: "Foam Wash, High-pressure Rinse, Hand Dry",
-    basePrice: 299,
-    category: { name: "Cleaning" },
-    customImage: washimg,
-    rating: 4.7,
-  },
-  {
-    id: "2",
-    name: "Full Car Wash & Interior",
-    description:
-      "Foam Wash, Underbody Wash, Interior Vacuum, Dashboard Polish, Window Cleaning",
-    basePrice: 999,
-    category: { name: "Cleaning" },
-    customImage: washimg,
-    rating: 4.9,
-  },
-  {
-    id: "3",
-    name: "Standard Car Service",
-    description:
-      "Engine Oil Change, Oil Filter Replacement, Air Filter Cleaning, Coolant Top-up, Brake Inspection",
-    basePrice: 3292,
-    category: { name: "General Service" },
-    customImage: serviceimg,
-    rating: 4.6,
-  },
-  {
-    id: "4",
-    name: "Comprehensive Car Service",
-    description:
-      "Synthetic Engine Oil, All Filters (Oil, Air, Fuel), AC Vent Cleaning, Brake Inspection, Spark Plug Check",
-    basePrice: 4820,
-    category: { name: "General Service" },
-    customImage: serviceimg,
-    rating: 4.8,
-  },
-  {
-    id: "5",
-    name: "Regular AC Service",
-    description:
-      "AC Gas Top-up, Condenser Cleaning, Cooling Coil Service, Leak Test, AC Vent Sanitization",
-    basePrice: 2161,
-    category: { name: "AC" },
-    customImage: acserviceimg,
-    rating: 4.5,
-  },
-];
-
 const getServicePrice = (service) => {
   return service?.basePrice || service?.minPrice || 0;
 };
 
-const getServiceImage = (categoryName) => {
-  return CATEGORY_UI[categoryName]?.image || null;
-};
+const getServiceThumbnail = (service) =>
+  service?.media?.find((item) => item.isThumbnail)?.url ||
+  service?.media?.[0]?.url ||
+  "";
+
+const getCategoryThumbnail = (category) =>
+  (category?.services || []).map(getServiceThumbnail).find(Boolean) || "";
 
 const formatCount = (value, fallback) => {
   const number = Number(value);
@@ -94,13 +42,9 @@ const formatCount = (value, fallback) => {
 };
 
 export default function Home() {
-  // Use hardcoded categories from CATEGORY_UI
-  const categories = Object.keys(CATEGORY_UI).map((name, index) => ({
-    id: String(index + 1),
-    name,
-  }));
-  const [popularServices] = useState(HARDCODED_POPULAR_SERVICES);
-  const [loading] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [popularServices, setPopularServices] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [partnerStats, setPartnerStats] = useState({
     garages: "8K+",
     customers: "50K+",
@@ -120,6 +64,41 @@ export default function Home() {
         });
       })
       .catch(() => null);
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    api
+      .get("/services/categories")
+      .then((response) => {
+        if (!mounted) return;
+
+        const serviceCategories = response.data?.data || [];
+        const services = serviceCategories
+          .flatMap((category) =>
+            (category.services || []).map((service) => ({
+              ...service,
+              category,
+            })),
+          )
+          .slice(0, 6);
+
+        setCategories(serviceCategories);
+        setPopularServices(services);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setCategories([]);
+        setPopularServices([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
 
     return () => {
       mounted = false;
@@ -247,7 +226,7 @@ export default function Home() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
             {categories.slice(0, 8).map((category) => {
               const ui = CATEGORY_UI[category.name] || {};
-              const image = ui.image;
+              const image = getCategoryThumbnail(category);
               const isSos = ui.isSos;
 
               return (
@@ -342,8 +321,7 @@ export default function Home() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {popularServices.map((service) => {
-              const image =
-                service.customImage || getServiceImage(service.category?.name);
+              const image = getServiceThumbnail(service);
               const price = getServicePrice(service);
 
               return (

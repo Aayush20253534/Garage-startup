@@ -10,7 +10,7 @@ import {
   FiX,
 } from "react-icons/fi";
 
-const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
+const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024;
 
 const emptyCategoryForm = {
   id: "",
@@ -162,7 +162,7 @@ export default function AdminServices() {
       return;
     }
     if (file.size > MAX_THUMBNAIL_BYTES) {
-      setError("Thumbnail must be under 2 MB.");
+      setError("Thumbnail must be under 5 MB.");
       return;
     }
 
@@ -419,7 +419,7 @@ export default function AdminServices() {
           className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink lg:col-span-2 xl:col-span-5"
           rows={2}
         />
-        <div className="flex gap-2">
+        <div className="flex min-w-0 flex-wrap gap-2">
           <button disabled={saving} className="btn-primary flex-1">
             {saving ? "Saving..." : serviceForm.id ? "Update Service" : "Add Service"}
           </button>
@@ -490,7 +490,7 @@ export default function AdminServices() {
                     {category.description || "No category description."}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
                   <button
                     type="button"
                     onClick={() => editCategory(category)}
@@ -543,7 +543,7 @@ export default function AdminServices() {
                           {money(service.minPrice)} - {money(service.maxPrice)}
                         </div>
                       </div>
-                      <div className="flex gap-2 sm:justify-end">
+                      <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end">
                         <button
                           type="button"
                           onClick={() => editService(service)}

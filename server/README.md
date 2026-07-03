@@ -152,7 +152,6 @@ Optional seed data:
 
 ```bash
 npm run seed:admin
-npm run seed:services
 npm run seed:garages
 ```
 
@@ -166,7 +165,6 @@ npm run prisma:migrate              # Run development migrations
 npm run prisma:deploy               # Deploy migrations
 npm run prisma:studio               # Open Prisma Studio
 npm run seed:admin                  # Seed admin user/data
-npm run seed:services               # Seed service data
 npm run seed:garages                # Seed garage data
 npm run db:delete-user              # Dry-run/delete matched user data
 npm run db:delete-active-bookings   # Dry-run/delete active bookings for one email

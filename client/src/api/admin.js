@@ -180,7 +180,9 @@ export const adminApi = {
 
   async uploadServiceThumbnail(serviceId, payload) {
     return unwrap(
-      await api.post(`/admin/services/${serviceId}/thumbnail`, payload),
+      await api.post(`/admin/services/${serviceId}/thumbnail`, payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }),
     );
   },
 };

@@ -6,7 +6,7 @@ const {
   uploadToCloudinary,
 } = require("../../utils/cloudinaryUpload");
 
-const THUMBNAIL_MAX_SIZE = 2 * 1024 * 1024;
+const THUMBNAIL_MAX_SIZE = 5 * 1024 * 1024;
 const THUMBNAIL_FOLDER = "rovauto/services";
 
 const normalizeText = (value) => String(value || "").trim();
@@ -264,7 +264,7 @@ const uploadThumbnail = async (serviceId, file) => {
     throw new ApiError(400, "Thumbnail must be an image");
   }
   if (file.size > THUMBNAIL_MAX_SIZE) {
-    throw new ApiError(400, "Thumbnail must be under 2 MB");
+    throw new ApiError(400, "Thumbnail must be under 5 MB");
   }
 
   const result = await uploadToCloudinary(file.buffer, THUMBNAIL_FOLDER, "image");

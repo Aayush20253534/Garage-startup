@@ -12,10 +12,9 @@
   "prisma:deploy": "node src/scripts/migrateDeploy.js",
   "prisma:studio": "prisma studio",
 
-  "seed:services": "node src/seed/seedServices.js",
   "seed:admin": "node src/seed/seedAdmin.js",
 
-  "seed:all": "npm run seed:services && npm run seed:admin",
+  "seed:all": "npm run seed:admin",
 
   "db:delete-user": "node src/scripts/deleteUserData.js",
   "db:delete-active-bookings": "node src/scripts/deleteCustomerRecords.js --scope=active-bookings",

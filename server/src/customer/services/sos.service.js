@@ -43,7 +43,7 @@ const createSosRequest = async (userId, data) => {
   if (!sosService) {
     throw new ApiError(
       500,
-      "SOS service is not configured. Run seedServices first."
+      "SOS service is not configured. Add an active SOS Emergency Assistance service from admin."
     );
   }
 

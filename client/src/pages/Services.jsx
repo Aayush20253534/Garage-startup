@@ -4,6 +4,14 @@ import { CATEGORY_UI } from "@/data/services";
 import { FiSearch, FiArrowRight, FiSettings } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
 
+const getServiceThumbnail = (service) =>
+  service?.media?.find((item) => item.isThumbnail)?.url ||
+  service?.media?.[0]?.url ||
+  "";
+
+const getCategoryThumbnail = (category) =>
+  (category?.services || []).map(getServiceThumbnail).find(Boolean) || "";
+
 export default function Services() {
   const [q, setQ] = useState("");
   const [categories, setCategories] = useState([]);
@@ -82,6 +90,7 @@ export default function Services() {
           {filteredCategories.map((category) => {
             const ui = CATEGORY_UI[category.name] || {};
             const Icon = ui.icon || FiSettings;
+            const image = getCategoryThumbnail(category);
 
             return (
               <Link
@@ -94,9 +103,9 @@ export default function Services() {
                 </div>
 
                 <div className="mt-auto h-32 w-full overflow-hidden rounded-2xl bg-bg-soft">
-                  {ui.image ? (
+                  {image ? (
                     <img
-                      src={ui.image}
+                      src={image}
                       alt={category.name}
                       className="h-full w-full object-cover transition-transform hover:scale-105"
                     />

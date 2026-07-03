@@ -24,6 +24,9 @@ const getServiceThumbnail = (service) =>
   service?.media?.[0]?.url ||
   "";
 
+const getCategoryThumbnail = (category) =>
+  (category?.services || []).map(getServiceThumbnail).find(Boolean) || "";
+
 export default function CategoryDetail() {
   const { categoryId } = useParams();
   const { user, addToCart } = useApp();
@@ -70,14 +73,14 @@ export default function CategoryDetail() {
   }
 
   const ui = CATEGORY_UI[category.name] || {};
-  const categoryImage = ui.image;
+  const categoryImage = getCategoryThumbnail(category);
   const Icon = ui.icon || FiTool;
 
   const handleBook = (service) => {
     const serviceItem = {
       ...service,
       price: getServiceMinPrice(service),
-      image: categoryImage,
+      image: getServiceThumbnail(service) || categoryImage,
       catId: category.id,
     };
 
