@@ -22,11 +22,11 @@ import {
   UNAVAILABLE_CITY_MESSAGE,
 } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
+import VehicleIcon from "@/components/common/VehicleIcon";
 import {
   FiCheckCircle,
   FiLock,
   FiTrash2,
-  FiTruck,
   FiEdit,
 } from "react-icons/fi";
 
@@ -408,7 +408,7 @@ export default function Checkout() {
       <aside className="card-soft h-fit p-5 sm:p-6 lg:sticky lg:top-24">
         <div className="flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand">
-            <FiTruck />
+            <VehicleIcon vehicle={vehicle} className="h-8 w-8" />
           </span>
           <div className="text-sm">
             <div className="font-semibold">

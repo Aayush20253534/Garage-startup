@@ -8,7 +8,8 @@ import {
   getServiceMinPrice,
   getServiceMaxPrice,
 } from "@/utils/priceRange";
-import { FiArrowRight, FiCheck, FiTruck, FiSettings } from "react-icons/fi";
+import VehicleIcon from "@/components/common/VehicleIcon";
+import { FiArrowRight, FiCheck, FiSettings } from "react-icons/fi";
 
 export default function ServiceSelect() {
   const { vehicle, cart, addToCart, removeFromCart } = useApp();
@@ -182,7 +183,7 @@ export default function ServiceSelect() {
         <aside className="card-soft h-fit p-5 lg:sticky lg:top-24">
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand">
-              <FiTruck />
+              <VehicleIcon vehicle={vehicle} className="h-8 w-8" />
             </span>
 
             <div className="text-sm">

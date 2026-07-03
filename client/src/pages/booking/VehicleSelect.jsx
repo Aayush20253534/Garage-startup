@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { BRAND_ICONS, FUEL_TYPES } from "@/data/vehicles";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
-import { FiArrowRight, FiCheck, FiPlus, FiTruck } from "react-icons/fi";
+import VehicleIcon from "@/components/common/VehicleIcon";
+import { FiArrowRight, FiCheck, FiPlus } from "react-icons/fi";
 
 export default function VehicleSelect() {
   const nav = useNavigate();
@@ -235,7 +236,7 @@ export default function VehicleSelect() {
               >
                 <div className="flex items-center gap-3">
                   <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand">
-                    <FiTruck />
+                    <VehicleIcon vehicle={item} className="h-9 w-9" />
                   </span>
 
                   <div>
@@ -455,17 +456,12 @@ export default function VehicleSelect() {
             >
               <div className="flex items-center gap-4">
                 <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand p-2">
-                  {brand.image ? (
-                    <img
-                      src={brand.image}
-                      alt={brand.name}
-                      className="h-8 w-8 object-contain"
-                    />
-                  ) : brand.icon ? (
-                    <brand.icon className="h-8 w-8 text-ink" />
-                  ) : (
-                    <span className="font-bold">{brand.name.charAt(0)}</span>
-                  )}
+                  <VehicleIcon
+                    brand={brand.name}
+                    model={model.name}
+                    fuelType={fuel.value}
+                    className="h-10 w-10"
+                  />
                 </span>
 
                 <div className="flex-1">
