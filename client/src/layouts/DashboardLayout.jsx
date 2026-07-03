@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Logo from "@/components/common/Logo";
+import FAB from "@/components/FAB";
 import { useApp } from "@/hooks/useApp";
 import { FiMenu, FiX, FiLogOut } from "react-icons/fi";
 
@@ -18,6 +19,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
 
   const isGaragePortal = pathname.startsWith("/garage");
   const isAdminPortal = pathname.startsWith("/admin");
+  const showCustomerAssistant = !isGaragePortal && !isAdminPortal;
 
   const account = isGaragePortal ? garage : user;
 
@@ -153,6 +155,8 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           <Outlet />
         </motion.main>
       </div>
+
+      {showCustomerAssistant && <FAB />}
     </div>
   );
 }
