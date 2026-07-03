@@ -1,9 +1,21 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useSelector, useDispatch } from "react-redux";
-import { FiLock } from "react-icons/fi";
+import { FiLock, FiStar, FiTool } from "react-icons/fi";
 import api from "@/api/axios";
 import { setServices } from "@/store/garageSlice";
+import { CATEGORY_UI } from "@/data/services";
+import { formatServicePriceRange } from "@/utils/priceRange";
+import { getServiceThumbnailUrl } from "@/utils/imageCache";
+
+const getIncludes = (service) => {
+  if (!service.description) return ["Service inspection", "Basic checks"];
+
+  return service.description
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
 
 export default function GarageServices() {
   const { services, garage } = useSelector((state) => state.garage);
@@ -59,43 +71,88 @@ export default function GarageServices() {
         <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid gap-4">
         {loading ? (
           <div className="card-soft p-5 text-muted">Loading services...</div>
         ) : services.length > 0 ? (
           services.map((item) => {
             const service = item.service || item;
-            const minPrice = service.minPrice ?? service.basePrice ?? item.price;
-            const maxPrice = service.maxPrice ?? service.basePrice ?? item.price;
+            const categoryName =
+              service.category?.name || service.category || "General";
+            const ui = CATEGORY_UI[categoryName] || {};
+            const Icon = ui.icon || FiTool;
+            const serviceImage = getServiceThumbnailUrl(service);
+            const includes = getIncludes(service);
+
             return (
               <motion.div
                 key={item.id || service.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="card-soft p-4 sm:p-6"
+                className="rounded-2xl bg-white p-4 shadow-lg sm:p-5"
               >
-                <h3 className="text-lg sm:text-xl font-bold break-words mb-2">
-                  {service.name}
-                </h3>
-                <p className="text-muted text-xs sm:text-sm mb-4 break-words">
-                  {service.description ||
-                    service.category?.name ||
-                    "Garage service"}
-                </p>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted">Price range</span>
-                    <span className="font-semibold">
-                      ₹{" "}
-                      {Number(minPrice || 0).toLocaleString()} - ₹{" "}
-                      {Number(maxPrice || minPrice || 0).toLocaleString()}
-                    </span>
+                <div className="flex flex-col gap-5 md:flex-row">
+                  <div className="h-40 w-full flex-shrink-0 overflow-hidden rounded-2xl bg-bg-soft md:h-44 md:w-56">
+                    {serviceImage ? (
+                      <img
+                        src={serviceImage}
+                        alt={service.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center text-4xl text-muted">
+                        <Icon />
+                      </div>
+                    )}
                   </div>
-                  <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted">Category</span>
-                    <span className="font-semibold">
-                      {service.category?.name || service.category || "General"}
-                    </span>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+                      <h3 className="text-xl font-bold sm:text-2xl">
+                        {service.name}
+                      </h3>
+                      <span className="chip-brand shrink-0">Assigned</span>
+                    </div>
+
+                    <div className="mb-2 flex flex-wrap items-baseline gap-3">
+                      <span className="text-2xl font-bold text-ink">
+                        {formatServicePriceRange(service)}
+                      </span>
+                      <span className="text-base text-muted">
+                        estimated range
+                      </span>
+                    </div>
+
+                    <div className="mb-3 flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <FiStar className="text-amber-400" fill="currentColor" />
+                        <span className="font-semibold">4.8</span>
+                      </div>
+                      <span className="text-sm text-muted">
+                        Verified service
+                      </span>
+                      <span className="rounded-xl bg-bg-soft px-3 py-1.5 text-sm font-semibold text-muted">
+                        {categoryName}
+                      </span>
+                    </div>
+
+                    <p className="mb-4 text-sm leading-6 text-muted">
+                      {service.description ||
+                        "Service details available to customers during booking."}
+                    </p>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl bg-bg-soft px-4 py-3">
+                        <span className="text-sm text-muted">Warranty</span>
+                        <div className="font-semibold">Available</div>
+                      </div>
+                      <div className="rounded-xl bg-bg-soft px-4 py-3">
+                        <span className="text-sm text-muted">
+                          Services Included
+                        </span>
+                        <div className="font-semibold">{includes.length}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
