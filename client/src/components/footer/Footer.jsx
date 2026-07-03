@@ -29,7 +29,7 @@ export default function Footer() {
                 Icon: FiInstagram,
                 href: "https://instagram.com/rovauto.official",
               },
-              { Icon: FiTwitter, href: "https://twitter.com/rovauto" },
+              { Icon: FiTwitter, href: "https://x.com/Rovauto_ON" },
               { Icon: FiYoutube, href: "https://youtube.com/@rovauto" },
               {
                 Icon: FiFacebook,
