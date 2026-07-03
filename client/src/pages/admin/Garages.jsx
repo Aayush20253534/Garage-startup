@@ -570,22 +570,20 @@ export default function Garages() {
                     {getCleanGarageDescription(selectedGarage.description) ||
                       "No garage description submitted."}
                   </p>
-                  <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                    <span className="text-muted">
-                      <strong className="text-ink">Garage type:</strong>{" "}
-                      {selectedGarage.garageType === "AUTHORIZED"
-                        ? "Authorized"
-                        : "Multi-brand"}
-                    </span>
-                    <span className="text-muted">
-                      <strong className="text-ink">Brands catered:</strong>{" "}
-                      {getGarageBrands(selectedGarage).length
-                        ? getGarageBrands(selectedGarage).join(", ")
-                        : "No brands selected"}
-                    </span>
-                  </div>
                 </div>
                 <div className="grid gap-3 text-sm text-muted sm:grid-cols-2 lg:grid-cols-3">
+                  <span>
+                    <strong className="text-ink">Garage type:</strong>{" "}
+                    {selectedGarage.garageType === "AUTHORIZED"
+                      ? "Authorized"
+                      : "Multi-brand"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Brands catered:</strong>{" "}
+                    {getGarageBrands(selectedGarage).length
+                      ? getGarageBrands(selectedGarage).join(", ")
+                      : "No brands selected"}
+                  </span>
                   <span>
                     <strong className="text-ink">Owner:</strong>{" "}
                     {selectedGarage.owner?.name || "N/A"}
