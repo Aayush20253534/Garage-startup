@@ -2,8 +2,8 @@ const { body, query } = require("express-validator");
 
 const createRechargeOrderSchema = [
   body("amount")
-    .isInt({ min: 1 })
-    .withMessage("Garage wallet recharge must be at least Rs. 1"),
+    .isInt({ min: 100 })
+    .withMessage("Garage wallet recharge must be at least Rs. 100"),
 ];
 
 const verifyRechargeOrderSchema = [

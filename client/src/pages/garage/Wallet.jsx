@@ -13,7 +13,7 @@ import { setWallet } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
 
-const MINIMUM_RECHARGE_AMOUNT = 1;
+const MINIMUM_RECHARGE_AMOUNT = 100;
 
 const loadCashfreeCheckout = () =>
   new Promise((resolve, reject) => {
@@ -303,7 +303,7 @@ export default function GarageWallet() {
                   Recharge Wallet
                 </h3>
                 <p className="mt-1 text-sm text-muted">
-                  Create a Cashfree recharge order. Minimum amount is ₹1.
+                  Create a Cashfree recharge order. Minimum amount is ₹100.
                 </p>
               </div>
 

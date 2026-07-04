@@ -147,7 +147,7 @@ export default function GarageDashboard() {
               </h2>
 
               <p className="mt-1 text-sm text-yellow-800">
-                Keep ₹{activation.minimumBalance || 1}+ in your wallet to
+                Keep ₹{activation.minimumBalance || 100}+ in your wallet to
                 activate customer visibility.
               </p>
 

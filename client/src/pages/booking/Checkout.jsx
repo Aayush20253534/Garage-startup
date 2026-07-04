@@ -43,12 +43,12 @@ const getCheckoutAddressForm = ({ location, user }) => {
 };
 
 const calculateHandlingFee = (totalServiceAmount) => {
-  if (totalServiceAmount >= 300 && totalServiceAmount < 1000) return 1;
-  if (totalServiceAmount >= 1000 && totalServiceAmount < 5000) return 1;
-  if (totalServiceAmount >= 5000 && totalServiceAmount < 20000) return 1;
-  if (totalServiceAmount >= 20000) return 1;
+  if (totalServiceAmount >= 300 && totalServiceAmount < 1000) return 30;
+  if (totalServiceAmount >= 1000 && totalServiceAmount < 5000) return 99;
+  if (totalServiceAmount >= 5000 && totalServiceAmount < 20000) return 249;
+  if (totalServiceAmount >= 20000) return 500;
 
-  return 1;
+  return 99;
 };
 
 export default function Checkout() {

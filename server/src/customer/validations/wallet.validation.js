@@ -2,8 +2,8 @@ const { body, query } = require("express-validator");
 
 const walletRechargeSchema = [
   body("amount")
-    .isInt({ min: 1 })
-    .withMessage("Recharge amount must be at least ₹1"),
+    .isInt({ min: 100 })
+    .withMessage("Recharge amount must be at least ₹100"),
 
   body("paymentMethod")
     .optional({ nullable: true, checkFalsy: true })
