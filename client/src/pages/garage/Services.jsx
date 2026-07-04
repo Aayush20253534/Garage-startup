@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useSelector, useDispatch } from "react-redux";
-import { FiLock, FiStar, FiTool } from "react-icons/fi";
+import {
+  FiAlertCircle,
+  FiLock,
+  FiRefreshCw,
+  FiStar,
+  FiTool,
+} from "react-icons/fi";
 import api from "@/api/axios";
 import { setServices } from "@/store/garageSlice";
 import { CATEGORY_UI } from "@/data/services";
@@ -24,65 +30,94 @@ const getIncludes = (service) => {
 export default function GarageServices() {
   const { services, garage } = useSelector((state) => state.garage);
   const dispatch = useDispatch();
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const safeServices = Array.isArray(services) ? services : [];
+
+  const loadServices = async () => {
+    if (!garage?.id) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await api.get("/garages/me/services");
+      const servicesList = res.data?.data || [];
+      dispatch(setServices(servicesList));
+    } catch (err) {
+      if (err.response?.status !== 404 && err.response?.status !== 403) {
+        setError(
+          err.response?.data?.message || "Unable to load garage services"
+        );
+      }
+
+      dispatch(setServices([]));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      // Fetch if garage exists and has an id
-      if (!garage?.id) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError("");
-      try {
-        const res = await api.get("/garages/me/services");
-        const servicesList = res.data?.data || [];
-        dispatch(setServices(servicesList));
-      } catch (err) {
-        // Only show error if it's not a 404 (no services yet) or 403 (not approved)
-        if (err.response?.status !== 404 && err.response?.status !== 403) {
-          setError(
-            err.response?.data?.message || "Unable to load garage services",
-          );
-        }
-        // Set empty services list instead of erroring
-        dispatch(setServices([]));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
+    loadServices();
   }, [garage?.id, dispatch]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="mx-auto max-w-6xl space-y-5 overflow-x-hidden">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Services</h1>
-          <p className="text-muted">Services currently linked to your garage</p>
+          <h1 className="text-2xl font-bold text-ink sm:text-3xl">
+            Services
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Services currently linked to your garage.
+          </p>
         </div>
-        <button disabled className="btn-ghost w-full sm:w-auto opacity-70">
-          <FiLock className="w-4 h-4" />
-          Managed by Admin
-        </button>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={loadServices}
+            disabled={loading}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <FiRefreshCw className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+
+          <button
+            type="button"
+            disabled
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-bg-soft px-4 text-sm font-semibold text-muted"
+          >
+            <FiLock />
+            Managed by Admin
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <FiAlertCircle className="shrink-0" />
+          <span>{error}</span>
+        </div>
       )}
 
-      <div className="grid gap-4">
+      <section className="grid gap-3">
         {loading ? (
-          <div className="card-soft p-5 text-muted">Loading services...</div>
-        ) : services.length > 0 ? (
-          services.map((item) => {
+          <div className="card-soft rounded-2xl p-5 text-sm text-muted">
+            Loading services...
+          </div>
+        ) : safeServices.length > 0 ? (
+          safeServices.map((item) => {
             const service = item.service || item;
             const categoryName =
               service.category?.name || service.category || "General";
+
             const ui = CATEGORY_UI[categoryName] || {};
             const Icon = ui.icon || FiTool;
             const serviceImage = getServiceThumbnailUrl(service);
@@ -91,14 +126,14 @@ export default function GarageServices() {
             const maxPrice = getServiceMaxPrice(service);
 
             return (
-              <motion.div
+              <motion.article
                 key={item.id || service.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl bg-white p-4 shadow-lg sm:p-5"
+                className="card-soft overflow-hidden rounded-2xl p-4 shadow-sm transition hover:shadow-md"
               >
-                <div className="flex flex-col gap-5 md:flex-row">
-                  <div className="h-40 w-full flex-shrink-0 overflow-hidden rounded-2xl bg-bg-soft md:h-44 md:w-56">
+                <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
+                  <div className="h-36 w-full overflow-hidden rounded-2xl bg-bg-soft md:h-full md:min-h-[160px]">
                     {serviceImage ? (
                       <img
                         src={serviceImage}
@@ -112,80 +147,101 @@ export default function GarageServices() {
                     )}
                   </div>
 
-                  <div className="flex-1">
-                    <h2 className="mb-2 text-xl font-bold sm:text-2xl">
-                      {service.name}
-                    </h2>
+                  <div className="min-w-0">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <h2 className="truncate text-xl font-bold text-ink">
+                          {service.name}
+                        </h2>
 
-                    <div className="mb-2 flex items-baseline gap-3">
-                      <span className="text-2xl font-bold text-ink">
-                        {formatServicePriceRange(service)}
-                      </span>
-
-                      {maxPrice > minPrice && (
-                        <span className="text-base text-muted">
-                          estimated range
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mb-3 flex items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        <FiStar className="text-amber-400" fill="currentColor" />
-                        <span className="font-semibold">4.8</span>
+                        <p className="mt-1 text-sm text-muted">
+                          {categoryName}
+                        </p>
                       </div>
 
-                      <span className="text-sm text-muted">
-                        Verified service
-                      </span>
+                      <div className="shrink-0 rounded-xl bg-brand-soft px-3 py-2 text-right">
+                        <div className="text-lg font-bold text-ink">
+                          {formatServicePriceRange(service)}
+                        </div>
+
+                        {maxPrice > minPrice && (
+                          <div className="text-[11px] font-medium text-muted">
+                            estimated range
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="mb-4 flex flex-wrap gap-2">
-                      <div className="inline-block rounded-xl bg-yellow-100 px-3 py-1.5 text-sm font-medium text-yellow-800">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-800">
+                        <FiStar fill="currentColor" />
+                        4.8 verified
+                      </span>
+
+                      <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-bold text-muted">
                         Popular service
-                      </div>
+                      </span>
 
-                      <div className="inline-block rounded-xl bg-bg-soft px-3 py-1.5 text-sm font-medium text-muted">
-                        {categoryName}
-                      </div>
+                      <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-bold text-muted">
+                        {includes.length} included
+                      </span>
                     </div>
 
-                    <ul className="mb-5 space-y-2">
-                      <li className="flex items-start gap-2 text-base">
-                        <span className="font-bold text-ink">Warranty:</span>
+                    <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                      <div className="rounded-xl border border-line bg-white px-3 py-2">
+                        <span className="font-semibold text-ink">
+                          Warranty:
+                        </span>{" "}
                         <span className="text-muted">
                           Service warranty available
                         </span>
-                      </li>
+                      </div>
 
-                      <li className="flex items-start gap-2 text-base">
-                        <span className="font-bold text-ink">Services:</span>
+                      <div className="rounded-xl border border-line bg-white px-3 py-2">
+                        <span className="font-semibold text-ink">
+                          Assignment:
+                        </span>{" "}
                         <span className="text-muted">
-                          {includes.length} included
+                          Assigned to this garage
                         </span>
-                      </li>
-                    </ul>
+                      </div>
+                    </div>
 
-                    <div className="my-4 border-t border-dashed border-gray-200"></div>
+                    <div className="mt-4 rounded-xl bg-bg-soft p-3">
+                      <div className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
+                        Includes
+                      </div>
 
-                    <div className="rounded-2xl border border-gray-200 px-4 py-3">
-                      <span className="text-sm font-semibold text-muted">
-                        Assigned to this garage
-                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {includes.slice(0, 6).map((include) => (
+                          <span
+                            key={include}
+                            className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink"
+                          >
+                            {include}
+                          </span>
+                        ))}
+
+                        {includes.length > 6 && (
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-muted">
+                            +{includes.length - 6} more
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </motion.article>
             );
           })
         ) : (
-          <div className="card-soft p-5 text-muted">
+          <div className="card-soft rounded-2xl p-5 text-sm text-muted">
             {!garage?.id
               ? "Garage profile not loaded. Try refreshing the page."
               : "No services are linked to this garage yet. Services will be assigned by admin after approval."}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
