@@ -9,7 +9,7 @@ const {
 const ApiError = require("../../utils/apiError");
 const garageRequestService = require("../../services/garageRequest.service");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
-const bookingLifecycleService = require("../../services/bookingLifecycle.service");
+const { deletePattern } = require("../../utils/cache");
 
 const bookingInclude = {
   user: {
@@ -35,7 +35,18 @@ const bookingInclude = {
     },
   },
   payment: true,
-  broadcasts: true,
+  broadcasts: {
+    include: { garage: true },
+    orderBy: { updatedAt: "desc" },
+  },
+};
+
+const invalidatePaymentBookingCaches = async (userId) => {
+  await Promise.allSettled([
+    invalidateCustomerCache(userId),
+    deletePattern(`customer:${userId}:bookings:*`),
+    deletePattern(`customer:${userId}:booking:*`),
+  ]);
 };
 
 const getCashfreeCustomerPhone = (phone) => {
@@ -64,7 +75,7 @@ const getCashfreeApiError = (error, fallback) => {
   if (cashfreeStatus === 401 || cashfreeStatus === 403) {
     return new ApiError(
       502,
-      "Cashfree rejected the payment gateway credentials. Please check CASHFREE_APP_ID, CASHFREE_SECRET_KEY, and CASHFREE_ENV on the backend."
+      "Cashfree rejected the payment gateway credentials. Please check CASHFREE_APP_ID, CASHFREE_SECRET_KEY, and CASHFREE_ENV on the backend.",
     );
   }
 
@@ -82,24 +93,34 @@ const getPaymentReturnBaseUrl = () => {
   if (!normalizedUrl.startsWith("https://")) {
     throw new ApiError(
       500,
-      "Cashfree return URL must use HTTPS. Set FRONTEND_URL to your deployed frontend URL."
+      "Cashfree return URL must use HTTPS. Set FRONTEND_URL to your deployed frontend URL.",
     );
   }
 
   return normalizedUrl;
 };
 
-const assertCashfreeOrderMatchesPayment = (cashfreeOrder, payment) => {
+const assertCashfreeOrderMatchesPayment = (
+  cashfreeOrder,
+  payment,
+) => {
   const cashfreeAmount = Number(cashfreeOrder.order_amount);
   const localAmount = Number(payment.amount);
-  const cashfreeCurrency = String(cashfreeOrder.order_currency || "").toUpperCase();
-  const localCurrency = String(payment.currency || "INR").toUpperCase();
+  const cashfreeCurrency = String(
+    cashfreeOrder.order_currency || "",
+  ).toUpperCase();
+  const localCurrency = String(
+    payment.currency || "INR",
+  ).toUpperCase();
 
   if (cashfreeOrder.order_id !== payment.cashfreeOrderId) {
     throw new ApiError(400, "Cashfree order ID mismatch");
   }
 
-  if (!Number.isFinite(cashfreeAmount) || cashfreeAmount !== localAmount) {
+  if (
+    !Number.isFinite(cashfreeAmount) ||
+    cashfreeAmount !== localAmount
+  ) {
     throw new ApiError(400, "Cashfree payment amount mismatch");
   }
 
@@ -110,7 +131,10 @@ const assertCashfreeOrderMatchesPayment = (cashfreeOrder, payment) => {
 
 const createPaymentOrder = async (userId, { bookingId }) => {
   if (!isCashfreeConfigured()) {
-    throw new ApiError(500, "Cashfree payment gateway is not configured");
+    throw new ApiError(
+      500,
+      "Cashfree payment gateway is not configured",
+    );
   }
 
   const booking = await prisma.booking.findFirst({
@@ -146,7 +170,10 @@ const createPaymentOrder = async (userId, { bookingId }) => {
   const amount = booking.payableAmount || booking.handlingFee || 1;
 
   if (amount <= 0) {
-    throw new ApiError(400, "No online payment required for this booking");
+    throw new ApiError(
+      400,
+      "No online payment required for this booking",
+    );
   }
 
   const cashfreeOrderId = `cf_${booking.bookingCode}_${Date.now()}`;
@@ -163,13 +190,17 @@ const createPaymentOrder = async (userId, { bookingId }) => {
         order_currency: "INR",
         customer_details: {
           customer_id: userId,
-          customer_name: booking.user?.name || "Rovauto Customer",
+          customer_name:
+            booking.user?.name || "Rovauto Customer",
           customer_email: booking.user?.email || undefined,
-          customer_phone: getCashfreeCustomerPhone(booking.user?.phone),
+          customer_phone: getCashfreeCustomerPhone(
+            booking.user?.phone,
+          ),
         },
         order_meta: {
           return_url: `${frontendUrl}/dashboard/payments?cashfree_order_id={order_id}`,
-          notify_url: process.env.CASHFREE_NOTIFY_URL || undefined,
+          notify_url:
+            process.env.CASHFREE_NOTIFY_URL || undefined,
         },
         order_note: `Booking ${booking.bookingCode}`,
         order_tags: {
@@ -177,18 +208,19 @@ const createPaymentOrder = async (userId, { bookingId }) => {
           userId,
         },
       },
-      { headers: getCashfreeHeaders() }
+      { headers: getCashfreeHeaders() },
     );
 
     cashfreeOrder = cashfreeRes.data;
   } catch (error) {
-    throw getCashfreeApiError(error, "Unable to create Cashfree order");
+    throw getCashfreeApiError(
+      error,
+      "Unable to create Cashfree order",
+    );
   }
 
   const payment = await prisma.payment.upsert({
-    where: {
-      bookingId: booking.id,
-    },
+    where: { bookingId: booking.id },
     update: {
       amount,
       currency: "INR",
@@ -197,7 +229,8 @@ const createPaymentOrder = async (userId, { bookingId }) => {
       cashfreePaymentId: cashfreeOrder.cf_order_id
         ? String(cashfreeOrder.cf_order_id)
         : null,
-      cashfreePaymentSessionId: cashfreeOrder.payment_session_id,
+      cashfreePaymentSessionId:
+        cashfreeOrder.payment_session_id,
       upiAmountPaid: amount,
     },
     create: {
@@ -209,7 +242,8 @@ const createPaymentOrder = async (userId, { bookingId }) => {
       cashfreePaymentId: cashfreeOrder.cf_order_id
         ? String(cashfreeOrder.cf_order_id)
         : null,
-      cashfreePaymentSessionId: cashfreeOrder.payment_session_id,
+      cashfreePaymentSessionId:
+        cashfreeOrder.payment_session_id,
       walletAmountUsed: booking.walletAmountUsed || 0,
       upiAmountPaid: amount,
     },
@@ -228,9 +262,15 @@ const createPaymentOrder = async (userId, { bookingId }) => {
   };
 };
 
-const verifyPayment = async (userId, { bookingId, cashfreeOrderId }) => {
+const verifyPayment = async (
+  userId,
+  { bookingId, cashfreeOrderId },
+) => {
   if (!isCashfreeConfigured()) {
-    throw new ApiError(500, "Cashfree payment gateway is not configured");
+    throw new ApiError(
+      500,
+      "Cashfree payment gateway is not configured",
+    );
   }
 
   const booking = await prisma.booking.findFirst({
@@ -253,7 +293,29 @@ const verifyPayment = async (userId, { bookingId, cashfreeOrderId }) => {
   }
 
   if (booking.payment.status === "PAID") {
-    throw new ApiError(400, "Payment already verified");
+    // Make verification idempotent. Browser payment callbacks are not famous
+    // for arriving exactly once.
+    const paidBooking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: bookingInclude,
+    });
+
+    if (
+      paidBooking.status === "SEARCHING_GARAGE" &&
+      !paidBooking.garageId
+    ) {
+      await garageRequestService.ensureBookingSearchActive(bookingId);
+    }
+
+    return {
+      payment: booking.payment,
+      booking: await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: bookingInclude,
+      }),
+      broadcastRequests: [],
+      message: "Payment was already verified.",
+    };
   }
 
   if (booking.payment.cashfreeOrderId !== cashfreeOrderId) {
@@ -265,37 +327,42 @@ const verifyPayment = async (userId, { bookingId, cashfreeOrderId }) => {
   try {
     const cashfreeRes = await axios.get(
       `${getCashfreeBaseUrl()}/orders/${cashfreeOrderId}`,
-      { headers: getCashfreeHeaders() }
+      { headers: getCashfreeHeaders() },
     );
 
     cashfreeOrder = cashfreeRes.data;
   } catch (error) {
-    throw getCashfreeApiError(error, "Unable to verify Cashfree payment");
+    throw getCashfreeApiError(
+      error,
+      "Unable to verify Cashfree payment",
+    );
   }
-  const orderStatus = cashfreeOrder.order_status;
 
-  assertCashfreeOrderMatchesPayment(cashfreeOrder, booking.payment);
+  const orderStatus = cashfreeOrder.order_status;
+  assertCashfreeOrderMatchesPayment(
+    cashfreeOrder,
+    booking.payment,
+  );
 
   if (orderStatus !== "PAID") {
     if (["EXPIRED", "TERMINATED", "FAILED"].includes(orderStatus)) {
       await prisma.payment.update({
         where: { bookingId },
-        data: {
-          status: "FAILED",
-        },
+        data: { status: "FAILED" },
       });
 
-      await invalidateCustomerCache(userId);
+      await invalidatePaymentBookingCaches(userId);
     }
 
-    throw new ApiError(400, "Cashfree payment is not completed yet");
+    throw new ApiError(
+      400,
+      "Cashfree payment is not completed yet",
+    );
   }
 
   const result = await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.update({
-      where: {
-        bookingId,
-      },
+      where: { bookingId },
       data: {
         status: "PAID",
         cashfreePaymentId: cashfreeOrder.cf_order_id
@@ -305,12 +372,11 @@ const verifyPayment = async (userId, { bookingId, cashfreeOrderId }) => {
     });
 
     const updatedBooking = await tx.booking.update({
-      where: {
-        id: bookingId,
-      },
+      where: { id: bookingId },
       data: {
         status: "SEARCHING_GARAGE",
-        searchExpiresAt: bookingLifecycleService.getSearchExpiresAt(),
+        searchExpiresAt: null,
+        expiredAt: null,
       },
       include: bookingInclude,
     });
@@ -325,53 +391,47 @@ const verifyPayment = async (userId, { bookingId, cashfreeOrderId }) => {
 
   try {
     broadcastRequests =
-      await garageRequestService.broadcastBookingToNearbyGarages(bookingId);
+      await garageRequestService.broadcastBookingToNearbyGarages(
+        bookingId,
+      );
   } catch (error) {
-    await prisma.booking.update({
-      where: {
-        id: bookingId,
-      },
-      data: {
-        status: "EXPIRED",
-        expiredAt: new Date(),
-      },
-    });
-
-    await invalidateCustomerCache(userId);
-
-    throw error;
+    // Payment succeeded. Never destroy that booking merely because garage
+    // notification delivery failed. Tracking polling will retry the search.
+    console.error(
+      `[booking-search] unable to start after payment for ${bookingId}:`,
+      error.message,
+    );
   }
 
-  await invalidateCustomerCache(userId);
+  await invalidatePaymentBookingCaches(userId);
 
   return {
     ...result,
+    booking: await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: bookingInclude,
+    }),
     broadcastRequests,
-    message: "Payment verified. Request sent to nearby garages.",
+    message:
+      "Payment verified. Searching nearby garages in two-minute rounds.",
   };
 };
 
 const getMyPayments = async (userId) => {
   return prisma.payment.findMany({
     where: {
-      booking: {
-        userId,
-      },
+      booking: { userId },
     },
     include: {
       booking: {
         include: {
           services: {
-            include: {
-              service: true,
-            },
+            include: { service: true },
           },
         },
       },
     },
-    orderBy: {
-      createdAt: "desc",
-    },
+    orderBy: { createdAt: "desc" },
   });
 };
 

@@ -2,12 +2,14 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const generateBookingCode = require("../../utils/bookingCode");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
-const { getCache, setCache, deletePattern } = require("../../utils/cache");
-const { addGarageWhatsappLink, createWhatsappLink } = require("../../utils/whatsapp");
+const { deletePattern } = require("../../utils/cache");
+const {
+  addGarageWhatsappLink,
+  createWhatsappLink,
+} = require("../../utils/whatsapp");
 const bookingLifecycleService = require("../../services/bookingLifecycle.service");
+const garageRequestService = require("../../services/garageRequest.service");
 const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
-
-const BOOKINGS_CACHE_TTL = 60;
 
 const bookingInclude = {
   user: {
@@ -38,12 +40,14 @@ const bookingInclude = {
       garage: true,
     },
     orderBy: {
-      createdAt: "desc",
+      updatedAt: "desc",
     },
   },
   review: true,
   complaints: true,
-  inspectionImages: { orderBy: [{ phase: "asc" }, { order: "asc" }] },
+  inspectionImages: {
+    orderBy: [{ phase: "asc" }, { order: "asc" }],
+  },
 };
 
 const ALLOWED_BOOKING_STATUSES = [
@@ -59,41 +63,49 @@ const ALLOWED_BOOKING_STATUSES = [
 
 const getBookingCity = (location = {}) => {
   if (location.city) return location.city;
+
   const addressParts = String(location.address || "")
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
-  return addressParts.length >= 2 ? addressParts[addressParts.length - 2] : null;
+
+  return addressParts.length >= 2
+    ? addressParts[addressParts.length - 2]
+    : null;
 };
 
 const getBookingServiceRange = (service, priceRangeMap = new Map()) => {
   const adminRange = priceRangeMap.get(service.id);
-  if (adminRange) {
-    return {
-      min: Number(adminRange.minPrice) || 0,
-      max: Number(adminRange.maxPrice) || Number(adminRange.minPrice) || 0,
-    };
-  }
 
-  return null;
+  if (!adminRange) return null;
+
+  return {
+    min: Number(adminRange.minPrice) || 0,
+    max:
+      Number(adminRange.maxPrice) ||
+      Number(adminRange.minPrice) ||
+      0,
+  };
 };
 
 const sumServiceRanges = (services = [], priceRangeMap = new Map()) => {
   return services.reduce(
     (total, service) => {
       const range = getBookingServiceRange(service, priceRangeMap);
+
       if (!range) {
         throw new ApiError(
           400,
           `Price range is not configured for ${service.name} in this city and vehicle.`,
         );
       }
+
       return {
         min: total.min + range.min,
         max: total.max + range.max,
       };
     },
-    { min: 0, max: 0 }
+    { min: 0, max: 0 },
   );
 };
 
@@ -102,12 +114,7 @@ const calculateHandlingFee = (totalServiceAmount) => {
   if (totalServiceAmount >= 1000 && totalServiceAmount < 5000) return 1;
   if (totalServiceAmount >= 5000 && totalServiceAmount < 20000) return 1;
   if (totalServiceAmount >= 20000) return 500;
-
   return 1;
-};
-
-const getServiceEstimatedPrice = (service) => {
-  return service.basePrice || service.minPrice || 0;
 };
 
 const normalizeStatuses = (status) => {
@@ -119,7 +126,7 @@ const normalizeStatuses = (status) => {
     .filter(Boolean);
 
   const invalidStatus = statuses.find(
-    (item) => !ALLOWED_BOOKING_STATUSES.includes(item)
+    (item) => !ALLOWED_BOOKING_STATUSES.includes(item),
   );
 
   if (invalidStatus) {
@@ -129,19 +136,10 @@ const normalizeStatuses = (status) => {
   return [...new Set(statuses)].sort();
 };
 
-const getBookingsCacheKey = (userId, query = {}) => {
-  const statuses = normalizeStatuses(query.status);
-
-  if (statuses.length === 0) {
-    return `customer:${userId}:bookings:all`;
-  }
-
-  return `customer:${userId}:bookings:${statuses.join(",")}`;
-};
-
 const invalidateBookingCaches = async (userId) => {
-  await Promise.all([
+  await Promise.allSettled([
     deletePattern(`customer:${userId}:bookings:*`),
+    deletePattern(`customer:${userId}:booking:*`),
     invalidateCustomerCache(userId),
   ]);
 };
@@ -162,7 +160,12 @@ const createBooking = async (userId, data) => {
     throw new ApiError(400, "At least one service is required");
   }
 
-  if (!location?.latitude || !location?.longitude) {
+  if (
+    location?.latitude === null ||
+    location?.latitude === undefined ||
+    location?.longitude === null ||
+    location?.longitude === undefined
+  ) {
     throw new ApiError(400, "Customer location is required");
   }
 
@@ -181,9 +184,7 @@ const createBooking = async (userId, data) => {
 
   const services = await prisma.service.findMany({
     where: {
-      id: {
-        in: uniqueServiceIds,
-      },
+      id: { in: uniqueServiceIds },
       isActive: true,
     },
   });
@@ -192,24 +193,28 @@ const createBooking = async (userId, data) => {
     throw new ApiError(404, "One or more services are invalid");
   }
 
-  const priceRangeMap = await cityServicePriceRangeService.findBestPriceRangesForBooking({
-    city: getBookingCity(location),
+  const priceRangeMap =
+    await cityServicePriceRangeService.findBestPriceRangesForBooking({
+      city: getBookingCity(location),
+      services,
+      vehicle,
+    });
+
+  const serviceRangeTotal = sumServiceRanges(
     services,
-    vehicle,
-  });
-  const serviceRangeTotal = sumServiceRanges(services, priceRangeMap);
+    priceRangeMap,
+  );
   const totalServiceAmount = serviceRangeTotal.min;
   const totalServiceMaxAmount = serviceRangeTotal.max;
-
-  const handlingFee = calculateHandlingFee(totalServiceMaxAmount || totalServiceAmount);
+  const handlingFee = calculateHandlingFee(
+    totalServiceMaxAmount || totalServiceAmount,
+  );
 
   let walletAmountUsed = 0;
 
   if (Number(useWalletCoins) > 0) {
     const wallet = await prisma.wallet.findUnique({
-      where: {
-        userId,
-      },
+      where: { userId },
     });
 
     if (!wallet) {
@@ -220,7 +225,10 @@ const createBooking = async (userId, data) => {
       throw new ApiError(400, "Insufficient wallet balance");
     }
 
-    walletAmountUsed = Math.min(Number(useWalletCoins), handlingFee);
+    walletAmountUsed = Math.min(
+      Number(useWalletCoins),
+      handlingFee,
+    );
   }
 
   const payableAmount = handlingFee - walletAmountUsed;
@@ -229,9 +237,7 @@ const createBooking = async (userId, data) => {
   const booking = await prisma.$transaction(async (tx) => {
     if (walletAmountUsed > 0) {
       const wallet = await tx.wallet.findUnique({
-        where: {
-          userId,
-        },
+        where: { userId },
       });
 
       if (!wallet || wallet.balance < walletAmountUsed) {
@@ -241,12 +247,8 @@ const createBooking = async (userId, data) => {
       const balanceAfter = wallet.balance - walletAmountUsed;
 
       await tx.wallet.update({
-        where: {
-          id: wallet.id,
-        },
-        data: {
-          balance: balanceAfter,
-        },
+        where: { id: wallet.id },
+        data: { balance: balanceAfter },
       });
 
       await tx.walletTransaction.create({
@@ -257,7 +259,8 @@ const createBooking = async (userId, data) => {
           status: "SUCCESS",
           amount: walletAmountUsed,
           balanceAfter,
-          description: "Wallet coins used for booking handling fee",
+          description:
+            "Wallet coins used for booking handling fee",
         },
       });
     }
@@ -267,32 +270,37 @@ const createBooking = async (userId, data) => {
         userId,
         vehicleId,
         garageId: null,
-
         bookingCode,
-
-        scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
+        scheduledDate: scheduledDate
+          ? new Date(scheduledDate)
+          : null,
         startTime: startTime || null,
         endTime: endTime || null,
-
         requestType: "NORMAL",
-        status: payableAmount > 0 ? "PENDING_PAYMENT" : "SEARCHING_GARAGE",
-        searchExpiresAt: payableAmount > 0 ? null : bookingLifecycleService.getSearchExpiresAt(),
+        status:
+          payableAmount > 0
+            ? "PENDING_PAYMENT"
+            : "SEARCHING_GARAGE",
+
+        // The garage request service claims the first two-minute round.
+        searchExpiresAt: null,
 
         customerLatitude: Number(location.latitude),
         customerLongitude: Number(location.longitude),
         customerAddress: location.address || location.city || null,
-
         customerNote: customerNote || null,
-
         handlingFee,
         totalServiceAmount,
         totalServiceMaxAmount,
         walletAmountUsed,
         payableAmount,
-
         services: {
           create: services.map((service) => {
-            const range = getBookingServiceRange(service, priceRangeMap);
+            const range = getBookingServiceRange(
+              service,
+              priceRangeMap,
+            );
+
             return {
               serviceId: service.id,
               quantity: 1,
@@ -302,7 +310,6 @@ const createBooking = async (userId, data) => {
             };
           }),
         },
-
         payment: {
           create: {
             amount: payableAmount,
@@ -317,54 +324,88 @@ const createBooking = async (userId, data) => {
     });
   });
 
+  if (booking.status === "SEARCHING_GARAGE") {
+    try {
+      await garageRequestService.broadcastBookingToNearbyGarages(
+        booking.id,
+      );
+    } catch (error) {
+      // Keep the booking searchable. Tracking polling retries this safely.
+      console.error(
+        `[booking-search] unable to start first round for ${booking.id}:`,
+        error.message,
+      );
+    }
+  }
+
   await invalidateBookingCaches(userId);
 
-  return booking;
+  return prisma.booking.findUnique({
+    where: { id: booking.id },
+    include: bookingInclude,
+  });
 };
 
 const getMyBookings = async (userId, query = {}) => {
   const statuses = normalizeStatuses(query.status);
-  const cacheKey = getBookingsCacheKey(userId, query);
 
-  const cached = await getCache(cacheKey);
-  if (cached) return cached;
+  const searchingBookings = await prisma.booking.findMany({
+    where: {
+      userId,
+      status: "SEARCHING_GARAGE",
+      garageId: null,
+    },
+    select: { id: true },
+  });
+
+  await Promise.allSettled(
+    searchingBookings.map((booking) =>
+      garageRequestService.ensureBookingSearchActive(booking.id),
+    ),
+  );
 
   let statusFilter = {};
 
   if (statuses.length > 0) {
     statusFilter =
       statuses.length > 1
-        ? {
-            status: {
-              in: statuses,
-            },
-          }
-        : {
-            status: statuses[0],
-          };
+        ? { status: { in: statuses } }
+        : { status: statuses[0] };
   }
 
-  const bookings = await prisma.booking.findMany({
+  return prisma.booking.findMany({
     where: {
       userId,
       ...statusFilter,
     },
     include: bookingInclude,
-    orderBy: {
-      createdAt: "desc",
-    },
+    orderBy: { createdAt: "desc" },
   });
-
-  await setCache(cacheKey, bookings, BOOKINGS_CACHE_TTL);
-
-  return bookings;
 };
 
 const getBookingById = async (userId, bookingId) => {
-  const cacheKey = `customer:${userId}:booking:${bookingId}`;
+  const ownedBooking = await prisma.booking.findFirst({
+    where: {
+      id: bookingId,
+      userId,
+    },
+    select: {
+      id: true,
+      status: true,
+      garageId: true,
+    },
+  });
 
-  const cached = await getCache(cacheKey);
-  if (cached) return cached;
+  if (!ownedBooking) {
+    throw new ApiError(404, "Booking not found");
+  }
+
+  if (
+    ownedBooking.status === "SEARCHING_GARAGE" &&
+    !ownedBooking.garageId
+  ) {
+    await garageRequestService.ensureBookingSearchActive(bookingId);
+  }
 
   const booking = await prisma.booking.findFirst({
     where: {
@@ -378,8 +419,6 @@ const getBookingById = async (userId, bookingId) => {
     throw new ApiError(404, "Booking not found");
   }
 
-  await setCache(cacheKey, booking, BOOKINGS_CACHE_TTL);
-
   return booking;
 };
 
@@ -387,11 +426,17 @@ const getBookingSuccess = async (userId, bookingId) => {
   const booking = await getBookingById(userId, bookingId);
 
   if (
-    !["GARAGE_ASSIGNED", "CONFIRMED", "IN_PROGRESS", "COMPLETED"].includes(
-      booking.status
-    )
+    ![
+      "GARAGE_ASSIGNED",
+      "CONFIRMED",
+      "IN_PROGRESS",
+      "COMPLETED",
+    ].includes(booking.status)
   ) {
-    throw new ApiError(400, "Garage has not accepted this booking yet");
+    throw new ApiError(
+      400,
+      "Garage has not accepted this booking yet",
+    );
   }
 
   if (!booking.garage) {
@@ -403,20 +448,25 @@ const getBookingSuccess = async (userId, bookingId) => {
       ...booking,
       garage: addGarageWhatsappLink(booking.garage),
     },
-    whatsappLink: createWhatsappLink(booking.garage.whatsappNo || booking.garage.phone),
+    whatsappLink: createWhatsappLink(
+      booking.garage.whatsappNo || booking.garage.phone,
+    ),
     directionsLink: `https://www.google.com/maps?q=${booking.garage.latitude},${booking.garage.longitude}`,
   };
 };
 
-
 const acceptDelivery = async (userId, bookingId) => {
-  const booking = await bookingLifecycleService.acceptDeliveredBookingByCustomer({ userId, bookingId });
+  const booking =
+    await bookingLifecycleService.acceptDeliveredBookingByCustomer({
+      userId,
+      bookingId,
+    });
+
   await invalidateBookingCaches(userId);
   return booking;
 };
 
 const getServiceHistory = async (userId) => {
-  await bookingLifecycleService.expireStaleGarageSearchesForUser(userId);
   return prisma.booking.findMany({
     where: {
       userId,
@@ -424,20 +474,17 @@ const getServiceHistory = async (userId) => {
       customerAcceptedAt: { not: null },
     },
     include: bookingInclude,
-    orderBy: {
-      customerAcceptedAt: "desc",
-    },
+    orderBy: { customerAcceptedAt: "desc" },
   });
 };
+
 const cancelBooking = async (userId, bookingId) => {
   const booking = await prisma.booking.findFirst({
     where: {
       id: bookingId,
       userId,
     },
-    include: {
-      payment: true,
-    },
+    include: { payment: true },
   });
 
   if (!booking) {
@@ -468,18 +515,16 @@ const cancelBooking = async (userId, bookingId) => {
     });
 
     return tx.booking.update({
-      where: {
-        id: bookingId,
-      },
+      where: { id: bookingId },
       data: {
         status: "CANCELLED",
+        searchExpiresAt: null,
       },
       include: bookingInclude,
     });
   });
 
   await invalidateBookingCaches(userId);
-
   return cancelledBooking;
 };
 

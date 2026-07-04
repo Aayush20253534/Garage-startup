@@ -10,6 +10,9 @@ const WALLET_TRANSACTION_STATUS = require("../constants/walletTransactionStatus"
 const { calculatePlatformFee } = require("../garage/constants");
 const { addGarageWhatsappLink } = require("../utils/whatsapp");
 const calculateDistanceKm = require("../utils/distance");
+const invalidateCustomerCache = require("../utils/invalidateCustomerCache");
+const { deletePattern } = require("../utils/cache");
+const notificationService = require("../customer/services/notification.service");
 const {
   getGarageAcceptUrl,
   getMapsLink,
@@ -20,16 +23,50 @@ const {
 const bookingLifecycleService = require("./bookingLifecycle.service");
 
 const SOS_CHARGE = 50;
+const DEFAULT_GARAGE_SEARCH_BATCH_SIZE = 5;
+
+const getGarageSearchBatchSize = () => {
+  const configured = Number(
+    process.env.GARAGE_SEARCH_BATCH_SIZE ||
+      DEFAULT_GARAGE_SEARCH_BATCH_SIZE,
+  );
+
+  return Number.isFinite(configured) && configured > 0
+    ? Math.floor(configured)
+    : DEFAULT_GARAGE_SEARCH_BATCH_SIZE;
+};
+
 const estimateArrivalMinutes = (distanceKm) => {
   const distance = Number(distanceKm);
   if (!Number.isFinite(distance) || distance <= 0) return null;
 
-  const averageCitySpeedKmph = Number(process.env.GARAGE_ETA_SPEED_KMPH || 25);
-  const pickupBufferMinutes = Number(process.env.GARAGE_ETA_BUFFER_MINUTES || 10);
-  const speed = Number.isFinite(averageCitySpeedKmph) && averageCitySpeedKmph > 0 ? averageCitySpeedKmph : 25;
-  const buffer = Number.isFinite(pickupBufferMinutes) && pickupBufferMinutes >= 0 ? pickupBufferMinutes : 10;
+  const averageCitySpeedKmph = Number(
+    process.env.GARAGE_ETA_SPEED_KMPH || 25,
+  );
+  const pickupBufferMinutes = Number(
+    process.env.GARAGE_ETA_BUFFER_MINUTES || 10,
+  );
+
+  const speed =
+    Number.isFinite(averageCitySpeedKmph) && averageCitySpeedKmph > 0
+      ? averageCitySpeedKmph
+      : 25;
+  const buffer =
+    Number.isFinite(pickupBufferMinutes) && pickupBufferMinutes >= 0
+      ? pickupBufferMinutes
+      : 10;
 
   return Math.max(5, Math.ceil((distance / speed) * 60 + buffer));
+};
+
+const invalidateBookingReadCaches = async (userId) => {
+  if (!userId) return;
+
+  await Promise.allSettled([
+    invalidateCustomerCache(userId),
+    deletePattern(`customer:${userId}:bookings:*`),
+    deletePattern(`customer:${userId}:booking:*`),
+  ]);
 };
 
 const getRequestDistanceKm = (request) => {
@@ -37,10 +74,14 @@ const getRequestDistanceKm = (request) => {
   const garage = request.garage;
 
   if (
-    !booking?.customerLatitude ||
-    !booking?.customerLongitude ||
-    !garage?.latitude ||
-    !garage?.longitude
+    booking?.customerLatitude === null ||
+    booking?.customerLatitude === undefined ||
+    booking?.customerLongitude === null ||
+    booking?.customerLongitude === undefined ||
+    garage?.latitude === null ||
+    garage?.latitude === undefined ||
+    garage?.longitude === null ||
+    garage?.longitude === undefined
   ) {
     return null;
   }
@@ -49,12 +90,17 @@ const getRequestDistanceKm = (request) => {
     booking.customerLatitude,
     booking.customerLongitude,
     garage.latitude,
-    garage.longitude
+    garage.longitude,
   );
 };
 
 const redactPendingCustomerDetails = (request) => {
-  if (request.status !== BROADCAST_STATUS.SENT || !request.booking) return request;
+  if (
+    request.status !== BROADCAST_STATUS.SENT ||
+    !request.booking
+  ) {
+    return request;
+  }
 
   return {
     ...request,
@@ -88,7 +134,8 @@ const serializeGarageRequest = (request) => {
   };
 };
 
-const serializeGarageRequests = (requests) => requests.map(serializeGarageRequest);
+const serializeGarageRequests = (requests) =>
+  requests.map(serializeGarageRequest);
 
 const GARAGE_REQUEST_STATUS_FILTERS = {
   NEW: { status: BROADCAST_STATUS.SENT },
@@ -96,14 +143,25 @@ const GARAGE_REQUEST_STATUS_FILTERS = {
   ACCEPTED: { status: BROADCAST_STATUS.ACCEPTED },
   REJECTED: { status: BROADCAST_STATUS.REJECTED },
   EXPIRED: { status: BROADCAST_STATUS.EXPIRED },
-  CONFIRMED: { status: BROADCAST_STATUS.ACCEPTED, booking: { status: BOOKING_STATUS.CONFIRMED } },
-  IN_PROGRESS: { status: BROADCAST_STATUS.ACCEPTED, booking: { status: BOOKING_STATUS.IN_PROGRESS } },
-  COMPLETED: { status: BROADCAST_STATUS.ACCEPTED, booking: { status: BOOKING_STATUS.COMPLETED } },
+  CONFIRMED: {
+    status: BROADCAST_STATUS.ACCEPTED,
+    booking: { status: BOOKING_STATUS.CONFIRMED },
+  },
+  IN_PROGRESS: {
+    status: BROADCAST_STATUS.ACCEPTED,
+    booking: { status: BOOKING_STATUS.IN_PROGRESS },
+  },
+  COMPLETED: {
+    status: BROADCAST_STATUS.ACCEPTED,
+    booking: { status: BOOKING_STATUS.COMPLETED },
+  },
 };
 
 const getGarageRequestWhere = (garageId, query = {}) => {
   const status = String(query.status || "").trim().toUpperCase();
-  const statusFilter = status ? GARAGE_REQUEST_STATUS_FILTERS[status] : {};
+  const statusFilter = status
+    ? GARAGE_REQUEST_STATUS_FILTERS[status]
+    : {};
 
   if (status && !statusFilter) {
     throw new ApiError(400, "Invalid garage request status filter");
@@ -141,90 +199,316 @@ const requestInclude = {
     include: {
       ...bookingForWhatsappInclude,
       payment: true,
-      inspectionImages: { orderBy: [{ phase: "asc" }, { order: "asc" }] },
+      inspectionImages: {
+        orderBy: [{ phase: "asc" }, { order: "asc" }],
+      },
     },
   },
   garage: true,
 };
 
-const broadcastBookingToNearbyGarages = async (bookingId, options = {}) => {
+const getCurrentRoundRequests = async (bookingId) => {
+  return prisma.garageBroadcastRequest.findMany({
+    where: {
+      bookingId,
+      status: BROADCAST_STATUS.SENT,
+    },
+    include: requestInclude,
+    orderBy: { sentAt: "desc" },
+  });
+};
+
+const sendGarageRequestAlerts = async ({ requests, booking }) => {
+  const alerts = [];
+
+  for (const request of requests) {
+    alerts.push(
+      sendGarageBookingRequestWhatsapp({
+        garage: request.garage,
+        request,
+        booking,
+      }),
+    );
+
+    if (request.garage?.ownerId) {
+      alerts.push(
+        notificationService.createNotification({
+          userId: request.garage.ownerId,
+          type: "BOOKING",
+          title: "New nearby booking request",
+          message: `${booking.vehicle?.brand || "Vehicle"} ${
+            booking.vehicle?.model || ""
+          } needs ${booking.services
+            .map((item) => item.service?.name)
+            .filter(Boolean)
+            .join(", ") || "garage service"}. Open the request before this two-minute round expires.`,
+          link: `/garage/magic/${request.id}`,
+          metadata: {
+            bookingId: booking.id,
+            requestId: request.id,
+            garageId: request.garage.id,
+            action: "ACCEPT_GARAGE_REQUEST",
+          },
+        }),
+      );
+    }
+  }
+
+  await Promise.allSettled(alerts);
+};
+
+const chooseGaragesForNextRound = ({
+  eligibleGarages,
+  previousRequests,
+  batchSize,
+}) => {
+  const previousByGarageId = new Map(
+    previousRequests.map((request) => [request.garageId, request]),
+  );
+
+  const unattempted = eligibleGarages.filter(
+    (garage) => !previousByGarageId.has(garage.id),
+  );
+
+  const reusable = eligibleGarages
+    .filter((garage) => previousByGarageId.has(garage.id))
+    .sort((a, b) => {
+      const requestA = previousByGarageId.get(a.id);
+      const requestB = previousByGarageId.get(b.id);
+      const sentAtA = requestA?.sentAt
+        ? new Date(requestA.sentAt).getTime()
+        : 0;
+      const sentAtB = requestB?.sentAt
+        ? new Date(requestB.sentAt).getTime()
+        : 0;
+
+      if (sentAtA !== sentAtB) return sentAtA - sentAtB;
+      return Number(a.distanceKm || 0) - Number(b.distanceKm || 0);
+    });
+
+  const selected = unattempted.slice(0, batchSize);
+
+  if (selected.length < batchSize) {
+    selected.push(...reusable.slice(0, batchSize - selected.length));
+  }
+
+  return selected;
+};
+
+/**
+ * Claims and starts exactly one two-minute search round.
+ *
+ * The compare-and-set update on searchExpiresAt prevents two simultaneous
+ * tracking polls from creating the same round twice.
+ */
+const startNextGarageSearchCycle = async (bookingId) => {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: bookingForWhatsappInclude,
   });
 
   if (!booking) throw new ApiError(404, "Booking not found");
-  if (!booking.customerLatitude || !booking.customerLongitude) {
+
+  if (
+    booking.status !== BOOKING_STATUS.SEARCHING_GARAGE ||
+    booking.garageId
+  ) {
+    return [];
+  }
+
+  if (
+    booking.customerLatitude === null ||
+    booking.customerLatitude === undefined ||
+    booking.customerLongitude === null ||
+    booking.customerLongitude === undefined
+  ) {
     throw new ApiError(400, "Booking location is missing");
   }
 
+  const now = new Date();
+  const activeRequests = await getCurrentRoundRequests(bookingId);
+
+  if (
+    activeRequests.length > 0 &&
+    booking.searchExpiresAt &&
+    booking.searchExpiresAt > now
+  ) {
+    return serializeGarageRequests(activeRequests);
+  }
+
+  const nextExpiry = bookingLifecycleService.getSearchExpiresAt();
+
+  const claimed = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      status: BOOKING_STATUS.SEARCHING_GARAGE,
+      garageId: null,
+      searchExpiresAt: booking.searchExpiresAt || null,
+    },
+    data: {
+      searchExpiresAt: nextExpiry,
+      expiredAt: null,
+    },
+  });
+
+  if (claimed.count === 0) {
+    return serializeGarageRequests(
+      await getCurrentRoundRequests(bookingId),
+    );
+  }
+
+  await prisma.garageBroadcastRequest.updateMany({
+    where: {
+      bookingId,
+      status: BROADCAST_STATUS.SENT,
+    },
+    data: {
+      status: BROADCAST_STATUS.EXPIRED,
+      expiredAt: now,
+    },
+  });
+
+  const garageAcceptFee = calculatePlatformFee(
+    booking.totalServiceMaxAmount || booking.totalServiceAmount,
+    booking.requestType,
+  );
+
   const serviceIds = booking.services.map((item) => item.serviceId);
-  const nearbyGarages = await garageService.findNearbyEligibleGarages({
+  const eligibleGarages = await garageService.findNearbyEligibleGarages({
     latitude: booking.customerLatitude,
     longitude: booking.customerLongitude,
     serviceIds,
     vehicle: booking.vehicle,
-    maxDistance: options.maxDistance || null,
+    maxDistance: null,
     onlyVerified: true,
     requireOpenNow: false,
-    requireWalletBalance: false,
+    requireWalletBalance: true,
+    minGarageWalletBalance: garageAcceptFee,
   });
 
-  if (nearbyGarages.length === 0) {
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: BOOKING_STATUS.EXPIRED, expiredAt: new Date() },
-    });
-    throw new ApiError(404, "No nearby eligible garages found");
+  if (eligibleGarages.length === 0) {
+    // Keep SEARCHING_GARAGE. When this round expires, the next poll checks again.
+    return [];
   }
 
-  await prisma.garageBroadcastRequest.createMany({
-    data: nearbyGarages.map((garage) => ({
-      bookingId,
-      garageId: garage.id,
-      status: BROADCAST_STATUS.SENT,
-    })),
-    skipDuplicates: true,
+  const previousRequests = await prisma.garageBroadcastRequest.findMany({
+    where: { bookingId },
+    select: {
+      id: true,
+      garageId: true,
+      status: true,
+      sentAt: true,
+      rejectedAt: true,
+      expiredAt: true,
+    },
   });
+
+  const selectedGarages = chooseGaragesForNextRound({
+    eligibleGarages,
+    previousRequests,
+    batchSize: getGarageSearchBatchSize(),
+  });
+
+  const sentAt = new Date();
+
+  await prisma.$transaction(
+    selectedGarages.map((garage) =>
+      prisma.garageBroadcastRequest.upsert({
+        where: {
+          bookingId_garageId: {
+            bookingId,
+            garageId: garage.id,
+          },
+        },
+        update: {
+          status: BROADCAST_STATUS.SENT,
+          sentAt,
+          acceptedAt: null,
+          rejectedAt: null,
+          expiredAt: null,
+          garageResponseNote: null,
+        },
+        create: {
+          bookingId,
+          garageId: garage.id,
+          status: BROADCAST_STATUS.SENT,
+          sentAt,
+        },
+      }),
+    ),
+  );
 
   const requests = await prisma.garageBroadcastRequest.findMany({
-    where: { bookingId },
+    where: {
+      bookingId,
+      garageId: { in: selectedGarages.map((garage) => garage.id) },
+      status: BROADCAST_STATUS.SENT,
+    },
     include: requestInclude,
-    orderBy: { createdAt: "desc" },
+    orderBy: { sentAt: "desc" },
   });
 
-  await Promise.allSettled(
-    requests.map((request) =>
-      sendGarageBookingRequestWhatsapp({ garage: request.garage, request, booking })
-    )
-  );
-
-  const expiryTimer = setTimeout(
-    () => bookingLifecycleService.expireBookingSearch(bookingId).catch(() => {}),
-    bookingLifecycleService.getGarageSearchTimeoutMs()
-  );
-  if (typeof expiryTimer.unref === "function") expiryTimer.unref();
+  await sendGarageRequestAlerts({ requests, booking });
+  await invalidateBookingReadCaches(booking.userId);
 
   return serializeGarageRequests(requests);
 };
+
+const ensureBookingSearchActive = async (bookingId) => {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      id: true,
+      status: true,
+      garageId: true,
+      searchExpiresAt: true,
+    },
+  });
+
+  if (
+    !booking ||
+    booking.status !== BOOKING_STATUS.SEARCHING_GARAGE ||
+    booking.garageId
+  ) {
+    return [];
+  }
+
+  if (
+    booking.searchExpiresAt &&
+    booking.searchExpiresAt <= new Date()
+  ) {
+    await bookingLifecycleService.expireBookingSearch(bookingId);
+  }
+
+  return startNextGarageSearchCycle(bookingId);
+};
+
+// Backward-compatible name used by payment and older code.
+const broadcastBookingToNearbyGarages = async (bookingId) =>
+  startNextGarageSearchCycle(bookingId);
 
 const getGarageRequests = async (garageId, query = {}) => {
   const requests = await prisma.garageBroadcastRequest.findMany({
     where: getGarageRequestWhere(garageId, query),
     include: requestInclude,
-    orderBy: { createdAt: "desc" },
+    orderBy: { updatedAt: "desc" },
   });
+
   return serializeGarageRequests(requests);
 };
 
 const acceptGarageRequest = async (garageId, requestId, note) => {
+  const requestIdentity = await prisma.garageBroadcastRequest.findUnique({
+    where: { id: requestId },
+    select: { bookingId: true },
+  });
+
+  if (!requestIdentity) {
+    throw new ApiError(404, "Garage request not found");
+  }
+
   await bookingLifecycleService.expireBookingSearch(
-    (
-      await prisma.garageBroadcastRequest.findUnique({
-        where: { id: requestId },
-        select: { bookingId: true },
-      })
-    )?.bookingId
+    requestIdentity.bookingId,
   );
 
   const request = await prisma.garageBroadcastRequest.findFirst({
@@ -236,38 +520,76 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
   });
 
   if (!request) throw new ApiError(404, "Garage request not found");
-  if (request.status !== BROADCAST_STATUS.SENT) throw new ApiError(400, "This request is no longer available");
-  if (request.booking.searchExpiresAt && request.booking.searchExpiresAt < new Date()) {
-    throw new ApiError(400, "Garage search expired. Customer must try again.");
+
+  if (request.status !== BROADCAST_STATUS.SENT) {
+    throw new ApiError(400, "This request is no longer available");
   }
 
-  if (![BOOKING_STATUS.SEARCHING_GARAGE, BOOKING_STATUS.GARAGE_ASSIGNED].includes(request.booking.status)) {
+  if (
+    request.booking.searchExpiresAt &&
+    request.booking.searchExpiresAt < new Date()
+  ) {
+    throw new ApiError(400, "This two-minute request round has expired");
+  }
+
+  if (
+    ![
+      BOOKING_STATUS.SEARCHING_GARAGE,
+      BOOKING_STATUS.GARAGE_ASSIGNED,
+    ].includes(request.booking.status)
+  ) {
     throw new ApiError(400, "Booking is no longer accepting garages");
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    const freshBooking = await tx.booking.findUnique({ where: { id: request.bookingId } });
+    const freshBooking = await tx.booking.findUnique({
+      where: { id: request.bookingId },
+    });
+
     if (!freshBooking) throw new ApiError(404, "Booking not found");
+
     if (freshBooking.garageId && freshBooking.garageId !== garageId) {
-      throw new ApiError(400, "Another garage already accepted this booking");
+      throw new ApiError(
+        400,
+        "Another garage already accepted this booking",
+      );
     }
-    if (![BOOKING_STATUS.SEARCHING_GARAGE, BOOKING_STATUS.GARAGE_ASSIGNED].includes(freshBooking.status)) {
+
+    if (
+      ![
+        BOOKING_STATUS.SEARCHING_GARAGE,
+        BOOKING_STATUS.GARAGE_ASSIGNED,
+      ].includes(freshBooking.status)
+    ) {
       throw new ApiError(400, "Booking is no longer available");
     }
-    if (freshBooking.searchExpiresAt && freshBooking.searchExpiresAt < new Date()) {
-      throw new ApiError(400, "Garage search expired. Customer must try again.");
+
+    if (
+      freshBooking.searchExpiresAt &&
+      freshBooking.searchExpiresAt < new Date()
+    ) {
+      throw new ApiError(400, "This two-minute request round has expired");
     }
 
     const garageAcceptFee = calculatePlatformFee(
-      freshBooking.totalServiceMaxAmount || freshBooking.totalServiceAmount,
-      freshBooking.requestType
+      freshBooking.totalServiceMaxAmount ||
+        freshBooking.totalServiceAmount,
+      freshBooking.requestType,
     );
-    const garageWallet = await tx.garageWallet.findUnique({ where: { garageId } });
+
+    const garageWallet = await tx.garageWallet.findUnique({
+      where: { garageId },
+    });
+
     if (!garageWallet || garageWallet.balance < garageAcceptFee) {
-      throw new ApiError(400, `Insufficient garage wallet balance. Recharge at least Rs. ${garageAcceptFee} to accept this booking.`);
+      throw new ApiError(
+        400,
+        `Insufficient garage wallet balance. Recharge at least Rs. ${garageAcceptFee} to accept this booking.`,
+      );
     }
 
     const handoverOtp = bookingLifecycleService.createHandoverOtp();
+    const acceptedAt = new Date();
 
     await tx.booking.update({
       where: { id: request.bookingId },
@@ -275,27 +597,54 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
         garageId,
         status: BOOKING_STATUS.CONFIRMED,
         garageNote: note || null,
-        acceptedAt: new Date(),
+        acceptedAt,
+        searchExpiresAt: null,
+        expiredAt: null,
         handoverOtpHash: handoverOtp.otpHash,
         handoverOtpExpiresAt: handoverOtp.expiresAt,
       },
     });
 
     await tx.garageBroadcastRequest.updateMany({
-      where: { bookingId: request.bookingId, id: { not: requestId }, status: BROADCAST_STATUS.SENT },
-      data: { status: BROADCAST_STATUS.EXPIRED, expiredAt: new Date() },
+      where: {
+        bookingId: request.bookingId,
+        id: { not: requestId },
+        status: BROADCAST_STATUS.SENT,
+      },
+      data: {
+        status: BROADCAST_STATUS.EXPIRED,
+        expiredAt: acceptedAt,
+      },
     });
 
     await tx.garageBroadcastRequest.update({
       where: { id: requestId },
-      data: { status: BROADCAST_STATUS.ACCEPTED, acceptedAt: new Date(), garageResponseNote: note || null },
+      data: {
+        status: BROADCAST_STATUS.ACCEPTED,
+        acceptedAt,
+        garageResponseNote: note || null,
+      },
     });
 
     if (request.booking.requestType === REQUEST_TYPE.SOS) {
-      const wallet = await tx.wallet.findUnique({ where: { userId: request.booking.userId } });
-      if (!wallet || wallet.balance < SOS_CHARGE) throw new ApiError(400, "Customer has insufficient wallet balance for SOS");
+      const wallet = await tx.wallet.findUnique({
+        where: { userId: request.booking.userId },
+      });
+
+      if (!wallet || wallet.balance < SOS_CHARGE) {
+        throw new ApiError(
+          400,
+          "Customer has insufficient wallet balance for SOS",
+        );
+      }
+
       const balanceAfter = wallet.balance - SOS_CHARGE;
-      await tx.wallet.update({ where: { id: wallet.id }, data: { balance: balanceAfter } });
+
+      await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: balanceAfter },
+      });
+
       await tx.walletTransaction.create({
         data: {
           walletId: wallet.id,
@@ -304,13 +653,20 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
           status: WALLET_TRANSACTION_STATUS.SUCCESS,
           amount: SOS_CHARGE,
           balanceAfter,
-          description: "SOS service charge deducted after garage acceptance",
+          description:
+            "SOS service charge deducted after garage acceptance",
         },
       });
     }
 
-    const garageBalanceAfter = garageWallet.balance - garageAcceptFee;
-    await tx.garageWallet.update({ where: { id: garageWallet.id }, data: { balance: garageBalanceAfter } });
+    const garageBalanceAfter =
+      garageWallet.balance - garageAcceptFee;
+
+    await tx.garageWallet.update({
+      where: { id: garageWallet.id },
+      data: { balance: garageBalanceAfter },
+    });
+
     await tx.garageWalletTransaction.create({
       data: {
         garageWalletId: garageWallet.id,
@@ -353,20 +709,35 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
     }),
   ]);
 
+  await invalidateBookingReadCaches(result.request.booking.userId);
+
   return {
     ...serializeGarageRequest(result.request),
-    customerLocationLink: getMapsLink(result.request.booking.customerLatitude, result.request.booking.customerLongitude),
+    customerLocationLink: getMapsLink(
+      result.request.booking.customerLatitude,
+      result.request.booking.customerLongitude,
+    ),
   };
 };
 
 const rejectGarageRequest = async (garageId, requestId, note) => {
-  const request = await prisma.garageBroadcastRequest.findFirst({ where: { id: requestId, garageId } });
+  const request = await prisma.garageBroadcastRequest.findFirst({
+    where: { id: requestId, garageId },
+  });
+
   if (!request) throw new ApiError(404, "Garage request not found");
-  if (request.status !== BROADCAST_STATUS.SENT) throw new ApiError(400, "This request cannot be rejected now");
+
+  if (request.status !== BROADCAST_STATUS.SENT) {
+    throw new ApiError(400, "This request cannot be rejected now");
+  }
 
   const updatedRequest = await prisma.garageBroadcastRequest.update({
     where: { id: requestId },
-    data: { status: BROADCAST_STATUS.REJECTED, rejectedAt: new Date(), garageResponseNote: note || null },
+    data: {
+      status: BROADCAST_STATUS.REJECTED,
+      rejectedAt: new Date(),
+      garageResponseNote: note || null,
+    },
     include: requestInclude,
   });
 
@@ -375,6 +746,8 @@ const rejectGarageRequest = async (garageId, requestId, note) => {
 
 module.exports = {
   broadcastBookingToNearbyGarages,
+  ensureBookingSearchActive,
+  startNextGarageSearchCycle,
   getGarageRequests,
   acceptGarageRequest,
   rejectGarageRequest,

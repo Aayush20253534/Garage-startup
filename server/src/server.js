@@ -2,6 +2,9 @@ require("dotenv/config");
 
 const app = require("./app");
 const prisma = require("./config/prisma");
+const {
+  startGarageSearchWorker,
+} = require("./services/garageSearchWorker.service");
 
 const PORT = process.env.PORT || 5000;
 
@@ -11,11 +14,52 @@ const startServer = async () => {
 
     console.log("Database connected successfully");
 
-    app.listen(PORT, () => {
+    /*
+     * Starts the recurring garage-search worker.
+     *
+     * The worker checks bookings whose two-minute search round has expired
+     * and sends the next batch of requests to nearby garages.
+     *
+     * Start it only after the database connection succeeds.
+     */
+    startGarageSearchWorker();
+
+    const server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      console.log("Garage search worker started");
     });
+
+    /*
+     * Graceful shutdown.
+     * This closes the HTTP server and Prisma connection when the process
+     * receives a shutdown signal from Render, Docker, or the operating system.
+     */
+    const shutdown = async (signal) => {
+      console.log(`${signal} received. Shutting down gracefully...`);
+
+      server.close(async () => {
+        try {
+          await prisma.$disconnect();
+          console.log("Database disconnected successfully");
+          process.exit(0);
+        } catch (error) {
+          console.error("Failed to disconnect database:", error);
+          process.exit(1);
+        }
+      });
+    };
+
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
   } catch (error) {
     console.error("Failed to start server:", error);
+
+    try {
+      await prisma.$disconnect();
+    } catch (disconnectError) {
+      console.error("Failed to disconnect Prisma:", disconnectError);
+    }
+
     process.exit(1);
   }
 };

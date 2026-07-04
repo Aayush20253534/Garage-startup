@@ -15,39 +15,77 @@ const MAX_INSPECTION_PHOTO_SIZE_BYTES = 1024 * 1024;
 const INSPECTION_IMAGE_FOLDER = "project-x/bookings/inspection-images";
 
 const getGarageSearchTimeoutMs = () => {
-  const seconds = Number(process.env.GARAGE_SEARCH_TIMEOUT_SECONDS || DEFAULT_SEARCH_TIMEOUT_SECONDS);
-  return (Number.isFinite(seconds) && seconds > 0 ? seconds : DEFAULT_SEARCH_TIMEOUT_SECONDS) * 1000;
+  const seconds = Number(
+    process.env.GARAGE_SEARCH_TIMEOUT_SECONDS ||
+      DEFAULT_SEARCH_TIMEOUT_SECONDS,
+  );
+
+  return (
+    (Number.isFinite(seconds) && seconds > 0
+      ? seconds
+      : DEFAULT_SEARCH_TIMEOUT_SECONDS) * 1000
+  );
 };
 
-const getSearchExpiresAt = () => new Date(Date.now() + getGarageSearchTimeoutMs());
+const getSearchExpiresAt = () =>
+  new Date(Date.now() + getGarageSearchTimeoutMs());
 
-const getOtpHash = (otp) => crypto.createHash("sha256").update(String(otp)).digest("hex");
+const getOtpHash = (otp) =>
+  crypto.createHash("sha256").update(String(otp)).digest("hex");
 
 const createHandoverOtp = () => {
   const otp = String(crypto.randomInt(100000, 1000000));
-  const ttlMinutes = Number(process.env.HANDOVER_OTP_TTL_MINUTES || DEFAULT_HANDOVER_OTP_TTL_MINUTES);
-  const expiresAt = new Date(Date.now() + (Number.isFinite(ttlMinutes) && ttlMinutes > 0 ? ttlMinutes : DEFAULT_HANDOVER_OTP_TTL_MINUTES) * 60 * 1000);
-  return { otp, otpHash: getOtpHash(otp), expiresAt };
+  const ttlMinutes = Number(
+    process.env.HANDOVER_OTP_TTL_MINUTES ||
+      DEFAULT_HANDOVER_OTP_TTL_MINUTES,
+  );
+
+  const safeTtlMinutes =
+    Number.isFinite(ttlMinutes) && ttlMinutes > 0
+      ? ttlMinutes
+      : DEFAULT_HANDOVER_OTP_TTL_MINUTES;
+
+  return {
+    otp,
+    otpHash: getOtpHash(otp),
+    expiresAt: new Date(Date.now() + safeTtlMinutes * 60 * 1000),
+  };
 };
 
-
 const validateInspectionImages = (files) => {
-  if (!Array.isArray(files) || files.length !== REQUIRED_INSPECTION_PHOTO_COUNT) {
-    throw new ApiError(400, `Exactly ${REQUIRED_INSPECTION_PHOTO_COUNT} car inspection photos are required`);
+  if (
+    !Array.isArray(files) ||
+    files.length !== REQUIRED_INSPECTION_PHOTO_COUNT
+  ) {
+    throw new ApiError(
+      400,
+      `Exactly ${REQUIRED_INSPECTION_PHOTO_COUNT} car inspection photos are required`,
+    );
   }
 
   for (const file of files) {
     if (!file.mimetype?.startsWith("image/")) {
-      throw new ApiError(400, "Only image files are allowed for car inspection photos");
+      throw new ApiError(
+        400,
+        "Only image files are allowed for car inspection photos",
+      );
     }
 
     if (file.size > MAX_INSPECTION_PHOTO_SIZE_BYTES) {
-      throw new ApiError(400, "Each car inspection photo must be less than or equal to 1 MB");
+      throw new ApiError(
+        400,
+        "Each car inspection photo must be less than or equal to 1 MB",
+      );
     }
   }
 };
 
-const uploadInspectionImages = async ({ bookingId, garageId, phase, files }) => {
+const uploadInspectionImages = async ({
+  bookingId,
+  garageId,
+  phase,
+  files,
+}) => {
   validateInspectionImages(files);
 
   const existingImages = await prisma.bookingInspectionImage.findMany({
@@ -56,13 +94,24 @@ const uploadInspectionImages = async ({ bookingId, garageId, phase, files }) => 
   });
 
   if (existingImages.length > 0) {
-    if (existingImages.length === REQUIRED_INSPECTION_PHOTO_COUNT) return existingImages;
-    throw new ApiError(400, `Existing ${phase.toLowerCase()} inspection photos are incomplete`);
+    if (existingImages.length === REQUIRED_INSPECTION_PHOTO_COUNT) {
+      return existingImages;
+    }
+
+    throw new ApiError(
+      400,
+      `Existing ${phase.toLowerCase()} inspection photos are incomplete`,
+    );
   }
 
   const uploadedImages = [];
+
   for (const file of files) {
-    const uploaded = await uploadToCloudinary(file.buffer, INSPECTION_IMAGE_FOLDER, "image");
+    const uploaded = await uploadToCloudinary(
+      file.buffer,
+      INSPECTION_IMAGE_FOLDER,
+      "image",
+    );
     uploadedImages.push(uploaded);
   }
 
@@ -90,38 +139,60 @@ const bookingDetailInclude = {
   garage: true,
   services: { include: { service: true } },
   payment: true,
-  inspectionImages: { orderBy: [{ phase: "asc" }, { order: "asc" }] },
-};
-const notifySearchExpired = async (booking) => {
-  await notificationService.createNotification({
-    userId: booking.userId,
-    type: "BOOKING",
-    title: "Please try again",
-    message: "No garage accepted your service request in time. Please try again - nearby garages may be busy right now.",
-    link: "/dashboard/bookings",
-    metadata: { bookingId: booking.id, reason: "GARAGE_SEARCH_TIMEOUT" },
-  });
+  inspectionImages: {
+    orderBy: [{ phase: "asc" }, { order: "asc" }],
+  },
 };
 
+/**
+ * Expires only the current two-minute broadcast round.
+ *
+ * The booking deliberately stays SEARCHING_GARAGE. The next customer tracking
+ * poll will claim and start another round. This avoids relying on an in-memory
+ * setTimeout, which disappears whenever the server sleeps or restarts.
+ */
 const expireBookingSearch = async (bookingId) => {
-  const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
-  if (!booking || booking.status !== BOOKING_STATUS.SEARCHING_GARAGE || booking.garageId) return booking;
-  if (!booking.searchExpiresAt || booking.searchExpiresAt > new Date()) return booking;
+  if (!bookingId) return null;
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+  });
+
+  if (
+    !booking ||
+    booking.status !== BOOKING_STATUS.SEARCHING_GARAGE ||
+    booking.garageId
+  ) {
+    return booking;
+  }
+
+  const now = new Date();
+
+  if (booking.searchExpiresAt && booking.searchExpiresAt > now) {
+    return booking;
+  }
+
+  return prisma.$transaction(async (tx) => {
     await tx.garageBroadcastRequest.updateMany({
-      where: { bookingId, status: BROADCAST_STATUS.SENT },
-      data: { status: BROADCAST_STATUS.EXPIRED, expiredAt: new Date() },
+      where: {
+        bookingId,
+        status: BROADCAST_STATUS.SENT,
+      },
+      data: {
+        status: BROADCAST_STATUS.EXPIRED,
+        expiredAt: now,
+      },
     });
 
     return tx.booking.update({
       where: { id: bookingId },
-      data: { status: BOOKING_STATUS.EXPIRED, expiredAt: new Date() },
+      data: {
+        status: BOOKING_STATUS.SEARCHING_GARAGE,
+        searchExpiresAt: null,
+        expiredAt: null,
+      },
     });
   });
-
-  await notifySearchExpired(updated);
-  return updated;
 };
 
 const expireStaleGarageSearchesForUser = async (userId) => {
@@ -133,6 +204,7 @@ const expireStaleGarageSearchesForUser = async (userId) => {
       garageId: null,
       searchExpiresAt: { lte: now },
     },
+    select: { id: true },
   });
 
   for (const booking of bookings) {
@@ -140,9 +212,17 @@ const expireStaleGarageSearchesForUser = async (userId) => {
   }
 };
 
-const notifyGarageAccepted = async ({ booking, garage, otp, distanceKm = null, etaMinutes = null }) => {
+const notifyGarageAccepted = async ({
+  booking,
+  garage,
+  otp,
+  distanceKm = null,
+  etaMinutes = null,
+}) => {
   const etaText = etaMinutes
-    ? ` Estimated arrival: ${etaMinutes} min${distanceKm ? ` (${Number(distanceKm).toFixed(1)} km away)` : ""}.`
+    ? ` Estimated arrival: ${etaMinutes} min${
+        distanceKm ? ` (${Number(distanceKm).toFixed(1)} km away)` : ""
+      }.`
     : "";
 
   return notificationService.createNotification({
@@ -169,25 +249,47 @@ const notifyVehicleDelivered = async ({ booking, garage }) => {
     title: "Vehicle marked delivered",
     message: `${garage.name} has marked your vehicle as delivered. Please review and accept delivery to move it to service history.`,
     link: "/dashboard/bookings",
-    metadata: { bookingId: booking.id, garageId: garage.id, action: "ACCEPT_DELIVERY" },
+    metadata: {
+      bookingId: booking.id,
+      garageId: garage.id,
+      action: "ACCEPT_DELIVERY",
+    },
   });
 };
 
-const verifyBookingHandoverOtp = async ({ garageId, requestId, otp, images }) => {
+const verifyBookingHandoverOtp = async ({
+  garageId,
+  requestId,
+  otp,
+  images,
+}) => {
   const request = await prisma.garageBroadcastRequest.findFirst({
-    where: { id: requestId, garageId, status: BROADCAST_STATUS.ACCEPTED },
+    where: {
+      id: requestId,
+      garageId,
+      status: BROADCAST_STATUS.ACCEPTED,
+    },
     include: { booking: true, garage: true },
   });
 
-  if (!request) throw new ApiError(404, "Accepted garage request not found");
+  if (!request) {
+    throw new ApiError(404, "Accepted garage request not found");
+  }
+
   const booking = request.booking;
 
   if (booking.status !== BOOKING_STATUS.CONFIRMED) {
-    throw new ApiError(400, "Booking is not ready for handover OTP verification");
+    throw new ApiError(
+      400,
+      "Booking is not ready for handover OTP verification",
+    );
   }
 
   if (!booking.handoverOtpHash || !booking.handoverOtpExpiresAt) {
-    throw new ApiError(400, "Handover OTP is not available for this booking");
+    throw new ApiError(
+      400,
+      "Handover OTP is not available for this booking",
+    );
   }
 
   if (booking.handoverOtpExpiresAt < new Date()) {
@@ -217,20 +319,42 @@ const verifyBookingHandoverOtp = async ({ garageId, requestId, otp, images }) =>
   return { request, booking: updatedBooking };
 };
 
-const markBookingDeliveredByGarage = async ({ garageId, requestId, images }) => {
+const markBookingDeliveredByGarage = async ({
+  garageId,
+  requestId,
+  images,
+}) => {
   const request = await prisma.garageBroadcastRequest.findFirst({
-    where: { id: requestId, garageId, status: BROADCAST_STATUS.ACCEPTED },
-    include: { booking: { include: { user: true } }, garage: true },
+    where: {
+      id: requestId,
+      garageId,
+      status: BROADCAST_STATUS.ACCEPTED,
+    },
+    include: {
+      booking: { include: { user: true } },
+      garage: true,
+    },
   });
 
-  if (!request) throw new ApiError(404, "Accepted garage request not found");
+  if (!request) {
+    throw new ApiError(404, "Accepted garage request not found");
+  }
+
   const booking = request.booking;
 
   if (!booking.handoverOtpVerifiedAt) {
-    throw new ApiError(400, "Verify customer handover OTP before marking delivery");
+    throw new ApiError(
+      400,
+      "Verify customer handover OTP before marking delivery",
+    );
   }
 
-  if (![BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.CONFIRMED].includes(booking.status)) {
+  if (
+    ![
+      BOOKING_STATUS.IN_PROGRESS,
+      BOOKING_STATUS.CONFIRMED,
+    ].includes(booking.status)
+  ) {
     throw new ApiError(400, "Booking cannot be marked delivered now");
   }
 
@@ -251,7 +375,11 @@ const markBookingDeliveredByGarage = async ({ garageId, requestId, images }) => 
     include: bookingDetailInclude,
   });
 
-  await notifyVehicleDelivered({ booking: updatedBooking, garage: request.garage });
+  await notifyVehicleDelivered({
+    booking: updatedBooking,
+    garage: request.garage,
+  });
+
   return { request, booking: updatedBooking };
 };
 
@@ -262,8 +390,17 @@ const acceptDeliveredBookingByCustomer = async ({ userId, bookingId }) => {
   });
 
   if (!booking) throw new ApiError(404, "Booking not found");
-  if (!booking.deliveredAt) throw new ApiError(400, "Garage has not marked this booking delivered yet");
-  if (booking.payment && booking.payment.status !== "PAID") throw new ApiError(400, "Payment is not completed");
+
+  if (!booking.deliveredAt) {
+    throw new ApiError(
+      400,
+      "Garage has not marked this booking delivered yet",
+    );
+  }
+
+  if (booking.payment && booking.payment.status !== "PAID") {
+    throw new ApiError(400, "Payment is not completed");
+  }
 
   return prisma.booking.update({
     where: { id: bookingId },
@@ -277,7 +414,9 @@ const acceptDeliveredBookingByCustomer = async ({ userId, bookingId }) => {
       services: { include: { service: true } },
       payment: true,
       review: true,
-      inspectionImages: { orderBy: [{ phase: "asc" }, { order: "asc" }] },
+      inspectionImages: {
+        orderBy: [{ phase: "asc" }, { order: "asc" }],
+      },
     },
   });
 };

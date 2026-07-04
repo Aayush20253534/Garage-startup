@@ -28,17 +28,23 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin && process.env.NODE_ENV !== "production") {
-        callback(null, true);
-      } else if (origin && allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+    origin(origin, callback) {
+      /*
+       * Requests from tools such as Postman, mobile clients and server-to-server
+       * requests may not include an Origin header.
+       */
+      if (!origin) {
+        return callback(null, true);
       }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`Origin ${origin} is not allowed by CORS`));
     },
     credentials: true,
-  })
+  }),
 );
 
 app.use(compression());
@@ -48,27 +54,45 @@ app.use(
   express.json({
     limit: "10mb",
     verify: (req, res, buffer) => {
+      /*
+       * Required for validating webhook signatures such as WhatsApp/Meta.
+       */
       req.rawBody = buffer;
     },
   }),
 );
-app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: "10mb",
+  }),
+);
 
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
 app.get("/", (req, res) => {
-  res.status(200).json({
+  return res.status(200).json({
     success: true,
     message: "Rovauto API is running",
+  });
+});
+
+app.get("/health", (req, res) => {
+  return res.status(200).json({
+    success: true,
+    message: "Rovauto API is healthy",
+    environment: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
   });
 });
 
 app.use("/api/v1", routes);
 
 app.use((req, res) => {
-  res.status(404).json({
+  return res.status(404).json({
     success: false,
     message: `Route not found: ${req.originalUrl}`,
   });

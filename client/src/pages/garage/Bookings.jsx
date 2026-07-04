@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
-import { useSelector, useDispatch } from "react-redux";
 import {
-  FiAlertCircle,
-  FiRefreshCw,
-} from "react-icons/fi";
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { FiAlertCircle, FiRefreshCw } from "react-icons/fi";
 import BookingCard from "@/components/garage/BookingCard";
 import { setBookings } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
@@ -23,7 +25,6 @@ const statusFilters = [
 const toStatus = (filter) => {
   if (filter === "All") return "";
   if (filter === "New") return "SENT";
-
   return filter.replaceAll(" ", "_").toUpperCase();
 };
 
@@ -34,33 +35,63 @@ export default function GarageBookings() {
 
   const [activeFilter, setActiveFilter] = useState("All");
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const requestInFlight = useRef(false);
 
   const safeBookings = Array.isArray(bookings) ? bookings : [];
 
-  const loadBookings = async () => {
-    if (!garageToken) return;
+  const loadBookings = useCallback(
+    async ({ initial = false } = {}) => {
+      if (!garageToken || requestInFlight.current) return;
 
-    setLoading(true);
-    setError("");
+      requestInFlight.current = true;
+      if (initial) setLoading(true);
+      else setRefreshing(true);
 
-    try {
-      const data = await garageApi.getRequests(
-        garageToken,
-        toStatus(activeFilter)
-      );
+      try {
+        const data = await garageApi.getRequests(
+          garageToken,
+          toStatus(activeFilter),
+        );
 
-      dispatch(setBookings(data || []));
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to load bookings");
-    } finally {
-      setLoading(false);
-    }
-  };
+        dispatch(setBookings(Array.isArray(data) ? data : []));
+        setError("");
+      } catch (err) {
+        setError(
+          err.response?.data?.message || "Unable to load bookings",
+        );
+      } finally {
+        requestInFlight.current = false;
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [activeFilter, dispatch, garageToken],
+  );
 
   useEffect(() => {
-    loadBookings();
-  }, [garageToken, activeFilter]);
+    loadBookings({ initial: true });
+  }, [loadBookings]);
+
+  useEffect(() => {
+    if (!garageToken) return undefined;
+
+    const interval = window.setInterval(() => {
+      loadBookings();
+    }, 5000);
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") loadBookings();
+    };
+
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [garageToken, loadBookings]);
 
   const handleAccept = async (booking) => {
     try {
@@ -68,18 +99,24 @@ export default function GarageBookings() {
 
       const updated = await garageApi.acceptRequest(
         garageToken,
-        booking.requestId || booking.id
+        booking.requestId || booking.id,
       );
 
       dispatch(
         setBookings(
           safeBookings.map((item) =>
-            item.id === booking.id ? updated : item
-          )
-        )
+            item.id === booking.id ? updated : item,
+          ),
+        ),
       );
+
+      // Refresh once because accepting also expires the same booking's other
+      // garage requests and changes the underlying booking status.
+      await loadBookings();
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to accept booking");
+      setError(
+        err.response?.data?.message || "Unable to accept booking",
+      );
     }
   };
 
@@ -89,18 +126,22 @@ export default function GarageBookings() {
 
       const updated = await garageApi.rejectRequest(
         garageToken,
-        booking.requestId || booking.id
+        booking.requestId || booking.id,
       );
 
       dispatch(
         setBookings(
           safeBookings.map((item) =>
-            item.id === booking.id ? updated : item
-          )
-        )
+            item.id === booking.id ? updated : item,
+          ),
+        ),
       );
+
+      await loadBookings();
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to decline booking");
+      setError(
+        err.response?.data?.message || "Unable to decline booking",
+      );
     }
   };
 
@@ -112,17 +153,19 @@ export default function GarageBookings() {
             Bookings
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Manage all service requests sent to your garage.
+            New nearby requests refresh automatically every five seconds.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={loadBookings}
-          disabled={loading}
+          onClick={() => loadBookings()}
+          disabled={loading || refreshing}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <FiRefreshCw className={loading ? "animate-spin" : ""} />
+          <FiRefreshCw
+            className={loading || refreshing ? "animate-spin" : ""}
+          />
           Refresh
         </button>
       </div>
@@ -170,7 +213,7 @@ export default function GarageBookings() {
           ))
         ) : (
           <div className="card-soft rounded-2xl p-5 text-sm text-muted">
-            No bookings found. The void is quiet today.
+            No bookings found.
           </div>
         )}
       </section>
