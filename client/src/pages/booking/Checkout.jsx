@@ -28,6 +28,8 @@ import {
   FiTrash2,
   FiTruck,
   FiEdit,
+  FiSave,
+  FiX,
 } from "react-icons/fi";
 
 const getCheckoutAddressForm = ({ location, user }) => {
@@ -279,7 +281,7 @@ export default function Checkout() {
               <button
                 type="button"
                 onClick={() => setEditingAddress(true)}
-                className="flex items-center gap-1 text-sm font-medium text-ink"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
               >
                 <FiEdit /> Edit
               </button>
@@ -345,15 +347,17 @@ export default function Checkout() {
                 <button
                   type="button"
                   onClick={() => setEditingAddress(false)}
-                  className="flex-1 rounded-xl border border-line px-4 py-3 font-medium"
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
                 >
+                  <FiX />
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={saveAddress}
-                  className="flex-1 btn-primary"
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark"
                 >
+                  <FiSave />
                   Save Address
                 </button>
               </div>
@@ -372,15 +376,17 @@ export default function Checkout() {
               ([name, description], index) => (
                 <label
                   key={name}
-                  className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${
-                    index === 0 ? "border-ink bg-bg-soft" : "border-line"
+                  className={`flex min-h-[72px] cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition ${
+                    index === 0
+                      ? "border-ink bg-bg-soft shadow-sm"
+                      : "border-line hover:border-ink/25 hover:bg-bg-soft"
                   }`}
                 >
                   <input
                     type="radio"
                     name="pay"
                     defaultChecked={index === 0}
-                    className="mt-1 accent-ink"
+                    className="h-4 w-4 accent-ink"
                   />
                   <div>
                     <div className="font-semibold">{name}</div>
@@ -434,7 +440,7 @@ export default function Checkout() {
             <button
               type="button"
               onClick={clearCart}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-3 text-xs font-semibold text-muted shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
             >
               <FiTrash2 /> Clear
             </button>
@@ -486,7 +492,7 @@ export default function Checkout() {
           type="button"
           onClick={pay}
           disabled={loading}
-          className="btn-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-70"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
         >
           <FiLock /> {loading ? "Processing..." : `Pay ₹${fee} & Book Slot`}
         </button>

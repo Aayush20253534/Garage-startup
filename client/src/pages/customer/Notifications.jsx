@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "@/api/axios";
-import { FiBell } from "react-icons/fi";
+import { FiBell, FiCheckCircle } from "react-icons/fi";
 
 const formatTime = (date) => {
   if (!date) return "";
@@ -103,8 +103,9 @@ export default function Notifications() {
           <button
             type="button"
             onClick={markAllRead}
-            className="btn-ghost text-sm"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
           >
+            <FiCheckCircle />
             Mark all read
           </button>
         )}
@@ -148,8 +149,9 @@ export default function Notifications() {
                 <button
                   type="button"
                   onClick={() => markRead(notification)}
-                  className="btn-ghost shrink-0 text-xs"
+                  className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-3 text-xs font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
                 >
+                  <FiCheckCircle />
                   Mark as read
                 </button>
               ) : (

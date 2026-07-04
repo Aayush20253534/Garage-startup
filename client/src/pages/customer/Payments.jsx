@@ -4,6 +4,7 @@ import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import { isPaymentAuthError, payForBooking } from "@/utils/bookingPayment";
 import { addRecentActivity } from "@/utils/activityLog";
+import { FiCreditCard } from "react-icons/fi";
 
 const formatDate = (date) => {
   if (!date) return "-";
@@ -178,8 +179,9 @@ export default function Payments() {
                       type="button"
                       onClick={() => payPayment(payment)}
                       disabled={payingId === payment.id}
-                      className="btn-primary text-xs disabled:cursor-not-allowed disabled:opacity-70"
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-brand px-3 text-xs font-bold text-black shadow-sm shadow-brand/20 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
                     >
+                      <FiCreditCard />
                       {payingId === payment.id ? "Processing..." : "Pay Now"}
                     </button>
                   ) : (

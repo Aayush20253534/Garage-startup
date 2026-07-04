@@ -15,7 +15,7 @@ import {
   UNAVAILABLE_CITY_MESSAGE,
 } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
-import { FiMapPin, FiNavigation, FiX } from "react-icons/fi";
+import { FiCheckCircle, FiMapPin, FiNavigation, FiSave, FiX } from "react-icons/fi";
 
 const hasCoordinateValue = (value) =>
   value !== null && value !== undefined && value !== "";
@@ -409,7 +409,11 @@ export default function Profile() {
           </button>
         </div>
 
-        <button disabled={saving} className="btn-primary justify-self-start">
+        <button
+          disabled={saving}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          <FiSave />
           {saving ? "Saving..." : "Save Changes"}
         </button>
       </form>
@@ -427,7 +431,7 @@ export default function Profile() {
               <button
                 type="button"
                 onClick={() => setLocationOpen(false)}
-                className="btn-ghost !px-3 !py-2"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-white text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
               >
                 <FiX />
               </button>
@@ -444,7 +448,7 @@ export default function Profile() {
                 type="button"
                 onClick={detectLocation}
                 disabled={locationSaving}
-                className="flex items-center justify-center gap-2 rounded-xl border border-ink px-4 py-3 font-medium text-ink transition hover:bg-bg-soft disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <FiNavigation />
                 {locationSaving ? "Detecting..." : "Use Current Location"}
@@ -494,8 +498,9 @@ export default function Profile() {
                 type="button"
                 onClick={applyLocationDraft}
                 disabled={locationSaving}
-                className="btn-primary"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
               >
+                <FiCheckCircle />
                 {locationSaving ? "Saving..." : "Save Address"}
               </button>
             </div>

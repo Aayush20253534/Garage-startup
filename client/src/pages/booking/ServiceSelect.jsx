@@ -9,7 +9,14 @@ import {
   getServiceMaxPrice,
 } from "@/utils/priceRange";
 import { getServiceImageUrls, warmImageCache } from "@/utils/imageCache";
-import { FiArrowRight, FiCheck, FiTruck, FiSettings } from "react-icons/fi";
+import {
+  FiArrowRight,
+  FiCheck,
+  FiMinus,
+  FiPlus,
+  FiSettings,
+  FiTruck,
+} from "react-icons/fi";
 
 export default function ServiceSelect() {
   const { user, vehicle, location, cart, addToCart, removeFromCart } = useApp();
@@ -105,16 +112,19 @@ export default function ServiceSelect() {
                   key={c.id}
                   type="button"
                   onClick={() => setCatId(c.id)}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                    catId === c.id ? "bg-ink text-white" : "hover:bg-bg-soft"
+                  className={`flex h-10 items-center gap-2.5 rounded-lg px-3 text-left text-sm font-semibold transition ${
+                    catId === c.id
+                      ? "bg-ink text-white shadow-sm"
+                      : "text-ink hover:bg-bg-soft"
                   }`}
                 >
                   <Icon
+                    className="shrink-0 text-base"
                     style={{
                       color: catId === c.id ? "#b9f000" : ui.color,
                     }}
                   />
-                  {c.name}
+                  <span className="min-w-0 truncate">{c.name}</span>
                 </button>
               );
             })}
@@ -174,8 +184,13 @@ export default function ServiceSelect() {
                       inCart ? removeFromCart(service.id) : addToCart(service)
                     }
                     disabled={!hasPrice && !inCart}
-                    className={`${inCart ? "btn-dark" : "btn-primary"} shrink-0 disabled:cursor-not-allowed disabled:opacity-50`}
+                    className={`inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                      inCart
+                        ? "bg-ink text-white hover:bg-ink-2"
+                        : "bg-brand text-black shadow-brand/25 hover:bg-brand-dark"
+                    }`}
                   >
+                    {inCart ? <FiMinus /> : <FiPlus />}
                     {inCart ? "Remove" : "Add"}
                   </button>
                 </div>
@@ -239,8 +254,10 @@ export default function ServiceSelect() {
 
           <Link
             to="/checkout"
-            className={`btn-primary mt-4 w-full ${
-              cart.length === 0 ? "pointer-events-none opacity-50" : ""
+            className={`mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark ${
+              cart.length === 0
+                ? "pointer-events-none opacity-50 grayscale"
+                : ""
             }`}
           >
             Continue <FiArrowRight />
