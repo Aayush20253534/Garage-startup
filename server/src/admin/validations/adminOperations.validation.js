@@ -11,6 +11,7 @@ const bookingStatuses = [
   "GARAGE_ASSIGNED",
   "EXPIRED",
 ];
+const userRoles = ["CUSTOMER", "GARAGE_OWNER", "ADMIN"];
 
 const customerQuerySchema = [
   query("search").optional({ nullable: true, checkFalsy: true }).trim(),
@@ -35,8 +36,33 @@ const sendNotificationSchema = [
   body("link").optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
+const userEmailSearchSchema = [
+  query("search").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
+  query("role").optional({ nullable: true, checkFalsy: true }).isIn(userRoles),
+];
+
+const sendUserEmailSchema = [
+  body("userId").isUUID().withMessage("Select a valid user"),
+  body("subject")
+    .trim()
+    .notEmpty()
+    .withMessage("Subject is required")
+    .isLength({ max: 160 })
+    .withMessage("Subject cannot exceed 160 characters"),
+  body("message")
+    .trim()
+    .notEmpty()
+    .withMessage("Message is required")
+    .isLength({ min: 5 })
+    .withMessage("Message must be at least 5 characters")
+    .isLength({ max: 5000 })
+    .withMessage("Message cannot exceed 5000 characters"),
+];
+
 module.exports = {
   bookingQuerySchema,
   customerQuerySchema,
+  sendUserEmailSchema,
   sendNotificationSchema,
+  userEmailSearchSchema,
 };

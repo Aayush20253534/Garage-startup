@@ -7,7 +7,9 @@ const validate = require("../../middlewares/validate.middleware");
 const {
   bookingQuerySchema,
   customerQuerySchema,
+  sendUserEmailSchema,
   sendNotificationSchema,
+  userEmailSearchSchema,
 } = require("../validations/adminOperations.validation");
 
 const router = express.Router();
@@ -23,6 +25,18 @@ router.get(
   controller.listCustomers,
 );
 router.get("/bookings", bookingQuerySchema, validate, controller.listBookings);
+router.get(
+  "/email-users",
+  userEmailSearchSchema,
+  validate,
+  controller.searchEmailUsers,
+);
+router.post(
+  "/emails",
+  sendUserEmailSchema,
+  validate,
+  controller.sendUserEmail,
+);
 router.post(
   "/notifications",
   sendNotificationSchema,

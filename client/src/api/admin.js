@@ -106,6 +106,14 @@ export const adminApi = {
     return unwrap(await api.post("/admin/notifications", payload));
   },
 
+  async searchEmailUsers(params = {}) {
+    return unwrap(await api.get("/admin/email-users", { params }));
+  },
+
+  async sendUserEmail(payload) {
+    return unwrap(await api.post("/admin/emails", payload));
+  },
+
   async createPriceRange(payload) {
     return unwrap(await api.post("/admin/city-service-price-ranges", payload));
   },

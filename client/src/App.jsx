@@ -119,6 +119,7 @@ const AdminGarages = lazy(() => import("@/pages/admin/Garages"));
 const AdminBookings = lazy(() => import("@/pages/admin/Bookings"));
 const AdminRevenue = lazy(() => import("@/pages/admin/Revenue"));
 const AdminNotifications = lazy(() => import("@/pages/admin/Notifications"));
+const AdminEmail = lazy(() => import("@/pages/admin/Email"));
 const AdminCars = lazy(() => import("@/pages/admin/Cars"));
 const AdminServices = lazy(() => import("@/pages/admin/Services"));
 
@@ -140,6 +141,7 @@ import {
   FiSettings,
   FiDollarSign,
   FiHome,
+  FiMail,
 } from "react-icons/fi";
 
 const isChunkLoadError = (error) => {
@@ -276,6 +278,7 @@ const adminItems = [
   { to: "/admin/customers", label: "Customers", icon: FiUsers },
   { to: "/admin/bookings", label: "Bookings", icon: FiCalendar },
   { to: "/admin/notifications", label: "Notifications", icon: FiBell },
+  { to: "/admin/email", label: "Email", icon: FiMail },
 ];
 
 function AppRoutes() {
@@ -596,6 +599,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminNotifications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/email"
+            element={
+              <ProtectedRoute>
+                <AdminEmail />
               </ProtectedRoute>
             }
           />

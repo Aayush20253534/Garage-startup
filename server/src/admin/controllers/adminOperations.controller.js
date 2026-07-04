@@ -36,9 +36,25 @@ const sendNotification = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Notification sent successfully", result));
 });
 
+const searchEmailUsers = asyncHandler(async (req, res) => {
+  const users = await service.searchEmailUsers(req.query);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Users fetched successfully", users));
+});
+
+const sendUserEmail = asyncHandler(async (req, res) => {
+  const result = await service.sendUserEmail(req.body);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Email sent successfully", result));
+});
+
 module.exports = {
   getDashboardStats,
   listBookings,
   listCustomers,
+  searchEmailUsers,
+  sendUserEmail,
   sendNotification,
 };
