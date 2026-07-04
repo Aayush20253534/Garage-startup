@@ -757,17 +757,17 @@ export default function Tracking() {
               />
             </div>
 
-            <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="mt-5 grid grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() =>
                   booking.garage.phone &&
                   window.open(`tel:${booking.garage.phone}`, "_self")
                 }
-                className="btn-ghost flex-col gap-2 py-3"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft focus:outline-none focus:ring-2 focus:ring-brand/40"
               >
-                <FiPhone />
-                <span className="text-xs">Call</span>
+                <FiPhone className="text-base" />
+                <span>Call</span>
               </button>
               <button
                 type="button"
@@ -781,10 +781,10 @@ export default function Tracking() {
                     );
                   }
                 }}
-                className="btn-ghost flex-col gap-2 py-3"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft focus:outline-none focus:ring-2 focus:ring-brand/40"
               >
-                <FiMessageCircle />
-                <span className="text-xs">WhatsApp</span>
+                <FiMessageCircle className="text-base" />
+                <span>WhatsApp</span>
               </button>
               <button
                 type="button"
@@ -794,10 +794,10 @@ export default function Tracking() {
                     "_blank",
                   )
                 }
-                className="btn-primary flex-col gap-2 py-3"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-brand/50"
               >
-                <FiNavigation />
-                <span className="text-xs">Navigate</span>
+                <FiNavigation className="text-base" />
+                <span>Navigate</span>
               </button>
             </div>
           </div>
