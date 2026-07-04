@@ -143,7 +143,7 @@ const createPaymentOrder = async (userId, { bookingId }) => {
     throw new ApiError(400, "Payment already completed");
   }
 
-  const amount = booking.payableAmount || booking.handlingFee || 99;
+  const amount = booking.payableAmount || booking.handlingFee || 1;
 
   if (amount <= 0) {
     throw new ApiError(400, "No online payment required for this booking");
