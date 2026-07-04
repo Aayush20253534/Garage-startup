@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import {
-  FiMail,
-  FiPhone,
-  FiMapPin,
+  FiAlertCircle,
   FiCheckCircle,
   FiChevronDown,
+  FiMail,
+  FiMapPin,
+  FiPhone,
+  FiSend,
 } from "react-icons/fi";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
@@ -30,18 +32,22 @@ const FAQS = [
 
 const SUPPORT_PHONE_DISPLAY = "+91 98993 19913";
 
+const inputClass =
+  "h-10 rounded-lg border border-line bg-bg-soft px-3 text-sm text-muted outline-none";
+
+const textareaClass =
+  "min-h-[120px] resize-none rounded-lg border border-line px-3 py-2 text-sm outline-none transition focus:border-ink";
+
 export default function Contact() {
   const { user, fetchProfile } = useApp();
 
   const [sent, setSent] = useState(false);
   const [open, setOpen] = useState(0);
-
   const [form, setForm] = useState({
     name: "",
     email: "",
     message: "",
   });
-
   const [profileLoading, setProfileLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -76,12 +82,15 @@ export default function Contact() {
     loadUser();
   }, [user, fetchProfile]);
 
-  const change = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const change = (event) => {
+    setForm((prev) => ({
+      ...prev,
+      [event.target.name]: event.target.value,
+    }));
   };
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const submit = async (event) => {
+    event.preventDefault();
 
     try {
       setLoading(true);
@@ -102,150 +111,202 @@ export default function Contact() {
     }
   };
 
+  const contactCards = [
+    {
+      icon: FiPhone,
+      title: "Call us",
+      detail: SUPPORT_PHONE_DISPLAY,
+      sub: "Mon-Sun, 8 AM-10 PM",
+    },
+    {
+      icon: FiMail,
+      title: "Email us",
+      detail: "rovauto.offical@gmail.com",
+      sub: "Replies within 2 hours",
+    },
+    {
+      icon: FiMapPin,
+      title: "Visit HQ",
+      detail: "Sector 62, Noida",
+      sub: "Uttar Pradesh, India",
+    },
+  ];
+
   return (
-    <div className="container-x py-16">
-      <div className="text-center max-w-2xl mx-auto">
-        <span className="chip-brand">Contact</span>
+    <div className="container-x py-10">
+      <div className="mx-auto max-w-6xl space-y-8 overflow-x-hidden">
+        <section className="text-center">
+          <span className="inline-flex rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-ink">
+            Contact
+          </span>
 
-        <h1 className="text-4xl sm:text-5xl font-bold mt-4">
-          We're here to help.
-        </h1>
-      </div>
+          <h1 className="mt-4 text-3xl font-bold text-ink sm:text-5xl">
+            We're here to help.
+          </h1>
 
-      <div className="mt-12 grid lg:grid-cols-3 gap-5">
-        {[
-          {
-            icon: FiPhone,
-            t: "Call us",
-            d: SUPPORT_PHONE_DISPLAY,
-            sub: "Mon–Sun, 8 AM–10 PM",
-          },
-          {
-            icon: FiMail,
-            t: "Email us",
-            d: "rovauto.offical@gmail.com",
-            sub: "Replies within 2 hours",
-          },
-          {
-            icon: FiMapPin,
-            t: "Visit HQ",
-            d: "Sector 62, Noida",
-            sub: "Uttar Pradesh, India",
-          },
-        ].map((c) => (
-          <div key={c.t} className="card-soft p-6">
-            <div className="h-12 w-12 grid place-items-center rounded-2xl bg-brand">
-              <c.icon />
-            </div>
+          <p className="mx-auto mt-3 max-w-2xl text-sm text-muted sm:text-base">
+            Questions, booking issues, garage concerns, or payment problems.
+            Send the message here so support can untangle the machinery.
+          </p>
+        </section>
 
-            <h3 className="mt-4 font-semibold text-lg">{c.t}</h3>
+        <section className="grid gap-4 md:grid-cols-3">
+          {contactCards.map((card) => {
+            const Icon = card.icon;
 
-            <div className="font-medium mt-1">{c.d}</div>
-
-            <div className="text-sm text-muted">{c.sub}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-12 grid lg:grid-cols-2 gap-8">
-        <div className="card-soft p-7">
-          {sent ? (
-            <div className="text-center py-16">
-              <div className="h-16 w-16 grid place-items-center bg-brand rounded-full mx-auto">
-                <FiCheckCircle className="text-3xl" />
-              </div>
-
-              <h3 className="text-2xl font-bold mt-4">
-                Thanks! We'll get back soon.
-              </h3>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSent(false);
-                  setError("");
-                }}
-                className="btn-ghost mt-5"
+            return (
+              <div
+                key={card.title}
+                className="card-soft rounded-2xl p-4 shadow-sm transition hover:shadow-md"
               >
-                Send another message
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="grid gap-4">
-              <h3 className="text-2xl font-bold">Send us a message</h3>
-
-              {error && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                  {error}
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-black">
+                  <Icon />
                 </div>
-              )}
 
-              <input
-                required
-                name="name"
-                value={form.name}
-                readOnly
-                placeholder={profileLoading ? "Loading name..." : "Your name"}
-                className="px-4 py-3 rounded-xl border border-line bg-bg-soft text-muted outline-none cursor-not-allowed"
-              />
+                <h3 className="mt-4 font-bold text-ink">{card.title}</h3>
 
-              <input
-                required
-                name="email"
-                value={form.email}
-                readOnly
-                type="email"
-                placeholder={profileLoading ? "Loading email..." : "Email"}
-                className="px-4 py-3 rounded-xl border border-line bg-bg-soft text-muted outline-none cursor-not-allowed"
-              />
+                <div className="mt-1 text-sm font-semibold text-ink">
+                  {card.detail}
+                </div>
 
-              <textarea
-                required
-                name="message"
-                value={form.message}
-                onChange={change}
-                rows={4}
-                placeholder="How can we help?"
-                className="px-4 py-3 rounded-xl border border-line focus:border-ink outline-none"
-              />
+                <div className="mt-1 text-xs text-muted">{card.sub}</div>
+              </div>
+            );
+          })}
+        </section>
 
-              <button
-                disabled={
-                  loading || profileLoading || !form.name || !form.email
-                }
-                className="btn-primary disabled:opacity-60"
-              >
-                {loading ? "Sending..." : "Send Message"}
-              </button>
-            </form>
-          )}
-        </div>
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="card-soft rounded-2xl p-4 shadow-sm sm:p-5">
+            {sent ? (
+              <div className="py-14 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand text-2xl text-black">
+                  <FiCheckCircle />
+                </div>
 
-        <div>
-          <h3 className="text-2xl font-bold mb-4">FAQs</h3>
+                <h3 className="mt-4 text-xl font-bold text-ink">
+                  Thanks! We'll get back soon.
+                </h3>
 
-          <div className="grid gap-3">
-            {FAQS.map(([q, a], i) => (
-              <div key={q} className="card-soft overflow-hidden">
+                <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+                  Your message reached support. A rare win for forms.
+                </p>
+
                 <button
                   type="button"
-                  onClick={() => setOpen(open === i ? -1 : i)}
-                  className="w-full flex items-center justify-between p-5 text-left"
+                  onClick={() => {
+                    setSent(false);
+                    setError("");
+                  }}
+                  className="mt-5 inline-flex h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
                 >
-                  <span className="font-medium">{q}</span>
-
-                  <FiChevronDown
-                    className={`transition ${open === i ? "rotate-180" : ""}`}
-                  />
+                  Send another message
                 </button>
-
-                {open === i && (
-                  <div className="px-5 pb-5 text-muted text-sm">{a}</div>
-                )}
               </div>
-            ))}
+            ) : (
+              <form onSubmit={submit} className="grid gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-ink">
+                    Send us a message
+                  </h3>
+                  <p className="mt-1 text-sm text-muted">
+                    Your name and email are filled from your profile.
+                  </p>
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <FiAlertCircle className="shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input
+                    required
+                    name="name"
+                    value={form.name}
+                    readOnly
+                    placeholder={
+                      profileLoading ? "Loading name..." : "Your name"
+                    }
+                    className={inputClass}
+                  />
+
+                  <input
+                    required
+                    name="email"
+                    value={form.email}
+                    readOnly
+                    type="email"
+                    placeholder={profileLoading ? "Loading email..." : "Email"}
+                    className={inputClass}
+                  />
+                </div>
+
+                <textarea
+                  required
+                  name="message"
+                  value={form.message}
+                  onChange={change}
+                  rows={5}
+                  placeholder="How can we help?"
+                  className={textareaClass}
+                />
+
+                <div className="flex justify-end">
+                  <button
+                    disabled={
+                      loading || profileLoading || !form.name || !form.email
+                    }
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-bold text-black transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <FiSend />
+                    {loading ? "Sending..." : "Send Message"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
-        </div>
+
+          <div>
+            <div className="mb-3">
+              <h3 className="text-xl font-bold text-ink">FAQs</h3>
+              <p className="mt-1 text-sm text-muted">
+                Quick answers before humanity files another ticket.
+              </p>
+            </div>
+
+            <div className="grid gap-3">
+              {FAQS.map(([question, answer], index) => (
+                <div
+                  key={question}
+                  className="card-soft overflow-hidden rounded-2xl shadow-sm"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpen(open === index ? -1 : index)}
+                    className="flex w-full items-center justify-between gap-3 p-4 text-left"
+                  >
+                    <span className="font-semibold text-ink">{question}</span>
+
+                    <FiChevronDown
+                      className={[
+                        "shrink-0 text-muted transition",
+                        open === index ? "rotate-180" : "",
+                      ].join(" ")}
+                    />
+                  </button>
+
+                  {open === index && (
+                    <div className="border-t border-line px-4 py-3 text-sm text-muted">
+                      {answer}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );
