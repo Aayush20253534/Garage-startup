@@ -466,6 +466,4 @@ Garage Profile.jsx
 
 Constants.js
 
----
-
----
+wallet.validation.js
