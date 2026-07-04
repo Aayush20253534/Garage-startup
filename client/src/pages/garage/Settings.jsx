@@ -2,32 +2,34 @@ import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
+  FiAlertCircle,
+  FiAlertTriangle,
   FiBell,
-  FiMessageSquare,
-  FiPhone,
-  FiLock,
-  FiLogOut,
-  FiTrash2,
+  FiCheck,
   FiChevronDown,
   FiChevronUp,
-  FiCheck,
+  FiLock,
+  FiLogOut,
+  FiMessageSquare,
+  FiPhone,
+  FiTrash2,
   FiX,
-  FiAlertTriangle,
 } from "react-icons/fi";
 import { setNotifications } from "@/store/garageSlice";
 import { useApp } from "@/hooks/useApp";
 import { garageApi } from "@/api/garage";
 
+const inputClass =
+  "h-10 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink";
+
 export default function GarageSettings() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
   const notifications = useSelector((state) => state.garage.notifications);
   const { garageToken, logoutGarage } = useApp();
 
-  // State for expandable sections
   const [activeSection, setActiveSection] = useState(null);
-
-  // State for password form
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -36,8 +38,6 @@ export default function GarageSettings() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
-
-  // State for confirmation modals
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -54,14 +54,14 @@ export default function GarageSettings() {
       id: "password",
       icon: FiLock,
       title: "Change Password",
-      description: "Update your password",
+      description: "Update your account password",
       type: "form",
     },
     {
       id: "logout",
       icon: FiLogOut,
       title: "Logout",
-      description: "Sign out of your account",
+      description: "Sign out of your garage account",
       type: "danger",
     },
     {
@@ -73,31 +73,36 @@ export default function GarageSettings() {
     },
   ];
 
-  // Handle notification toggle
   const handleNotificationToggle = (type, value) => {
-    dispatch(setNotifications({ ...notifications, [type]: value }));
+    dispatch(
+      setNotifications({
+        ...notifications,
+        [type]: value,
+      })
+    );
   };
 
-  // Handle password change
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
+  const handlePasswordChange = async (event) => {
+    event.preventDefault();
+
     setPasswordError("");
     setPasswordSuccess("");
     setPasswordLoading(true);
 
-    // Validate passwords
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError("Passwords do not match!");
-      setPasswordLoading(false);
-      return;
-    }
     if (!passwordForm.currentPassword) {
-      setPasswordError("Current password is required!");
+      setPasswordError("Current password is required.");
       setPasswordLoading(false);
       return;
     }
+
     if (passwordForm.newPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters long!");
+      setPasswordError("Password must be at least 8 characters long.");
+      setPasswordLoading(false);
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("Passwords do not match.");
       setPasswordLoading(false);
       return;
     }
@@ -106,9 +111,10 @@ export default function GarageSettings() {
       await garageApi.changePassword(
         garageToken,
         passwordForm.currentPassword,
-        passwordForm.newPassword,
+        passwordForm.newPassword
       );
-      setPasswordSuccess("Password changed successfully!");
+
+      setPasswordSuccess("Password changed successfully.");
       setPasswordForm({
         currentPassword: "",
         newPassword: "",
@@ -118,21 +124,19 @@ export default function GarageSettings() {
       setPasswordError(
         err.response?.data?.message ||
           err.message ||
-          "Unable to change password",
+          "Unable to change password"
       );
     } finally {
       setPasswordLoading(false);
     }
   };
 
-  // Handle logout
   const handleLogout = async () => {
     setActionLoading(true);
     await logoutGarage();
     navigate("/garage/login");
   };
 
-  // Handle delete account
   const handleDeleteAccount = async () => {
     setActionLoading(true);
     await logoutGarage();
@@ -140,201 +144,240 @@ export default function GarageSettings() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-5 overflow-x-hidden">
       <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted">Manage your account settings</p>
+        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Settings</h1>
+        <p className="mt-1 text-sm text-muted">
+          Manage your garage account preferences.
+        </p>
       </div>
 
-      <div className="space-y-3">
-        {settingsItems.map((item) => (
-          <div key={item.id} className="card-soft">
-            <button
-              onClick={() => {
-                if (item.type === "danger") {
-                  if (item.id === "logout") setShowLogoutModal(true);
-                  if (item.id === "delete") setShowDeleteModal(true);
-                } else {
-                  setActiveSection(activeSection === item.id ? null : item.id);
-                }
-              }}
-              className="w-full p-6 text-left flex items-center justify-between hover:bg-bg-soft transition-colors rounded-2xl"
-            >
-              <div className="flex items-center gap-4">
-                <div
-                  className={`p-3 rounded-xl ${
-                    item.type === "danger"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-bg-soft"
-                  }`}
-                >
-                  <item.icon className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3
-                    className={`font-bold ${item.type === "danger" ? "text-red-700" : ""}`}
-                  >
-                    {item.title}
-                  </h3>
-                  <p className="text-muted text-sm">{item.description}</p>
-                </div>
-              </div>
-              {item.type !== "danger" &&
-                (activeSection === item.id ? (
-                  <FiChevronUp />
-                ) : (
-                  <FiChevronDown />
-                ))}
-            </button>
+      <section className="grid gap-3">
+        {settingsItems.map((item) => {
+          const Icon = item.icon;
+          const isOpen = activeSection === item.id;
+          const isDanger = item.type === "danger";
 
-            {/* Notifications */}
-            {item.id === "notifications" &&
-              activeSection === "notifications" && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="p-6 pt-0 border-t border-line"
-                >
-                  <div className="flex items-center justify-between p-4 bg-bg-soft rounded-xl mb-4">
-                    <div className="flex items-center gap-3">
-                      <FiMessageSquare className="w-5 h-5 text-muted" />
-                      <span>WhatsApp Notifications</span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notifications.whatsapp}
-                      onChange={(e) =>
-                        handleNotificationToggle("whatsapp", e.target.checked)
-                      }
-                      className="w-5 h-5 accent-emerald-500"
-                    />
+          return (
+            <article
+              key={item.id}
+              className="card-soft overflow-hidden rounded-2xl shadow-sm"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (isDanger) {
+                    if (item.id === "logout") setShowLogoutModal(true);
+                    if (item.id === "delete") setShowDeleteModal(true);
+                    return;
+                  }
+
+                  setActiveSection(isOpen ? null : item.id);
+                }}
+                className="flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-bg-soft"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div
+                    className={[
+                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+                      isDanger
+                        ? "bg-red-50 text-red-700"
+                        : "bg-bg-soft text-ink",
+                    ].join(" ")}
+                  >
+                    <Icon />
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-bg-soft rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <FiPhone className="w-5 h-5 text-muted" />
-                      <span>SMS Notifications</span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notifications.sms}
-                      onChange={(e) =>
-                        handleNotificationToggle("sms", e.target.checked)
-                      }
-                      className="w-5 h-5 accent-emerald-500"
-                    />
+
+                  <div className="min-w-0">
+                    <h3
+                      className={[
+                        "font-bold",
+                        isDanger ? "text-red-700" : "text-ink",
+                      ].join(" ")}
+                    >
+                      {item.title}
+                    </h3>
+                    <p className="mt-1 text-sm text-muted">
+                      {item.description}
+                    </p>
+                  </div>
+                </div>
+
+                {!isDanger &&
+                  (isOpen ? (
+                    <FiChevronUp className="shrink-0 text-muted" />
+                  ) : (
+                    <FiChevronDown className="shrink-0 text-muted" />
+                  ))}
+              </button>
+
+              {item.id === "notifications" && isOpen && (
+                <div className="border-t border-line p-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="flex items-center justify-between gap-3 rounded-xl bg-bg-soft p-4">
+                      <div className="flex items-center gap-3">
+                        <FiMessageSquare className="text-muted" />
+                        <span className="text-sm font-semibold text-ink">
+                          WhatsApp Notifications
+                        </span>
+                      </div>
+
+                      <input
+                        type="checkbox"
+                        checked={Boolean(notifications?.whatsapp)}
+                        onChange={(event) =>
+                          handleNotificationToggle(
+                            "whatsapp",
+                            event.target.checked
+                          )
+                        }
+                        className="h-5 w-5 accent-emerald-500"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between gap-3 rounded-xl bg-bg-soft p-4">
+                      <div className="flex items-center gap-3">
+                        <FiPhone className="text-muted" />
+                        <span className="text-sm font-semibold text-ink">
+                          SMS Notifications
+                        </span>
+                      </div>
+
+                      <input
+                        type="checkbox"
+                        checked={Boolean(notifications?.sms)}
+                        onChange={(event) =>
+                          handleNotificationToggle("sms", event.target.checked)
+                        }
+                        className="h-5 w-5 accent-emerald-500"
+                      />
+                    </label>
                   </div>
                 </div>
               )}
 
-            {/* Change Password */}
-            {item.id === "password" && activeSection === "password" && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="p-6 pt-0 border-t border-line"
-              >
-                <form onSubmit={handlePasswordChange} className="space-y-4">
-                  {passwordError && (
-                    <div className="p-4 bg-red-100 text-red-700 rounded-xl flex items-center gap-2">
-                      <FiX /> {passwordError}
-                    </div>
-                  )}
-                  {passwordSuccess && (
-                    <div className="p-4 bg-green-100 text-green-700 rounded-xl flex items-center gap-2">
-                      <FiCheck /> {passwordSuccess}
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Current Password
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordForm.currentPassword}
-                      onChange={(e) =>
-                        setPasswordForm({
-                          ...passwordForm,
-                          currentPassword: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
-                      placeholder="Enter current password"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      New Password
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordForm.newPassword}
-                      onChange={(e) =>
-                        setPasswordForm({
-                          ...passwordForm,
-                          newPassword: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
-                      placeholder="Enter new password"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Confirm Password
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) =>
-                        setPasswordForm({
-                          ...passwordForm,
-                          confirmPassword: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
-                      placeholder="Confirm new password"
-                      required
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={passwordLoading}
-                    className="btn-primary w-full"
+              {item.id === "password" && isOpen && (
+                <div className="border-t border-line p-4">
+                  <form
+                    onSubmit={handlePasswordChange}
+                    className="grid gap-4"
                   >
-                    {passwordLoading
-                      ? "Changing Password..."
-                      : "Change Password"}
-                  </button>
-                </form>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+                    {passwordError && (
+                      <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <FiX className="shrink-0" />
+                        <span>{passwordError}</span>
+                      </div>
+                    )}
 
-      {/* Logout Confirmation Modal */}
+                    {passwordSuccess && (
+                      <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                        <FiCheck className="shrink-0" />
+                        <span>{passwordSuccess}</span>
+                      </div>
+                    )}
+
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <label className="grid gap-1.5 text-sm font-semibold text-ink">
+                        Current Password
+                        <input
+                          type="password"
+                          value={passwordForm.currentPassword}
+                          onChange={(event) =>
+                            setPasswordForm({
+                              ...passwordForm,
+                              currentPassword: event.target.value,
+                            })
+                          }
+                          className={inputClass}
+                          placeholder="Current password"
+                          required
+                        />
+                      </label>
+
+                      <label className="grid gap-1.5 text-sm font-semibold text-ink">
+                        New Password
+                        <input
+                          type="password"
+                          value={passwordForm.newPassword}
+                          onChange={(event) =>
+                            setPasswordForm({
+                              ...passwordForm,
+                              newPassword: event.target.value,
+                            })
+                          }
+                          className={inputClass}
+                          placeholder="New password"
+                          required
+                        />
+                      </label>
+
+                      <label className="grid gap-1.5 text-sm font-semibold text-ink">
+                        Confirm Password
+                        <input
+                          type="password"
+                          value={passwordForm.confirmPassword}
+                          onChange={(event) =>
+                            setPasswordForm({
+                              ...passwordForm,
+                              confirmPassword: event.target.value,
+                            })
+                          }
+                          className={inputClass}
+                          placeholder="Confirm password"
+                          required
+                        />
+                      </label>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={passwordLoading}
+                        className="inline-flex h-10 items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {passwordLoading
+                          ? "Changing..."
+                          : "Change Password"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </section>
+
       {showLogoutModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FiLogOut className="w-8 h-8 text-red-700" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-700">
+                <FiLogOut className="text-2xl" />
               </div>
-              <h3 className="text-xl font-bold mb-2">Logout</h3>
-              <p className="text-muted">Are you sure you want to log out?</p>
+
+              <h3 className="text-xl font-bold text-ink">Logout</h3>
+
+              <p className="mt-2 text-sm text-muted">
+                Are you sure you want to log out?
+              </p>
             </div>
-            <div className="flex gap-3">
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
               <button
+                type="button"
                 onClick={() => setShowLogoutModal(false)}
-                className="flex-1 btn-ghost"
                 disabled={actionLoading}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:opacity-60"
               >
                 Cancel
               </button>
+
               <button
+                type="button"
                 onClick={handleLogout}
-                className="flex-1 bg-red-700 text-white hover:bg-red-800 transition-colors px-4 py-3 rounded-xl"
                 disabled={actionLoading}
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-red-700 px-4 text-sm font-bold text-white transition hover:bg-red-800 disabled:opacity-60"
               >
                 {actionLoading ? "Logging out..." : "Logout"}
               </button>
@@ -343,32 +386,37 @@ export default function GarageSettings() {
         </div>
       )}
 
-      {/* Delete Account Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FiAlertTriangle className="w-8 h-8 text-red-700" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-700">
+                <FiAlertTriangle className="text-2xl" />
               </div>
-              <h3 className="text-xl font-bold mb-2">Delete Account</h3>
-              <p className="text-muted">
-                Are you sure you want to permanently delete your account? This
-                action cannot be undone.
+
+              <h3 className="text-xl font-bold text-ink">Delete Account</h3>
+
+              <p className="mt-2 text-sm text-muted">
+                This will permanently delete your account. Humanity has invented
+                undo buttons, but not for this.
               </p>
             </div>
-            <div className="flex gap-3">
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
               <button
+                type="button"
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 btn-ghost"
                 disabled={actionLoading}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:opacity-60"
               >
                 Cancel
               </button>
+
               <button
+                type="button"
                 onClick={handleDeleteAccount}
-                className="flex-1 bg-red-700 text-white hover:bg-red-800 transition-colors px-4 py-3 rounded-xl"
                 disabled={actionLoading}
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-red-700 px-4 text-sm font-bold text-white transition hover:bg-red-800 disabled:opacity-60"
               >
                 {actionLoading ? "Deleting..." : "Delete"}
               </button>
