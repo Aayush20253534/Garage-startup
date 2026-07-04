@@ -108,7 +108,7 @@ export default function Footer() {
                 href: "https://instagram.com/rovauto.official",
               },
               { Icon: FiTwitter, href: "https://x.com/Rovauto_ON" },
-              { Icon: FiYoutube, href: "https://youtube.com/@rovauto" },
+              { Icon: FiYoutube, href: "https://www.youtube.com/@Rovauto" },
               {
                 Icon: FiFacebook,
                 href: "https://www.facebook.com/share/18AVZ22uvY/",
