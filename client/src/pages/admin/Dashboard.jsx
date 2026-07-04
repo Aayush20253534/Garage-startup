@@ -1,6 +1,22 @@
 import { useEffect, useState } from "react";
-import { FiCalendar, FiDollarSign, FiHome, FiUsers } from "react-icons/fi";
+import {
+  FiAlertCircle,
+  FiCalendar,
+  FiDollarSign,
+  FiHome,
+  FiUsers,
+} from "react-icons/fi";
 import { adminApi } from "@/api/admin";
+
+const formatDate = (date) => {
+  if (!date) return "-";
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(date));
+};
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -26,10 +42,11 @@ export default function AdminDashboard() {
           ...current,
           ...(dashboard.stats || {}),
         }));
+
         setRecentApplications(dashboard.recentApplications || []);
       } catch (err) {
         setError(
-          err.response?.data?.message || "Unable to load admin dashboard",
+          err.response?.data?.message || "Unable to load admin dashboard"
         );
       }
     };
@@ -40,121 +57,173 @@ export default function AdminDashboard() {
   const cards = [
     {
       icon: FiHome,
-      n: stats.garages,
-      l: "Total Garages",
-      c: `${stats.activeGarages} active`,
+      number: stats.garages,
+      label: "Total Garages",
+      caption: `${stats.activeGarages} active`,
+    },
+    {
+      icon: FiHome,
+      number: stats.activeGarages,
+      label: "Active Garages",
+      caption: "Approved garages",
     },
     {
       icon: FiCalendar,
-      n: stats.pendingApplications,
-      l: "Pending Applications",
-      c: "Needs review",
-    },
-    {
-      icon: FiDollarSign,
-      n: stats.priceRanges,
-      l: "Price Ranges",
-      c: "Configured",
+      number: stats.bookings,
+      label: "Bookings",
+      caption: "Total bookings",
     },
     {
       icon: FiUsers,
-      n: stats.customers,
-      l: "Customers",
-      c: `${stats.bookings} bookings`,
+      number: stats.customers,
+      label: "Customers",
+      caption: "Registered users",
+    },
+    {
+      icon: FiDollarSign,
+      number: stats.priceRanges,
+      label: "Price Ranges",
+      caption: "Configured ranges",
+    },
+    {
+      icon: FiCalendar,
+      number: stats.pendingApplications,
+      label: "Pending Applications",
+      caption: "Needs review",
     },
   ];
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
-      <div className="grid gap-5 sm:gap-6">
-        {error && (
-          <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {cards.map((s) => {
-            const Icon = s.icon;
-
-            return (
-              <div key={s.l} className="card-soft min-w-0 p-4 sm:p-5">
-                <div className="flex min-w-0 items-center justify-between gap-3">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand">
-                    <Icon />
-                  </div>
-
-                  <span className="chip-brand max-w-[140px] truncate">
-                    {s.c}
-                  </span>
-                </div>
-
-                <div className="mt-3 text-2xl font-bold">{s.n}</div>
-                <div className="truncate text-sm text-muted">{s.l}</div>
-              </div>
-            );
-          })}
+    <div className="mx-auto max-w-6xl space-y-5 overflow-x-hidden">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-ink">Dashboard</h2>
+          <p className="mt-1 text-sm text-muted">
+            Overview of Rovauto platform activity.
+          </p>
         </div>
 
-        <div className="card-soft w-full max-w-full overflow-hidden">
-          <div className="border-b border-line p-4 sm:p-5">
-            <h3 className="font-semibold">Pending Garage Applications</h3>
+        <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium text-muted">
+          {new Date().toLocaleDateString()}
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <FiAlertCircle className="shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {cards.map((card) => {
+          const Icon = card.icon;
+
+          return (
+            <div
+              key={card.label}
+              className="card-soft rounded-2xl p-4 shadow-sm transition hover:shadow-md"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-lime-100 text-xl text-ink">
+                  <Icon />
+                </div>
+
+                <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-semibold text-muted">
+                  {card.caption}
+                </span>
+              </div>
+
+              <div className="mt-4 text-3xl font-bold text-ink">
+                {card.number}
+              </div>
+
+              <p className="mt-1 text-sm text-muted">{card.label}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
+        <div className="flex items-center justify-between border-b border-line p-4">
+          <div>
+            <h3 className="text-lg font-bold text-ink">
+              Recent Garage Applications
+            </h3>
+            <p className="mt-1 text-sm text-muted">
+              Pending garage owners waiting for review.
+            </p>
           </div>
 
-          <div className="w-full overflow-x-auto">
-            <table className="min-w-[720px] w-full text-sm">
-              <thead className="bg-bg-soft text-left">
+          <span className="rounded-full bg-lime-100 px-3 py-1 text-xs font-bold text-ink">
+            {recentApplications.length}
+          </span>
+        </div>
+
+        {recentApplications.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
                 <tr>
-                  {["Garage", "Owner", "City", "Phone", "Created"].map((h) => (
-                    <th
-                      key={h}
-                      className="whitespace-nowrap px-4 py-3 font-semibold"
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  {["Garage", "Owner", "City", "Phone", "Created"].map(
+                    (heading) => (
+                      <th
+                        key={heading}
+                        className="whitespace-nowrap px-4 py-3 font-bold"
+                      >
+                        {heading}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
 
               <tbody>
-                {recentApplications.length ? (
-                  recentApplications.map((application) => (
-                    <tr key={application.id} className="border-t border-line">
-                      <td className="whitespace-nowrap px-4 py-3 font-medium">
-                        {application.garageName || "-"}
-                      </td>
+                {recentApplications.map((application) => (
+                  <tr
+                    key={application.id}
+                    className="border-t border-line transition hover:bg-bg-soft/70"
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
+                      {application.garageName || "-"}
+                    </td>
 
-                      <td className="whitespace-nowrap px-4 py-3">
-                        {application.ownerName || "-"}
-                      </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted">
+                      {application.ownerName || "-"}
+                    </td>
 
-                      <td className="whitespace-nowrap px-4 py-3">
-                        {application.city || "-"}
-                      </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted">
+                      {application.city || "-"}
+                    </td>
 
-                      <td className="whitespace-nowrap px-4 py-3">
-                        {application.phone || "-"}
-                      </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted">
+                      {application.phone || "-"}
+                    </td>
 
-                      <td className="whitespace-nowrap px-4 py-3">
-                        {application.createdAt
-                          ? new Date(application.createdAt).toLocaleDateString()
-                          : "-"}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="5" className="px-4 py-5 text-muted">
-                      No pending applications.
+                    <td className="whitespace-nowrap px-4 py-3 text-muted">
+                      {formatDate(application.createdAt)}
                     </td>
                   </tr>
-                )}
+                ))}
               </tbody>
             </table>
           </div>
-        </div>
-      </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-bg-soft text-xl text-muted">
+              <FiHome />
+            </div>
+
+            <h4 className="font-semibold text-ink">
+              Nothing waiting for approval
+            </h4>
+
+            <p className="mt-1 text-sm text-muted">
+              New garage applications will appear here.
+            </p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
