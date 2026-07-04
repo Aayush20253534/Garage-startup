@@ -1,23 +1,19 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Logo from "@/components/common/Logo";
 import FAB from "@/components/FAB";
 import { useApp } from "@/hooks/useApp";
 import useUnreadNotifications from "@/hooks/useUnreadNotifications";
-import { FiMenu, FiX, FiLogOut } from "react-icons/fi";
+import { FiLogOut, FiMenu, FiX } from "react-icons/fi";
 
 export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const { pathname } = useLocation();
   const { user, garage, logout, logoutGarage } = useApp();
   const { unreadCount } = useUnreadNotifications();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    setOpen(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [pathname]);
+  const [open, setOpen] = useState(false);
 
   const isGaragePortal = pathname.startsWith("/garage");
   const isAdminPortal = pathname.startsWith("/admin");
@@ -31,16 +27,48 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
 
   const accountRole = isGaragePortal
     ? "GARAGE OWNER"
-    : account?.role || "CUSTOMER";
+    : isAdminPortal
+      ? "ADMIN"
+      : account?.role || "CUSTOMER";
+
+  const accountInitial = accountName?.charAt(0)?.toUpperCase() || "R";
 
   const isDashboardLink = (to) =>
-    [
-      "/dashboard",
-      "/customer/dashboard",
-      "/dashboard/customer",
-      "/garage",
-      "/admin",
-    ].includes(to);
+    ["/dashboard", "/customer/dashboard", "/dashboard/customer", "/garage", "/admin"].includes(
+      to
+    );
+
+  const visibleItems = useMemo(() => {
+    return Array.isArray(items) ? items : [];
+  }, [items]);
+
+  useEffect(() => {
+    setOpen(false);
+    document.body.style.overflow = "";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) {
+      document.body.style.overflow = "";
+      return undefined;
+    }
+
+    document.body.style.overflow = "hidden";
+
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
 
   const handleLogout = async () => {
     if (isGaragePortal) {
@@ -66,8 +94,8 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
 
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-line bg-white transition-transform duration-300",
-          "lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-line bg-white shadow-xl transition-transform duration-300",
+          "lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0 lg:shadow-none",
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
@@ -78,7 +106,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
             type="button"
             aria-label="Close sidebar"
             onClick={() => setOpen(false)}
-            className="grid h-9 w-9 place-items-center rounded-full border border-line lg:hidden"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-line transition hover:border-ink hover:bg-bg-soft lg:hidden"
           >
             <FiX />
           </button>
@@ -86,7 +114,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <div className="grid gap-1">
-            {items.map((item) => {
+            {visibleItems.map((item) => {
               const Icon = item.icon;
 
               return (
@@ -98,18 +126,21 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
                     [
                       "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
                       isActive
-                        ? "bg-ink !text-white"
-                        : "!text-ink/70 hover:bg-bg-soft hover:!text-ink",
+                        ? "bg-ink text-white"
+                        : "text-ink/70 hover:bg-bg-soft hover:text-ink",
                     ].join(" ")
                   }
                 >
-                  <Icon className="shrink-0 text-lg" />
+                  {Icon && <Icon className="shrink-0 text-lg" />}
+
                   <span className="truncate">{item.label}</span>
-                  {item.to === "/dashboard/notifications" && unreadCount > 0 && (
-                    <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-ink">
-                      +{unreadCount}
-                    </span>
-                  )}
+
+                  {item.to === "/dashboard/notifications" &&
+                    unreadCount > 0 && (
+                      <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-black">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
                 </NavLink>
               );
             })}
@@ -117,16 +148,16 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         </nav>
 
         <div className="shrink-0 border-t border-line bg-white p-4">
-          <div className="flex items-center gap-3 rounded-xl px-2 py-2">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand text-base font-bold text-ink">
-              {accountName?.charAt(0)?.toUpperCase() || "R"}
+          <div className="flex items-center gap-3 rounded-xl bg-bg-soft px-3 py-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand text-base font-bold text-black">
+              {accountInitial}
             </span>
 
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-ink">
                 {accountName || "Guest"}
               </p>
-              <p className="truncate text-xs font-medium uppercase text-muted">
+              <p className="truncate text-xs font-bold uppercase text-muted">
                 {accountRole}
               </p>
             </div>
@@ -135,7 +166,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-3 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
+            className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
           >
             <FiLogOut />
             Logout
@@ -144,13 +175,13 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-20 border-b border-line bg-white/85 backdrop-blur">
-          <div className="flex h-16 items-center px-4 sm:px-6 lg:px-10">
+        <header className="sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur-xl">
+          <div className="flex h-16 items-center px-4 sm:px-6 lg:px-8">
             <button
               type="button"
               aria-label="Open sidebar"
               onClick={() => setOpen(true)}
-              className="mr-3 grid h-10 w-10 shrink-0 place-items-center rounded-full border border-line lg:hidden"
+              className="mr-3 grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-line transition hover:border-ink hover:bg-bg-soft lg:hidden"
             >
               <FiMenu />
             </button>
@@ -160,10 +191,11 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         </header>
 
         <motion.main
+          key={pathname}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25 }}
-          className="min-w-0 p-4 sm:p-6 lg:p-10"
+          transition={{ duration: 0.22 }}
+          className="min-w-0 p-4 sm:p-6 lg:p-8"
         >
           <Outlet />
         </motion.main>
