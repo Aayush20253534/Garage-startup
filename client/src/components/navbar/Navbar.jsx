@@ -2,15 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FiMenu,
-  FiX,
-  FiChevronDown,
-  FiShoppingBag,
-  FiUser,
-  FiTruck,
-  FiPlus,
-  FiLogOut,
   FiBell,
+  FiChevronDown,
+  FiLogOut,
+  FiMenu,
+  FiPlus,
+  FiShoppingBag,
+  FiTruck,
+  FiX,
 } from "react-icons/fi";
 import Logo from "@/components/common/Logo";
 import { useApp } from "@/hooks/useApp";
@@ -29,27 +28,36 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [vehOpen, setVehOpen] = useState(false);
-  const { user, vehicle, cart, logout } = useApp();
+
+  const { user, vehicle, cart = [], logout } = useApp();
   const { unreadCount } = useUnreadNotifications();
   const nav = useNavigate();
   const { pathname } = useLocation();
+
+  const safeCart = Array.isArray(cart) ? cart : [];
 
   const closeMobileMenu = () => {
     document.body.style.overflow = "";
     setOpen(false);
   };
 
+  const closeDropdowns = () => {
+    setProfileOpen(false);
+    setVehOpen(false);
+  };
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     onScroll();
+
     window.addEventListener("scroll", onScroll, { passive: true });
+
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
     setOpen(false);
-    setProfileOpen(false);
-    setVehOpen(false);
+    closeDropdowns();
     document.body.style.overflow = "";
   }, [pathname]);
 
@@ -60,9 +68,7 @@ export default function Navbar() {
     }
 
     const onKeyDown = (event) => {
-      if (event.key === "Escape") {
-        closeMobileMenu();
-      }
+      if (event.key === "Escape") closeMobileMenu();
     };
 
     document.body.style.overflow = "hidden";
@@ -76,36 +82,45 @@ export default function Navbar() {
 
   return (
     <motion.header
-      initial={{ y: -40, opacity: 0 }}
+      initial={{ y: -32, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/90 backdrop-blur-xl border-b border-line" : "bg-transparent"}`}
+      className={[
+        "fixed inset-x-0 top-0 z-50 transition-all duration-300",
+        scrolled
+          ? "border-b border-line bg-white/90 shadow-sm backdrop-blur-xl"
+          : "bg-transparent",
+      ].join(" ")}
     >
-      <div className="container-x flex items-center justify-between h-16 sm:h-20">
-        <Link to="/" className="shrink-0">
+      <div className="container-x flex h-16 items-center justify-between sm:h-20">
+        <Link to="/" className="shrink-0" onClick={closeDropdowns}>
           <Logo />
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-1">
-          {NAV.map((n) => (
+        <nav className="hidden items-center gap-1 lg:flex">
+          {NAV.map((item) => (
             <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.to === "/"}
+              key={item.to}
+              to={item.to}
+              end={item.to === "/"}
               className={({ isActive }) =>
-                `relative px-4 py-2 rounded-full text-sm font-medium transition ${isActive ? "text-ink" : "text-ink/70 hover:text-ink"}`
+                [
+                  "relative rounded-full px-3 py-2 text-sm font-semibold transition",
+                  isActive ? "text-ink" : "text-ink/70 hover:text-ink",
+                ].join(" ")
               }
             >
               {({ isActive }) => (
                 <>
-                  {n.label}
+                  {item.label}
+
                   {isActive && (
                     <motion.span
                       layoutId="nav-pill"
-                      className="absolute inset-0 -z-10 rounded-full bg-[#f4f4f4]"
+                      className="absolute inset-0 -z-10 rounded-full bg-bg-soft"
                       transition={{
                         type: "spring",
-                        stiffness: 400,
-                        damping: 30,
+                        stiffness: 420,
+                        damping: 32,
                       }}
                     />
                   )}
@@ -115,16 +130,27 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="hidden items-center gap-2 lg:flex">
           {!user ? (
             <>
-              <Link to="/login" className="btn-ghost text-sm">
+              <Link
+                to="/login"
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
+              >
                 Login
               </Link>
-              <Link to="/register" className="btn-ghost text-sm">
+
+              <Link
+                to="/register"
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
+              >
                 Register
               </Link>
-              <Link to="/booking/vehicle" className="btn-primary text-sm">
+
+              <Link
+                to="/booking/vehicle"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark"
+              >
                 Book Service
               </Link>
             </>
@@ -133,99 +159,129 @@ export default function Navbar() {
               {vehicle ? (
                 <div className="relative">
                   <button
-                    onClick={() => setVehOpen((v) => !v)}
-                    className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-line bg-white hover:border-ink transition"
+                    type="button"
+                    onClick={() => {
+                      setVehOpen((value) => !value);
+                      setProfileOpen(false);
+                    }}
+                    className="flex h-10 max-w-[220px] items-center gap-2 rounded-full border border-line bg-white py-1 pl-1.5 pr-3 transition hover:border-ink"
                   >
-                    <span className="grid place-items-center h-7 w-7 rounded-full bg-brand text-ink">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand text-black">
                       <FiTruck className="text-sm" />
                     </span>
-                    <span className="text-xs leading-tight text-left">
-                      <span className="block font-semibold">
+
+                    <span className="min-w-0 text-left text-xs leading-tight">
+                      <span className="block truncate font-bold text-ink">
                         {vehicle.brand} {vehicle.model}
                       </span>
-                      <span className="block text-muted">{vehicle.fuel}</span>
+                      <span className="block truncate text-muted">
+                        {vehicle.fuelType || vehicle.fuel || "Vehicle"}
+                      </span>
                     </span>
-                    <FiChevronDown className="text-muted" />
+
+                    <FiChevronDown className="shrink-0 text-muted" />
                   </button>
+
                   <AnimatePresence>
                     {vehOpen && (
                       <motion.div
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 8 }}
-                        className="absolute right-0 mt-2 w-56 card-soft p-2"
+                        className="card-soft absolute right-0 mt-2 w-56 rounded-2xl p-2 shadow-lg"
                       >
                         <Link
                           to="/booking/vehicle"
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-bg-soft text-sm"
+                          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium hover:bg-bg-soft"
                         >
-                          <FiPlus /> Change Vehicle
+                          <FiPlus />
+                          Change Vehicle
                         </Link>
+
                         <Link
                           to="/booking/vehicle"
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-bg-soft text-sm"
+                          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium hover:bg-bg-soft"
                         >
-                          <FiPlus /> Add New Vehicle
+                          <FiPlus />
+                          Add New Vehicle
                         </Link>
+
                         <Link
                           to="/dashboard/vehicles"
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-bg-soft text-sm"
+                          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium hover:bg-bg-soft"
                         >
-                          <FiTruck /> My Vehicles
+                          <FiTruck />
+                          My Vehicles
                         </Link>
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
               ) : (
-                <Link to="/booking/vehicle" className="btn-primary text-sm">
-                  <FiPlus /> Add Your Vehicle
+                <Link
+                  to="/booking/vehicle"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark"
+                >
+                  <FiPlus />
+                  Add Vehicle
                 </Link>
               )}
 
               <Link
                 to="/checkout"
-                className="relative grid place-items-center h-10 w-10 rounded-full border border-line bg-white hover:border-ink transition"
+                className="relative grid h-10 w-10 place-items-center rounded-full border border-line bg-white transition hover:border-ink"
+                aria-label="Checkout"
               >
                 <FiShoppingBag />
-                {cart.length > 0 && (
-                  <span className="absolute -top-1 -right-1 text-[10px] bg-brand text-ink rounded-full px-1.5 font-bold">
-                    {cart.length}
+
+                {safeCart.length > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-brand px-1.5 text-center text-[10px] font-bold text-black">
+                    {safeCart.length}
                   </span>
                 )}
               </Link>
 
               <Link
                 to="/dashboard/notifications"
-                className="relative grid place-items-center h-10 w-10 rounded-full border border-line bg-white hover:border-ink transition"
+                className="relative grid h-10 w-10 place-items-center rounded-full border border-line bg-white transition hover:border-ink"
                 aria-label="Notifications"
               >
                 <FiBell />
+
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-5 rounded-full bg-brand px-1.5 text-center text-[10px] font-bold text-ink">
-                    +{unreadCount}
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-brand px-1.5 text-center text-[10px] font-bold text-black">
+                    {unreadCount > 99 ? "99+" : unreadCount}
                   </span>
                 )}
               </Link>
 
               <div className="relative">
                 <button
-                  onClick={() => setProfileOpen((v) => !v)}
-                  className="flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full border border-line bg-white hover:border-ink transition"
+                  type="button"
+                  onClick={() => {
+                    setProfileOpen((value) => !value);
+                    setVehOpen(false);
+                  }}
+                  className="flex h-10 max-w-[190px] items-center gap-2 rounded-full border border-line bg-white py-1 pl-1.5 pr-3 transition hover:border-ink"
                 >
-                  <span className="grid place-items-center h-8 w-8 rounded-full bg-ink text-white text-xs font-bold">
-                    {user.name[0]}
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-white">
+                    {user.name?.[0] || "U"}
                   </span>
-                  <span className="text-sm font-medium">{user.name}</span>
-                  <FiChevronDown className="text-muted" />
+
+                  <span className="truncate text-sm font-semibold text-ink">
+                    {user.name || "User"}
+                  </span>
+
+                  <FiChevronDown className="shrink-0 text-muted" />
                 </button>
+
                 <AnimatePresence>
                   {profileOpen && (
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 8 }}
-                      className="absolute right-0 mt-2 w-56 card-soft p-2"
+                      className="card-soft absolute right-0 mt-2 w-56 rounded-2xl p-2 shadow-lg"
                     >
                       {[
                         ["Dashboard", "/dashboard"],
@@ -233,25 +289,28 @@ export default function Navbar() {
                         ["Service History", "/dashboard/history"],
                         ["Warranty Center", "/warranty"],
                         ["Profile Settings", "/dashboard/profile"],
-                      ].map(([l, t]) => (
+                      ].map(([label, to]) => (
                         <Link
-                          key={t}
-                          to={t}
+                          key={to}
+                          to={to}
                           onClick={() => setProfileOpen(false)}
-                          className="block px-3 py-2 rounded-xl hover:bg-bg-soft text-sm"
+                          className="block rounded-xl px-3 py-2 text-sm font-medium hover:bg-bg-soft"
                         >
-                          {l}
+                          {label}
                         </Link>
                       ))}
+
                       <button
+                        type="button"
                         onClick={() => {
                           logout();
                           setProfileOpen(false);
                           nav("/");
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-bg-soft text-sm text-red-600"
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
                       >
-                        <FiLogOut /> Logout
+                        <FiLogOut />
+                        Logout
                       </button>
                     </motion.div>
                   )}
@@ -263,7 +322,7 @@ export default function Navbar() {
 
         <button
           type="button"
-          className="lg:hidden grid place-items-center h-10 w-10 rounded-full border border-line bg-white"
+          className="grid h-10 w-10 place-items-center rounded-full border border-line bg-white lg:hidden"
           onClick={() => setOpen(true)}
           aria-label="Open menu"
           aria-expanded={open}
@@ -272,148 +331,169 @@ export default function Navbar() {
         </button>
       </div>
 
-      {open && (
-        <motion.div
-          initial={{ x: "100%" }}
-          animate={{ x: 0 }}
-          transition={{ type: "tween", duration: 0.18 }}
-          className="fixed inset-0 h-dvh w-screen bg-white z-50 lg:hidden overflow-y-auto overscroll-contain"
-        >
-          <div className="container-x flex items-center justify-between h-16">
-            <Logo />
-            <button
-              type="button"
-              onClick={closeMobileMenu}
-              className="grid place-items-center h-10 w-10 rounded-full border border-line"
-              aria-label="Close menu"
-            >
-              <FiX />
-            </button>
-          </div>
-          <div className="container-x pb-10">
-            {user && (
-              <div className="grid gap-3 mb-6">
-                {vehicle && (
-                  <div className="card-soft p-4 flex items-center gap-3">
-                    <span className="grid place-items-center h-12 w-12 rounded-2xl bg-brand text-ink">
-                      <FiTruck className="text-xl" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-semibold truncate">
-                        {vehicle.brand} {vehicle.model}
-                      </div>
-                      <div className="text-xs text-muted">
-                        {vehicle.fuel} · {vehicle.reg}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "tween", duration: 0.18 }}
+            className="fixed inset-0 z-50 h-dvh w-screen overflow-y-auto bg-white lg:hidden"
+          >
+            <div className="container-x flex h-16 items-center justify-between">
+              <Logo />
+
+              <button
+                type="button"
+                onClick={closeMobileMenu}
+                className="grid h-10 w-10 place-items-center rounded-full border border-line"
+                aria-label="Close menu"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="container-x pb-10">
+              {user && (
+                <div className="mb-5 grid gap-3">
+                  {vehicle && (
+                    <div className="card-soft flex items-center gap-3 rounded-2xl p-4">
+                      <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand text-black">
+                        <FiTruck className="text-xl" />
+                      </span>
+
+                      <div className="min-w-0">
+                        <div className="truncate font-bold text-ink">
+                          {vehicle.brand} {vehicle.model}
+                        </div>
+
+                        <div className="text-xs text-muted">
+                          {vehicle.fuelType || vehicle.fuel || "Vehicle"} ·{" "}
+                          {vehicle.registrationNumber ||
+                            vehicle.reg ||
+                            "No registration"}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-                <div className="card-soft p-4 flex items-center gap-3">
-                  <span className="grid place-items-center h-12 w-12 rounded-2xl bg-ink text-white font-bold">
-                    {user.name[0]}
-                  </span>
-                  <div>
-                    <div className="font-semibold">{user.name}</div>
-                    <div className="text-xs text-muted">Welcome back</div>
+                  )}
+
+                  <div className="card-soft flex items-center gap-3 rounded-2xl p-4">
+                    <span className="grid h-12 w-12 place-items-center rounded-2xl bg-ink font-bold text-white">
+                      {user.name?.[0] || "U"}
+                    </span>
+
+                    <div className="min-w-0">
+                      <div className="truncate font-bold text-ink">
+                        {user.name || "User"}
+                      </div>
+                      <div className="text-xs text-muted">Welcome back</div>
+                    </div>
                   </div>
                 </div>
+              )}
+
+              <nav className="mb-6 grid gap-1">
+                {NAV.map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={closeMobileMenu}
+                    className="rounded-2xl px-4 py-3 text-base font-semibold hover:bg-bg-soft"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+
+                {user && (
+                  <>
+                    <Link
+                      to="/dashboard"
+                      onClick={closeMobileMenu}
+                      className="rounded-2xl px-4 py-3 text-base font-semibold hover:bg-bg-soft"
+                    >
+                      Dashboard
+                    </Link>
+
+                    <Link
+                      to="/dashboard/notifications"
+                      onClick={closeMobileMenu}
+                      className="flex items-center justify-between rounded-2xl px-4 py-3 text-base font-semibold hover:bg-bg-soft"
+                    >
+                      <span>Notifications</span>
+
+                      {unreadCount > 0 && (
+                        <span className="rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-black">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </Link>
+                  </>
+                )}
+              </nav>
+
+              <div className="grid gap-2">
+                <Link
+                  to="/booking/vehicle"
+                  onClick={closeMobileMenu}
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark"
+                >
+                  Book Service
+                </Link>
+
+                {!user ? (
+                  <>
+                    <Link
+                      to="/login"
+                      onClick={closeMobileMenu}
+                      className="inline-flex h-11 items-center justify-center rounded-xl bg-ink px-4 text-sm font-bold text-white"
+                    >
+                      Login
+                    </Link>
+
+                    <Link
+                      to="/register"
+                      onClick={closeMobileMenu}
+                      className="inline-flex h-11 items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink"
+                    >
+                      Register
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/dashboard/vehicles"
+                      onClick={closeMobileMenu}
+                      className="inline-flex h-11 items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink"
+                    >
+                      My Vehicles
+                    </Link>
+
+                    <Link
+                      to="/dashboard/bookings"
+                      onClick={closeMobileMenu}
+                      className="inline-flex h-11 items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink"
+                    >
+                      Active Bookings
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        logout();
+                        closeMobileMenu();
+                        nav("/");
+                      }}
+                      className="inline-flex h-11 items-center justify-center rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-600"
+                    >
+                      Logout
+                    </button>
+                  </>
+                )}
               </div>
-            )}
-
-            <nav className="grid gap-1 mb-6">
-              {NAV.map((n) => (
-                <Link
-                  key={n.to}
-                  to={n.to}
-                  onClick={closeMobileMenu}
-                  className="px-4 py-3 rounded-2xl hover:bg-bg-soft text-base font-medium"
-                >
-                  {n.label}
-                </Link>
-              ))}
-              {user && (
-                <Link
-                  to="/dashboard"
-                  onClick={closeMobileMenu}
-                  className="px-4 py-3 rounded-2xl hover:bg-bg-soft text-base font-medium"
-                >
-                  Dashboard
-                </Link>
-              )}
-              {user && (
-                <Link
-                  to="/dashboard/notifications"
-                  onClick={closeMobileMenu}
-                  className="flex items-center justify-between px-4 py-3 rounded-2xl hover:bg-bg-soft text-base font-medium"
-                >
-                  <span>Notifications</span>
-                  {unreadCount > 0 && (
-                    <span className="rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-ink">
-                      +{unreadCount}
-                    </span>
-                  )}
-                </Link>
-              )}
-            </nav>
-
-            <div className="grid gap-2">
-              <Link
-                to="/booking/vehicle"
-                onClick={closeMobileMenu}
-                className="btn-primary"
-              >
-                Book Service
-              </Link>
-              {!user ? (
-                <>
-                  <Link
-                    to="/login"
-                    onClick={closeMobileMenu}
-                    className="btn-dark"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    to="/register"
-                    onClick={closeMobileMenu}
-                    className="btn-ghost"
-                  >
-                    Register
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link
-                    to="/dashboard/vehicles"
-                    onClick={closeMobileMenu}
-                    className="btn-ghost"
-                  >
-                    My Vehicles
-                  </Link>
-                  <Link
-                    to="/dashboard/bookings"
-                    onClick={closeMobileMenu}
-                    className="btn-ghost"
-                  >
-                    Active Bookings
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      logout();
-                      closeMobileMenu();
-                      nav("/");
-                    }}
-                    className="btn-ghost text-red-600 border-red-200"
-                  >
-                    Logout
-                  </button>
-                </>
-              )}
             </div>
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.header>
   );
 }
