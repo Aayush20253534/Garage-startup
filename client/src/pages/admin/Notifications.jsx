@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/api/admin";
 import CitySelect from "@/components/common/CitySelect";
+import { FiBell, FiCheckCircle, FiSend, FiXCircle } from "react-icons/fi";
+
+const notificationTypes = [
+  "SYSTEM",
+  "PROMOTION",
+  "BOOKING",
+  "PAYMENT",
+  "WARRANTY",
+  "SOS",
+];
 
 export default function Notifications() {
   const [customers, setCustomers] = useState([]);
@@ -24,6 +34,17 @@ export default function Notifications() {
       .catch(() => setCustomers([]));
   }, []);
 
+  const updateForm = (key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+      ...(key === "audience" && {
+        city: "",
+        userId: "",
+      }),
+    }));
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -40,12 +61,19 @@ export default function Notifications() {
         type: form.type,
         link: form.link || undefined,
       });
+
       setSuccess(
         form.audience === "CITY"
           ? `Notification sent to ${result.sent || 0} users.`
-          : "Notification sent.",
+          : "Notification sent."
       );
-      setForm({ ...form, title: "", message: "", link: "" });
+
+      setForm((prev) => ({
+        ...prev,
+        title: "",
+        message: "",
+        link: "",
+      }));
     } catch (err) {
       setError(err.response?.data?.message || "Unable to send notification");
     } finally {
@@ -54,105 +82,145 @@ export default function Notifications() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Notifications</h2>
-        <p className="text-muted">
-          Send notifications to everyone, a city audience, or a specific user.
-        </p>
+    <div className="mx-auto max-w-5xl space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-ink">Notifications</h2>
+          <p className="mt-1 text-sm text-muted">
+            Send notifications to all users, city users, or one specific user.
+          </p>
+        </div>
+
+        <div className="hidden h-11 w-11 items-center justify-center rounded-xl bg-lime-100 text-xl text-ink md:flex">
+          <FiBell />
+        </div>
       </div>
 
       {error && (
-        <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <FiXCircle className="shrink-0" />
+          <span>{error}</span>
+        </div>
       )}
+
       {success && (
-        <div className="rounded-xl bg-green-50 p-4 text-green-700">
-          {success}
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <FiCheckCircle className="shrink-0" />
+          <span>{success}</span>
         </div>
       )}
 
-      <form onSubmit={submit} className="card-soft grid gap-4 p-5">
-        <div className="grid gap-3 md:grid-cols-3">
-          <select
-            value={form.audience}
-            onChange={(e) => setForm({ ...form, audience: e.target.value })}
-            className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-          >
-            <option value="ALL">All users</option>
-            <option value="CITY">Users by city</option>
-            <option value="USER">Specific user</option>
-          </select>
+      <form
+        onSubmit={submit}
+        className="card-soft rounded-2xl p-4 shadow-sm md:p-5"
+      >
+        <div className="grid gap-4">
+          <div className="grid gap-3 lg:grid-cols-3">
+            <label className="grid gap-1.5 text-sm font-semibold text-ink">
+              Audience
+              <select
+                value={form.audience}
+                onChange={(e) => updateForm("audience", e.target.value)}
+                className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+              >
+                <option value="ALL">All users</option>
+                <option value="CITY">Users by city</option>
+                <option value="USER">Specific user</option>
+              </select>
+            </label>
 
-          {form.audience === "CITY" && (
-            <CitySelect
+            {form.audience === "CITY" && (
+              <label className="grid gap-1.5 text-sm font-semibold text-ink">
+                City
+                <CitySelect
+                  required
+                  value={form.city}
+                  onChange={(city) => updateForm("city", city)}
+                  placeholder="Select city"
+                  className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+                />
+              </label>
+            )}
+
+            {form.audience === "USER" && (
+              <label className="grid gap-1.5 text-sm font-semibold text-ink">
+                Customer
+                <select
+                  required
+                  value={form.userId}
+                  onChange={(e) => updateForm("userId", e.target.value)}
+                  className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+                >
+                  <option value="">Select customer</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name} - {customer.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <label className="grid gap-1.5 text-sm font-semibold text-ink">
+              Type
+              <select
+                value={form.type}
+                onChange={(e) => updateForm("type", e.target.value)}
+                className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+              >
+                {notificationTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className="grid gap-1.5 text-sm font-semibold text-ink">
+            Title
+            <input
               required
-              value={form.city}
-              onChange={(city) => setForm({ ...form, city })}
-              placeholder="Select city"
-              className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+              value={form.title}
+              onChange={(e) => updateForm("title", e.target.value)}
+              placeholder="Notification title"
+              className="h-11 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
             />
-          )}
+          </label>
 
-          {form.audience === "USER" && (
-            <select
+          <label className="grid gap-1.5 text-sm font-semibold text-ink">
+            Message
+            <textarea
               required
-              value={form.userId}
-              onChange={(e) => setForm({ ...form, userId: e.target.value })}
-              className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+              value={form.message}
+              onChange={(e) => updateForm("message", e.target.value)}
+              placeholder="Write notification message"
+              rows={4}
+              className="min-h-[120px] resize-none rounded-lg border border-line px-3 py-3 text-sm outline-none transition focus:border-ink"
+            />
+          </label>
+
+          <label className="grid gap-1.5 text-sm font-semibold text-ink">
+            Link
+            <input
+              value={form.link}
+              onChange={(e) => updateForm("link", e.target.value)}
+              placeholder="Optional link, e.g. /dashboard/bookings"
+              className="h-11 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+            />
+          </label>
+
+          <div className="flex justify-end border-t border-line pt-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-lime-400 px-5 text-sm font-bold text-black transition hover:bg-lime-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <option value="">Select customer</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name} - {customer.email}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <select
-            value={form.type}
-            onChange={(e) => setForm({ ...form, type: e.target.value })}
-            className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-          >
-            {[
-              "SYSTEM",
-              "PROMOTION",
-              "BOOKING",
-              "PAYMENT",
-              "WARRANTY",
-              "SOS",
-            ].map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+              <FiSend />
+              {loading ? "Sending..." : "Send Notification"}
+            </button>
+          </div>
         </div>
-
-        <input
-          required
-          value={form.title}
-          onChange={(e) => setForm({ ...form, title: e.target.value })}
-          placeholder="Title"
-          className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        />
-        <textarea
-          required
-          value={form.message}
-          onChange={(e) => setForm({ ...form, message: e.target.value })}
-          placeholder="Message"
-          rows={5}
-          className="resize-none rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        />
-        <input
-          value={form.link}
-          onChange={(e) => setForm({ ...form, link: e.target.value })}
-          placeholder="Optional link, e.g. /dashboard/bookings"
-          className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        />
-        <button disabled={loading} className="btn-primary w-full md:w-auto">
-          {loading ? "Sending..." : "Send Notification"}
-        </button>
       </form>
     </div>
   );
