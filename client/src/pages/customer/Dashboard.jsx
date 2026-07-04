@@ -6,15 +6,32 @@ import {
   getRecentActivities,
 } from "@/utils/activityLog";
 import {
-  FiTruck,
-  FiCalendar,
-  FiShield,
   FiArrowRight,
+  FiCalendar,
   FiCheckCircle,
   FiClock,
-  FiRefreshCcw,
   FiPlusCircle,
+  FiRefreshCcw,
+  FiShield,
+  FiTruck,
 } from "react-icons/fi";
+
+const activeStatuses = [
+  "PENDING_PAYMENT",
+  "SEARCHING_GARAGE",
+  "GARAGE_ASSIGNED",
+  "CONFIRMED",
+  "IN_PROGRESS",
+];
+
+const getProgress = (status) => {
+  if (status === "PENDING_PAYMENT") return "20%";
+  if (status === "SEARCHING_GARAGE") return "40%";
+  if (status === "GARAGE_ASSIGNED") return "55%";
+  if (status === "CONFIRMED") return "65%";
+  if (status === "IN_PROGRESS") return "80%";
+  return "100%";
+};
 
 export default function Dashboard() {
   const {
@@ -29,34 +46,33 @@ export default function Dashboard() {
   } = useApp();
 
   const [bookings, setBookings] = useState(
-    () => dashboardCache?.activeBookings || [],
+    () => dashboardCache?.activeBookings || []
   );
+
   const [activeBookingsCount, setActiveBookingsCount] = useState(
     () =>
       dashboardCache?.activeBookingsCount ??
       dashboardCache?.activeBookings?.length ??
-      0,
+      0
   );
+
   const [wallet, setWallet] = useState(() => dashboardCache?.wallet || null);
+
   const [completedCount, setCompletedCount] = useState(
-    () => dashboardCache?.completedBookingsCount || 0,
+    () => dashboardCache?.completedBookingsCount || 0
   );
+
   const [loading, setLoading] = useState(() => !dashboardCache);
+
   const [recentActivities, setRecentActivities] = useState(() =>
-    getRecentActivities(),
+    getRecentActivities()
   );
 
   const currentVehicles = Array.isArray(vehicles) ? vehicles : [];
   const hasVehicles = currentVehicles.length > 0;
 
   const activeBookings = bookings.filter((booking) =>
-    [
-      "PENDING_PAYMENT",
-      "SEARCHING_GARAGE",
-      "GARAGE_ASSIGNED",
-      "CONFIRMED",
-      "IN_PROGRESS",
-    ].includes(booking.status),
+    activeStatuses.includes(booking.status)
   );
 
   const activeBooking = activeBookings[0];
@@ -87,7 +103,7 @@ export default function Dashboard() {
       setActiveBookingsCount(
         dashboard?.activeBookingsCount ??
           dashboard?.activeBookings?.length ??
-          0,
+          0
       );
       setWallet(dashboard?.wallet || null);
       setCompletedCount(dashboard?.completedBookingsCount || 0);
@@ -105,8 +121,10 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const refreshActivities = () =>
+    const refreshActivities = () => {
       setRecentActivities(getRecentActivities());
+    };
+
     const refreshActivitiesFromDb = async () => {
       const activities = await fetchRecentActivities();
       setRecentActivities(activities);
@@ -117,6 +135,7 @@ export default function Dashboard() {
     window.addEventListener("rov:activity", refreshActivities);
     window.addEventListener("rov:activity-sync", refreshActivities);
     window.addEventListener("storage", refreshActivities);
+
     return () => {
       window.removeEventListener("rov:activity", refreshActivities);
       window.removeEventListener("rov:activity-sync", refreshActivities);
@@ -126,27 +145,71 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="card-soft p-6">
-        <p className="text-muted">Loading dashboard...</p>
+      <div className="card-soft rounded-2xl p-5 text-sm text-muted">
+        Loading dashboard...
       </div>
     );
   }
 
-  const heroButton =
-    "btn-primary w-full whitespace-nowrap px-4 py-3 text-sm !text-black hover:!text-black active:!text-black visited:!text-black focus:!text-black sm:w-auto sm:px-8 sm:text-base";
+  const statCards = [
+    {
+      icon: FiCalendar,
+      label: "Active Bookings",
+      number: activeBookingsCount,
+      sub: "Current service requests",
+    },
+    {
+      icon: FiClock,
+      label: "Completed",
+      number: completedCount,
+      sub: "Completed services",
+    },
+    {
+      icon: FiShield,
+      label: "Wallet Coins",
+      number: wallet?.balance || 0,
+      sub: "RovAuto wallet balance",
+    },
+    {
+      icon: FiTruck,
+      label: "Vehicles",
+      number: currentVehicles.length,
+      sub: hasVehicles
+        ? vehicle
+          ? `${vehicle.brand} ${vehicle.model}`
+          : "Manage your vehicles"
+        : "Add your first vehicle",
+    },
+  ];
+
+  const fallbackActions = [
+    hasVehicles
+      ? [
+          "Book Service",
+          "Choose services and request nearby garages",
+          "/booking/vehicle",
+        ]
+      : ["Add Vehicle", "Save your first vehicle to start booking", "/booking/vehicle"],
+    ["SOS", "Emergency roadside request", "/sos"],
+    [
+      "My Vehicles",
+      hasVehicles ? "Manage your saved vehicles" : "Add and manage vehicles",
+      "/dashboard/vehicles",
+    ],
+  ];
 
   return (
-    <div className="grid gap-6">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-ink to-ink-2 p-5 text-white sm:p-8">
-        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-brand/20 blur-3xl" />
+    <div className="mx-auto max-w-6xl space-y-5 overflow-x-hidden">
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-ink to-ink-2 p-5 text-white shadow-sm sm:p-6">
+        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand/20 blur-3xl" />
 
-        <div className="relative grid gap-5 sm:flex sm:items-start sm:justify-between sm:gap-4">
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h2 className="max-w-[13rem] text-4xl font-bold leading-tight sm:max-w-none sm:text-3xl">
+            <h2 className="text-3xl font-bold leading-tight sm:text-4xl">
               Hello {user?.name || "there"}
             </h2>
 
-            <p className="mt-3 max-w-[18rem] text-base leading-relaxed text-white/70 sm:mt-2 sm:max-w-none">
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">
               {hasVehicles
                 ? "Manage bookings, wallet, vehicles, and service requests."
                 : "Add your first vehicle to start booking services."}
@@ -157,140 +220,135 @@ export default function Dashboard() {
             type="button"
             disabled={loading}
             onClick={() => loadDashboard({ force: true })}
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <FiRefreshCcw className={loading ? "animate-spin" : ""} />
             Refresh
           </button>
         </div>
 
-        <div className="relative mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
-          {hasVehicles ? (
-            <Link to="/booking/vehicle" className={`${heroButton} col-span-2`}>
-              Book a service
-            </Link>
-          ) : (
-            <Link to="/booking/vehicle" className={`${heroButton} col-span-2`}>
-              Add your first vehicle
-            </Link>
-          )}
+        <div className="relative mt-5 grid gap-3 sm:flex sm:flex-wrap">
+          <Link
+            to="/booking/vehicle"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-brand px-5 text-sm font-bold text-black transition hover:bg-brand-dark hover:text-black"
+          >
+            {hasVehicles ? "Book a service" : "Add your first vehicle"}
+          </Link>
 
-          <Link to="/sos" className={heroButton}>
+          <Link
+            to="/sos"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-white/10 px-5 text-sm font-bold text-white transition hover:bg-white/15"
+          >
             SOS
           </Link>
 
-          <Link to="/dashboard/payments" className={heroButton}>
+          <Link
+            to="/dashboard/payments"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-white/10 px-5 text-sm font-bold text-white transition hover:bg-white/15"
+          >
             Wallet: ₹{wallet?.balance || 0}
           </Link>
         </div>
-      </div>
+      </section>
 
       {!hasVehicles && (
-        <div className="rounded-3xl border border-brand/40 bg-brand-soft/60 p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <section className="rounded-2xl border border-brand/40 bg-brand-soft/60 p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-xl font-bold">Vehicle setup required</h3>
+              <h3 className="text-lg font-bold text-ink">
+                Vehicle setup required
+              </h3>
               <p className="mt-1 text-sm text-muted">
                 Add your vehicle once, then booking services becomes available.
               </p>
             </div>
 
-            <Link to="/booking/vehicle" className="btn-primary">
+            <Link
+              to="/booking/vehicle"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark"
+            >
               <FiPlusCircle />
               Add Vehicle
             </Link>
           </div>
-        </div>
+        </section>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          {
-            icon: FiCalendar,
-            label: "Active Bookings",
-            number: activeBookingsCount,
-            sub: "Current service requests",
-          },
-          {
-            icon: FiClock,
-            label: "Completed",
-            number: completedCount,
-            sub: "Completed services",
-          },
-          {
-            icon: FiShield,
-            label: "Wallet Coins",
-            number: wallet?.balance || 0,
-            sub: "RovAuto wallet balance",
-          },
-          {
-            icon: FiTruck,
-            label: "Vehicles",
-            number: currentVehicles.length,
-            sub: hasVehicles
-              ? vehicle
-                ? `${vehicle.brand} ${vehicle.model}`
-                : "Manage your vehicles"
-              : "Add your first vehicle",
-          },
-        ].map((item) => {
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {statCards.map((item) => {
           const Icon = item.icon;
 
           return (
-            <div key={item.label} className="card-soft p-5">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-brand text-black">
+            <div
+              key={item.label}
+              className="card-soft rounded-2xl p-4 shadow-sm transition hover:shadow-md"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-black">
                 <Icon />
               </div>
 
-              <div className="mt-3 text-3xl font-bold">{item.number}</div>
-              <div className="text-sm">{item.label}</div>
-              <div className="mt-1 text-xs text-muted">{item.sub}</div>
+              <div className="mt-3 text-3xl font-bold text-ink">
+                {item.number}
+              </div>
+
+              <div className="mt-1 text-sm font-semibold text-ink">
+                {item.label}
+              </div>
+
+              <div className="mt-1 truncate text-xs text-muted">
+                {item.sub}
+              </div>
             </div>
           );
         })}
-      </div>
+      </section>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="card-soft p-6 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-semibold">Active service</h3>
+      <section className="grid gap-4 lg:grid-cols-3">
+        <div className="card-soft rounded-2xl p-4 shadow-sm lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-bold text-ink">Active service</h3>
+              <p className="mt-1 text-xs text-muted">
+                Current booking progress
+              </p>
+            </div>
 
             {activeBooking && (
               <Link
                 to="/tracking"
                 state={{ bookingId: activeBooking.id }}
-                className="text-sm font-medium text-ink"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-ink"
               >
-                Track <FiArrowRight className="inline" />
+                Track <FiArrowRight />
               </Link>
             )}
           </div>
 
           {activeBooking ? (
             <>
-              <div className="flex items-center gap-4">
-                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand text-black">
-                  <FiTruck className="text-xl" />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand text-xl text-black">
+                  <FiTruck />
                 </span>
 
-                <div className="flex-1">
-                  <div className="font-semibold">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold text-ink">
                     {activeBooking.services
                       ?.map((item) => item.service?.name)
                       .filter(Boolean)
                       .join(", ") || "Vehicle Service"}
                   </div>
 
-                  <div className="text-xs text-muted">
+                  <div className="mt-1 text-xs text-muted">
                     {activeBooking.vehicle?.brand}{" "}
                     {activeBooking.vehicle?.model}
                     {activeBooking.garage
-                    ? ` · ${activeBooking.garage.name}`
-                    : " · Waiting for garage"}
+                      ? ` · ${activeBooking.garage.name}`
+                      : " · Waiting for garage"}
                   </div>
                 </div>
 
-                <span className="chip-brand">
+                <span className="w-fit rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-ink">
                   {activeBooking.status?.replaceAll("_", " ")}
                 </span>
               </div>
@@ -298,25 +356,12 @@ export default function Dashboard() {
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-bg-soft">
                 <div
                   className="h-full bg-brand"
-                  style={{
-                    width:
-                      activeBooking.status === "PENDING_PAYMENT"
-                        ? "20%"
-                        : activeBooking.status === "SEARCHING_GARAGE"
-                          ? "40%"
-                          : activeBooking.status === "GARAGE_ASSIGNED"
-                            ? "55%"
-                            : activeBooking.status === "CONFIRMED"
-                              ? "65%"
-                              : activeBooking.status === "IN_PROGRESS"
-                                ? "80%"
-                                : "100%",
-                  }}
+                  style={{ width: getProgress(activeBooking.status) }}
                 />
               </div>
             </>
           ) : (
-            <div className="text-sm text-muted">
+            <div className="rounded-xl bg-bg-soft p-4 text-sm text-muted">
               {hasVehicles
                 ? "No active service right now. Civilization briefly holds."
                 : "No active service yet. Add a vehicle first, because booking a ghost car remains unsupported."}
@@ -324,27 +369,30 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="card-soft p-6">
-          <h3 className="mb-3 font-semibold">Quick Actions</h3>
+        <div className="card-soft rounded-2xl p-4 shadow-sm">
+          <h3 className="font-bold text-ink">Quick Actions</h3>
+          <p className="mt-1 text-xs text-muted">Recent activity and shortcuts</p>
 
-          <ul className="grid max-h-72 gap-3 overflow-y-auto pr-2 text-sm">
+          <ul className="mt-4 grid max-h-72 gap-2 overflow-y-auto pr-1 text-sm">
             {recentActivities.length
               ? recentActivities.map((activity) => (
                   <li key={activity.id}>
                     <Link
                       to={activity.path || "/dashboard"}
-                      className="flex items-start gap-3 rounded-xl p-1 transition hover:bg-bg-soft hover:text-ink"
+                      className="flex items-start gap-3 rounded-xl p-2 transition hover:bg-bg-soft hover:text-ink"
                     >
                       <FiCheckCircle className="mt-0.5 shrink-0 text-brand-dark" />
 
                       <div className="min-w-0">
-                        <div className="truncate font-medium">
+                        <div className="truncate font-semibold text-ink">
                           {activity.title}
                         </div>
-                        <div className="text-xs text-muted">
+
+                        <div className="truncate text-xs text-muted">
                           {activity.detail ||
                             new Date(activity.createdAt).toLocaleString()}
                         </div>
+
                         <div className="mt-0.5 text-[11px] text-muted">
                           {new Date(activity.createdAt).toLocaleString()}
                         </div>
@@ -352,36 +400,16 @@ export default function Dashboard() {
                     </Link>
                   </li>
                 ))
-              : [
-                  hasVehicles
-                    ? [
-                        "Book Service",
-                        "Choose services and request nearby garages",
-                        "/booking/vehicle",
-                      ]
-                    : [
-                        "Add Vehicle",
-                        "Save your first vehicle to start booking",
-                        "/booking/vehicle",
-                      ],
-                  ["SOS", "Emergency roadside request", "/sos"],
-                  [
-                    "My Vehicles",
-                    hasVehicles
-                      ? "Manage your saved vehicles"
-                      : "Add and manage vehicles",
-                    "/dashboard/vehicles",
-                  ],
-                ].map(([name, desc, to]) => (
+              : fallbackActions.map(([name, desc, to]) => (
                   <li key={name}>
                     <Link
                       to={to}
-                      className="flex items-start gap-3 rounded-xl p-1 transition hover:bg-bg-soft hover:text-ink"
+                      className="flex items-start gap-3 rounded-xl p-2 transition hover:bg-bg-soft hover:text-ink"
                     >
                       <FiCheckCircle className="mt-0.5 shrink-0 text-brand-dark" />
 
-                      <div>
-                        <div className="font-medium">{name}</div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-ink">{name}</div>
                         <div className="text-xs text-muted">{desc}</div>
                       </div>
                     </Link>
@@ -389,7 +417,7 @@ export default function Dashboard() {
                 ))}
           </ul>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
