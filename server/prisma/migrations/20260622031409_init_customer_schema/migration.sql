@@ -188,7 +188,7 @@ CREATE TABLE "Booking" (
     "status" "BookingStatus" NOT NULL DEFAULT 'PENDING_PAYMENT',
     "customerNote" TEXT,
     "garageNote" TEXT,
-    "handlingFee" INTEGER NOT NULL DEFAULT 1,
+    "handlingFee" INTEGER NOT NULL DEFAULT 99,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -199,7 +199,7 @@ CREATE TABLE "Booking" (
 CREATE TABLE "Payment" (
     "id" TEXT NOT NULL,
     "bookingId" TEXT NOT NULL,
-    "amount" INTEGER NOT NULL DEFAULT 1,
+    "amount" INTEGER NOT NULL DEFAULT 99,
     "currency" TEXT NOT NULL DEFAULT 'INR',
     "status" "PaymentStatus" NOT NULL DEFAULT 'CREATED',
     "razorpayOrderId" TEXT,
