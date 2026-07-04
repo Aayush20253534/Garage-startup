@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/api/admin";
 import CitySelect from "@/components/common/CitySelect";
-import { FiEdit3, FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import {
+  FiCheckCircle,
+  FiEdit3,
+  FiPlus,
+  FiRefreshCw,
+  FiTrash2,
+  FiXCircle,
+} from "react-icons/fi";
 
 const fuelTypes = [
   "",
@@ -80,6 +87,14 @@ export default function Revenue() {
     load();
   }, []);
 
+  const updateForm = (key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+      ...(key === "vehicleBrand" && { vehicleModel: "" }),
+    }));
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     setError("");
@@ -146,16 +161,6 @@ export default function Revenue() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const selectedVehicleBrand = vehicleBrands.find(
-    (brand) => brand.name === form.vehicleBrand,
-  );
-  const vehicleModels = selectedVehicleBrand?.models || [];
-  const duplicateScopeKeys = ranges.reduce((counts, range) => {
-    const key = getRangeScopeKey(range);
-    counts[key] = (counts[key] || 0) + 1;
-    return counts;
-  }, {});
-
   const deleteRange = async (range) => {
     const ok = window.confirm("Delete this price range?");
     if (!ok) return;
@@ -172,156 +177,189 @@ export default function Revenue() {
     }
   };
 
+  const selectedVehicleBrand = vehicleBrands.find(
+    (brand) => brand.name === form.vehicleBrand
+  );
+
+  const vehicleModels = selectedVehicleBrand?.models || [];
+
+  const duplicateScopeKeys = ranges.reduce((counts, range) => {
+    const key = getRangeScopeKey(range);
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+
   return (
-    <div className="w-full max-w-full overflow-x-hidden space-y-5">
-      <div>
-        <h2 className="text-xl font-bold sm:text-2xl">Price Ranges</h2>
-        <p className="mt-1 text-sm text-muted sm:text-base">
-          Manage city and vehicle-specific service estimate ranges.
-        </p>
-      </div>
-
-      {error && (
-        <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
-          {error}
+    <div className="mx-auto max-w-6xl space-y-4 overflow-x-hidden">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-ink">Price Ranges</h2>
+          <p className="mt-1 text-sm text-muted">
+            Manage city and vehicle-specific service estimate ranges.
+          </p>
         </div>
-      )}
-
-      {success && (
-        <div className="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-          {success}
-        </div>
-      )}
-
-      <form
-        onSubmit={submit}
-        className="card-soft grid w-full max-w-full gap-3 p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-4"
-      >
-        <CitySelect
-          required
-          value={form.city}
-          onChange={(city) => setForm({ ...form, city })}
-          placeholder="City"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        />
-
-        <select
-          required
-          value={form.serviceId}
-          onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        >
-          <option value="">Select service</option>
-          {services.map((service) => (
-            <option key={service.id} value={service.id}>
-              {service.category?.name ? `${service.category.name} - ` : ""}
-              {service.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={form.vehicleBrand}
-          onChange={(e) =>
-            setForm({ ...form, vehicleBrand: e.target.value, vehicleModel: "" })
-          }
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        >
-          <option value="">Any brand</option>
-          {vehicleBrands.map((brand) => (
-            <option key={brand.id || brand.name} value={brand.name}>
-              {brand.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={form.vehicleModel}
-          onChange={(e) => setForm({ ...form, vehicleModel: e.target.value })}
-          disabled={!form.vehicleBrand}
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink disabled:bg-bg-soft"
-        >
-          <option value="">Any model</option>
-          {vehicleModels.map((model) => (
-            <option key={model.id || model.name} value={model.name}>
-              {model.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={form.fuelType}
-          onChange={(e) => setForm({ ...form, fuelType: e.target.value })}
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        >
-          {fuelTypes.map((fuelType) => (
-            <option key={fuelType || "any"} value={fuelType}>
-              {fuelType || "Any fuel"}
-            </option>
-          ))}
-        </select>
-
-        <input
-          required
-          type="number"
-          min="0"
-          value={form.minPrice}
-          onChange={(e) => setForm({ ...form, minPrice: e.target.value })}
-          placeholder="Min price"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        />
-
-        <input
-          required
-          type="number"
-          min="0"
-          value={form.maxPrice}
-          onChange={(e) => setForm({ ...form, maxPrice: e.target.value })}
-          placeholder="Max price"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        />
-
-        <div className="flex min-w-0 gap-2 md:col-span-2 xl:col-span-1">
-          <button disabled={saving} className="btn-primary min-w-0 flex-1">
-            {saving ? "Saving..." : form.id ? "Update" : "Create"}
-          </button>
-
-          {form.id && (
-            <button
-              type="button"
-              onClick={() => setForm(emptyForm)}
-              className="btn-ghost shrink-0"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-
-      <div className="flex w-full max-w-full flex-col gap-2 sm:flex-row">
-        <CitySelect
-          value={filterCity}
-          onChange={setFilterCity}
-          placeholder="Filter by city"
-          includeInactive
-          className="min-w-0 flex-1 rounded-xl border border-line px-4 py-2 outline-none focus:border-ink"
-        />
 
         <button
           type="button"
           onClick={load}
           disabled={loading}
-          className="btn-ghost justify-center !py-2"
+          className="hidden h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60 sm:inline-flex"
         >
           <FiRefreshCw className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
 
-      <div className="card-soft w-full max-w-full overflow-hidden">
-        <div className="w-full overflow-x-auto">
-          <table className="min-w-[900px] w-full text-sm">
-            <thead className="bg-bg-soft text-left">
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <FiXCircle className="shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {success && (
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <FiCheckCircle className="shrink-0" />
+          <span>{success}</span>
+        </div>
+      )}
+
+      <form
+        onSubmit={submit}
+        className="card-soft rounded-2xl p-4 shadow-sm"
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <CitySelect
+            required
+            value={form.city}
+            onChange={(city) => updateForm("city", city)}
+            placeholder="City"
+            className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+          />
+
+          <select
+            required
+            value={form.serviceId}
+            onChange={(e) => updateForm("serviceId", e.target.value)}
+            className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+          >
+            <option value="">Select service</option>
+            {services.map((service) => (
+              <option key={service.id} value={service.id}>
+                {service.category?.name ? `${service.category.name} - ` : ""}
+                {service.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={form.vehicleBrand}
+            onChange={(e) => updateForm("vehicleBrand", e.target.value)}
+            className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+          >
+            <option value="">Any brand</option>
+            {vehicleBrands.map((brand) => (
+              <option key={brand.id || brand.name} value={brand.name}>
+                {brand.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={form.vehicleModel}
+            onChange={(e) => updateForm("vehicleModel", e.target.value)}
+            disabled={!form.vehicleBrand}
+            className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink disabled:bg-bg-soft"
+          >
+            <option value="">Any model</option>
+            {vehicleModels.map((model) => (
+              <option key={model.id || model.name} value={model.name}>
+                {model.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={form.fuelType}
+            onChange={(e) => updateForm("fuelType", e.target.value)}
+            className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+          >
+            {fuelTypes.map((fuelType) => (
+              <option key={fuelType || "any"} value={fuelType}>
+                {fuelType || "Any fuel"}
+              </option>
+            ))}
+          </select>
+
+          <input
+            required
+            type="number"
+            min="0"
+            value={form.minPrice}
+            onChange={(e) => updateForm("minPrice", e.target.value)}
+            placeholder="Min price"
+            className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+          />
+
+          <input
+            required
+            type="number"
+            min="0"
+            value={form.maxPrice}
+            onChange={(e) => updateForm("maxPrice", e.target.value)}
+            placeholder="Max price"
+            className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+          />
+
+          <div className="flex min-w-0 gap-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-lime-400 px-4 text-sm font-bold text-black transition hover:bg-lime-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiPlus />
+              {saving ? "Saving..." : form.id ? "Update" : "Create"}
+            </button>
+
+            {form.id && (
+              <button
+                type="button"
+                onClick={() => setForm(emptyForm)}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+      </form>
+
+      <section className="card-soft rounded-2xl p-4 shadow-sm">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <CitySelect
+            value={filterCity}
+            onChange={setFilterCity}
+            placeholder="Filter by city"
+            includeInactive
+            className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+          />
+
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <FiRefreshCw className={loading ? "animate-spin" : ""} />
+            Search
+          </button>
+        </div>
+      </section>
+
+      <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px] text-sm">
+            <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 {[
                   "City",
@@ -330,13 +368,13 @@ export default function Revenue() {
                   "Fuel",
                   "Range",
                   "Status",
-                  "",
-                ].map((h) => (
+                  "Actions",
+                ].map((heading) => (
                   <th
-                    key={h}
-                    className="whitespace-nowrap px-4 py-3 font-semibold"
+                    key={heading}
+                    className="whitespace-nowrap px-4 py-3 font-bold"
                   >
-                    {h}
+                    {heading}
                   </th>
                 ))}
               </tr>
@@ -345,75 +383,91 @@ export default function Revenue() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-5 text-muted">
+                  <td colSpan="7" className="px-4 py-6 text-sm text-muted">
                     Loading price ranges...
                   </td>
                 </tr>
               ) : ranges.length ? (
-                ranges.map((range) => (
-                  <tr key={range.id} className="border-t border-line">
-                    <td className="whitespace-nowrap px-4 py-3 font-medium">
-                      {range.city}
-                    </td>
+                ranges.map((range) => {
+                  const isDuplicate =
+                    duplicateScopeKeys[getRangeScopeKey(range)] > 1;
 
-                    <td className="px-4 py-3">
-                      <div className="font-medium">
-                        {formatServiceLabel(range.service)}
-                      </div>
-                      {duplicateScopeKeys[getRangeScopeKey(range)] > 1 && (
-                        <div className="mt-1 text-xs font-semibold text-red-600">
-                          Duplicate scope
+                  return (
+                    <tr
+                      key={range.id}
+                      className="border-t border-line transition hover:bg-bg-soft/70"
+                    >
+                      <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
+                        {range.city}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-ink">
+                          {formatServiceLabel(range.service)}
                         </div>
-                      )}
-                    </td>
 
-                    <td className="px-4 py-3">
-                      {[range.vehicleBrand, range.vehicleModel]
-                        .filter(Boolean)
-                        .join(" / ") || "Any"}
-                    </td>
+                        {isDuplicate && (
+                          <div className="mt-1 text-xs font-semibold text-red-600">
+                            Duplicate scope
+                          </div>
+                        )}
+                      </td>
 
-                    <td className="whitespace-nowrap px-4 py-3">
-                      {range.fuelType || "Any"}
-                    </td>
+                      <td className="px-4 py-3 text-muted">
+                        {[range.vehicleBrand, range.vehicleModel]
+                          .filter(Boolean)
+                          .join(" / ") || "Any"}
+                      </td>
 
-                    <td className="whitespace-nowrap px-4 py-3">
-                      ₹{Number(range.minPrice).toLocaleString()} - ₹{" "}
-                      {Number(range.maxPrice).toLocaleString()}
-                    </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-muted">
+                        {range.fuelType || "Any"}
+                      </td>
 
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className={range.isActive ? "chip-brand" : "chip"}>
-                        {range.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
+                      <td className="whitespace-nowrap px-4 py-3 font-semibold">
+                        ₹{Number(range.minPrice).toLocaleString()} - ₹
+                        {Number(range.maxPrice).toLocaleString()}
+                      </td>
 
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => editRange(range)}
-                          className="btn-ghost !px-3 !py-2"
-                          aria-label="Edit price range"
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <span
+                          className={[
+                            "rounded-full px-2.5 py-1 text-xs font-bold",
+                            range.isActive
+                              ? "bg-lime-100 text-ink"
+                              : "bg-bg-soft text-muted",
+                          ].join(" ")}
                         >
-                          <FiEdit3 />
-                        </button>
+                          {range.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
 
-                        <button
-                          type="button"
-                          onClick={() => deleteRange(range)}
-                          className="rounded-xl bg-red-50 px-3 py-2 text-red-700"
-                          aria-label="Delete price range"
-                        >
-                          <FiTrash2 />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => editRange(range)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink transition hover:border-ink hover:bg-bg-soft"
+                            aria-label="Edit price range"
+                          >
+                            <FiEdit3 />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteRange(range)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
+                            aria-label="Delete price range"
+                          >
+                            <FiTrash2 />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan="7" className="px-4 py-5 text-muted">
+                  <td colSpan="7" className="px-4 py-6 text-sm text-muted">
                     No price ranges found.
                   </td>
                 </tr>
@@ -421,7 +475,7 @@ export default function Revenue() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
