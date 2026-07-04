@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import { AppProvider, useApp } from "@/hooks/useApp";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { hasUsableIndiaCoordinates } from "@/utils/address";
@@ -631,6 +632,7 @@ export default function App() {
     <AppProvider>
       <AppErrorBoundary>
         <AppRoutes />
+        <Analytics />
       </AppErrorBoundary>
     </AppProvider>
   );
