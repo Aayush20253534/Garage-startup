@@ -3,12 +3,24 @@ const ApiError = require("../../utils/apiError");
 
 const normalizeText = (value) => String(value || "").trim();
 const normalizeCity = (city) => normalizeText(city).toLowerCase();
+const normalizeScopeValue = (value) => {
+  const text = normalizeText(value);
+  return !text || ["ALL", "ANY"].includes(text.toUpperCase()) ? null : text;
+};
+const scopeMatches = (rangeValue, vehicleValue) => {
+  const rangeText = normalizeText(rangeValue);
+  if (!rangeText || ["ALL", "ANY"].includes(rangeText.toUpperCase())) {
+    return true;
+  }
+
+  return rangeText.toLowerCase() === normalizeText(vehicleValue).toLowerCase();
+};
 
 const scopeWhere = (payload = {}) => ({
   city: normalizeCity(payload.city),
   serviceId: payload.serviceId,
-  vehicleBrand: payload.vehicleBrand ? normalizeText(payload.vehicleBrand) : null,
-  vehicleModel: payload.vehicleModel ? normalizeText(payload.vehicleModel) : null,
+  vehicleBrand: normalizeScopeValue(payload.vehicleBrand),
+  vehicleModel: normalizeScopeValue(payload.vehicleModel),
   fuelType: payload.fuelType || null,
 });
 
@@ -32,8 +44,8 @@ const listPriceRanges = async (query = {}) => {
   const where = {
     ...(query.city && { city: normalizeCity(query.city) }),
     ...(query.serviceId && { serviceId: query.serviceId }),
-    ...(query.vehicleBrand && { vehicleBrand: normalizeText(query.vehicleBrand) }),
-    ...(query.vehicleModel && { vehicleModel: normalizeText(query.vehicleModel) }),
+    ...(query.vehicleBrand && { vehicleBrand: normalizeScopeValue(query.vehicleBrand) }),
+    ...(query.vehicleModel && { vehicleModel: normalizeScopeValue(query.vehicleModel) }),
     ...(query.fuelType && { fuelType: query.fuelType }),
     ...(query.isActive !== undefined && { isActive: query.isActive === "true" }),
   };
@@ -135,8 +147,8 @@ const updatePriceRange = async (id, payload) => {
     data: {
       ...(payload.city !== undefined && { city: normalizeCity(payload.city) }),
       ...(payload.serviceId !== undefined && { serviceId: payload.serviceId }),
-      ...(payload.vehicleBrand !== undefined && { vehicleBrand: payload.vehicleBrand ? normalizeText(payload.vehicleBrand) : null }),
-      ...(payload.vehicleModel !== undefined && { vehicleModel: payload.vehicleModel ? normalizeText(payload.vehicleModel) : null }),
+      ...(payload.vehicleBrand !== undefined && { vehicleBrand: normalizeScopeValue(payload.vehicleBrand) }),
+      ...(payload.vehicleModel !== undefined && { vehicleModel: normalizeScopeValue(payload.vehicleModel) }),
       ...(payload.fuelType !== undefined && { fuelType: payload.fuelType || null }),
       ...(payload.minPrice !== undefined && { minPrice: Number(payload.minPrice) }),
       ...(payload.maxPrice !== undefined && { maxPrice: Number(payload.maxPrice) }),
@@ -153,11 +165,11 @@ const deletePriceRange = async (id) => {
 
 const scoreMatch = (range, vehicle) => {
   let score = 0;
-  if (range.vehicleBrand && range.vehicleBrand.toLowerCase() !== String(vehicle.brand || "").toLowerCase()) return -1;
-  if (range.vehicleModel && range.vehicleModel.toLowerCase() !== String(vehicle.model || "").toLowerCase()) return -1;
+  if (!scopeMatches(range.vehicleBrand, vehicle.brand)) return -1;
+  if (!scopeMatches(range.vehicleModel, vehicle.model)) return -1;
   if (range.fuelType && range.fuelType !== vehicle.fuelType) return -1;
-  if (range.vehicleBrand) score += 2;
-  if (range.vehicleModel) score += 3;
+  if (normalizeScopeValue(range.vehicleBrand)) score += 2;
+  if (normalizeScopeValue(range.vehicleModel)) score += 3;
   if (range.fuelType) score += 1;
   return score;
 };
