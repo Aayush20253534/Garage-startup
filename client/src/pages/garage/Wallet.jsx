@@ -13,7 +13,7 @@ import { setWallet } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
 
-const MINIMUM_RECHARGE_AMOUNT = 100;
+const MINIMUM_RECHARGE_AMOUNT = 1;
 
 const loadCashfreeCheckout = () =>
   new Promise((resolve, reject) => {
