@@ -3,6 +3,12 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import { isPaymentAuthError, payForBooking } from "@/utils/bookingPayment";
+import {
+  FiCheckCircle,
+  FiCreditCard,
+  FiNavigation,
+  FiRefreshCw,
+} from "react-icons/fi";
 
 const getServicesText = (booking) => {
   return (
@@ -144,8 +150,9 @@ export default function ActiveBookings() {
           type="button"
           disabled={refreshing}
           onClick={() => loadBookings({ force: true })}
-          className="btn-ghost text-sm disabled:opacity-50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50"
         >
+          <FiRefreshCw className={refreshing ? "animate-spin" : ""} />
           {refreshing ? "Refreshing..." : "Refresh"}
         </button>
       </div>
@@ -193,21 +200,23 @@ export default function ActiveBookings() {
               </span>
 
               {isPendingPayment ? (
-                <div className="grid grid-cols-2 gap-3 sm:contents">
+                <div className="grid grid-cols-2 gap-2.5 sm:flex sm:items-center">
                   <button
                     type="button"
                     onClick={() => payBooking(booking)}
                     disabled={payingId === booking.id}
-                    className="btn-primary w-full whitespace-nowrap px-4 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                   >
+                    <FiCreditCard />
                     {payingId === booking.id ? "Processing..." : "Pay Now"}
                   </button>
                   <button
                     type="button"
                     disabled
-                    className="btn-dark w-full cursor-not-allowed whitespace-nowrap px-4 opacity-50 sm:w-auto"
+                    className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-line bg-bg-soft px-3.5 text-sm font-semibold text-muted opacity-70 sm:w-auto"
                     title="Complete payment to enable tracking"
                   >
+                    <FiNavigation />
                     Track
                   </button>
                 </div>
@@ -216,8 +225,9 @@ export default function ActiveBookings() {
                   type="button"
                   onClick={() => acceptDelivery(booking)}
                   disabled={acceptingId === booking.id}
-                  className="btn-primary w-full whitespace-nowrap px-4 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                 >
+                  <FiCheckCircle />
                   {acceptingId === booking.id
                     ? "Accepting..."
                     : "Accept Delivery"}
@@ -226,8 +236,9 @@ export default function ActiveBookings() {
                 <Link
                   to="/tracking"
                   state={{ bookingId: booking.id }}
-                  className="btn-dark w-full whitespace-nowrap px-4 sm:w-auto"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-ink px-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ink-2 sm:w-auto"
                 >
+                  <FiNavigation />
                   Track
                 </Link>
               )}
