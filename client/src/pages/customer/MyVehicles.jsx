@@ -164,9 +164,11 @@ export default function MyVehicles() {
               <article
                 key={v.id}
                 className={[
-                  "card-soft rounded-2xl p-4 shadow-sm transition hover:shadow-md",
-                  isActive ? "ring-2 ring-ink" : "",
-                ].join(" ")}
+  "card-soft rounded-2xl border p-4 shadow-sm transition hover:shadow-md",
+  isActive
+    ? "border-brand bg-brand-soft/30"
+    : "border-line bg-white",
+].join(" ")}
               >
                 <button
                   type="button"
