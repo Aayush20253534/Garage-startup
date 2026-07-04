@@ -303,7 +303,7 @@ export default function GarageWallet() {
                   Recharge Wallet
                 </h3>
                 <p className="mt-1 text-sm text-muted">
-                  Create a Cashfree recharge order. Minimum amount is ₹100.
+                  Create a Cashfree recharge order. Minimum amount is ₹1.
                 </p>
               </div>
 

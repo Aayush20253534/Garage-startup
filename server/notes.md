@@ -452,10 +452,13 @@ npm run db:delete-bookings -- --confirm
 npm run db:delete-notifications --
 npm run db:delete-notifications -- --confirm
 
-
 ### Testing
 
 Checkout.jsx
+
+Garage.js
+
+Wallet.jsx
 
 ---
 
