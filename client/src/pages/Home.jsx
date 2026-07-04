@@ -231,44 +231,95 @@ export default function Home() {
         </div>
 
         {loading ? (
-          <div className="card-soft rounded-2xl p-5 text-sm text-muted">
-            Loading services...
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div
+                key={index}
+                className="aspect-[4/5] animate-pulse rounded-2xl bg-bg-soft sm:aspect-[4/3] lg:aspect-[5/4]"
+              />
+            ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-            {categories.slice(0, 8).map((category) => {
+        ) : categories.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+            {categories.slice(0, 8).map((category, index) => {
               const ui = CATEGORY_UI[category.name] || {};
               const image = getCategoryThumbnailUrl(category);
               const isSos = ui.isSos;
+              const serviceCount = category.services?.length || 0;
 
               return (
-                <Link
-                  to={isSos ? "/sos" : `/services/${category.id}`}
+                <motion.div
                   key={category.id}
-                  className="group"
+                  initial={{ opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.35, delay: index * 0.04 }}
                 >
-                  <div className="flex min-h-[300px] flex-col overflow-hidden rounded-2xl border border-line bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
-                    <div className="mb-4 min-h-[48px] text-lg font-bold leading-tight text-ink">
-                      {category.name}
+                  <Link
+                    to={isSos ? "/sos" : `/services/${category.id}`}
+                    className="group relative block aspect-[4/5] overflow-hidden rounded-2xl border border-line bg-ink shadow-sm transition duration-300 hover:-translate-y-1 hover:border-brand/60 hover:shadow-[0_18px_45px_rgba(15,23,42,0.16)] sm:aspect-[4/3] lg:aspect-[5/4] lg:rounded-3xl"
+                  >
+                    {image ? (
+                      <img
+                        src={image}
+                        alt={category.name}
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-cover transition duration-500 ease-out group-hover:scale-[1.07]"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-slate-800 to-slate-950 text-4xl text-white/70">
+                        <FiTool />
+                      </div>
+                    )}
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/5 transition duration-300 group-hover:from-black/95 group-hover:via-black/30" />
+
+                    <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3 lg:p-4">
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] backdrop-blur-md lg:text-[11px] ${
+                          isSos
+                            ? "border-red-300/40 bg-red-500/90 text-white"
+                            : "border-white/20 bg-black/30 text-white"
+                        }`}
+                      >
+                        {isSos
+                          ? "Emergency"
+                          : serviceCount > 0
+                            ? `${serviceCount} service${serviceCount === 1 ? "" : "s"}`
+                            : "Vehicle care"}
+                      </span>
                     </div>
 
-                    <div className="flex-1 overflow-hidden rounded-xl bg-bg-soft">
-                      {image ? (
-                        <img
-                          src={image}
-                          alt={category.name}
-                          className="h-full min-h-[200px] w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="grid h-full min-h-[200px] w-full place-items-center text-muted">
-                          <FiTool />
+                    <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 lg:p-5">
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="line-clamp-2 text-base font-bold leading-tight text-white sm:text-lg lg:text-xl">
+                            {category.name}
+                          </h3>
+
+                          <p className="mt-1 hidden text-xs font-medium text-white/65 sm:block lg:text-sm">
+                            {isSos ? "Get immediate roadside help" : "Explore available services"}
+                          </p>
                         </div>
-                      )}
+
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/20 bg-white/15 text-white backdrop-blur-md transition duration-300 group-hover:border-brand group-hover:bg-brand group-hover:text-black lg:h-10 lg:w-10">
+                          <FiArrowRight className="transition-transform duration-300 group-hover:translate-x-0.5" />
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                </motion.div>
               );
             })}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-line bg-bg-soft p-8 text-center">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white text-xl text-muted shadow-sm">
+              <FiTool />
+            </div>
+            <p className="mt-3 text-sm font-semibold text-ink">
+              No service categories are available right now.
+            </p>
           </div>
         )}
       </section>
