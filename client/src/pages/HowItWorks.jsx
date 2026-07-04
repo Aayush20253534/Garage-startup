@@ -1,82 +1,119 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
-  FiTruck,
-  FiPackage,
-  FiMapPin,
   FiCheckCircle,
+  FiMapPin,
   FiNavigation,
+  FiPackage,
   FiShield,
+  FiTruck,
 } from "react-icons/fi";
 
 const STEPS = [
   {
     icon: FiTruck,
-    t: "Add Your Vehicle",
-    d: "Pick your brand, model and fuel type. We tailor services to your exact car.",
+    title: "Add Your Vehicle",
+    desc: "Pick your brand, model, and fuel type. Services are tailored to your exact vehicle.",
   },
   {
     icon: FiPackage,
-    t: "Pick Services",
-    d: "Browse curated packages with transparent prices. Add multiple to your cart.",
+    title: "Pick Services",
+    desc: "Browse curated packages with transparent prices and add multiple services to your cart.",
   },
   {
     icon: FiMapPin,
-    t: "Choose Location",
-    d: "Tell us where the service is needed — at home or nearest verified garage.",
+    title: "Choose Location",
+    desc: "Tell us where service is needed: at home or through the nearest verified garage.",
   },
   {
     icon: FiCheckCircle,
-    t: "Auto-Assign Garage",
-    d: "We instantly assign the best garage based on rating, distance & quality score.",
+    title: "Auto-Assign Garage",
+    desc: "We assign the best garage based on rating, distance, availability, and service quality.",
   },
   {
     icon: FiNavigation,
-    t: "Live Tracking",
-    d: "Track every step — from mechanic assignment to quality check.",
+    title: "Live Tracking",
+    desc: "Track each step from garage assignment to service progress and final quality check.",
   },
   {
     icon: FiShield,
-    t: "Warranty Activated",
-    d: "Get a 30-day service warranty card right on your dashboard.",
+    title: "Warranty Activated",
+    desc: "Get a 30-day service warranty card directly on your dashboard after completion.",
   },
 ];
 
 export default function HowItWorks() {
   return (
-    <div className="container-x py-16">
-      <div className="text-center max-w-2xl mx-auto">
-        <span className="chip-brand">How Rovauto Works</span>
-        <h1 className="text-4xl sm:text-5xl font-bold mt-4">
-          Service your car in 6 effortless steps
-        </h1>
-      </div>
-      <div className="mt-14 grid md:grid-cols-2 gap-5">
-        {STEPS.map((s, i) => (
-          <motion.div
-            key={s.t}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.05 }}
-            className="card-soft p-6 flex gap-4"
+    <div className="container-x py-10 sm:py-14">
+      <section className="mx-auto max-w-6xl space-y-8 overflow-x-hidden">
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="inline-flex rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-ink">
+            How Rovauto Works
+          </span>
+
+          <h1 className="mt-4 text-3xl font-bold leading-tight text-ink sm:text-5xl">
+            Service your car in 6 simple steps
+          </h1>
+
+          <p className="mt-3 text-sm text-muted sm:text-base">
+            From vehicle selection to warranty, the entire flow is built so your
+            car gets serviced without turning your day into paperwork cosplay.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {STEPS.map((step, index) => {
+            const Icon = step.icon;
+
+            return (
+              <motion.article
+                key={step.title}
+                initial={{ opacity: 0, y: 14 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.04 }}
+                className="card-soft rounded-2xl p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="flex gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-xl text-black">
+                    <Icon />
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold uppercase tracking-wide text-muted">
+                      Step {index + 1}
+                    </div>
+
+                    <h3 className="mt-1 text-lg font-bold text-ink">
+                      {step.title}
+                    </h3>
+
+                    <p className="mt-1 text-sm leading-relaxed text-muted">
+                      {step.desc}
+                    </p>
+                  </div>
+                </div>
+              </motion.article>
+            );
+          })}
+        </div>
+
+        <div className="rounded-3xl bg-ink p-6 text-center text-white shadow-sm sm:p-8">
+          <h2 className="text-2xl font-bold">Ready to book?</h2>
+
+          <p className="mx-auto mt-2 max-w-xl text-sm text-white/70">
+            Start with your vehicle and Rovauto will guide the rest. A rare case
+            where clicking a button may actually reduce chaos.
+          </p>
+
+          <Link
+            to="/booking/vehicle"
+            className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-brand px-6 text-sm font-bold text-black transition hover:bg-brand-dark"
           >
-            <div className="grid place-items-center h-14 w-14 rounded-2xl bg-brand text-ink shrink-0">
-              <s.icon className="text-2xl" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-muted">STEP {i + 1}</div>
-              <h3 className="font-semibold text-xl mt-1">{s.t}</h3>
-              <p className="text-muted mt-1">{s.d}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-      <div className="mt-14 text-center">
-        <Link to="/booking/vehicle" className="btn-primary px-6 py-3.5">
-          Start Booking
-        </Link>
-      </div>
+            Start Booking
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }
