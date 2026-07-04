@@ -1,7 +1,7 @@
 import api from "@/api/axios";
 
 const unwrap = (response) => response.data?.data ?? response.data;
-const GARAGE_MINIMUM_ACTIVATION_BALANCE = 100;
+const GARAGE_MINIMUM_ACTIVATION_BALANCE = 1;
 
 const authConfig = (token, config = {}) => ({
   ...config,
