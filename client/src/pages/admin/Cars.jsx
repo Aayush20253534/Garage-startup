@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
 import {
+  FiAlertCircle,
+  FiCheckCircle,
   FiEdit3,
   FiImage,
   FiPlus,
@@ -20,6 +22,12 @@ const emptyBrandForm = {
   logo: null,
 };
 
+const fieldClass =
+  "h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition placeholder:text-muted focus:border-ink disabled:bg-bg-soft";
+
+const fileClass =
+  "flex h-10 min-w-0 cursor-pointer items-center gap-2 rounded-lg border border-line px-3 text-sm font-medium text-ink transition hover:bg-bg-soft";
+
 export default function Cars() {
   const [brands, setBrands] = useState([]);
   const [brandForm, setBrandForm] = useState(emptyBrandForm);
@@ -33,7 +41,7 @@ export default function Cars() {
 
   const activeCount = useMemo(
     () => brands.filter((brand) => brand.isActive).length,
-    [brands],
+    [brands]
   );
 
   const modelCount = useMemo(
@@ -41,9 +49,9 @@ export default function Cars() {
       brands.reduce(
         (sum, brand) =>
           sum + (brand.models || []).filter((model) => model.isActive).length,
-        0,
+        0
       ),
-    [brands],
+    [brands]
   );
 
   const load = async () => {
@@ -55,6 +63,7 @@ export default function Cars() {
         includeInactive,
         ...(search.trim() && { search: search.trim() }),
       });
+
       setBrands(data || []);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load cars");
@@ -90,6 +99,7 @@ export default function Cars() {
 
   const buildBrandPayload = () => {
     const formData = new FormData();
+
     formData.append("name", brandForm.name.trim());
     formData.append("isActive", String(brandForm.isActive));
 
@@ -98,6 +108,7 @@ export default function Cars() {
         .split(",")
         .map((model) => model.trim())
         .filter(Boolean);
+
       formData.append("models", JSON.stringify(models));
     }
 
@@ -152,8 +163,9 @@ export default function Cars() {
 
   const deactivateBrand = async (brand) => {
     const ok = window.confirm(
-      `Deactivate ${brand.name} and its models from customer selection?`,
+      `Deactivate ${brand.name} and its models from customer selection?`
     );
+
     if (!ok) return;
 
     setError("");
@@ -186,19 +198,26 @@ export default function Cars() {
           name: modelName,
           isActive: modelForm.isActive !== false,
         });
+
         setSuccess("Car model updated.");
       } else {
         await adminApi.createCarModel(brand.id, {
           name: modelName,
           isActive: true,
         });
+
         setSuccess("Car model added.");
       }
 
       setModelForms((current) => ({
         ...current,
-        [brand.id]: { name: "", id: "", isActive: true },
+        [brand.id]: {
+          name: "",
+          id: "",
+          isActive: true,
+        },
       }));
+
       await load();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save car model");
@@ -216,8 +235,22 @@ export default function Cars() {
     }));
   };
 
+  const cancelModelEdit = (brandId) => {
+    setModelForms((current) => ({
+      ...current,
+      [brandId]: {
+        name: "",
+        id: "",
+        isActive: true,
+      },
+    }));
+  };
+
   const deactivateModel = async (model) => {
-    const ok = window.confirm(`Deactivate ${model.name} from customer selection?`);
+    const ok = window.confirm(
+      `Deactivate ${model.name} from customer selection?`
+    );
+
     if (!ok) return;
 
     setError("");
@@ -233,128 +266,156 @@ export default function Cars() {
   };
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mx-auto max-w-6xl space-y-4 overflow-x-hidden">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold sm:text-2xl">Cars</h2>
-          <p className="mt-1 text-sm text-muted sm:text-base">
-            Manage vehicle brands, models, and Cloudinary logos.
+          <h2 className="text-2xl font-bold text-ink">Cars</h2>
+          <p className="mt-1 text-sm text-muted">
+            Manage vehicle brands, models, and logos.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 text-sm sm:min-w-[260px]">
-          <div className="rounded-xl border border-line bg-white px-4 py-3">
-            <div className="text-muted">Active brands</div>
-            <div className="text-2xl font-bold">{activeCount}</div>
+        <div className="grid grid-cols-2 gap-2 sm:min-w-[260px]">
+          <div className="rounded-xl border border-line bg-white px-4 py-3 shadow-sm">
+            <div className="text-xs font-medium text-muted">
+              Active brands
+            </div>
+            <div className="mt-1 text-xl font-bold text-ink">
+              {activeCount}
+            </div>
           </div>
-          <div className="rounded-xl border border-line bg-white px-4 py-3">
-            <div className="text-muted">Active models</div>
-            <div className="text-2xl font-bold">{modelCount}</div>
+
+          <div className="rounded-xl border border-line bg-white px-4 py-3 shadow-sm">
+            <div className="text-xs font-medium text-muted">
+              Active models
+            </div>
+            <div className="mt-1 text-xl font-bold text-ink">
+              {modelCount}
+            </div>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
-          {error}
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <FiAlertCircle className="shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-          {success}
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <FiCheckCircle className="shrink-0" />
+          <span>{success}</span>
         </div>
       )}
 
       <form
         onSubmit={saveBrand}
-        className="card-soft grid gap-3 p-4 sm:p-5 lg:grid-cols-[1fr_1.4fr_220px_auto]"
+        className="card-soft rounded-2xl p-4 shadow-sm"
       >
-        <input
-          required
-          value={brandForm.name}
-          onChange={(event) =>
-            setBrandForm({ ...brandForm, name: event.target.value })
-          }
-          placeholder="Car brand"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-        />
+        <div className="mb-3">
+          <h3 className="text-sm font-bold text-ink">
+            {brandForm.id ? "Edit Brand" : "Add Brand"}
+          </h3>
+        </div>
 
-        <input
-          value={brandForm.models}
-          onChange={(event) =>
-            setBrandForm({ ...brandForm, models: event.target.value })
-          }
-          disabled={Boolean(brandForm.id)}
-          placeholder="Models only for a new brand"
-          className="min-w-0 rounded-xl border border-line px-4 py-3 outline-none focus:border-ink disabled:bg-bg-soft"
-        />
-
-        <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-line px-4 py-3 text-sm font-medium">
-          <FiImage className="shrink-0" />
-          <span className="truncate">
-            {brandForm.logo?.name || "Upload logo"}
-          </span>
+        <div className="grid gap-3 lg:grid-cols-[1fr_1.4fr_220px_auto]">
           <input
-            type="file"
-            accept="image/png,image/jpeg,image/jpg,image/webp"
-            onChange={(event) => setLogo(event.target.files?.[0])}
-            className="hidden"
+            required
+            value={brandForm.name}
+            onChange={(event) =>
+              setBrandForm({ ...brandForm, name: event.target.value })
+            }
+            placeholder="Car brand"
+            className={fieldClass}
           />
-        </label>
 
-        <div className="flex gap-2">
-          <button disabled={saving} className="btn-primary flex-1">
-            {saving ? "Saving..." : brandForm.id ? "Update" : "Add"}
-          </button>
+          <input
+            value={brandForm.models}
+            onChange={(event) =>
+              setBrandForm({ ...brandForm, models: event.target.value })
+            }
+            disabled={Boolean(brandForm.id)}
+            placeholder="Models only for new brand, comma separated"
+            className={fieldClass}
+          />
 
-          {brandForm.id && (
+          <label className={fileClass}>
+            <FiImage className="shrink-0" />
+            <span className="truncate">
+              {brandForm.logo?.name || "Upload logo"}
+            </span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              onChange={(event) => setLogo(event.target.files?.[0])}
+              className="hidden"
+            />
+          </label>
+
+          <div className="flex gap-2">
             <button
-              type="button"
-              onClick={() => setBrandForm(emptyBrandForm)}
-              className="btn-ghost !px-3"
-              aria-label="Cancel brand edit"
+              type="submit"
+              disabled={saving}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-lime-400 px-4 text-sm font-bold text-black transition hover:bg-lime-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <FiX />
+              <FiPlus />
+              {saving ? "Saving..." : brandForm.id ? "Update" : "Add"}
             </button>
-          )}
+
+            {brandForm.id && (
+              <button
+                type="button"
+                onClick={() => setBrandForm(emptyBrandForm)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line text-ink transition hover:border-ink hover:bg-bg-soft"
+                aria-label="Cancel brand edit"
+              >
+                <FiX />
+              </button>
+            )}
+          </div>
         </div>
       </form>
 
-      <div className="flex w-full max-w-full flex-col gap-2 sm:flex-row">
-        <div className="relative min-w-0 flex-1">
-          <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search brand"
-            className="w-full rounded-xl border border-line py-2 pl-11 pr-4 outline-none focus:border-ink"
-          />
+      <section className="card-soft rounded-2xl p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+          <label className="relative min-w-0">
+            <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search brands"
+              className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none transition focus:border-ink"
+            />
+          </label>
+
+          <label className="flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-3 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={includeInactive}
+              onChange={(event) => setIncludeInactive(event.target.checked)}
+            />
+            Include inactive
+          </label>
+
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <FiRefreshCw className={loading ? "animate-spin" : ""} />
+            Search
+          </button>
         </div>
-
-        <label className="flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2 text-sm">
-          <input
-            type="checkbox"
-            checked={includeInactive}
-            onChange={(event) => setIncludeInactive(event.target.checked)}
-          />
-          Include inactive
-        </label>
-
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          className="btn-ghost justify-center !py-2"
-        >
-          <FiRefreshCw className={loading ? "animate-spin" : ""} />
-          Refresh
-        </button>
-      </div>
+      </section>
 
       <div className="grid gap-4">
         {loading ? (
-          <div className="card-soft p-6 text-muted">Loading cars...</div>
+          <div className="card-soft rounded-2xl p-5 text-sm text-muted">
+            Loading cars...
+          </div>
         ) : brands.length ? (
           brands.map((brand) => {
             const modelForm = modelForms[brand.id] || {
@@ -364,8 +425,11 @@ export default function Cars() {
             };
 
             return (
-              <section key={brand.id} className="card-soft overflow-hidden">
-                <div className="flex flex-col gap-4 border-b border-line p-4 sm:flex-row sm:items-center sm:justify-between">
+              <section
+                key={brand.id}
+                className="card-soft overflow-hidden rounded-2xl shadow-sm"
+              >
+                <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-line bg-white">
                       {brand.logoUrl ? (
@@ -375,14 +439,14 @@ export default function Cars() {
                           className="h-10 w-10 object-contain"
                         />
                       ) : (
-                        <span className="text-lg font-bold">
-                          {brand.name.charAt(0)}
+                        <span className="text-lg font-bold text-ink">
+                          {brand.name?.charAt(0) || "?"}
                         </span>
                       )}
                     </div>
 
                     <div className="min-w-0">
-                      <div className="truncate text-lg font-semibold">
+                      <div className="truncate text-base font-bold text-ink">
                         {brand.name}
                       </div>
                       <div className="text-sm text-muted">
@@ -390,7 +454,14 @@ export default function Cars() {
                       </div>
                     </div>
 
-                    <span className={brand.isActive ? "chip-brand" : "chip"}>
+                    <span
+                      className={[
+                        "rounded-full px-2.5 py-1 text-xs font-bold",
+                        brand.isActive
+                          ? "bg-lime-100 text-ink"
+                          : "bg-bg-soft text-muted",
+                      ].join(" ")}
+                    >
                       {brand.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
@@ -399,15 +470,16 @@ export default function Cars() {
                     <button
                       type="button"
                       onClick={() => editBrand(brand)}
-                      className="btn-ghost !px-3 !py-2"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink transition hover:border-ink hover:bg-bg-soft"
                       aria-label="Edit brand"
                     >
                       <FiEdit3 />
                     </button>
+
                     <button
                       type="button"
                       onClick={() => deactivateBrand(brand)}
-                      className="rounded-xl bg-red-50 px-3 py-2 text-red-700"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
                       aria-label="Deactivate brand"
                     >
                       <FiTrash2 />
@@ -416,7 +488,7 @@ export default function Cars() {
                 </div>
 
                 <div className="grid gap-3 p-4">
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
                     <input
                       value={modelForm.name}
                       onChange={(event) =>
@@ -429,51 +501,67 @@ export default function Cars() {
                         }))
                       }
                       placeholder="Add or edit model"
-                      className="min-w-0 flex-1 rounded-xl border border-line px-4 py-2 outline-none focus:border-ink"
+                      className={fieldClass}
                     />
 
                     <button
                       type="button"
                       onClick={() => saveModel(brand)}
-                      className="btn-primary justify-center !py-2"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-lime-400 px-4 text-sm font-bold text-black transition hover:bg-lime-500"
                     >
                       <FiPlus />
-                      {modelForm.id ? "Update Model" : "Add Model"}
+                      {modelForm.id ? "Update" : "Add"}
                     </button>
+
+                    {modelForm.id && (
+                      <button
+                        type="button"
+                        onClick={() => cancelModelEdit(brand.id)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line text-ink transition hover:border-ink hover:bg-bg-soft"
+                        aria-label="Cancel model edit"
+                      >
+                        <FiX />
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    {(brand.models || []).map((model) => (
-                      <span
-                        key={model.id}
-                        className={`inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${
-                          model.isActive
-                            ? "border-line bg-white"
-                            : "border-line bg-bg-soft text-muted"
-                        }`}
-                      >
-                        <span className="truncate">{model.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => editModel(brand, model)}
-                          className="text-ink"
-                          aria-label={`Edit ${model.name}`}
+                    {(brand.models || []).length ? (
+                      brand.models.map((model) => (
+                        <span
+                          key={model.id}
+                          className={[
+                            "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
+                            model.isActive
+                              ? "border-line bg-white text-ink"
+                              : "border-line bg-bg-soft text-muted",
+                          ].join(" ")}
                         >
-                          <FiEdit3 />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deactivateModel(model)}
-                          className="text-red-600"
-                          aria-label={`Deactivate ${model.name}`}
-                        >
-                          <FiX />
-                        </button>
-                      </span>
-                    ))}
+                          <span className="truncate">{model.name}</span>
 
-                    {brand.models?.length === 0 && (
-                      <span className="text-sm text-muted">No models yet.</span>
+                          <button
+                            type="button"
+                            onClick={() => editModel(brand, model)}
+                            className="text-ink"
+                            aria-label={`Edit ${model.name}`}
+                          >
+                            <FiEdit3 />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deactivateModel(model)}
+                            className="text-red-600"
+                            aria-label={`Deactivate ${model.name}`}
+                          >
+                            <FiX />
+                          </button>
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted">
+                        No models yet.
+                      </span>
                     )}
                   </div>
                 </div>
@@ -481,7 +569,9 @@ export default function Cars() {
             );
           })
         ) : (
-          <div className="card-soft p-6 text-muted">No car brands found.</div>
+          <div className="card-soft rounded-2xl p-5 text-sm text-muted">
+            No car brands found.
+          </div>
         )}
       </div>
     </div>
