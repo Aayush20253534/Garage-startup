@@ -96,7 +96,7 @@ export default function GarageProfile() {
   const uploadedImages = Array.isArray(garage?.images) ? garage.images : [];
   const supportedBrands = getSupportedBrands(garage);
 
-  const minimumBalance = activation.minimumBalance || 100;
+  const minimumBalance = activation.minimumBalance || 1;
   const balance =
     activation.walletBalance ||
     garage?.walletBalance ||

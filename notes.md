@@ -458,7 +458,11 @@ Checkout.jsx
 
 Garage.js
 
-Wallet.jsx
+Garage Wallet.jsx
+
+Garage Dashboard.jsx
+
+Garage Profile.jsx
 
 ---
 
