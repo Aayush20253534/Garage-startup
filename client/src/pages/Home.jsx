@@ -31,10 +31,8 @@ const TRUST = [
 
 const formatCount = (value, fallback) => {
   const number = Number(value);
-
   if (!Number.isFinite(number)) return fallback;
   if (number >= 1000) return `${Math.floor(number / 1000)}K+`;
-
   return String(number);
 };
 
@@ -103,7 +101,6 @@ export default function Home() {
       })
       .catch(() => {
         if (!mounted) return;
-
         setCategories([]);
         setPopularServices([]);
       })
@@ -250,20 +247,20 @@ export default function Home() {
                   key={category.id}
                   className="group"
                 >
-                  <div className="flex h-[210px] flex-col overflow-hidden rounded-2xl bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md sm:h-[220px]">
-                    <div className="min-h-[48px] text-base font-bold leading-tight text-ink">
+                  <div className="flex min-h-[300px] flex-col overflow-hidden rounded-2xl border border-line bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                    <div className="mb-4 min-h-[48px] text-lg font-bold leading-tight text-ink">
                       {category.name}
                     </div>
 
-                    <div className="mt-auto h-30 w-full overflow-hidden rounded-xl bg-bg-soft">
+                    <div className="flex-1 overflow-hidden rounded-xl bg-bg-soft">
                       {image ? (
                         <img
                           src={image}
                           alt={category.name}
-                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          className="h-full min-h-[200px] w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                       ) : (
-                        <div className="grid h-full w-full place-items-center text-muted">
+                        <div className="grid h-full min-h-[200px] w-full place-items-center text-muted">
                           <FiTool />
                         </div>
                       )}
@@ -311,7 +308,6 @@ export default function Home() {
                 </div>
 
                 <h3 className="mt-4 text-lg font-bold text-ink">{title}</h3>
-
                 <p className="mt-1 text-sm text-muted">{desc}</p>
               </motion.div>
             ))}
@@ -351,7 +347,7 @@ export default function Home() {
                   className="card-soft group rounded-2xl p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
                   {image && (
-                    <div className="mb-4 h-36 w-full overflow-hidden rounded-xl">
+                    <div className="mb-4 h-40 w-full overflow-hidden rounded-xl bg-bg-soft">
                       <img
                         src={image}
                         alt={service.name}
@@ -439,7 +435,6 @@ export default function Home() {
                   className="rounded-2xl border border-white/10 bg-white/5 p-5"
                 >
                   <div className="text-3xl font-bold text-brand">{number}</div>
-
                   <div className="mt-1 text-xs text-white/70">{label}</div>
                 </div>
               ))}
