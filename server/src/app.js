@@ -44,7 +44,14 @@ app.use(
 app.use(compression());
 app.use(cookieParser());
 
-app.use(express.json({ limit: "10mb" }));
+app.use(
+  express.json({
+    limit: "10mb",
+    verify: (req, res, buffer) => {
+      req.rawBody = buffer;
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true }));
 
 if (process.env.NODE_ENV === "development") {

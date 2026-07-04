@@ -1,7 +1,35 @@
 const axios = require("axios");
 const { createWhatsappLink, normalizeWhatsappNumber } = require("../utils/whatsapp");
 
-const isWhatsappConfigured = () => Boolean(process.env.WHATSAPP_PROVIDER_URL && process.env.WHATSAPP_PROVIDER_TOKEN);
+const looksLikeMetaToken = (value) => /^EA[A-Za-z0-9_-]+/.test(String(value || ""));
+const looksLikePhoneNumberId = (value) => /^\d{8,}$/.test(String(value || ""));
+
+const getWhatsappPhoneNumberId = () => {
+  if (process.env.WHATSAPP_PHONE_NUMBER_ID) return process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (looksLikePhoneNumberId(process.env.WHATSAPP_SENDER_ID)) return process.env.WHATSAPP_SENDER_ID;
+  if (looksLikePhoneNumberId(process.env.WHATSAPP_PROVIDER_TOKEN)) return process.env.WHATSAPP_PROVIDER_TOKEN;
+
+  const match = String(process.env.WHATSAPP_PROVIDER_URL || "").match(/\/(\d+)\/messages(?:\?|$)/);
+  return match?.[1] || "";
+};
+
+const getWhatsappAccessToken = () => {
+  if (process.env.WHATSAPP_ACCESS_TOKEN) return process.env.WHATSAPP_ACCESS_TOKEN;
+  if (looksLikeMetaToken(process.env.WHATSAPP_PROVIDER_TOKEN)) return process.env.WHATSAPP_PROVIDER_TOKEN;
+  if (looksLikeMetaToken(process.env.WHATSAPP_SENDER_ID)) return process.env.WHATSAPP_SENDER_ID;
+  return process.env.WHATSAPP_PROVIDER_TOKEN || "";
+};
+
+const getWhatsappProviderUrl = () => {
+  if (process.env.WHATSAPP_PROVIDER_URL) return process.env.WHATSAPP_PROVIDER_URL;
+
+  const phoneNumberId = getWhatsappPhoneNumberId();
+  const graphVersion = process.env.WHATSAPP_GRAPH_VERSION || "v25.0";
+  return phoneNumberId ? `https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages` : "";
+};
+
+const isMetaCloudApiUrl = (url) => /graph\.facebook\.com\/.+\/messages/i.test(String(url || ""));
+const isWhatsappConfigured = () => Boolean(getWhatsappProviderUrl() && getWhatsappAccessToken());
 
 const getFrontendBaseUrl = () => (process.env.FRONTEND_URL || process.env.CLIENT_URL || "https://rovauto.vercel.app").replace(/\/+$/, "");
 
@@ -26,18 +54,31 @@ const sendWhatsappMessage = async ({ to, message }) => {
     return { sent: false, logged: true, whatsappLink: createWhatsappLink(phone, message) };
   }
 
-  const payload = {
-    to: phone,
-    recipient: phone,
-    phone,
-    message,
-    text: message,
-    from: process.env.WHATSAPP_SENDER_ID || undefined,
-  };
+  const providerUrl = getWhatsappProviderUrl();
+  const accessToken = getWhatsappAccessToken();
+  const payload = isMetaCloudApiUrl(providerUrl)
+    ? {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: phone,
+        type: "text",
+        text: {
+          preview_url: true,
+          body: message,
+        },
+      }
+    : {
+        to: phone,
+        recipient: phone,
+        phone,
+        message,
+        text: message,
+        from: getWhatsappPhoneNumberId() || undefined,
+      };
 
-  const response = await axios.post(process.env.WHATSAPP_PROVIDER_URL, payload, {
+  const response = await axios.post(providerUrl, payload, {
     headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_PROVIDER_TOKEN}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });
@@ -104,8 +145,11 @@ const sendCustomerGarageDetailsWhatsapp = async ({ customer, garage, booking }) 
 };
 
 module.exports = {
+  getWhatsappAccessToken,
   getGarageAcceptUrl,
   getMapsLink,
+  getWhatsappPhoneNumberId,
+  getWhatsappProviderUrl,
   sendCustomerGarageDetailsWhatsapp,
   sendGarageBookingRequestWhatsapp,
   sendGarageCustomerLocationWhatsapp,
