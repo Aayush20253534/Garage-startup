@@ -28,6 +28,19 @@ const ACTIVE_BOOKINGS_CACHE_TTL = 60 * 1000;
 const SERVICE_HISTORY_CACHE_TTL = 5 * 60 * 1000;
 const PROFILE_CACHE_TTL = 5 * 60 * 1000;
 
+const SESSION_ROLE_KEY = "rov_session_role";
+const VALID_SESSION_ROLES = new Set(["CUSTOMER", "GARAGE_OWNER", "ADMIN"]);
+
+const setSessionRole = (role) => {
+  if (VALID_SESSION_ROLES.has(role)) {
+    localStorage.setItem(SESSION_ROLE_KEY, role);
+  }
+};
+
+const clearSessionRole = () => {
+  localStorage.removeItem(SESSION_ROLE_KEY);
+};
+
 const readJson = (key, fallback = null) => {
   try {
     const value = localStorage.getItem(key);
@@ -40,6 +53,42 @@ const readJson = (key, fallback = null) => {
 const readNumber = (key, fallback = null) => {
   const value = Number(localStorage.getItem(key));
   return Number.isFinite(value) && value > 0 ? value : fallback;
+};
+
+const getStoredSessionRole = () => {
+  const explicitRole = localStorage.getItem(SESSION_ROLE_KEY);
+
+  if (VALID_SESSION_ROLES.has(explicitRole)) {
+    return explicitRole;
+  }
+
+  // One-time migration support for users who logged in before the role hint
+  // existed. Prefer the current portal, then fall back to cached UI data.
+  const pathname = window.location.pathname;
+  const cachedUser =
+    readJson("rov_user", null) || readJson("user", null);
+  const cachedGarage = readJson("garage", null);
+
+  if (pathname.startsWith("/garage") && cachedGarage) {
+    return "GARAGE_OWNER";
+  }
+
+  if (
+    pathname.startsWith("/admin") &&
+    cachedUser?.role === "ADMIN"
+  ) {
+    return "ADMIN";
+  }
+
+  if (VALID_SESSION_ROLES.has(cachedUser?.role)) {
+    return cachedUser.role;
+  }
+
+  if (cachedGarage) {
+    return "GARAGE_OWNER";
+  }
+
+  return null;
 };
 
 export function AppProvider({ children }) {
@@ -205,7 +254,7 @@ export function AppProvider({ children }) {
     clearServiceHistoryCache();
   };
 
-  const clearCustomerSession = () => {
+  const clearCustomerSession = ({ clearRole = true } = {}) => {
     // Remove legacy JWT storage left by older frontend versions.
     localStorage.removeItem("token");
 
@@ -223,13 +272,27 @@ export function AppProvider({ children }) {
     clearActiveBookingsCache();
     clearServiceHistoryCache();
     clearProfileCache();
+
+    if (clearRole) {
+      clearSessionRole();
+    }
   };
 
-  const clearGarageSession = () => {
+  const clearGarageSession = ({ clearRole = true } = {}) => {
     // Remove legacy JWT storage left by older frontend versions.
     localStorage.removeItem("garage_token");
     localStorage.removeItem("garage");
     dispatch(clearGarageState());
+
+    if (clearRole) {
+      clearSessionRole();
+    }
+  };
+
+  const clearAllLocalSessions = () => {
+    clearCustomerSession({ clearRole: false });
+    clearGarageSession({ clearRole: false });
+    clearSessionRole();
   };
 
   const syncVehicles = (list = []) => {
@@ -266,15 +329,34 @@ export function AppProvider({ children }) {
     return me;
   };
 
+  const syncAuthenticatedUser = (me) => {
+    if (!me) return null;
+
+    if (me.role === "CUSTOMER") {
+      return syncUserData(me);
+    }
+
+    // Admin accounts use the same top-level user state, but should not be
+    // treated as customer profile/vehicle data.
+    dispatch(setCustomerUser(me));
+    localStorage.setItem("user", JSON.stringify(me));
+    localStorage.setItem("rov_user", JSON.stringify(me));
+
+    return me;
+  };
+
   const login = (userData) => {
     if (!userData) {
       throw new Error("User data is required");
     }
 
-    // Delete old browser-readable tokens during the migration.
+    // The shared HttpOnly cookie can represent only one role at a time.
+    clearCustomerSession({ clearRole: false });
+    clearGarageSession({ clearRole: false });
     localStorage.removeItem("token");
+    setSessionRole(userData.role);
 
-    syncUserData(userData);
+    syncAuthenticatedUser(userData);
 
     clearDashboardCache();
     clearVehiclesCache();
@@ -288,24 +370,35 @@ export function AppProvider({ children }) {
       throw new Error("Garage data is required");
     }
 
+    // Remove stale customer/admin UI state before activating the garage portal.
+    clearCustomerSession({ clearRole: false });
     localStorage.removeItem("garage_token");
     localStorage.setItem("garage", JSON.stringify(garageData));
+    setSessionRole("GARAGE_OWNER");
     dispatch(setGarage(garageData));
   };
 
-  const fetchMe = async () => {
+  const fetchMe = async ({ sync = true } = {}) => {
     try {
-      const response = await api.get("/auth/me");
+      const response = await api.get("/auth/me", {
+        skipSessionExpiryMessage: true,
+      });
       const me = response.data?.data;
 
-      if (!me) {
+      if (!me || !VALID_SESSION_ROLES.has(me.role)) {
         throw new Error("Invalid current-user response");
       }
 
-      return syncUserData(me);
+      setSessionRole(me.role);
+
+      if (sync && me.role !== "GARAGE_OWNER") {
+        syncAuthenticatedUser(me);
+      }
+
+      return me;
     } catch (err) {
       if (err.response?.status === 401) {
-        clearCustomerSession();
+        clearAllLocalSessions();
       }
 
       return null;
@@ -314,8 +407,6 @@ export function AppProvider({ children }) {
 
   const refreshGarage = async () => {
     try {
-      // garageApi.getProfile must use the shared Axios instance and must not
-      // require a token argument.
       const garageData = await garageApi.getProfile();
 
       if (!garageData) {
@@ -323,12 +414,21 @@ export function AppProvider({ children }) {
       }
 
       localStorage.setItem("garage", JSON.stringify(garageData));
+      setSessionRole("GARAGE_OWNER");
       dispatch(setGarage(garageData));
 
       return garageData;
     } catch (err) {
       if (err.response?.status === 401) {
-        clearGarageSession();
+        clearAllLocalSessions();
+      } else if (err.response?.status === 403) {
+        // A valid non-garage session must not be destroyed just because an old
+        // garage cache existed. Remove only the garage-side state.
+        clearGarageSession({ clearRole: false });
+
+        if (localStorage.getItem(SESSION_ROLE_KEY) === "GARAGE_OWNER") {
+          clearSessionRole();
+        }
       }
 
       return null;
@@ -337,14 +437,12 @@ export function AppProvider({ children }) {
 
   const logoutGarage = async () => {
     try {
-      // Add garageApi.logout() to client/src/api/garage.js if it does not
-      // already exist. It must call the garage logout endpoint with cookies.
       await garageApi.logout();
     } catch {
       // Local cleanup still happens if the server session is already gone.
     }
 
-    clearGarageSession();
+    clearAllLocalSessions();
   };
 
   const logout = async () => {
@@ -354,7 +452,7 @@ export function AppProvider({ children }) {
       // Local cleanup still happens if the server session is already gone.
     }
 
-    clearCustomerSession();
+    clearAllLocalSessions();
   };
 
   const fetchDashboard = async ({ force = false } = {}) => {
@@ -544,17 +642,44 @@ export function AppProvider({ children }) {
   useEffect(() => {
     let active = true;
 
-    const restoreSessions = async () => {
-      // HttpOnly cookies cannot be read from JavaScript, so probe both session
-      // endpoints. A 401 simply means that role has no active session.
-      await Promise.allSettled([fetchMe(), refreshGarage()]);
+    const restoreSession = async () => {
+      const roleHint = getStoredSessionRole();
+
+      // No local hint means the visitor is logged out. Do not probe protected
+      // endpoints on every public page and manufacture predictable 401 noise.
+      if (!roleHint) {
+        if (active) {
+          setAuthLoading(false);
+        }
+        return;
+      }
+
+      // /auth/me is the single source of truth for the shared HttpOnly cookie.
+      // Only after confirming GARAGE_OWNER do we request /garages/me.
+      const me = await fetchMe({ sync: false });
+
+      if (!me) {
+        if (active) {
+          setAuthLoading(false);
+        }
+        return;
+      }
+
+      if (me.role === "GARAGE_OWNER") {
+        clearCustomerSession({ clearRole: false });
+        await refreshGarage();
+      } else {
+        clearCustomerSession({ clearRole: false });
+        clearGarageSession({ clearRole: false });
+        syncAuthenticatedUser(me);
+      }
 
       if (active) {
         setAuthLoading(false);
       }
     };
 
-    restoreSessions();
+    restoreSession();
 
     return () => {
       active = false;
@@ -573,18 +698,13 @@ export function AppProvider({ children }) {
 
       lastRefreshAt = now;
 
-      const requests = [];
-
       if (user) {
-        requests.push(fetchMe());
+        fetchMe();
+        return;
       }
 
       if (garageUser) {
-        requests.push(refreshGarage());
-      }
-
-      if (requests.length > 0) {
-        Promise.allSettled(requests);
+        refreshGarage();
       }
     };
 
@@ -614,6 +734,25 @@ export function AppProvider({ children }) {
       window.removeEventListener("online", onOnline);
     };
   }, [user, garageUser]);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      clearAllLocalSessions();
+      setAuthLoading(false);
+    };
+
+    window.addEventListener(
+      "rovauto:session-expired",
+      handleSessionExpired,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "rovauto:session-expired",
+        handleSessionExpired,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
