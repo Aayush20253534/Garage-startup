@@ -100,8 +100,11 @@ export default function Services() {
             const categoryServices = category.services || [];
             const categoryComingSoon =
               !ui.isSos &&
-              categoryServices.length > 0 &&
-              categoryServices.every((service) => toBoolean(service.isComingSoon));
+              (toBoolean(category.isComingSoon) ||
+                (categoryServices.length > 0 &&
+                  categoryServices.every((service) =>
+                    toBoolean(service.isComingSoon),
+                  )));
 
             return (
               <Link

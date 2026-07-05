@@ -272,9 +272,12 @@ model ServiceCategory {
   thumbnailUrl      String?
   thumbnailPublicId String?
   isActive          Boolean   @default(true)
+  isComingSoon     Boolean   @default(false)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   services          Service[]
+
+  @@index([isComingSoon])
 }
 
 model Service {

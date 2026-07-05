@@ -30,6 +30,12 @@ const TRUST = [
   { icon: FiClock, label: "Fast Booking" },
 ];
 
+const toBoolean = (value) =>
+  value === true ||
+  value === 1 ||
+  value === "1" ||
+  String(value).toLowerCase() === "true";
+
 const formatCount = (value, fallback) => {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
@@ -257,8 +263,11 @@ export default function Home() {
               const serviceCount = categoryServices.length;
               const categoryComingSoon =
                 !isSos &&
-                serviceCount > 0 &&
-                categoryServices.every((service) => service.isComingSoon);
+                (toBoolean(category.isComingSoon) ||
+                  (serviceCount > 0 &&
+                    categoryServices.every((service) =>
+                      toBoolean(service.isComingSoon),
+                    )));
 
               return (
                 <motion.div
@@ -413,7 +422,9 @@ export default function Home() {
               const image = getServiceThumbnailUrl(service);
               const hasPrice = Boolean(user && service.priceRange);
               const price = service.priceRange?.min;
-              const comingSoon = Boolean(service.isComingSoon);
+              const comingSoon =
+                toBoolean(service.isComingSoon) ||
+                toBoolean(service.category?.isComingSoon);
 
               return (
                 <Link

@@ -20,6 +20,7 @@ const emptyCategoryForm = {
   name: "",
   description: "",
   isActive: true,
+  isComingSoon: false,
   thumbnail: null,
 };
 
@@ -75,6 +76,9 @@ const toBoolean = (value) =>
 const isServiceComingSoon = (service) =>
   toBoolean(service?.isComingSoon);
 
+const isCategoryComingSoon = (category) =>
+  toBoolean(category?.isComingSoon);
+
 export default function AdminServices() {
   const [categories, setCategories] = useState([]);
   const [categoryForm, setCategoryForm] = useState(emptyCategoryForm);
@@ -86,6 +90,7 @@ export default function AdminServices() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [togglingServiceId, setTogglingServiceId] = useState(null);
+  const [togglingCategoryId, setTogglingCategoryId] = useState(null);
 
   const activeCategoryCount = useMemo(
     () => categories.filter((category) => category.isActive).length,
@@ -147,6 +152,7 @@ export default function AdminServices() {
         name: categoryForm.name.trim(),
         description: categoryForm.description.trim() || null,
         isActive: categoryForm.isActive,
+        isComingSoon: categoryForm.isComingSoon,
       };
 
       let saved;
@@ -180,10 +186,40 @@ export default function AdminServices() {
       name: category.name || "",
       description: category.description || "",
       isActive: Boolean(category.isActive),
+      isComingSoon: isCategoryComingSoon(category),
       thumbnail: null,
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const toggleCategoryComingSoon = async (category) => {
+    const currentlyComingSoon = isCategoryComingSoon(category);
+
+    setError("");
+    setSuccess("");
+    setTogglingCategoryId(category.id);
+
+    try {
+      await adminApi.updateServiceCategory(category.id, {
+        isComingSoon: !currentlyComingSoon,
+      });
+
+      setSuccess(
+        currentlyComingSoon
+          ? `${category.name} category is now available.`
+          : `${category.name} category marked as coming soon.`,
+      );
+
+      await load();
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to update category availability",
+      );
+    } finally {
+      setTogglingCategoryId(null);
+    }
   };
 
   const toggleCategoryActive = async (category) => {
@@ -477,7 +513,7 @@ export default function AdminServices() {
           </h3>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[1fr_1.4fr_220px_auto]">
+        <div className="grid gap-3 lg:grid-cols-[1fr_1.4fr_220px_160px_auto]">
           <input
             required
             value={categoryForm.name}
@@ -513,6 +549,21 @@ export default function AdminServices() {
               }
               className="hidden"
             />
+          </label>
+
+          <label className="flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-ink">
+            <input
+              type="checkbox"
+              checked={categoryForm.isComingSoon}
+              onChange={(event) =>
+                setCategoryForm({
+                  ...categoryForm,
+                  isComingSoon: event.target.checked,
+                })
+              }
+              className="h-4 w-4 accent-ink"
+            />
+            Coming Soon
           </label>
 
           <div className="flex gap-2">
@@ -740,22 +791,33 @@ export default function AdminServices() {
             Loading services...
           </div>
         ) : categories.length ? (
-          categories.map((category) => (
+          categories.map((category) => {
+            const categoryComingSoon = isCategoryComingSoon(category);
+
+            return (
             <section
               key={category.id}
               className="card-soft overflow-hidden rounded-2xl shadow-sm"
             >
               <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-bg-soft">
+                  <div className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-bg-soft">
                     {category.thumbnailUrl ? (
                       <img
                         src={category.thumbnailUrl}
                         alt={category.name}
-                        className="h-full w-full object-cover"
+                        className={`h-full w-full object-cover transition ${
+                          categoryComingSoon
+                            ? "scale-105 blur-sm grayscale"
+                            : ""
+                        }`}
                       />
                     ) : (
                       <FiImage className="text-muted" />
+                    )}
+
+                    {categoryComingSoon && (
+                      <ComingSoonOverlay compact />
                     )}
                   </div>
 
@@ -775,6 +837,12 @@ export default function AdminServices() {
                       >
                         {category.isActive ? "Active" : "Inactive"}
                       </span>
+
+                      {categoryComingSoon && (
+                        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
+                          Coming Soon
+                        </span>
+                      )}
                     </div>
 
                     <p className="mt-1 line-clamp-1 text-sm text-muted">
@@ -783,7 +851,27 @@ export default function AdminServices() {
                   </div>
                 </div>
 
-                <div className="flex shrink-0 gap-2 sm:justify-end">
+                <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => toggleCategoryComingSoon(category)}
+                    disabled={
+                      togglingCategoryId === category.id ||
+                      !toBoolean(category.isActive)
+                    }
+                    className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      categoryComingSoon
+                        ? "bg-lime-100 text-ink hover:bg-lime-200"
+                        : "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                    }`}
+                  >
+                    {togglingCategoryId === category.id
+                      ? "Updating..."
+                      : categoryComingSoon
+                        ? "Make Available"
+                        : "Mark Coming Soon"}
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => editCategory(category)}
@@ -825,7 +913,9 @@ export default function AdminServices() {
                 {(category.services || []).length ? (
                   category.services.map((service) => {
                     const thumbnail = getThumbnail(service);
-                    const comingSoon = isServiceComingSoon(service);
+                    const serviceComingSoon = isServiceComingSoon(service);
+                    const effectiveComingSoon =
+                      categoryComingSoon || serviceComingSoon;
                     const serviceActive = toBoolean(service.isActive);
 
                     return (
@@ -839,7 +929,7 @@ export default function AdminServices() {
                               src={thumbnail}
                               alt={service.name}
                               className={`h-full w-full object-cover transition ${
-                                comingSoon
+                                effectiveComingSoon
                                   ? "scale-105 blur-sm grayscale"
                                   : ""
                               }`}
@@ -848,7 +938,7 @@ export default function AdminServices() {
                             <FiImage className="text-muted" />
                           )}
 
-                          {comingSoon && (
+                          {effectiveComingSoon && (
                             <ComingSoonOverlay compact />
                           )}
                         </div>
@@ -870,9 +960,15 @@ export default function AdminServices() {
                               {serviceActive ? "Active" : "Inactive"}
                             </span>
 
-                            {comingSoon && (
+                            {serviceComingSoon && (
                               <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
                                 Coming Soon
+                              </span>
+                            )}
+
+                            {categoryComingSoon && (
+                              <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-800">
+                                Category Coming Soon
                               </span>
                             )}
                           </div>
@@ -895,13 +991,13 @@ export default function AdminServices() {
                               togglingServiceId === service.id
                             }
                             className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                              comingSoon
+                              serviceComingSoon
                                 ? "bg-lime-100 text-ink hover:bg-lime-200"
                                 : "bg-amber-100 text-amber-800 hover:bg-amber-200"
                             }`}
                             title={
                               serviceActive
-                                ? comingSoon
+                                ? serviceComingSoon
                                   ? "Make this service bookable"
                                   : "Keep visible but prevent booking"
                                 : "Reactivate this service first"
@@ -909,7 +1005,7 @@ export default function AdminServices() {
                           >
                             {togglingServiceId === service.id
                               ? "Updating..."
-                              : comingSoon
+                              : serviceComingSoon
                                 ? "Make Available"
                                 : "Mark Coming Soon"}
                           </button>
@@ -959,7 +1055,8 @@ export default function AdminServices() {
                 )}
               </div>
             </section>
-          ))
+            );
+          })
         ) : (
           <div className="card-soft rounded-2xl p-5 text-sm text-muted">
             No service categories found.

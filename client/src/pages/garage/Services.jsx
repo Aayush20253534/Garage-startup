@@ -19,6 +19,12 @@ import {
 } from "@/utils/priceRange";
 import { getServiceThumbnailUrl } from "@/utils/imageCache";
 
+const toBoolean = (value) =>
+  value === true ||
+  value === 1 ||
+  value === "1" ||
+  String(value).toLowerCase() === "true";
+
 const getIncludes = (service) => {
   if (!service.description) return ["Service inspection", "Basic checks"];
 
@@ -125,7 +131,9 @@ export default function GarageServices() {
             const includes = getIncludes(service);
             const minPrice = getServiceMinPrice(service);
             const maxPrice = getServiceMaxPrice(service);
-            const comingSoon = Boolean(service.isComingSoon);
+            const comingSoon =
+              toBoolean(service.isComingSoon) ||
+              toBoolean(service.category?.isComingSoon);
 
             return (
               <motion.article

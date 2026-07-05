@@ -17,6 +17,12 @@ import {
   warmImageCache,
 } from "@/utils/imageCache";
 
+const toBoolean = (value) =>
+  value === true ||
+  value === 1 ||
+  value === "1" ||
+  String(value).toLowerCase() === "true";
+
 const getIncludes = (service) => {
   if (!service.description) return ["Service inspection", "Basic checks"];
 
@@ -82,9 +88,13 @@ export default function CategoryDetail() {
   const ui = CATEGORY_UI[category.name] || {};
   const categoryImage = getCategoryThumbnailUrl(category);
   const Icon = ui.icon || FiTool;
+  const categoryComingSoon = toBoolean(category.isComingSoon);
+  const selectedPackageComingSoon =
+    selectedPackage &&
+    (categoryComingSoon || toBoolean(selectedPackage.isComingSoon));
 
   const handleBook = (service) => {
-    if (service.isComingSoon) {
+    if (categoryComingSoon || toBoolean(service.isComingSoon)) {
       return;
     }
 
@@ -100,6 +110,12 @@ export default function CategoryDetail() {
       price: getServiceMinPrice(service),
       image: getServiceThumbnailUrl(service) || categoryImage,
       catId: category.id,
+      category: {
+        id: category.id,
+        name: category.name,
+        isComingSoon: categoryComingSoon,
+      },
+      categoryComingSoon,
     };
 
     addToCart(serviceItem);
@@ -115,7 +131,15 @@ export default function CategoryDetail() {
         <FiArrowLeft /> Back to Services
       </Link>
 
-      <h1 className="mb-5 text-2xl font-bold sm:text-3xl">{category.name}</h1>
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-bold sm:text-3xl">{category.name}</h1>
+
+        {categoryComingSoon && (
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-800">
+            Category Coming Soon
+          </span>
+        )}
+      </div>
 
       <div className="grid gap-4">
         {packages.map((pkg) => {
@@ -125,7 +149,8 @@ export default function CategoryDetail() {
           const includes = getIncludes(pkg);
           const serviceImage = getServiceThumbnailUrl(pkg);
           const hasPrice = Boolean(user && pkg.priceRange);
-          const comingSoon = Boolean(pkg.isComingSoon);
+          const comingSoon =
+            categoryComingSoon || toBoolean(pkg.isComingSoon);
 
           return (
             <div
@@ -252,7 +277,7 @@ export default function CategoryDetail() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-xl font-bold">{selectedPackage.name}</h2>
 
-                  {selectedPackage.isComingSoon && (
+                  {selectedPackageComingSoon && (
                     <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
                       Coming Soon
                     </span>
@@ -273,7 +298,7 @@ export default function CategoryDetail() {
                     src={getServiceThumbnailUrl(selectedPackage)}
                     alt={selectedPackage.name}
                     className={`h-full w-full object-cover transition ${
-                      selectedPackage.isComingSoon
+                      selectedPackageComingSoon
                         ? "scale-105 blur-sm grayscale"
                         : ""
                     }`}
@@ -284,7 +309,7 @@ export default function CategoryDetail() {
                   </div>
                 )}
 
-                {selectedPackage.isComingSoon && <ComingSoonOverlay />}
+                {selectedPackageComingSoon && <ComingSoonOverlay />}
               </div>
 
               {user && selectedPackage.priceRange && (
@@ -360,12 +385,12 @@ export default function CategoryDetail() {
                     setSelectedPackage(null);
                   }}
                   disabled={
-                    selectedPackage.isComingSoon ||
+                    selectedPackageComingSoon ||
                     (user && !selectedPackage.priceRange)
                   }
                   className="flex-1 rounded-full bg-[#b9f000] px-6 py-3 font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {selectedPackage.isComingSoon
+                  {selectedPackageComingSoon
                     ? "Coming Soon"
                     : !user
                       ? "Login to Book"

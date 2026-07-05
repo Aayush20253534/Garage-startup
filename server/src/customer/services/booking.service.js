@@ -187,6 +187,15 @@ const createBooking = async (userId, data) => {
       id: { in: uniqueServiceIds },
       isActive: true,
     },
+    include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+          isComingSoon: true,
+        },
+      },
+    },
   });
 
   if (services.length !== uniqueServiceIds.length) {
@@ -194,7 +203,8 @@ const createBooking = async (userId, data) => {
   }
 
   const comingSoonServices = services.filter(
-    (service) => service.isComingSoon,
+    (service) =>
+      service.isComingSoon || service.category?.isComingSoon,
   );
 
   if (comingSoonServices.length > 0) {

@@ -17,6 +17,11 @@ const createCategorySchema = [
   body("name").trim().notEmpty().withMessage("Service category name is required"),
   body("description").optional({ nullable: true }).trim(),
   body("isActive").optional({ nullable: true }).isBoolean().toBoolean(),
+  body("isComingSoon")
+    .optional({ nullable: true })
+    .isBoolean()
+    .withMessage("isComingSoon must be true or false")
+    .toBoolean(),
 ];
 
 const updateCategorySchema = [
@@ -24,6 +29,11 @@ const updateCategorySchema = [
   body("name").optional({ nullable: true }).trim().notEmpty(),
   body("description").optional({ nullable: true }).trim(),
   body("isActive").optional({ nullable: true }).isBoolean().toBoolean(),
+  body("isComingSoon")
+    .optional({ nullable: true })
+    .isBoolean()
+    .withMessage("isComingSoon must be true or false")
+    .toBoolean(),
 ];
 
 const createServiceSchema = [

@@ -44,6 +44,17 @@ const getCheckoutAddressForm = ({ location, user }) => {
   return parseAddressParts(fullAddress);
 };
 
+const toBoolean = (value) =>
+  value === true ||
+  value === 1 ||
+  value === "1" ||
+  String(value).toLowerCase() === "true";
+
+const isCartItemComingSoon = (item) =>
+  toBoolean(item?.isComingSoon) ||
+  toBoolean(item?.categoryComingSoon) ||
+  toBoolean(item?.category?.isComingSoon);
+
 const calculateHandlingFee = (totalServiceAmount) => {
   if (totalServiceAmount >= 300 && totalServiceAmount < 1000) return 30;
   if (totalServiceAmount >= 1000 && totalServiceAmount < 5000) return 99;
@@ -86,7 +97,7 @@ export default function Checkout() {
   const fee = cart.length === 0 ? 0 : calculateHandlingFee(feeBaseAmount);
   const payAtGarageMin = subTotalMin;
   const payAtGarageMax = subTotalMax;
-  const comingSoonItems = cart.filter((item) => item.isComingSoon);
+  const comingSoonItems = cart.filter(isCartItemComingSoon);
   const hasComingSoonItems = comingSoonItems.length > 0;
 
   useEffect(() => {

@@ -23,6 +23,17 @@ import {
   FiTruck,
 } from "react-icons/fi";
 
+const toBoolean = (value) =>
+  value === true ||
+  value === 1 ||
+  value === "1" ||
+  String(value).toLowerCase() === "true";
+
+const isCartItemComingSoon = (item) =>
+  toBoolean(item?.isComingSoon) ||
+  toBoolean(item?.categoryComingSoon) ||
+  toBoolean(item?.category?.isComingSoon);
+
 export default function ServiceSelect() {
   const { user, vehicle, location, cart, addToCart, removeFromCart } = useApp();
 
@@ -38,15 +49,21 @@ export default function ServiceSelect() {
     () =>
       new Set(
         categories
-          .flatMap((category) => category.services || [])
-          .filter((service) => service.isComingSoon)
-          .map((service) => service.id),
+          .flatMap((category) =>
+            (category.services || [])
+              .filter(
+                (service) =>
+                  toBoolean(category.isComingSoon) ||
+                  toBoolean(service.isComingSoon),
+              )
+              .map((service) => service.id),
+          ),
       ),
     [categories],
   );
 
   const hasComingSoonInCart = cart.some(
-    (item) => item.isComingSoon || comingSoonIds.has(item.id),
+    (item) => isCartItemComingSoon(item) || comingSoonIds.has(item.id),
   );
 
   const totalMin = cart.reduce(
@@ -158,6 +175,12 @@ export default function ServiceSelect() {
                     }}
                   />
                   <span className="min-w-0 truncate">{category.name}</span>
+
+                  {toBoolean(category.isComingSoon) && (
+                    <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800">
+                      Soon
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -169,7 +192,9 @@ export default function ServiceSelect() {
             const inCart = cart.some((item) => item.id === service.id);
             const priceRange = formatServicePriceRange(service);
             const hasPrice = Boolean(service.priceRange);
-            const comingSoon = Boolean(service.isComingSoon);
+            const comingSoon =
+              toBoolean(selectedCategory?.isComingSoon) ||
+              toBoolean(service.isComingSoon);
             const serviceImage = getServiceThumbnailUrl(service);
             const duration = service.durationMin
               ? `${service.durationMin} min`
@@ -252,7 +277,19 @@ export default function ServiceSelect() {
                       }
 
                       if (!comingSoon) {
-                        addToCart(service);
+                        addToCart({
+                          ...service,
+                          category: {
+                            id: selectedCategory?.id,
+                            name: selectedCategory?.name,
+                            isComingSoon: toBoolean(
+                              selectedCategory?.isComingSoon,
+                            ),
+                          },
+                          categoryComingSoon: toBoolean(
+                            selectedCategory?.isComingSoon,
+                          ),
+                        });
                       }
                     }}
                     disabled={(!hasPrice && !inCart) || (comingSoon && !inCart)}
@@ -316,7 +353,8 @@ export default function ServiceSelect() {
             <div className="grid gap-2">
               {cart.map((item) => {
                 const comingSoon =
-                  item.isComingSoon || comingSoonIds.has(item.id);
+                  isCartItemComingSoon(item) ||
+                  comingSoonIds.has(item.id);
 
                 return (
                   <div

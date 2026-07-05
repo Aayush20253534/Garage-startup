@@ -88,6 +88,7 @@ const createCategory = async (payload) => {
         name,
         description: normalizeText(payload.description) || null,
         isActive: parseBoolean(payload.isActive, true),
+        isComingSoon: parseBoolean(payload.isComingSoon, false),
       },
       include: categoryInclude,
     });
@@ -117,6 +118,9 @@ const updateCategory = async (categoryId, payload) => {
   if (payload.isActive !== undefined) {
     data.isActive = parseBoolean(payload.isActive, true);
   }
+  if (payload.isComingSoon !== undefined) {
+    data.isComingSoon = parseBoolean(payload.isComingSoon, false);
+  }
 
   try {
     const category = await prisma.serviceCategory.update({
@@ -142,12 +146,12 @@ const deactivateCategory = async (categoryId) => {
     where: { id: categoryId },
     data: {
       isActive: false,
+      isComingSoon: false,
       services: {
         updateMany: {
           where: {},
           data: {
             isActive: false,
-            isComingSoon: false,
           },
         },
       },
