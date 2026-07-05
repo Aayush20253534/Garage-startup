@@ -6,20 +6,19 @@ const completeGoogleAuth = async (role = "CUSTOMER") => {
   const credential = await signInWithPopup(auth, googleProvider);
   const idToken = await credential.user.getIdToken();
 
-  const res = await api.post("/auth/google", {
+  const response = await api.post("/auth/google", {
     idToken,
     role,
   });
 
-  const data = res.data?.data;
+  const data = response.data?.data;
 
-  if (!data?.token || !data?.user) {
+  if (!data?.user) {
     throw new Error("Invalid Google authentication response");
   }
 
-  localStorage.setItem("token", data.token);
-  localStorage.setItem("user", JSON.stringify(data.user));
-
+  // The API response sets the JWT as an HttpOnly cookie.
+  // JavaScript receives only the non-sensitive user payload.
   return data;
 };
 

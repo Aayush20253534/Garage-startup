@@ -9,7 +9,11 @@ export default function AdminLogin() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { login } = useApp();
-  const [form, setForm] = useState({ identifier: "", password: "" });
+
+  const [form, setForm] = useState({
+    identifier: "",
+    password: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -23,7 +27,15 @@ export default function AdminLogin() {
         form.identifier.trim(),
         form.password,
       );
-      login(result.user, result.token);
+
+      const adminUser = result?.user;
+
+      if (!adminUser || adminUser.role !== "ADMIN") {
+        throw new Error("Invalid admin login response");
+      }
+
+      // The backend stores the JWT in an HttpOnly cookie.
+      login(adminUser);
       navigate(state?.from?.pathname || "/admin", { replace: true });
     } catch (err) {
       setError(
@@ -38,6 +50,7 @@ export default function AdminLogin() {
     <div className="container-x grid min-h-[80vh] items-center py-10">
       <div className="mx-auto w-full max-w-md card-soft p-7">
         <Logo />
+
         <div className="mt-8 flex items-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl bg-ink text-white">
             <FiShield />
@@ -60,20 +73,32 @@ export default function AdminLogin() {
           <input
             required
             value={form.identifier}
-            onChange={(e) => setForm({ ...form, identifier: e.target.value })}
+            onChange={(event) =>
+              setForm((previous) => ({
+                ...previous,
+                identifier: event.target.value,
+              }))
+            }
             placeholder="Email or phone"
             autoComplete="username"
             className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
           />
+
           <input
             required
             value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            onChange={(event) =>
+              setForm((previous) => ({
+                ...previous,
+                password: event.target.value,
+              }))
+            }
             type="password"
             placeholder="Password"
             autoComplete="current-password"
             className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
           />
+
           <button disabled={loading} className="btn-primary mt-2">
             {loading ? (
               "Logging in..."

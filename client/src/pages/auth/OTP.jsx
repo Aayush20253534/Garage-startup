@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Logo from "@/components/common/Logo";
 import api from "@/api/axios";
+import { garageApi } from "@/api/garage";
+import { useApp } from "@/hooks/useApp";
 import {
   hasSavedUserLocation,
   saveSignupLocationToProfile,
@@ -48,6 +50,7 @@ export default function OTP() {
   const routeLocation = useLocation();
   const { state } = routeLocation;
   const nav = useNavigate();
+  const { login, loginGarage } = useApp();
 
   const { email, phone, role, signupLocation } = getPendingOtp(state);
 
@@ -59,27 +62,35 @@ export default function OTP() {
   const refs = useRef([]);
 
   useEffect(() => {
-    if (!email || !phone) nav("/register");
+    if (!email || !phone) {
+      nav("/register", { replace: true });
+    }
   }, [email, phone, nav]);
 
   useEffect(() => {
-    if (timer <= 0) return;
-    const t = setTimeout(() => setTimer((p) => p - 1), 1000);
-    return () => clearTimeout(t);
+    if (timer <= 0) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setTimer((previous) => previous - 1);
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
   }, [timer]);
 
-  const setDigit = (i, v) => {
-    if (!/^[0-9]?$/.test(v)) return;
+  const setDigit = (index, value) => {
+    if (!/^[0-9]?$/.test(value)) return;
 
     const next = [...otp];
-    next[i] = v;
+    next[index] = value;
     setOtp(next);
 
-    if (v && i < 5) refs.current[i + 1]?.focus();
+    if (value && index < 5) {
+      refs.current[index + 1]?.focus();
+    }
   };
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const submit = async (event) => {
+    event.preventDefault();
 
     const finalOtp = otp.join("");
 
@@ -92,19 +103,22 @@ export default function OTP() {
     setLoading(true);
 
     try {
-      const res = await api.post("/auth/verify-otp", {
+      const response = await api.post("/auth/verify-otp", {
         email,
         phone,
         otp: finalOtp,
         role,
       });
 
-      const data = res.data.data;
+      const data = response.data?.data;
+      let freshUser = data?.user;
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      if (!freshUser) {
+        throw new Error("Invalid OTP verification response");
+      }
 
-      let freshUser = data.user;
+      // The verification endpoint must set the HttpOnly authentication cookie.
+      // No JWT is stored or read by frontend JavaScript.
       if (await saveSignupLocationToProfile(signupLocation)) {
         freshUser = {
           ...freshUser,
@@ -126,27 +140,38 @@ export default function OTP() {
               : freshUser.locations || [],
         };
       }
-      localStorage.setItem("user", JSON.stringify(freshUser));
 
       sessionStorage.removeItem(PENDING_OTP_KEY);
 
       if (freshUser.role === "GARAGE_OWNER") {
-        nav("/garage");
-      } else {
-        if (!hasSavedUserLocation(freshUser)) {
-          nav("/booking/address", {
-            state: {
-              from: routeLocation.state?.from || { pathname: "/dashboard" },
+        const garage = await garageApi.getProfile();
+        loginGarage(garage);
+        nav("/garage", { replace: true });
+        return;
+      }
+
+      login(freshUser);
+
+      if (!hasSavedUserLocation(freshUser)) {
+        nav("/booking/address", {
+          replace: true,
+          state: {
+            from: routeLocation.state?.from || {
+              pathname: "/dashboard",
             },
-          });
-        } else if (!freshUser.isOnboarded) {
-          nav("/booking/vehicle");
-        } else {
-          nav("/dashboard");
-        }
+          },
+        });
+      } else if (!freshUser.isOnboarded) {
+        nav("/booking/vehicle", { replace: true });
+      } else {
+        nav("/dashboard", { replace: true });
       }
     } catch (err) {
-      setError(err.response?.data?.message || "OTP verification failed");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "OTP verification failed",
+      );
     } finally {
       setLoading(false);
     }
@@ -156,7 +181,12 @@ export default function OTP() {
     setError("");
 
     try {
-      await api.post("/auth/resend-otp", { email, phone, role });
+      await api.post("/auth/resend-otp", {
+        email,
+        phone,
+        role,
+      });
+
       setTimer(60);
     } catch (err) {
       setError(err.response?.data?.message || "Could not resend OTP");
@@ -179,14 +209,17 @@ export default function OTP() {
 
         <form onSubmit={submit} className="mt-6">
           <div className="flex justify-center gap-2">
-            {otp.map((v, i) => (
+            {otp.map((value, index) => (
               <input
-                key={i}
-                ref={(el) => (refs.current[i] = el)}
-                value={v}
-                onChange={(e) => setDigit(i, e.target.value)}
+                key={index}
+                ref={(element) => {
+                  refs.current[index] = element;
+                }}
+                value={value}
+                onChange={(event) => setDigit(index, event.target.value)}
                 maxLength={1}
                 inputMode="numeric"
+                autoComplete={index === 0 ? "one-time-code" : "off"}
                 className="h-14 w-12 text-center text-xl font-bold rounded-2xl border border-ink outline-none"
               />
             ))}

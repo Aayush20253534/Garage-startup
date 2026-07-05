@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import api from "@/api/axios";
 import { garageApi } from "@/api/garage";
@@ -7,7 +7,6 @@ import {
   clearCustomerState,
   selectCustomerState,
   setCustomerLocation,
-  setCustomerToken,
   setCustomerUser,
   setCustomerVehicle,
   setCustomerVehicles,
@@ -17,7 +16,6 @@ import {
   clearGarageState,
   selectGarageState,
   setGarage,
-  setGarageToken,
 } from "@/store/garageSlice";
 
 const AppCtx = createContext(null);
@@ -39,11 +37,6 @@ const readJson = (key, fallback = null) => {
   }
 };
 
-const readArray = (key) => {
-  const value = readJson(key, []);
-  return Array.isArray(value) ? value : [];
-};
-
 const readNumber = (key, fallback = null) => {
   const value = Number(localStorage.getItem(key));
   return Number.isFinite(value) && value > 0 ? value : fallback;
@@ -51,12 +44,12 @@ const readNumber = (key, fallback = null) => {
 
 export function AppProvider({ children }) {
   const dispatch = useDispatch();
-  const { user, token, vehicle, vehicles, location } =
-    useSelector(selectCustomerState);
-  const { garage: garageUser, token: garageToken } =
-    useSelector(selectGarageState);
-  const [cart, setCart] = useState([]);
 
+  const { user, vehicle, vehicles, location } =
+    useSelector(selectCustomerState);
+  const { garage: garageUser } = useSelector(selectGarageState);
+
+  const [cart, setCart] = useState([]);
   const [authLoading, setAuthLoading] = useState(true);
 
   const [dashboardCache, setDashboardCache] = useState(() =>
@@ -100,13 +93,14 @@ export function AppProvider({ children }) {
   const [serviceHistoryFetchedAt, setServiceHistoryFetchedAt] = useState(() =>
     readNumber("rov_service_history_time", null),
   );
+
   const [profileCache, setProfileCache] = useState(() =>
     readJson("rov_profile", null),
   );
-
   const [profileFetchedAt, setProfileFetchedAt] = useState(() =>
     readNumber("rov_profile_time", null),
   );
+
   const clearDashboardCache = () => {
     setDashboardCache(null);
     setDashboardFetchedAt(null);
@@ -194,7 +188,6 @@ export function AppProvider({ children }) {
   const clearProfileCache = () => {
     setProfileCache(null);
     setProfileFetchedAt(null);
-
     localStorage.removeItem("rov_profile");
     localStorage.removeItem("rov_profile_time");
   };
@@ -202,7 +195,6 @@ export function AppProvider({ children }) {
   const saveProfileCache = (data, fetchedAt) => {
     setProfileCache(data);
     setProfileFetchedAt(fetchedAt);
-
     localStorage.setItem("rov_profile", JSON.stringify(data));
     localStorage.setItem("rov_profile_time", String(fetchedAt));
   };
@@ -213,8 +205,10 @@ export function AppProvider({ children }) {
     clearServiceHistoryCache();
   };
 
-  const clearLocalSession = () => {
+  const clearCustomerSession = () => {
+    // Remove legacy JWT storage left by older frontend versions.
     localStorage.removeItem("token");
+
     localStorage.removeItem("user");
     localStorage.removeItem("rov_user");
     localStorage.removeItem("rov_location");
@@ -229,6 +223,13 @@ export function AppProvider({ children }) {
     clearActiveBookingsCache();
     clearServiceHistoryCache();
     clearProfileCache();
+  };
+
+  const clearGarageSession = () => {
+    // Remove legacy JWT storage left by older frontend versions.
+    localStorage.removeItem("garage_token");
+    localStorage.removeItem("garage");
+    dispatch(clearGarageState());
   };
 
   const syncVehicles = (list = []) => {
@@ -255,6 +256,8 @@ export function AppProvider({ children }) {
       dispatch(setCustomerLocation(syncedLocation));
     }
 
+    // These values are UI caches only. Authentication still comes exclusively
+    // from the HttpOnly cookie validated by /auth/me.
     localStorage.setItem("user", JSON.stringify(me));
     localStorage.setItem("rov_user", JSON.stringify(me));
 
@@ -263,17 +266,15 @@ export function AppProvider({ children }) {
     return me;
   };
 
-  const login = (userData, authToken) => {
-    if (authToken) {
-      localStorage.setItem("token", authToken);
-      dispatch(setCustomerToken(authToken));
+  const login = (userData) => {
+    if (!userData) {
+      throw new Error("User data is required");
     }
 
-    localStorage.setItem("user", JSON.stringify(userData));
-    localStorage.setItem("rov_user", JSON.stringify(userData));
+    // Delete old browser-readable tokens during the migration.
+    localStorage.removeItem("token");
 
-    if (!authToken) dispatch(setCustomerToken("cookie"));
-    dispatch(syncCustomerBundle(userData));
+    syncUserData(userData);
 
     clearDashboardCache();
     clearVehiclesCache();
@@ -282,86 +283,94 @@ export function AppProvider({ children }) {
     clearProfileCache();
   };
 
-  const loginGarage = (garageData, authToken) => {
-    if (authToken) {
-      localStorage.setItem("garage_token", authToken);
-      dispatch(setGarageToken(authToken));
+  const loginGarage = (garageData) => {
+    if (!garageData) {
+      throw new Error("Garage data is required");
     }
 
+    localStorage.removeItem("garage_token");
     localStorage.setItem("garage", JSON.stringify(garageData));
     dispatch(setGarage(garageData));
   };
 
-  const refreshGarage = async (
-    authToken = garageToken || localStorage.getItem("garage_token"),
-  ) => {
-    if (!authToken) return null;
+  const fetchMe = async () => {
+    try {
+      const response = await api.get("/auth/me");
+      const me = response.data?.data;
 
-    const garageData = await garageApi.getProfile(authToken);
-    localStorage.setItem("garage", JSON.stringify(garageData));
-    dispatch(setGarage(garageData));
-    dispatch(setGarageToken(authToken));
-    return garageData;
+      if (!me) {
+        throw new Error("Invalid current-user response");
+      }
+
+      return syncUserData(me);
+    } catch (err) {
+      if (err.response?.status === 401) {
+        clearCustomerSession();
+      }
+
+      return null;
+    }
+  };
+
+  const refreshGarage = async () => {
+    try {
+      // garageApi.getProfile must use the shared Axios instance and must not
+      // require a token argument.
+      const garageData = await garageApi.getProfile();
+
+      if (!garageData) {
+        throw new Error("Invalid garage profile response");
+      }
+
+      localStorage.setItem("garage", JSON.stringify(garageData));
+      dispatch(setGarage(garageData));
+
+      return garageData;
+    } catch (err) {
+      if (err.response?.status === 401) {
+        clearGarageSession();
+      }
+
+      return null;
+    }
   };
 
   const logoutGarage = async () => {
     try {
-      await api.post("/auth/logout");
+      // Add garageApi.logout() to client/src/api/garage.js if it does not
+      // already exist. It must call the garage logout endpoint with cookies.
+      await garageApi.logout();
     } catch {
-      // Local cleanup still needs to happen if the server session is already gone.
+      // Local cleanup still happens if the server session is already gone.
     }
 
-    localStorage.removeItem("garage_token");
-    localStorage.removeItem("garage");
-    dispatch(clearGarageState());
+    clearGarageSession();
   };
 
   const logout = async () => {
     try {
       await api.post("/auth/logout");
     } catch {
-      // Local cleanup still needs to happen if the server session is already gone.
+      // Local cleanup still happens if the server session is already gone.
     }
 
-    clearLocalSession();
-  };
-
-  const fetchMe = async () => {
-    try {
-      const res = await api.get("/auth/me");
-      const me = res.data.data;
-
-      dispatch(setCustomerToken(localStorage.getItem("token") || "cookie"));
-      return syncUserData(me);
-    } catch (err) {
-      if (err.response?.status === 401) {
-        clearLocalSession();
-        return null;
-      }
-
-      const cachedUser = readJson("user", readJson("rov_user", null));
-      if (cachedUser) {
-        dispatch(setCustomerToken(localStorage.getItem("token") || "cookie"));
-        return syncUserData(cachedUser);
-      }
-
-      return null;
-    } finally {
-      setAuthLoading(false);
-    }
+    clearCustomerSession();
   };
 
   const fetchDashboard = async ({ force = false } = {}) => {
     const now = Date.now();
 
-    if (!force && dashboardCache && dashboardFetchedAt) {
-      if (now - dashboardFetchedAt < DASHBOARD_CACHE_TTL) {
-        return dashboardCache;
-      }
+    if (
+      !force &&
+      dashboardCache &&
+      dashboardFetchedAt &&
+      now - dashboardFetchedAt < DASHBOARD_CACHE_TTL
+    ) {
+      return dashboardCache;
     }
 
-    const res = await api.get("/dashboard/customer");
-    const data = res.data.data;
+    const response = await api.get("/dashboard/customer");
+    const data = response.data.data;
     const fetchedAt = Date.now();
 
     saveDashboardCache(data, fetchedAt);
@@ -384,15 +393,18 @@ export function AppProvider({ children }) {
   const fetchVehicles = async ({ force = false } = {}) => {
     const now = Date.now();
 
-    if (!force && vehiclesCache && vehiclesFetchedAt) {
-      if (now - vehiclesFetchedAt < VEHICLES_CACHE_TTL) {
-        syncVehicles(vehiclesCache);
-        return vehiclesCache;
-      }
+    if (
+      !force &&
+      vehiclesCache &&
+      vehiclesFetchedAt &&
+      now - vehiclesFetchedAt < VEHICLES_CACHE_TTL
+    ) {
+      syncVehicles(vehiclesCache);
+      return vehiclesCache;
     }
 
-    const res = await api.get("/vehicles");
-    const data = res.data.data || [];
+    const response = await api.get("/vehicles");
+    const data = response.data.data || [];
     const fetchedAt = Date.now();
 
     saveVehiclesCache(data, fetchedAt);
@@ -404,20 +416,23 @@ export function AppProvider({ children }) {
   const fetchActiveBookings = async ({ force = false } = {}) => {
     const now = Date.now();
 
-    if (!force && activeBookingsCache && activeBookingsFetchedAt) {
-      if (now - activeBookingsFetchedAt < ACTIVE_BOOKINGS_CACHE_TTL) {
-        return activeBookingsCache;
-      }
+    if (
+      !force &&
+      activeBookingsCache &&
+      activeBookingsFetchedAt &&
+      now - activeBookingsFetchedAt < ACTIVE_BOOKINGS_CACHE_TTL
+    ) {
+      return activeBookingsCache;
     }
 
-    const res = await api.get("/bookings", {
+    const response = await api.get("/bookings", {
       params: {
         status:
           "PENDING_PAYMENT,SEARCHING_GARAGE,GARAGE_ASSIGNED,CONFIRMED,IN_PROGRESS",
       },
     });
 
-    const data = res.data.data || [];
+    const data = response.data.data || [];
     const fetchedAt = Date.now();
 
     saveActiveBookingsCache(data, fetchedAt);
@@ -428,19 +443,22 @@ export function AppProvider({ children }) {
   const fetchServiceHistory = async ({ force = false } = {}) => {
     const now = Date.now();
 
-    if (!force && serviceHistoryCache && serviceHistoryFetchedAt) {
-      if (now - serviceHistoryFetchedAt < SERVICE_HISTORY_CACHE_TTL) {
-        return serviceHistoryCache;
-      }
+    if (
+      !force &&
+      serviceHistoryCache &&
+      serviceHistoryFetchedAt &&
+      now - serviceHistoryFetchedAt < SERVICE_HISTORY_CACHE_TTL
+    ) {
+      return serviceHistoryCache;
     }
 
-    const res = await api.get("/bookings", {
+    const response = await api.get("/bookings", {
       params: {
         status: "COMPLETED",
       },
     });
 
-    const data = res.data.data || [];
+    const data = response.data.data || [];
     const fetchedAt = Date.now();
 
     saveServiceHistoryCache(data, fetchedAt);
@@ -451,56 +469,53 @@ export function AppProvider({ children }) {
   const fetchProfile = async ({ force = false } = {}) => {
     const now = Date.now();
 
-    if (!force && profileCache && profileFetchedAt) {
-      if (now - profileFetchedAt < PROFILE_CACHE_TTL) {
-        return profileCache;
-      }
+    if (
+      !force &&
+      profileCache &&
+      profileFetchedAt &&
+      now - profileFetchedAt < PROFILE_CACHE_TTL
+    ) {
+      return profileCache;
     }
 
-    const res = await api.get("/customer/profile");
-    const data = res.data.data;
+    const response = await api.get("/customer/profile");
+    const data = response.data.data;
     const fetchedAt = Date.now();
 
     saveProfileCache(data, fetchedAt);
-    dispatch(syncCustomerBundle(data));
-
-    const syncedLocation = getLocationStateFromUser(data, location);
-    if (syncedLocation) {
-      dispatch(setCustomerLocation(syncedLocation));
-    }
-
-    localStorage.setItem("user", JSON.stringify(data));
-    localStorage.setItem("rov_user", JSON.stringify(data));
+    syncUserData(data);
 
     return data;
   };
+
   const fetchServiceCategories = async ({ force = false } = {}) => {
     const now = Date.now();
-    const usePublicCache = !token;
-    const params =
-      token && user
-        ? {
-            ...(vehicle?.id && { vehicleId: vehicle.id }),
-            ...(location?.city && { city: location.city }),
-          }
-        : {};
+    const usePublicCache = !user;
+
+    const params = user
+      ? {
+          ...(vehicle?.id && { vehicleId: vehicle.id }),
+          ...(location?.city && { city: location.city }),
+        }
+      : {};
 
     if (
       usePublicCache &&
       !force &&
       serviceCategoriesCache &&
-      serviceCategoriesFetchedAt
+      serviceCategoriesFetchedAt &&
+      now - serviceCategoriesFetchedAt < SERVICES_CACHE_TTL
     ) {
-      if (now - serviceCategoriesFetchedAt < SERVICES_CACHE_TTL) {
-        return serviceCategoriesCache;
-      }
+      return serviceCategoriesCache;
     }
 
-    const res = await api.get("/services/categories", { params });
-    const data = res.data.data || [];
+    const response = await api.get("/services/categories", { params });
+    const data = response.data.data || [];
     const fetchedAt = Date.now();
 
-    if (usePublicCache) saveServiceCategoriesCache(data, fetchedAt);
+    if (usePublicCache) {
+      saveServiceCategoriesCache(data, fetchedAt);
+    }
 
     return data;
   };
@@ -508,14 +523,17 @@ export function AppProvider({ children }) {
   const fetchVehicleMeta = async ({ force = false } = {}) => {
     const now = Date.now();
 
-    if (!force && vehicleMetaCache && vehicleMetaFetchedAt) {
-      if (now - vehicleMetaFetchedAt < VEHICLE_META_CACHE_TTL) {
-        return vehicleMetaCache;
-      }
+    if (
+      !force &&
+      vehicleMetaCache &&
+      vehicleMetaFetchedAt &&
+      now - vehicleMetaFetchedAt < VEHICLE_META_CACHE_TTL
+    ) {
+      return vehicleMetaCache;
     }
 
-    const res = await api.get("/vehicle-meta/brands");
-    const data = res.data.data || [];
+    const response = await api.get("/vehicle-meta/brands");
+    const data = response.data.data || [];
     const fetchedAt = Date.now();
 
     saveVehicleMetaCache(data, fetchedAt);
@@ -524,45 +542,23 @@ export function AppProvider({ children }) {
   };
 
   useEffect(() => {
-    const savedGarage = localStorage.getItem("garage");
-    const savedGarageToken = localStorage.getItem("garage_token");
+    let active = true;
 
-    if (savedGarage) {
-      try {
-        const garageData = JSON.parse(savedGarage);
-        dispatch(setGarage(garageData));
-        if (savedGarageToken) {
-          dispatch(setGarageToken(savedGarageToken));
-          // Refresh garage profile in background but don't log out on error
-          garageApi
-            .getProfile(savedGarageToken)
-            .then((freshGarage) => {
-              localStorage.setItem("garage", JSON.stringify(freshGarage));
-              dispatch(setGarage(freshGarage));
-            })
-            .catch((err) => {
-              // Log error but keep user logged in with cached garage data
-              console.warn("Failed to refresh garage profile:", err.message);
-              // Only logout if it's a 401 (unauthorized/token invalid)
-              if (err.response?.status === 401) {
-                logoutGarage();
-              }
-            });
-        }
-      } catch {}
-    }
+    const restoreSessions = async () => {
+      // HttpOnly cookies cannot be read from JavaScript, so probe both session
+      // endpoints. A 401 simply means that role has no active session.
+      await Promise.allSettled([fetchMe(), refreshGarage()]);
 
-    if (token && user) {
-      setAuthLoading(false);
-      return;
-    }
+      if (active) {
+        setAuthLoading(false);
+      }
+    };
 
-    if (token) {
-      fetchMe();
-      return;
-    }
+    restoreSessions();
 
-    setAuthLoading(false);
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -570,32 +566,43 @@ export function AppProvider({ children }) {
 
     const refreshRestoredSession = () => {
       const now = Date.now();
-      if (now - lastRefreshAt < 30000) return;
-      lastRefreshAt = now;
 
-      const savedToken = localStorage.getItem("token");
-      const savedGarageToken = localStorage.getItem("garage_token");
-
-      if (savedToken) {
-        fetchMe();
+      if (now - lastRefreshAt < 30000) {
+        return;
       }
 
-      if (savedGarageToken) {
-        refreshGarage(savedGarageToken).catch((err) => {
-          if (err.response?.status === 401) logoutGarage();
-        });
+      lastRefreshAt = now;
+
+      const requests = [];
+
+      if (user) {
+        requests.push(fetchMe());
+      }
+
+      if (garageUser) {
+        requests.push(refreshGarage());
+      }
+
+      if (requests.length > 0) {
+        Promise.allSettled(requests);
       }
     };
 
     const onPageShow = (event) => {
-      if (event.persisted) refreshRestoredSession();
+      if (event.persisted) {
+        refreshRestoredSession();
+      }
     };
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") refreshRestoredSession();
+      if (document.visibilityState === "visible") {
+        refreshRestoredSession();
+      }
     };
 
-    const onOnline = () => refreshRestoredSession();
+    const onOnline = () => {
+      refreshRestoredSession();
+    };
 
     window.addEventListener("pageshow", onPageShow);
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -606,7 +613,7 @@ export function AppProvider({ children }) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("online", onOnline);
     };
-  }, []);
+  }, [user, garageUser]);
 
   useEffect(() => {
     if (user) {
@@ -616,10 +623,10 @@ export function AppProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
-    if (token && token !== "cookie") {
-      localStorage.setItem("token", token);
+    if (garageUser) {
+      localStorage.setItem("garage", JSON.stringify(garageUser));
     }
-  }, [token]);
+  }, [garageUser]);
 
   useEffect(() => {
     localStorage.setItem("rov_vehicle", JSON.stringify(vehicle));
@@ -638,37 +645,35 @@ export function AppProvider({ children }) {
     dispatch(setCustomerUser(nextUser));
   };
 
-  const setToken = (value) => {
-    dispatch(setCustomerToken(value));
-  };
-
   const setVehicle = (value) => {
     const nextVehicle = typeof value === "function" ? value(vehicle) : value;
     dispatch(setCustomerVehicle(nextVehicle));
   };
 
   const setVehicles = (value) => {
-    const nextVehicles = typeof value === "function" ? value(vehicles) : value;
+    const nextVehicles =
+      typeof value === "function" ? value(vehicles) : value;
     dispatch(setCustomerVehicles(nextVehicles));
   };
 
   const setLocation = (value) => {
-    const nextLocation = typeof value === "function" ? value(location) : value;
+    const nextLocation =
+      typeof value === "function" ? value(location) : value;
     dispatch(setCustomerLocation(nextLocation));
   };
 
-  const addVehicle = (v) => {
+  const addVehicle = (newVehicleData) => {
     const currentVehicles = Array.isArray(vehicles) ? vehicles : [];
+
     const newVehicle = {
-      ...v,
-      id: v.id || `local-${Date.now()}`,
+      ...newVehicleData,
+      id: newVehicleData.id || `local-${Date.now()}`,
       isDefault: currentVehicles.length === 0,
     };
 
     const updatedVehicles = [...currentVehicles, newVehicle];
 
     syncVehicles(updatedVehicles);
-
     clearDashboardCache();
     clearVehiclesCache();
 
@@ -696,108 +701,82 @@ export function AppProvider({ children }) {
     setCart([]);
   };
 
-  const value = useMemo(
-    () => ({
-      user,
-      token,
-      garage: garageUser,
-      garageToken,
-      vehicle,
-      vehicles,
-      location,
-      cart,
-      authLoading,
+  const value = {
+    user,
+    garage: garageUser,
+    vehicle,
+    vehicles,
+    location,
+    cart,
+    authLoading,
+    isAuthenticated: Boolean(user),
+    isGarageAuthenticated: Boolean(garageUser),
 
-      dashboardCache,
-      dashboardFetchedAt,
-      serviceCategoriesCache,
-      serviceCategoriesFetchedAt,
-      vehicleMetaCache,
-      vehicleMetaFetchedAt,
-      vehiclesCache,
-      vehiclesFetchedAt,
-      activeBookingsCache,
-      activeBookingsFetchedAt,
-      serviceHistoryCache,
-      serviceHistoryFetchedAt,
-      profileCache,
-      profileFetchedAt,
+    dashboardCache,
+    dashboardFetchedAt,
+    serviceCategoriesCache,
+    serviceCategoriesFetchedAt,
+    vehicleMetaCache,
+    vehicleMetaFetchedAt,
+    vehiclesCache,
+    vehiclesFetchedAt,
+    activeBookingsCache,
+    activeBookingsFetchedAt,
+    serviceHistoryCache,
+    serviceHistoryFetchedAt,
+    profileCache,
+    profileFetchedAt,
 
-      setUser,
-      setToken,
-      setVehicle,
-      setVehicles,
-      setCart,
-      setLocation,
+    setUser,
+    setVehicle,
+    setVehicles,
+    setCart,
+    setLocation,
 
-      setDashboardCache,
-      setDashboardFetchedAt,
-      setServiceCategoriesCache,
-      setServiceCategoriesFetchedAt,
-      setVehicleMetaCache,
-      setVehicleMetaFetchedAt,
-      setVehiclesCache,
-      setVehiclesFetchedAt,
-      setActiveBookingsCache,
-      setActiveBookingsFetchedAt,
-      setServiceHistoryCache,
-      setServiceHistoryFetchedAt,
-      setProfileCache,
-      setProfileFetchedAt,
+    setDashboardCache,
+    setDashboardFetchedAt,
+    setServiceCategoriesCache,
+    setServiceCategoriesFetchedAt,
+    setVehicleMetaCache,
+    setVehicleMetaFetchedAt,
+    setVehiclesCache,
+    setVehiclesFetchedAt,
+    setActiveBookingsCache,
+    setActiveBookingsFetchedAt,
+    setServiceHistoryCache,
+    setServiceHistoryFetchedAt,
+    setProfileCache,
+    setProfileFetchedAt,
 
-      login,
-      logout,
-      loginGarage,
-      logoutGarage,
-      refreshGarage,
-      fetchMe,
-      fetchDashboard,
-      fetchVehicles,
-      fetchActiveBookings,
-      fetchServiceHistory,
-      fetchProfile,
-      fetchServiceCategories,
-      fetchVehicleMeta,
+    login,
+    logout,
+    loginGarage,
+    logoutGarage,
+    refreshGarage,
+    fetchMe,
+    fetchDashboard,
+    fetchVehicles,
+    fetchActiveBookings,
+    fetchServiceHistory,
+    fetchProfile,
+    fetchServiceCategories,
+    fetchVehicleMeta,
 
-      clearDashboardCache,
-      clearServiceCategoriesCache,
-      clearVehicleMetaCache,
-      clearVehiclesCache,
-      clearActiveBookingsCache,
-      clearServiceHistoryCache,
-      clearProfileCache,
-      clearBookingCaches,
+    clearDashboardCache,
+    clearServiceCategoriesCache,
+    clearVehicleMetaCache,
+    clearVehiclesCache,
+    clearActiveBookingsCache,
+    clearServiceHistoryCache,
+    clearProfileCache,
+    clearBookingCaches,
 
-      addVehicle,
-      updateVehiclesLocally,
-      addToCart,
-      removeFromCart,
-      clearCart,
-    }),
-    [
-      user,
-      token,
-      garageUser,
-      garageToken,
-      vehicle,
-      vehicles,
-      cart,
-      location,
-      authLoading,
-      dashboardCache,
-      dashboardFetchedAt,
-      serviceCategoriesCache,
-      serviceCategoriesFetchedAt,
-      vehicleMetaCache,
-      vehicleMetaFetchedAt,
-      vehiclesCache,
-      vehiclesFetchedAt,
-      activeBookingsCache,
-      activeBookingsFetchedAt,
-      serviceHistoryCache,
-      serviceHistoryFetchedAt,
-    ],
-  );
+    addVehicle,
+    updateVehiclesLocally,
+    addToCart,
+    removeFromCart,
+    clearCart,
+  };
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

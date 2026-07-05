@@ -1,20 +1,40 @@
 const asyncHandler = require("../../utils/asyncHandler");
+const ApiError = require("../../utils/apiError");
 const ApiResponse = require("../../utils/apiResponse");
 const authService = require("../services/auth.service");
+const {
+  ACCESS_TOKEN_COOKIE_NAME,
+  accessTokenCookieOptions,
+  accessTokenClearCookieOptions,
+} = require("../../config/authCookie");
 
-const authCookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  maxAge: 7 * 24 * 60 * 60 * 1000,
+const preventAuthResponseCaching = (res) => {
+  res.set("Cache-Control", "no-store");
+  res.set("Pragma", "no-cache");
 };
 
 const sendAuthResponse = (res, statusCode, message, result) => {
-  res.cookie("accessToken", result.token, authCookieOptions);
+  if (!result?.token) {
+    throw new ApiError(500, "Authentication token was not generated");
+  }
 
+  const { token, ...safeResult } = result;
+
+  res.cookie(
+    ACCESS_TOKEN_COOKIE_NAME,
+    token,
+    accessTokenCookieOptions,
+  );
+
+  preventAuthResponseCaching(res);
+
+  /*
+   * The JWT is deliberately omitted from the JSON response.
+   * The browser stores it only in the HttpOnly cookie.
+   */
   return res
     .status(statusCode)
-    .json(new ApiResponse(statusCode, message, result));
+    .json(new ApiResponse(statusCode, message, safeResult));
 };
 
 const signup = asyncHandler(async (req, res) => {
@@ -28,7 +48,12 @@ const signup = asyncHandler(async (req, res) => {
 const verifyOtp = asyncHandler(async (req, res) => {
   const result = await authService.verifyOtp(req.body);
 
-  return sendAuthResponse(res, 200, "Account verified successfully", result);
+  return sendAuthResponse(
+    res,
+    200,
+    "Account verified successfully",
+    result,
+  );
 });
 
 const resendOtp = asyncHandler(async (req, res) => {
@@ -48,7 +73,10 @@ const sendPhoneOtp = asyncHandler(async (req, res) => {
 });
 
 const verifyPhoneOtp = asyncHandler(async (req, res) => {
-  const result = await authService.verifyPhoneNumberOtp(req.body, req.user?.id);
+  const result = await authService.verifyPhoneNumberOtp(
+    req.body,
+    req.user?.id,
+  );
 
   return res
     .status(200)
@@ -64,19 +92,35 @@ const login = asyncHandler(async (req, res) => {
 const googleAuth = asyncHandler(async (req, res) => {
   const result = await authService.googleAuth(req.body);
 
-  return sendAuthResponse(res, 200, "Google authentication successful", result);
+  return sendAuthResponse(
+    res,
+    200,
+    "Google authentication successful",
+    result,
+  );
 });
 
 const logout = asyncHandler(async (req, res) => {
-  res.clearCookie("accessToken", authCookieOptions);
+  res.clearCookie(
+    ACCESS_TOKEN_COOKIE_NAME,
+    accessTokenClearCookieOptions,
+  );
+
+  preventAuthResponseCaching(res);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Logged out successfully", { loggedOut: true }));
+    .json(
+      new ApiResponse(200, "Logged out successfully", {
+        loggedOut: true,
+      }),
+    );
 });
 
 const me = asyncHandler(async (req, res) => {
   const user = await authService.getMe(req.user.id);
+
+  preventAuthResponseCaching(res);
 
   return res
     .status(200)
@@ -88,7 +132,13 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Password reset OTP sent successfully", result));
+    .json(
+      new ApiResponse(
+        200,
+        "Password reset OTP sent successfully",
+        result,
+      ),
+    );
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
@@ -100,7 +150,10 @@ const resetPassword = asyncHandler(async (req, res) => {
 });
 
 const changePassword = asyncHandler(async (req, res) => {
-  const result = await authService.changePassword(req.user.id, req.body);
+  const result = await authService.changePassword(
+    req.user.id,
+    req.body,
+  );
 
   return res
     .status(200)

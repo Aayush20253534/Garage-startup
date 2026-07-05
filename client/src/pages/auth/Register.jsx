@@ -37,17 +37,17 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const change = (e) => {
-    const { name, value } = e.target;
+  const change = (event) => {
+    const { name, value } = event.target;
 
-    setForm((prev) => ({
-      ...prev,
+    setForm((previous) => ({
+      ...previous,
       [name]: name === "phone" ? getPhoneDigits(value) : value,
     }));
   };
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const submit = async (event) => {
+    event.preventDefault();
     setError("");
     setLoading(true);
 
@@ -113,8 +113,14 @@ export default function Register() {
 
     try {
       const data = await completeGoogleAuth("CUSTOMER");
-      const freshUser = data.user;
-      login(freshUser, data.token);
+      const freshUser = data?.user;
+
+      if (!freshUser) {
+        throw new Error("Invalid Google signup response");
+      }
+
+      // The backend sets the HttpOnly cookie. Store only user-facing state.
+      login(freshUser);
 
       const redirectPath = hasSavedUserLocation(freshUser)
         ? "/dashboard"
@@ -134,7 +140,7 @@ export default function Register() {
   };
 
   return (
-    <div className="container-x grid min-h-[80vh]  gap-12 py-10 sm:py-16 lg:grid-cols-2 ">
+    <div className="container-x grid min-h-[80vh] gap-12 py-10 sm:py-16 lg:grid-cols-2">
       <div className="hidden lg:block">
         <h1 className="text-5xl font-bold leading-tight mt-38">
           Create your <span className="text-brand-dark">Rovauto</span> account.

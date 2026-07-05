@@ -14,6 +14,7 @@ const app = express();
  * Required when the backend runs behind Render or another reverse proxy.
  */
 app.set("trust proxy", 1);
+app.disable("x-powered-by");
 
 /*
  * Security headers.
@@ -26,24 +27,11 @@ app.use(
   }),
 );
 
-/*
- * Remove trailing slashes so:
- *
- * https://www.rovauto.com
- * https://www.rovauto.com/
- *
- * are treated as the same configured origin.
- */
 const normalizeOrigin = (origin) =>
   String(origin || "")
     .trim()
     .replace(/\/+$/, "");
 
-/*
- * ALLOWED_ORIGINS may contain comma-separated URLs:
- *
- * ALLOWED_ORIGINS=https://rovauto.com,https://www.rovauto.com
- */
 const environmentOrigins = String(process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map(normalizeOrigin)
@@ -52,36 +40,29 @@ const environmentOrigins = String(process.env.ALLOWED_ORIGINS || "")
 const allowedOrigins = new Set(
   [
     /*
-     * Production frontend domains
+     * Production frontend domains.
      */
     "https://rovauto.com",
     "https://www.rovauto.com",
-    "https://rovauto.vercel.app",
 
     /*
-     * Local frontend development
+     * Local Vite development.
      */
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 
+    /*
+     * Optional local ports retained for your existing setup.
+     */
     "http://localhost:8080",
     "http://127.0.0.1:8080",
-
     "http://localhost:8081",
     "http://127.0.0.1:8081",
-
     "http://localhost:8082",
     "http://127.0.0.1:8082",
 
-    /*
-     * Environment-provided frontend URLs
-     */
     process.env.CLIENT_URL,
     process.env.FRONTEND_URL,
-
-    /*
-     * Additional comma-separated origins
-     */
     ...environmentOrigins,
   ]
     .map(normalizeOrigin)
@@ -91,8 +72,8 @@ const allowedOrigins = new Set(
 const corsOptions = {
   origin(origin, callback) {
     /*
-     * Requests from Postman, mobile apps, webhooks and server-to-server
-     * clients may not contain an Origin header.
+     * Postman, mobile clients, webhooks, health checks, and other
+     * server-to-server requests may not include an Origin header.
      */
     if (!origin) {
       return callback(null, true);
@@ -118,34 +99,26 @@ const corsOptions = {
 
   credentials: true,
 
-  methods: [
-    "GET",
-    "POST",
-    "PUT",
-    "PATCH",
-    "DELETE",
-    "OPTIONS",
-  ],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 
+  /*
+   * Authorization was intentionally removed. Browser authentication is
+   * performed with the HttpOnly cookie, not a bearer token header.
+   */
   allowedHeaders: [
     "Content-Type",
-    "Authorization",
     "X-Requested-With",
     "Accept",
     "Origin",
   ],
 
-  exposedHeaders: [
-    "Content-Length",
-    "Content-Type",
-  ],
+  exposedHeaders: ["Content-Length", "Content-Type"],
 
   optionsSuccessStatus: 204,
 };
 
 /*
  * CORS must be registered before routes.
- * The cors package also handles browser preflight OPTIONS requests.
  */
 app.use(cors(corsOptions));
 
@@ -177,9 +150,6 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
-/*
- * Root route.
- */
 app.get("/", (req, res) => {
   return res.status(200).json({
     success: true,
@@ -187,9 +157,6 @@ app.get("/", (req, res) => {
   });
 });
 
-/*
- * Health-check route for Render and manual testing.
- */
 app.get("/health", (req, res) => {
   return res.status(200).json({
     success: true,
@@ -199,14 +166,8 @@ app.get("/health", (req, res) => {
   });
 });
 
-/*
- * Application routes.
- */
 app.use("/api/v1", routes);
 
-/*
- * Handle unknown routes.
- */
 app.use((req, res) => {
   return res.status(404).json({
     success: false,
@@ -214,9 +175,6 @@ app.use((req, res) => {
   });
 });
 
-/*
- * Global error handler must remain last.
- */
 app.use(errorMiddleware);
 
 module.exports = app;

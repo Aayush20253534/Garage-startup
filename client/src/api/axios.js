@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const apiBaseUrl = import.meta.env.VITE_API_URL;
+const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
+const apiBaseUrl = configuredBaseUrl?.replace(/\/+$/, "");
 
 if (!apiBaseUrl && import.meta.env.PROD) {
   throw new Error("VITE_API_URL is required for production builds.");
@@ -17,24 +18,13 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const garageToken = localStorage.getItem("garage_token");
-    const customerToken = localStorage.getItem("token");
-    const url = String(config.url || "");
-    const isGarageRequest =
-      url.startsWith("/garage/") ||
-      url === "/garages/me" ||
-      url.startsWith("/garages/me/") ||
-      /^\/garages\/[^/]+\/media$/.test(url);
-    const token = isGarageRequest
-      ? garageToken || customerToken
-      : customerToken || garageToken;
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
+    // Let the browser set the multipart boundary for FormData requests.
     if (config.data instanceof FormData) {
-      delete config.headers["Content-Type"];
+      if (typeof config.headers?.delete === "function") {
+        config.headers.delete("Content-Type");
+      } else if (config.headers) {
+        delete config.headers["Content-Type"];
+      }
     }
 
     return config;
@@ -49,12 +39,14 @@ api.interceptors.response.use(
 
     if (
       error.response?.status === 401 &&
-      /authentication token missing|authentication required|invalid or expired token/i.test(
+      /authentication token missing|authentication required|invalid or expired token|session expired/i.test(
         message,
       )
     ) {
-      error.response.data.message =
-        "Login session expired. Please login again.";
+      if (error.response?.data) {
+        error.response.data.message =
+          "Login session expired. Please login again.";
+      }
     }
 
     return Promise.reject(error);

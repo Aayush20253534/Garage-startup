@@ -23,39 +23,39 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const change = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const change = (event) => {
+    setForm((previous) => ({
+      ...previous,
+      [event.target.name]: event.target.value,
+    }));
   };
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const submit = async (event) => {
+    event.preventDefault();
 
     setError("");
     setLoading(true);
 
     try {
-      const res = await api.post("/auth/login", {
+      const response = await api.post("/auth/login", {
         identifier: form.identifier.trim(),
         password: form.password,
         role: "CUSTOMER",
       });
 
-      const data = res.data?.data;
+      const freshUser = response.data?.data?.user;
 
-      if (!data?.token || !data?.user) {
+      if (!freshUser) {
         throw new Error("Invalid login response");
       }
 
-      localStorage.setItem("token", data.token);
-      const freshUser = data.user;
-      login(freshUser, data.token);
+      // The backend stores the JWT in an HttpOnly cookie.
+      // The frontend stores only non-sensitive user state.
+      login(freshUser);
 
-      let redirectPath;
-      if (!hasSavedUserLocation(freshUser)) {
-        redirectPath = "/booking/address";
-      } else {
-        redirectPath = from || "/dashboard";
-      }
+      const redirectPath = !hasSavedUserLocation(freshUser)
+        ? "/booking/address"
+        : from || "/dashboard";
 
       nav(redirectPath, { replace: true });
     } catch (err) {
@@ -76,15 +76,17 @@ export default function Login() {
 
     try {
       const data = await completeGoogleAuth("CUSTOMER");
-      let freshUser = data.user;
-      login(freshUser, data.token);
+      const freshUser = data?.user;
 
-      let redirectPath;
-      if (!hasSavedUserLocation(freshUser)) {
-        redirectPath = "/booking/address";
-      } else {
-        redirectPath = from || "/dashboard";
+      if (!freshUser) {
+        throw new Error("Invalid Google login response");
       }
+
+      login(freshUser);
+
+      const redirectPath = !hasSavedUserLocation(freshUser)
+        ? "/booking/address"
+        : from || "/dashboard";
 
       nav(redirectPath, { replace: true });
     } catch (err) {

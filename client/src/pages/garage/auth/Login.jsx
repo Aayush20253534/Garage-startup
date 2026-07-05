@@ -6,25 +6,36 @@ import { FiMail, FiLock, FiArrowRight, FiAlertCircle } from "react-icons/fi";
 import { garageApi } from "@/api/garage";
 
 export default function GarageLogin() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
   const navigate = useNavigate();
   const location = useLocation();
   const { loginGarage } = useApp();
+
   const returnTo = location.state?.from
-    ? `${location.state.from.pathname || "/garage"}${location.state.from.search || ""}`
+    ? `${location.state.from.pathname || "/garage"}${
+        location.state.from.search || ""
+      }`
     : "/garage";
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      const result = await garageApi.login(email, password);
-      loginGarage(result.garage, result.token);
+      const result = await garageApi.login(identifier.trim(), password);
+      const garage = result?.garage;
+
+      if (!garage) {
+        throw new Error("Invalid garage login response");
+      }
+
+      // The backend stores the garage JWT in an HttpOnly cookie.
+      loginGarage(garage);
       navigate(returnTo, { replace: true });
     } catch (err) {
       setError(
@@ -62,9 +73,10 @@ export default function GarageLogin() {
                 <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
                 <input
                   type="text"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
                   placeholder="garage@email.com"
+                  autoComplete="username"
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
                   required
                 />
@@ -78,8 +90,9 @@ export default function GarageLogin() {
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(event) => setPassword(event.target.value)}
                   placeholder="••••••••"
+                  autoComplete="current-password"
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
                   required
                 />

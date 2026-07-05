@@ -1,20 +1,10 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-const readJson = (key, fallback = null) => {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const initialGarage = readJson("garage", null);
-
 const initialState = {
-  garage: initialGarage,
-  token: localStorage.getItem("garage_token") || null,
-  isOnboardingComplete: initialGarage?.isOnboardingComplete || false,
+  // Authentication is restored from the HttpOnly cookie through the
+  // garage profile endpoint. Do not hydrate garage auth from localStorage.
+  garage: null,
+  isOnboardingComplete: false,
   bookings: [],
   services: [],
   wallet: {
@@ -35,39 +25,36 @@ const garageSlice = createSlice({
   name: "garage",
   initialState,
   reducers: {
-    setGarage: (state, action) => {
+    setGarage(state, action) {
       state.garage = action.payload;
       state.isOnboardingComplete =
         action.payload?.isOnboardingComplete || false;
     },
-    setGarageToken: (state, action) => {
-      state.token = action.payload;
-    },
-    setBookings: (state, action) => {
+    setBookings(state, action) {
       state.bookings = action.payload;
     },
-    setServices: (state, action) => {
+    setServices(state, action) {
       state.services = action.payload;
     },
-    setWallet: (state, action) => {
+    setWallet(state, action) {
       state.wallet = action.payload;
     },
-    setReviews: (state, action) => {
+    setReviews(state, action) {
       state.reviews = action.payload;
     },
-    setLoading: (state, action) => {
+    setLoading(state, action) {
       state.loading = action.payload;
     },
-    setNotifications: (state, action) => {
+    setNotifications(state, action) {
       state.notifications = action.payload;
     },
-    acceptBooking: (state, action) => {
+    acceptBooking(state, action) {
       const bookingId = action.payload;
       state.bookings = state.bookings.map((booking) =>
         booking.id === bookingId ? { ...booking, status: "ACCEPTED" } : booking,
       );
     },
-    declineBooking: (state, action) => {
+    declineBooking(state, action) {
       const bookingId = action.payload;
       state.bookings = state.bookings.map((booking) =>
         booking.id === bookingId
@@ -75,12 +62,15 @@ const garageSlice = createSlice({
           : booking,
       );
     },
-    clearGarageState: (state) => {
+    clearGarageState(state) {
       state.garage = null;
-      state.token = null;
       state.isOnboardingComplete = false;
       state.bookings = [];
       state.services = [];
+      state.wallet = {
+        balance: 0,
+        transactions: [],
+      };
       state.reviews = [];
       state.loading = false;
     },
@@ -89,7 +79,6 @@ const garageSlice = createSlice({
 
 export const {
   setGarage,
-  setGarageToken,
   setBookings,
   setServices,
   setWallet,

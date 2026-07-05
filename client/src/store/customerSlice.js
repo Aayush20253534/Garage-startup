@@ -21,8 +21,9 @@ const getDefaultVehicle = (vehicles = []) =>
 const initialVehicles = readArray("rov_vehicles");
 
 const initialState = {
-  user: readJson("user", readJson("rov_user", null)),
-  token: localStorage.getItem("token") || null,
+  // Authentication is restored from the HttpOnly cookie through /auth/me.
+  // Cached localStorage data must never be treated as proof of authentication.
+  user: null,
   vehicles: initialVehicles,
   vehicle: readJson("rov_vehicle", getDefaultVehicle(initialVehicles)),
   location: readJson("rov_location", null),
@@ -32,9 +33,6 @@ const customerSlice = createSlice({
   name: "customer",
   initialState,
   reducers: {
-    setCustomerToken(state, action) {
-      state.token = action.payload;
-    },
     setCustomerUser(state, action) {
       state.user = action.payload;
     },
@@ -69,7 +67,6 @@ const customerSlice = createSlice({
     },
     clearCustomerState(state) {
       state.user = null;
-      state.token = null;
       state.vehicles = [];
       state.vehicle = null;
       state.location = null;
@@ -80,7 +77,6 @@ const customerSlice = createSlice({
 export const {
   clearCustomerState,
   setCustomerLocation,
-  setCustomerToken,
   setCustomerUser,
   setCustomerVehicle,
   setCustomerVehicles,

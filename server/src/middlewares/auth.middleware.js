@@ -1,96 +1,86 @@
 const prisma = require("../config/prisma");
 const ApiError = require("../utils/apiError");
 const { verifyToken } = require("../utils/jwt");
+const {
+  ACCESS_TOKEN_COOKIE_NAME,
+  accessTokenClearCookieOptions,
+} = require("../config/authCookie");
+
+const readAccessToken = (req) =>
+  req.cookies?.[ACCESS_TOKEN_COOKIE_NAME] || null;
+
+const clearAccessTokenCookie = (res) => {
+  res.clearCookie(
+    ACCESS_TOKEN_COOKIE_NAME,
+    accessTokenClearCookieOptions,
+  );
+};
+
+const getActiveUser = async (userId) => {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      isActive: true,
+      isEmailVerified: true,
+      isOnboarded: true,
+    },
+  });
+};
 
 const protect = async (req, res, next) => {
   try {
-    let token;
-
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer ")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    }
-
-    if (!token && req.cookies?.accessToken) {
-      token = req.cookies.accessToken;
-    }
+    const token = readAccessToken(req);
 
     if (!token) {
-      return next(new ApiError(401, "Authentication token missing"));
+      return next(new ApiError(401, "Authentication required"));
     }
 
     const decoded = verifyToken(token);
-
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        isActive: true,
-        isEmailVerified: true,
-        isOnboarded: true,
-      },
-    });
+    const user = await getActiveUser(decoded.id);
 
     if (!user) {
+      clearAccessTokenCookie(res);
       return next(new ApiError(401, "User no longer exists"));
     }
 
     if (!user.isActive) {
+      clearAccessTokenCookie(res);
       return next(new ApiError(403, "Account is disabled"));
     }
 
     req.user = user;
-    next();
-  } catch (error) {
-    return next(new ApiError(401, "Invalid or expired token"));
+    return next();
+  } catch {
+    clearAccessTokenCookie(res);
+    return next(new ApiError(401, "Invalid or expired session"));
   }
 };
 
 const optionalProtect = async (req, res, next) => {
   try {
-    let token;
+    const token = readAccessToken(req);
 
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer ")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
+    if (!token) {
+      return next();
     }
-
-    if (!token && req.cookies?.accessToken) {
-      token = req.cookies.accessToken;
-    }
-
-    if (!token) return next();
 
     const decoded = verifyToken(token);
-
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        isActive: true,
-        isEmailVerified: true,
-        isOnboarded: true,
-      },
-    });
+    const user = await getActiveUser(decoded.id);
 
     if (user?.isActive) {
       req.user = user;
+    } else {
+      clearAccessTokenCookie(res);
     }
 
     return next();
   } catch {
+    clearAccessTokenCookie(res);
     return next();
   }
 };
