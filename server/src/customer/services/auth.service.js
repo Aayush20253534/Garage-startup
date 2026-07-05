@@ -425,28 +425,55 @@ const googleAuth = async ({ idToken, role = "CUSTOMER" }) => {
   };
 };
 
-const forgotPassword = async ({ email, role = "CUSTOMER" }) => {
+const forgotPassword = async ({
+  email,
+  role = "CUSTOMER",
+}) => {
   const cleanEmail = normalizeEmail(email);
-  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER", "ADMIN"], "CUSTOMER");
-  const genericResponse = {
-    message: "If an account exists, a password reset OTP will be sent.",
-  };
+
+  const userRole = normalizeAuthRole(
+    role,
+    ["CUSTOMER", "GARAGE_OWNER", "ADMIN"],
+    "CUSTOMER",
+  );
 
   const user = await prisma.user.findFirst({
-    where: { email: cleanEmail, role: userRole },
+    where: {
+      email: cleanEmail,
+      role: userRole,
+    },
   });
 
   if (!user) {
-    return genericResponse;
+    const accountType =
+      userRole === "GARAGE_OWNER"
+        ? "garage"
+        : userRole === "ADMIN"
+          ? "admin"
+          : "customer";
+
+    throw new ApiError(
+      404,
+      `No ${accountType} account is registered with this email`,
+    );
   }
 
   if (!user.isActive) {
-    return genericResponse;
+    throw new ApiError(
+      403,
+      "This account is disabled. Please contact Rovauto support.",
+    );
   }
 
-  await createResetPasswordOtp(user.id, user.email);
+  await createResetPasswordOtp(
+    user.id,
+    user.email,
+  );
 
-  return genericResponse;
+  return {
+    email: user.email,
+    message: "Password reset OTP sent successfully",
+  };
 };
 
 const resetPassword = async ({ email, otp, newPassword, role = "CUSTOMER" }) => {

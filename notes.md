@@ -452,24 +452,10 @@ npm run db:delete-bookings -- --confirm
 npm run db:delete-notifications --
 npm run db:delete-notifications -- --confirm
 
-### Testing
-
-Checkout.jsx
-
-Garage.js
-
-Garage Wallet.jsx
-
-Garage Dashboard.jsx
-
-Garage Profile.jsx
-
-Constants.js
-
-wallet.validation.js
-
-payment.service.js
-
 ## Bugs
 
-1) so in mobile version when i open navbar there is issue like whenever i click any button nothing moves i have to refresh then it works so check it.
+## Features
+
+1) Full flow working
+2) Warranty fix
+3) Alternative numbers and devices
