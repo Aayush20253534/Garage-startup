@@ -458,4 +458,4 @@ npm run db:delete-notifications -- --confirm
 
 1) Full flow working
 2) Warranty fix
-3) SOS fix (Check why in admin services coming soon isnt working and its showing in all the services even though i havent enabled it yet also delete category or service doesnt work)
+3) Admin Page Issue Report
