@@ -7,32 +7,32 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(uuid())
-  name               String
-  email              String
-  phone              String?
-  password           String
-  role               Role                @default(CUSTOMER)
-  isEmailVerified    Boolean             @default(false)
-  isPhoneVerified    Boolean             @default(false)
-  isOnboarded        Boolean             @default(false)
-  isActive           Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  bookings           Booking[]
-  complaints         Complaint[]
-  locations          CustomerLocation[]
-  customerProfile    CustomerProfile?
-  ownedGarages       Garage[]
-  notifications      Notification[]
-  otps               Otp[]
-  reviews            Review[]
-  vehicles           Vehicle[]
-  wallet             Wallet?
-  walletTransactions WalletTransaction[]
+  id                   String                @id @default(uuid())
+  name                 String
+  email                String
+  phone                String?
+  password             String
+  role                 Role                  @default(CUSTOMER)
+  isEmailVerified      Boolean               @default(false)
+  isPhoneVerified      Boolean               @default(false)
+  isOnboarded          Boolean               @default(false)
+  isActive             Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  bookings             Booking[]
+  complaints           Complaint[]
+  locations            CustomerLocation[]
+  customerProfile      CustomerProfile?
+  ownedGarages         Garage[]
+  notifications        Notification[]
+  otps                 Otp[]
+  reviews              Review[]
+  vehicles             Vehicle[]
+  wallet               Wallet?
+  walletTransactions   WalletTransaction[]
   chatbotConversations ChatbotConversation[]
-  chatbotMessages    ChatbotMessage[]
-  customerActivities CustomerActivity[]
+  chatbotMessages      ChatbotMessage[]
+  customerActivities   CustomerActivity[]
 
   @@unique([email, role])
   @@unique([phone, role])
@@ -278,16 +278,18 @@ model ServiceCategory {
 }
 
 model Service {
-  id              String                  @id @default(uuid())
-  categoryId      String
-  name            String
-  description     String?
-  isActive        Boolean                 @default(true)
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  basePrice       Int?
-  maxPrice        Int?
-  minPrice        Int?
+  id          String   @id @default(uuid())
+  categoryId  String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  basePrice   Int?
+  maxPrice    Int?
+  minPrice    Int?
+  durationMin Int?
+
   bookingItems    BookingService[]
   cityPriceRanges CityServicePriceRange[]
   garageServices  GarageService[]
