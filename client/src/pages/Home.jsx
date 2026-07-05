@@ -262,12 +262,11 @@ export default function Home() {
               const categoryServices = category.services || [];
               const serviceCount = categoryServices.length;
               const categoryComingSoon =
-                !isSos &&
-                (toBoolean(category.isComingSoon) ||
-                  (serviceCount > 0 &&
-                    categoryServices.every((service) =>
-                      toBoolean(service.isComingSoon),
-                    )));
+                toBoolean(category.isComingSoon) ||
+                (serviceCount > 0 &&
+                  categoryServices.every((service) =>
+                    toBoolean(service.isComingSoon),
+                  ));
 
               return (
                 <motion.div
@@ -278,8 +277,24 @@ export default function Home() {
                   transition={{ duration: 0.35, delay: index * 0.04 }}
                 >
                   <Link
-                    to={isSos ? "/sos" : `/services/${category.id}`}
-                    className="group relative block aspect-[4/5] overflow-hidden rounded-2xl border border-line bg-ink shadow-sm transition duration-300 hover:-translate-y-1 hover:border-brand/60 hover:shadow-[0_18px_45px_rgba(15,23,42,0.16)] sm:aspect-[4/3] lg:aspect-[5/4] lg:rounded-3xl"
+                    to={
+                      categoryComingSoon
+                        ? "#"
+                        : isSos
+                          ? "/sos"
+                          : `/services/${category.id}`
+                    }
+                    onClick={(event) => {
+                      if (categoryComingSoon) {
+                        event.preventDefault();
+                      }
+                    }}
+                    aria-disabled={categoryComingSoon}
+                    className={`group relative block aspect-[4/5] overflow-hidden rounded-2xl border border-line bg-ink shadow-sm transition duration-300 sm:aspect-[4/3] lg:aspect-[5/4] lg:rounded-3xl ${
+                      categoryComingSoon
+                        ? "cursor-not-allowed"
+                        : "hover:-translate-y-1 hover:border-brand/60 hover:shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
+                    }`}
                   >
                     {image ? (
                       <img
@@ -300,11 +315,7 @@ export default function Home() {
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/5 transition duration-300 group-hover:from-black/95 group-hover:via-black/30" />
 
-                    {categoryComingSoon && (
-                      <span className="absolute right-3 top-3 z-20 rounded-full border border-white/25 bg-black/75 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white backdrop-blur-md lg:right-4 lg:top-4 lg:text-[11px]">
-                        Coming Soon
-                      </span>
-                    )}
+                    {categoryComingSoon && <ComingSoonOverlay />}
 
                     <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-3 lg:p-4">
                       <span
@@ -314,11 +325,13 @@ export default function Home() {
                             : "border-white/20 bg-black/30 text-white"
                         }`}
                       >
-                        {isSos
-                          ? "Emergency"
-                          : serviceCount > 0
-                            ? `${serviceCount} service${serviceCount === 1 ? "" : "s"}`
-                            : "Vehicle care"}
+                        {categoryComingSoon
+                          ? "Coming Soon"
+                          : isSos
+                            ? "Emergency"
+                            : serviceCount > 0
+                              ? `${serviceCount} service${serviceCount === 1 ? "" : "s"}`
+                              : "Vehicle care"}
                       </span>
                     </div>
 
@@ -330,12 +343,30 @@ export default function Home() {
                           </h3>
 
                           <p className="mt-1 hidden text-xs font-medium text-white/65 sm:block lg:text-sm">
-                            {isSos ? "Get immediate roadside help" : "Explore available services"}
+                            {categoryComingSoon
+                              ? isSos
+                                ? "Roadside assistance launching soon"
+                                : "This category is launching soon"
+                              : isSos
+                                ? "Get immediate roadside help"
+                                : "Explore available services"}
                           </p>
                         </div>
 
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/20 bg-white/15 text-white backdrop-blur-md transition duration-300 group-hover:border-brand group-hover:bg-brand group-hover:text-black lg:h-10 lg:w-10">
-                          <FiArrowRight className="transition-transform duration-300 group-hover:translate-x-0.5" />
+                        <span
+                          className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/20 bg-white/15 text-white backdrop-blur-md transition duration-300 lg:h-10 lg:w-10 ${
+                            categoryComingSoon
+                              ? "opacity-50"
+                              : "group-hover:border-brand group-hover:bg-brand group-hover:text-black"
+                          }`}
+                        >
+                          <FiArrowRight
+                            className={
+                              categoryComingSoon
+                                ? ""
+                                : "transition-transform duration-300 group-hover:translate-x-0.5"
+                            }
+                          />
                         </span>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
-import { Component, lazy, Suspense } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Component, lazy, Suspense, useEffect, useState } from "react";
+import { Link, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { AppProvider, useApp } from "@/hooks/useApp";
@@ -7,6 +7,10 @@ import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { hasUsableIndiaCoordinates } from "@/utils/address";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
+import api from "@/api/axios";
+import { CATEGORY_UI } from "@/data/services";
+import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
+import { getCategoryThumbnailUrl } from "@/utils/imageCache";
 
 function ProtectedRoute({ children }) {
   const { user, garage, authLoading } = useApp();
@@ -63,6 +67,156 @@ function VehicleCheck({ children }) {
   }
 
   return children;
+}
+
+const toBoolean = (value) =>
+  value === true ||
+  value === 1 ||
+  value === "1" ||
+  String(value).toLowerCase() === "true";
+
+function SOSAvailabilityGuard({ children }) {
+  const [loading, setLoading] = useState(true);
+  const [sosCategory, setSosCategory] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkSOSAvailability = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await api.get("/services/categories");
+        const categories = response.data?.data || [];
+
+        const category =
+          categories.find((item) => CATEGORY_UI[item.name]?.isSos) ||
+          categories.find((item) =>
+            /roadside|emergency|sos/i.test(String(item.name || "")),
+          ) ||
+          null;
+
+        if (mounted) {
+          setSosCategory(category);
+        }
+      } catch (err) {
+        console.error("Unable to check SOS availability:", err);
+
+        if (mounted) {
+          setError(
+            err.response?.data?.message ||
+              "Unable to check roadside assistance availability.",
+          );
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    checkSOSAvailability();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 px-4 py-16 text-white">
+        <div className="mx-auto max-w-md rounded-2xl border border-gray-700 bg-gray-800 p-6 text-center text-gray-300">
+          Checking roadside assistance...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900 px-4 py-16 text-white">
+        <div className="mx-auto max-w-md rounded-2xl border border-red-500/30 bg-gray-800 p-6 text-center">
+          <h1 className="text-xl font-bold">Roadside assistance unavailable</h1>
+
+          <p className="mt-3 text-sm leading-6 text-gray-400">{error}</p>
+
+          <Link
+            to="/"
+            className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-gray-900 transition hover:bg-gray-100"
+          >
+            <FiArrowLeft />
+            Back to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const categoryServices = Array.isArray(sosCategory?.services)
+    ? sosCategory.services
+    : [];
+
+  const isComingSoon =
+    toBoolean(sosCategory?.isComingSoon) ||
+    (categoryServices.length > 0 &&
+      categoryServices.every((service) =>
+        toBoolean(service?.isComingSoon),
+      ));
+
+  if (!isComingSoon) {
+    return children;
+  }
+
+  const image = getCategoryThumbnailUrl(sosCategory);
+
+  return (
+    <div className="min-h-screen bg-gray-900 px-4 py-12 text-white">
+      <div className="mx-auto max-w-xl">
+        <div className="overflow-hidden rounded-3xl border border-gray-700 bg-gray-800 shadow-2xl">
+          <div className="relative h-64 overflow-hidden bg-gray-950">
+            {image ? (
+              <img
+                src={image}
+                alt={sosCategory?.name || "Roadside Assistance"}
+                className="h-full w-full scale-105 object-cover blur-sm grayscale"
+              />
+            ) : (
+              <div className="grid h-full place-items-center bg-gradient-to-br from-gray-800 to-gray-950 text-6xl text-gray-500">
+                <FiTruck />
+              </div>
+            )}
+
+            <ComingSoonOverlay />
+          </div>
+
+          <div className="p-6 text-center sm:p-8">
+            <span className="inline-flex rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-300">
+              Coming Soon
+            </span>
+
+            <h1 className="mt-4 text-3xl font-extrabold">
+              Roadside Assistance
+            </h1>
+
+            <p className="mt-3 leading-7 text-gray-400">
+              Emergency roadside assistance is being prepared. Verified
+              mechanics and towing support will be available here soon.
+            </p>
+
+            <Link
+              to="/"
+              className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-gray-900 transition hover:bg-gray-100"
+            >
+              <FiArrowLeft />
+              Back to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const Home = lazy(() => import("@/pages/Home"));
@@ -126,6 +280,7 @@ const AdminCars = lazy(() => import("@/pages/admin/Cars"));
 const AdminServices = lazy(() => import("@/pages/admin/Services"));
 
 import {
+  FiArrowLeft,
   FiGrid,
   FiTruck,
   FiPlusCircle,
@@ -287,10 +442,38 @@ function AppRoutes() {
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
-        <Route path="/sos" element={<SOSPanicScreen />} />
-        <Route path="/sos/location" element={<SOSLocationScreen />} />
-        <Route path="/sos/checkout" element={<SOSCheckoutScreen />} />
-        <Route path="/sos/success" element={<SOSSuccessScreen />} />
+        <Route
+          path="/sos"
+          element={
+            <SOSAvailabilityGuard>
+              <SOSPanicScreen />
+            </SOSAvailabilityGuard>
+          }
+        />
+        <Route
+          path="/sos/location"
+          element={
+            <SOSAvailabilityGuard>
+              <SOSLocationScreen />
+            </SOSAvailabilityGuard>
+          }
+        />
+        <Route
+          path="/sos/checkout"
+          element={
+            <SOSAvailabilityGuard>
+              <SOSCheckoutScreen />
+            </SOSAvailabilityGuard>
+          }
+        />
+        <Route
+          path="/sos/success"
+          element={
+            <SOSAvailabilityGuard>
+              <SOSSuccessScreen />
+            </SOSAvailabilityGuard>
+          }
+        />
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/services" element={<Services />} />
