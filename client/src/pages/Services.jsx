@@ -11,6 +11,12 @@ import {
 } from "@/utils/imageCache";
 import { getServiceMinPrice } from "@/utils/priceRange";
 
+const toBoolean = (value) =>
+  value === true ||
+  value === 1 ||
+  value === "1" ||
+  String(value).toLowerCase() === "true";
+
 export default function Services() {
   const [q, setQ] = useState("");
   const [categories, setCategories] = useState([]);
@@ -95,7 +101,7 @@ export default function Services() {
             const categoryComingSoon =
               !ui.isSos &&
               categoryServices.length > 0 &&
-              categoryServices.every((service) => service.isComingSoon);
+              categoryServices.every((service) => toBoolean(service.isComingSoon));
 
             return (
               <Link

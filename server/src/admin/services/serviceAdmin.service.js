@@ -145,7 +145,10 @@ const deactivateCategory = async (categoryId) => {
       services: {
         updateMany: {
           where: {},
-          data: { isActive: false },
+          data: {
+            isActive: false,
+            isComingSoon: false,
+          },
         },
       },
     },
@@ -253,7 +256,10 @@ const deactivateService = async (serviceId) => {
 
   const service = await prisma.service.update({
     where: { id: serviceId },
-    data: { isActive: false },
+    data: {
+      isActive: false,
+      isComingSoon: false,
+    },
     include: serviceInclude,
   });
 

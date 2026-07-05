@@ -66,12 +66,21 @@ const validateThumbnail = (file, label) => {
   return "";
 };
 
+const toBoolean = (value) =>
+  value === true ||
+  value === 1 ||
+  value === "1" ||
+  String(value).toLowerCase() === "true";
+
+const isServiceComingSoon = (service) =>
+  toBoolean(service?.isComingSoon);
+
 export default function AdminServices() {
   const [categories, setCategories] = useState([]);
   const [categoryForm, setCategoryForm] = useState(emptyCategoryForm);
   const [serviceForm, setServiceForm] = useState(emptyServiceForm);
   const [search, setSearch] = useState("");
-  const [includeInactive, setIncludeInactive] = useState(true);
+  const [includeInactive, setIncludeInactive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -177,21 +186,42 @@ export default function AdminServices() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const deactivateCategory = async (category) => {
+  const toggleCategoryActive = async (category) => {
+    const currentlyActive = toBoolean(category.isActive);
+    const action = currentlyActive ? "deactivate" : "reactivate";
+
     const ok = window.confirm(
-      `Deactivate ${category.name} and its services from customer selection?`
+      currentlyActive
+        ? `Deactivate ${category.name} and hide all of its services from customers?`
+        : `Reactivate ${category.name}? Its services will remain inactive until you reactivate them individually.`,
     );
+
     if (!ok) return;
 
     setError("");
     setSuccess("");
 
     try {
-      await adminApi.deleteServiceCategory(category.id);
-      setSuccess("Service category deactivated.");
+      if (currentlyActive) {
+        await adminApi.deleteServiceCategory(category.id);
+      } else {
+        await adminApi.updateServiceCategory(category.id, {
+          isActive: true,
+        });
+      }
+
+      setSuccess(
+        currentlyActive
+          ? "Service category deactivated."
+          : "Service category reactivated.",
+      );
+
       await load();
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to deactivate category");
+      setError(
+        err.response?.data?.message ||
+          `Unable to ${action} category`,
+      );
     }
   };
 
@@ -317,7 +347,7 @@ export default function AdminServices() {
       minPrice: service.minPrice ?? "",
       maxPrice: service.maxPrice ?? "",
       isActive: Boolean(service.isActive),
-      isComingSoon: Boolean(service.isComingSoon),
+      isComingSoon: isServiceComingSoon(service),
       thumbnail: null,
     });
 
@@ -325,17 +355,19 @@ export default function AdminServices() {
   };
 
   const toggleComingSoon = async (service) => {
+    const currentlyComingSoon = isServiceComingSoon(service);
+
     setError("");
     setSuccess("");
     setTogglingServiceId(service.id);
 
     try {
       await adminApi.updateService(service.id, {
-        isComingSoon: !service.isComingSoon,
+        isComingSoon: !currentlyComingSoon,
       });
 
       setSuccess(
-        service.isComingSoon
+        currentlyComingSoon
           ? `${service.name} is now available for booking.`
           : `${service.name} marked as coming soon.`,
       );
@@ -351,21 +383,42 @@ export default function AdminServices() {
     }
   };
 
-  const deactivateService = async (service) => {
+  const toggleServiceActive = async (service) => {
+    const currentlyActive = toBoolean(service.isActive);
+    const action = currentlyActive ? "deactivate" : "reactivate";
+
     const ok = window.confirm(
-      `Deactivate ${service.name} from customer selection?`
+      currentlyActive
+        ? `Deactivate ${service.name} and hide it from customer selection?`
+        : `Reactivate ${service.name}?`,
     );
+
     if (!ok) return;
 
     setError("");
     setSuccess("");
 
     try {
-      await adminApi.deleteService(service.id);
-      setSuccess("Service deactivated.");
+      if (currentlyActive) {
+        await adminApi.deleteService(service.id);
+      } else {
+        await adminApi.updateService(service.id, {
+          isActive: true,
+        });
+      }
+
+      setSuccess(
+        currentlyActive
+          ? "Service deactivated."
+          : "Service reactivated.",
+      );
+
       await load();
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to deactivate service");
+      setError(
+        err.response?.data?.message ||
+          `Unable to ${action} service`,
+      );
     }
   };
 
@@ -675,6 +728,12 @@ export default function AdminServices() {
         </div>
       </section>
 
+      <p className="px-1 text-xs leading-5 text-muted">
+        Deactivation is a safe delete. Inactive records are hidden from
+        customers and are shown here only when “Include inactive” is enabled.
+        The “Mark Coming Soon” button is an action, not the current status.
+      </p>
+
       <div className="grid gap-4">
         {loading ? (
           <div className="card-soft rounded-2xl p-5 text-sm text-muted">
@@ -736,11 +795,28 @@ export default function AdminServices() {
 
                   <button
                     type="button"
-                    onClick={() => deactivateCategory(category)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
-                    aria-label="Deactivate category"
+                    onClick={() => toggleCategoryActive(category)}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${
+                      toBoolean(category.isActive)
+                        ? "bg-red-50 text-red-700 hover:bg-red-100"
+                        : "bg-lime-100 text-ink hover:bg-lime-200"
+                    }`}
+                    aria-label={
+                      toBoolean(category.isActive)
+                        ? "Deactivate category"
+                        : "Reactivate category"
+                    }
+                    title={
+                      toBoolean(category.isActive)
+                        ? "Deactivate category"
+                        : "Reactivate category"
+                    }
                   >
-                    <FiTrash2 />
+                    {toBoolean(category.isActive) ? (
+                      <FiTrash2 />
+                    ) : (
+                      <FiCheckCircle />
+                    )}
                   </button>
                 </div>
               </div>
@@ -749,6 +825,8 @@ export default function AdminServices() {
                 {(category.services || []).length ? (
                   category.services.map((service) => {
                     const thumbnail = getThumbnail(service);
+                    const comingSoon = isServiceComingSoon(service);
+                    const serviceActive = toBoolean(service.isActive);
 
                     return (
                       <div
@@ -761,7 +839,7 @@ export default function AdminServices() {
                               src={thumbnail}
                               alt={service.name}
                               className={`h-full w-full object-cover transition ${
-                                service.isComingSoon
+                                comingSoon
                                   ? "scale-105 blur-sm grayscale"
                                   : ""
                               }`}
@@ -770,7 +848,7 @@ export default function AdminServices() {
                             <FiImage className="text-muted" />
                           )}
 
-                          {service.isComingSoon && (
+                          {comingSoon && (
                             <ComingSoonOverlay compact />
                           )}
                         </div>
@@ -784,15 +862,15 @@ export default function AdminServices() {
                             <span
                               className={[
                                 "rounded-full px-2.5 py-1 text-xs font-bold",
-                                service.isActive
+                                serviceActive
                                   ? "bg-lime-100 text-ink"
                                   : "bg-bg-soft text-muted",
                               ].join(" ")}
                             >
-                              {service.isActive ? "Active" : "Inactive"}
+                              {serviceActive ? "Active" : "Inactive"}
                             </span>
 
-                            {service.isComingSoon && (
+                            {comingSoon && (
                               <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
                                 Coming Soon
                               </span>
@@ -812,18 +890,28 @@ export default function AdminServices() {
                           <button
                             type="button"
                             onClick={() => toggleComingSoon(service)}
-                            disabled={togglingServiceId === service.id}
-                            className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                              service.isComingSoon
+                            disabled={
+                              !serviceActive ||
+                              togglingServiceId === service.id
+                            }
+                            className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                              comingSoon
                                 ? "bg-lime-100 text-ink hover:bg-lime-200"
                                 : "bg-amber-100 text-amber-800 hover:bg-amber-200"
                             }`}
+                            title={
+                              serviceActive
+                                ? comingSoon
+                                  ? "Make this service bookable"
+                                  : "Keep visible but prevent booking"
+                                : "Reactivate this service first"
+                            }
                           >
                             {togglingServiceId === service.id
                               ? "Updating..."
-                              : service.isComingSoon
+                              : comingSoon
                                 ? "Make Available"
-                                : "Coming Soon"}
+                                : "Mark Coming Soon"}
                           </button>
 
                           <button
@@ -837,11 +925,28 @@ export default function AdminServices() {
 
                           <button
                             type="button"
-                            onClick={() => deactivateService(service)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
-                            aria-label="Deactivate service"
+                            onClick={() => toggleServiceActive(service)}
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${
+                              serviceActive
+                                ? "bg-red-50 text-red-700 hover:bg-red-100"
+                                : "bg-lime-100 text-ink hover:bg-lime-200"
+                            }`}
+                            aria-label={
+                              serviceActive
+                                ? "Deactivate service"
+                                : "Reactivate service"
+                            }
+                            title={
+                              serviceActive
+                                ? "Deactivate service"
+                                : "Reactivate service"
+                            }
                           >
-                            <FiTrash2 />
+                            {serviceActive ? (
+                              <FiTrash2 />
+                            ) : (
+                              <FiCheckCircle />
+                            )}
                           </button>
                         </div>
                       </div>

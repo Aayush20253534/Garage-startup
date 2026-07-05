@@ -16,14 +16,14 @@ const categoryQuerySchema = [
 const createCategorySchema = [
   body("name").trim().notEmpty().withMessage("Service category name is required"),
   body("description").optional({ nullable: true }).trim(),
-  body("isActive").optional({ nullable: true }).isBoolean(),
+  body("isActive").optional({ nullable: true }).isBoolean().toBoolean(),
 ];
 
 const updateCategorySchema = [
   ...categoryIdSchema,
   body("name").optional({ nullable: true }).trim().notEmpty(),
   body("description").optional({ nullable: true }).trim(),
-  body("isActive").optional({ nullable: true }).isBoolean(),
+  body("isActive").optional({ nullable: true }).isBoolean().toBoolean(),
 ];
 
 const createServiceSchema = [
@@ -35,11 +35,12 @@ const createServiceSchema = [
     .isInt({ min: 0 }),
   body("minPrice").isInt({ min: 0 }).withMessage("minPrice must be positive"),
   body("maxPrice").isInt({ min: 0 }).withMessage("maxPrice must be positive"),
-  body("isActive").optional({ nullable: true }).isBoolean(),
+  body("isActive").optional({ nullable: true }).isBoolean().toBoolean(),
   body("isComingSoon")
     .optional({ nullable: true })
     .isBoolean()
-    .withMessage("isComingSoon must be true or false"),
+    .withMessage("isComingSoon must be true or false")
+    .toBoolean(),
 ];
 
 const updateServiceSchema = [
@@ -54,11 +55,12 @@ const updateServiceSchema = [
     .isInt({ min: 0 }),
   body("minPrice").optional({ nullable: true }).isInt({ min: 0 }),
   body("maxPrice").optional({ nullable: true }).isInt({ min: 0 }),
-  body("isActive").optional({ nullable: true }).isBoolean(),
+  body("isActive").optional({ nullable: true }).isBoolean().toBoolean(),
   body("isComingSoon")
     .optional({ nullable: true })
     .isBoolean()
-    .withMessage("isComingSoon must be true or false"),
+    .withMessage("isComingSoon must be true or false")
+    .toBoolean(),
 ];
 
 module.exports = {
