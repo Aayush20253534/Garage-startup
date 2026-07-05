@@ -11,6 +11,7 @@ import {
   FiTool,
 } from "react-icons/fi";
 import { CATEGORY_UI } from "@/data/services";
+import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import homepageHero from "@/assets/Rovauto_home.png";
@@ -314,69 +315,53 @@ export default function Home() {
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/5 transition duration-300 group-hover:from-black/95 group-hover:via-black/30" />
 
-                    {categoryComingSoon && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 p-4">
-                        <p className="text-center text-white">
+                    {categoryComingSoon ? (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 p-6">
+                        <p className="max-w-[260px] text-center text-xl font-bold leading-relaxed text-white sm:text-2xl">
                           {isSos
                             ? "Roadside assistance launching soon"
                             : "This category is launching soon"}
                         </p>
                       </div>
-                    )}
-
-                    <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-3 lg:p-4">
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] backdrop-blur-md lg:text-[11px] ${
-                          isSos
-                            ? "border-red-300/40 bg-red-500/90 text-white"
-                            : "border-white/20 bg-black/30 text-white"
-                        }`}
-                      >
-                        {categoryComingSoon
-                          ? "Coming Soon"
-                          : isSos
-                            ? "Emergency"
-                            : serviceCount > 0
-                              ? `${serviceCount} service${serviceCount === 1 ? "" : "s"}`
-                              : "Vehicle care"}
-                      </span>
-                    </div>
-
-                    <div className="absolute inset-x-0 bottom-0 z-10 p-3.5 sm:p-4 lg:p-5">
-                      <div className="flex items-end justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="line-clamp-2 text-base font-bold leading-tight text-white sm:text-lg lg:text-xl">
-                            {category.name}
-                          </h3>
-
-                          <p className="mt-1 hidden text-xs font-medium text-white/65 sm:block lg:text-sm">
-                            {categoryComingSoon
-                              ? isSos
-                                ? "Roadside assistance launching soon"
-                                : "This category is launching soon"
-                              : isSos
-                                ? "Get immediate roadside help"
-                                : "Explore available services"}
-                          </p>
+                    ) : (
+                      <>
+                        <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-3 lg:p-4">
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] backdrop-blur-md lg:text-[11px] ${
+                              isSos
+                                ? "border-red-300/40 bg-red-500/90 text-white"
+                                : "border-white/20 bg-black/30 text-white"
+                            }`}
+                          >
+                            {isSos
+                              ? "Emergency"
+                              : serviceCount > 0
+                                ? `${serviceCount} service${serviceCount === 1 ? "" : "s"}`
+                                : "Vehicle care"}
+                          </span>
                         </div>
 
-                        <span
-                          className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/20 bg-white/15 text-white backdrop-blur-md transition duration-300 lg:h-10 lg:w-10 ${
-                            categoryComingSoon
-                              ? "opacity-50"
-                              : "group-hover:border-brand group-hover:bg-brand group-hover:text-black"
-                          }`}
-                        >
-                          <FiArrowRight
-                            className={
-                              categoryComingSoon
-                                ? ""
-                                : "transition-transform duration-300 group-hover:translate-x-0.5"
-                            }
-                          />
-                        </span>
-                      </div>
-                    </div>
+                        <div className="absolute inset-x-0 bottom-0 z-10 p-3.5 sm:p-4 lg:p-5">
+                          <div className="flex items-end justify-between gap-3">
+                            <div className="min-w-0">
+                              <h3 className="line-clamp-2 text-base font-bold leading-tight text-white sm:text-lg lg:text-xl">
+                                {category.name}
+                              </h3>
+
+                              <p className="mt-1 hidden text-xs font-medium text-white/65 sm:block lg:text-sm">
+                                {isSos
+                                  ? "Get immediate roadside help"
+                                  : "Explore available services"}
+                              </p>
+                            </div>
+
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/20 bg-white/15 text-white backdrop-blur-md transition duration-300 group-hover:border-brand group-hover:bg-brand group-hover:text-black lg:h-10 lg:w-10">
+                              <FiArrowRight className="transition-transform duration-300 group-hover:translate-x-0.5" />
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </Link>
                 </motion.div>
               );
