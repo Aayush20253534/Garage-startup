@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FiX, FiMessageCircle, FiPhone, FiMessageSquare } from "react-icons/fi";
 import ChatbotPopup from "./ChatbotPopup";
 
-const SUPPORT_PHONE = "9899319913";
+const SUPPORT_PHONE = "8619955850";
 const SUPPORT_PHONE_WITH_COUNTRY = `+91${SUPPORT_PHONE}`;
 
 export default function FAB() {

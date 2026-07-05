@@ -127,7 +127,7 @@ export default function Contact() {
     {
       icon: FiMapPin,
       title: "Visit HQ",
-      detail: "Sector 62, Noida",
+      detail: "MNNIT Allahabad, Prayagraj",
       sub: "Uttar Pradesh, India",
     },
   ];

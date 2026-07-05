@@ -11,7 +11,7 @@ import {
   FiPhone,
 } from "react-icons/fi";
 
-const SUPPORT_PHONE_DISPLAY = "+91 98993 19913";
+const SUPPORT_PHONE_DISPLAY = "+91 8619955850";
 
 const serviceFooterLinks = [
   {
