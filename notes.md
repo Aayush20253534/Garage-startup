@@ -472,6 +472,4 @@ payment.service.js
 
 ## Bugs
 
-1) Tracking isnt working properly without sending notifications its moving through all sets which it shouldnt until a garage accepts and a timer of 2 minute should be shown of selecting garages  nearby in a map like animation and if no garage accepts it says trying again and page reloads working all till it works
-2) Also when notification comes of garage accepted , otp or any it should show in the page user is in so that notification button clicking should show a small card of notifications and even if they change pages garage finding work be doing in background .
-3) also show this garage process in logs properly
+1) so in mobile version when i open navbar there is issue like whenever i click any button nothing moves i have to refresh then it works so check it.
