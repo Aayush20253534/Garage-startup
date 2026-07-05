@@ -46,6 +46,29 @@ export default function Navbar() {
     setVehOpen(false);
   };
 
+  const handleMobileNavigate = (event, to) => {
+    event.preventDefault();
+
+    closeDropdowns();
+    closeMobileMenu();
+
+    // Let the full-screen drawer begin closing before changing route.
+    window.requestAnimationFrame(() => {
+      nav(to);
+    });
+  };
+
+  const handleLogout = async () => {
+    closeDropdowns();
+    closeMobileMenu();
+
+    try {
+      await logout();
+    } finally {
+      nav("/", { replace: true });
+    }
+  };
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     onScroll();
@@ -81,7 +104,8 @@ export default function Navbar() {
   }, [open]);
 
   return (
-    <motion.header
+    <>
+      <motion.header
       initial={{ y: -32, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       className={[
@@ -302,11 +326,7 @@ export default function Navbar() {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          logout();
-                          setProfileOpen(false);
-                          nav("/");
-                        }}
+                        onClick={handleLogout}
                         className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
                       >
                         <FiLogOut />
@@ -331,6 +351,8 @@ export default function Navbar() {
         </button>
       </div>
 
+      </motion.header>
+
       <AnimatePresence>
         {open && (
           <motion.div
@@ -341,7 +363,13 @@ export default function Navbar() {
             className="fixed inset-0 z-50 h-dvh w-screen overflow-y-auto bg-white lg:hidden"
           >
             <div className="container-x flex h-16 items-center justify-between">
-              <Logo />
+              <Link
+                to="/"
+                onClick={(event) => handleMobileNavigate(event, "/")}
+                className="shrink-0"
+              >
+                <Logo />
+              </Link>
 
               <button
                 type="button"
@@ -397,7 +425,9 @@ export default function Navbar() {
                   <Link
                     key={item.to}
                     to={item.to}
-                    onClick={closeMobileMenu}
+                    onClick={(event) =>
+                      handleMobileNavigate(event, item.to)
+                    }
                     className="rounded-2xl px-4 py-3 text-base font-semibold hover:bg-bg-soft"
                   >
                     {item.label}
@@ -408,7 +438,9 @@ export default function Navbar() {
                   <>
                     <Link
                       to="/dashboard"
-                      onClick={closeMobileMenu}
+                      onClick={(event) =>
+                        handleMobileNavigate(event, "/dashboard")
+                      }
                       className="rounded-2xl px-4 py-3 text-base font-semibold hover:bg-bg-soft"
                     >
                       Dashboard
@@ -416,7 +448,9 @@ export default function Navbar() {
 
                     <Link
                       to="/dashboard/notifications"
-                      onClick={closeMobileMenu}
+                      onClick={(event) =>
+                        handleMobileNavigate(event, "/dashboard/notifications")
+                      }
                       className="flex items-center justify-between rounded-2xl px-4 py-3 text-base font-semibold hover:bg-bg-soft"
                     >
                       <span>Notifications</span>
@@ -434,7 +468,9 @@ export default function Navbar() {
               <div className="grid gap-2">
                 <Link
                   to="/booking/vehicle"
-                  onClick={closeMobileMenu}
+                  onClick={(event) =>
+                    handleMobileNavigate(event, "/booking/vehicle")
+                  }
                   className="inline-flex h-11 items-center justify-center rounded-xl bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark"
                 >
                   Book Service
@@ -444,7 +480,9 @@ export default function Navbar() {
                   <>
                     <Link
                       to="/login"
-                      onClick={closeMobileMenu}
+                      onClick={(event) =>
+                        handleMobileNavigate(event, "/login")
+                      }
                       className="inline-flex h-11 items-center justify-center rounded-xl bg-ink px-4 text-sm font-bold text-white"
                     >
                       Login
@@ -452,7 +490,9 @@ export default function Navbar() {
 
                     <Link
                       to="/register"
-                      onClick={closeMobileMenu}
+                      onClick={(event) =>
+                        handleMobileNavigate(event, "/register")
+                      }
                       className="inline-flex h-11 items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink"
                     >
                       Register
@@ -462,7 +502,9 @@ export default function Navbar() {
                   <>
                     <Link
                       to="/dashboard/vehicles"
-                      onClick={closeMobileMenu}
+                      onClick={(event) =>
+                        handleMobileNavigate(event, "/dashboard/vehicles")
+                      }
                       className="inline-flex h-11 items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink"
                     >
                       My Vehicles
@@ -470,7 +512,9 @@ export default function Navbar() {
 
                     <Link
                       to="/dashboard/bookings"
-                      onClick={closeMobileMenu}
+                      onClick={(event) =>
+                        handleMobileNavigate(event, "/dashboard/bookings")
+                      }
                       className="inline-flex h-11 items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink"
                     >
                       Active Bookings
@@ -478,11 +522,7 @@ export default function Navbar() {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        logout();
-                        closeMobileMenu();
-                        nav("/");
-                      }}
+                      onClick={handleLogout}
                       className="inline-flex h-11 items-center justify-center rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-600"
                     >
                       Logout
@@ -494,6 +534,6 @@ export default function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.header>
+    </>
   );
 }
