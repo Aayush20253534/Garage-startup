@@ -478,4 +478,3 @@ payment.service.js
 4) and others while werent login
 5) index-MFFGjefd.js:78  GET https://api.rovauto.com/api/v1/garages/me 401 (Unauthorized)
 6) GET https://api.rovauto.com/api/v1/auth/me 401 (Unauthorized)
-7) in forget password of user there is no otp section to type and old new pasword as well , clicking on reset password shows invalid route and somehow the old password stops working
