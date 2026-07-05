@@ -185,6 +185,7 @@ const createService = async (payload) => {
       minPrice,
       maxPrice,
       isActive: parseBoolean(payload.isActive, true),
+      isComingSoon: parseBoolean(payload.isComingSoon, false),
     },
     include: serviceInclude,
   });
@@ -232,6 +233,9 @@ const updateService = async (serviceId, payload) => {
   if (payload.maxPrice !== undefined) data.maxPrice = Number(payload.maxPrice);
   if (payload.isActive !== undefined) {
     data.isActive = parseBoolean(payload.isActive, true);
+  }
+  if (payload.isComingSoon !== undefined) {
+    data.isComingSoon = parseBoolean(payload.isComingSoon, false);
   }
 
   const service = await prisma.service.update({

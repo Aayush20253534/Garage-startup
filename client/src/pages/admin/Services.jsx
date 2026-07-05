@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
+import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import {
   FiAlertCircle,
   FiCheckCircle,
@@ -31,6 +32,7 @@ const emptyServiceForm = {
   minPrice: "",
   maxPrice: "",
   isActive: true,
+  isComingSoon: false,
   thumbnail: null,
 };
 
@@ -74,6 +76,7 @@ export default function AdminServices() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [togglingServiceId, setTogglingServiceId] = useState(null);
 
   const activeCategoryCount = useMemo(
     () => categories.filter((category) => category.isActive).length,
@@ -276,6 +279,7 @@ export default function AdminServices() {
         minPrice,
         maxPrice,
         isActive: serviceForm.isActive,
+        isComingSoon: serviceForm.isComingSoon,
       };
 
       let saved;
@@ -313,10 +317,38 @@ export default function AdminServices() {
       minPrice: service.minPrice ?? "",
       maxPrice: service.maxPrice ?? "",
       isActive: Boolean(service.isActive),
+      isComingSoon: Boolean(service.isComingSoon),
       thumbnail: null,
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const toggleComingSoon = async (service) => {
+    setError("");
+    setSuccess("");
+    setTogglingServiceId(service.id);
+
+    try {
+      await adminApi.updateService(service.id, {
+        isComingSoon: !service.isComingSoon,
+      });
+
+      setSuccess(
+        service.isComingSoon
+          ? `${service.name} is now available for booking.`
+          : `${service.name} marked as coming soon.`,
+      );
+
+      await load();
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to update service availability",
+      );
+    } finally {
+      setTogglingServiceId(null);
+    }
   };
 
   const deactivateService = async (service) => {
@@ -562,6 +594,21 @@ export default function AdminServices() {
             className={`${textareaClass} md:col-span-1 xl:col-span-2`}
           />
 
+          <label className="flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-ink">
+            <input
+              type="checkbox"
+              checked={serviceForm.isComingSoon}
+              onChange={(event) =>
+                setServiceForm({
+                  ...serviceForm,
+                  isComingSoon: event.target.checked,
+                })
+              }
+              className="h-4 w-4 accent-ink"
+            />
+            Coming Soon
+          </label>
+
           <div className="flex gap-2 xl:justify-end">
             <button
               type="submit"
@@ -708,15 +755,23 @@ export default function AdminServices() {
                         key={service.id}
                         className="grid gap-3 rounded-xl border border-line p-3 transition hover:bg-bg-soft/70 sm:grid-cols-[56px_minmax(0,1fr)_auto]"
                       >
-                        <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-xl bg-bg-soft">
+                        <div className="relative grid h-14 w-14 place-items-center overflow-hidden rounded-xl bg-bg-soft">
                           {thumbnail ? (
                             <img
                               src={thumbnail}
                               alt={service.name}
-                              className="h-full w-full object-cover"
+                              className={`h-full w-full object-cover transition ${
+                                service.isComingSoon
+                                  ? "scale-105 blur-sm grayscale"
+                                  : ""
+                              }`}
                             />
                           ) : (
                             <FiImage className="text-muted" />
+                          )}
+
+                          {service.isComingSoon && (
+                            <ComingSoonOverlay compact />
                           )}
                         </div>
 
@@ -736,6 +791,12 @@ export default function AdminServices() {
                             >
                               {service.isActive ? "Active" : "Inactive"}
                             </span>
+
+                            {service.isComingSoon && (
+                              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
+                                Coming Soon
+                              </span>
+                            )}
                           </div>
 
                           <p className="mt-1 line-clamp-1 text-sm text-muted">
@@ -747,7 +808,24 @@ export default function AdminServices() {
                           </div>
                         </div>
 
-                        <div className="flex gap-2 sm:justify-end">
+                        <div className="flex flex-wrap gap-2 sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={() => toggleComingSoon(service)}
+                            disabled={togglingServiceId === service.id}
+                            className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                              service.isComingSoon
+                                ? "bg-lime-100 text-ink hover:bg-lime-200"
+                                : "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                            }`}
+                          >
+                            {togglingServiceId === service.id
+                              ? "Updating..."
+                              : service.isComingSoon
+                                ? "Make Available"
+                                : "Coming Soon"}
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => editService(service)}

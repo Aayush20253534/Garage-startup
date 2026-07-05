@@ -193,6 +193,23 @@ const createBooking = async (userId, data) => {
     throw new ApiError(404, "One or more services are invalid");
   }
 
+  const comingSoonServices = services.filter(
+    (service) => service.isComingSoon,
+  );
+
+  if (comingSoonServices.length > 0) {
+    const serviceNames = comingSoonServices
+      .map((service) => service.name)
+      .join(", ");
+
+    throw new ApiError(
+      409,
+      `${serviceNames} ${
+        comingSoonServices.length === 1 ? "is" : "are"
+      } coming soon and cannot be booked yet.`,
+    );
+  }
+
   const priceRangeMap =
     await cityServicePriceRangeService.findBestPriceRangesForBooking({
       city: getBookingCity(location),

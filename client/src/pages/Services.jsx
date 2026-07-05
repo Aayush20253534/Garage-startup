@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { CATEGORY_UI } from "@/data/services";
 import { FiSearch, FiArrowRight, FiSettings } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
+import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import {
   getCategoryThumbnailUrl,
   getServiceImageUrls,
@@ -90,6 +91,11 @@ export default function Services() {
             const ui = CATEGORY_UI[category.name] || {};
             const Icon = ui.icon || FiSettings;
             const image = getCategoryThumbnailUrl(category);
+            const categoryServices = category.services || [];
+            const categoryComingSoon =
+              !ui.isSos &&
+              categoryServices.length > 0 &&
+              categoryServices.every((service) => service.isComingSoon);
 
             return (
               <Link
@@ -97,22 +103,34 @@ export default function Services() {
                 key={category.id}
                 className="flex h-[250px] cursor-pointer flex-col overflow-hidden rounded-3xl bg-white p-4 shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl sm:h-auto sm:p-5"
               >
-                <div className="mb-3 min-h-[52px] text-xl font-bold leading-tight sm:mb-4 sm:min-h-0">
-                  {category.name}
+                <div className="mb-3 flex min-h-[52px] flex-wrap items-start gap-2 text-xl font-bold leading-tight sm:mb-4 sm:min-h-0">
+                  <span>{category.name}</span>
+
+                  {categoryComingSoon && (
+                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+                      Coming Soon
+                    </span>
+                  )}
                 </div>
 
-                <div className="mt-auto h-32 w-full overflow-hidden rounded-2xl bg-bg-soft">
+                <div className="relative mt-auto h-32 w-full overflow-hidden rounded-2xl bg-bg-soft">
                   {image ? (
                     <img
                       src={image}
                       alt={category.name}
-                      className="h-full w-full object-cover transition-transform hover:scale-105"
+                      className={`h-full w-full object-cover transition-transform ${
+                        categoryComingSoon
+                          ? "scale-105 blur-sm grayscale"
+                          : "hover:scale-105"
+                      }`}
                     />
                   ) : (
                     <div className="grid h-full w-full place-items-center text-3xl text-muted">
                       <Icon />
                     </div>
                   )}
+
+                  {categoryComingSoon && <ComingSoonOverlay compact />}
                 </div>
               </Link>
             );

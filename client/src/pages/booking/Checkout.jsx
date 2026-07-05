@@ -86,6 +86,8 @@ export default function Checkout() {
   const fee = cart.length === 0 ? 0 : calculateHandlingFee(feeBaseAmount);
   const payAtGarageMin = subTotalMin;
   const payAtGarageMax = subTotalMax;
+  const comingSoonItems = cart.filter((item) => item.isComingSoon);
+  const hasComingSoonItems = comingSoonItems.length > 0;
 
   useEffect(() => {
     if (!editingAddress) {
@@ -188,6 +190,17 @@ export default function Checkout() {
       return;
     }
 
+    if (hasComingSoonItems) {
+      setError(
+        `${comingSoonItems.map((item) => item.name).join(", ")} ${
+          comingSoonItems.length === 1 ? "is" : "are"
+        } coming soon. Remove ${
+          comingSoonItems.length === 1 ? "it" : "them"
+        } before checkout.`,
+      );
+      return;
+    }
+
     const checkoutLocation = buildLocationPayload();
 
     if (!checkoutLocation) {
@@ -271,6 +284,15 @@ export default function Checkout() {
         {error && (
           <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
+          </div>
+        )}
+
+        {hasComingSoonItems && (
+          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <span className="font-semibold">Coming soon:</span>{" "}
+            {comingSoonItems.map((item) => item.name).join(", ")}. Remove
+            {comingSoonItems.length === 1 ? " this service" : " these services"}{" "}
+            before booking.
           </div>
         )}
 
@@ -491,10 +513,15 @@ export default function Checkout() {
         <button
           type="button"
           onClick={pay}
-          disabled={loading}
+          disabled={loading || hasComingSoonItems}
           className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <FiLock /> {loading ? "Processing..." : `Pay ₹${fee} & Book Slot`}
+          <FiLock />{" "}
+          {loading
+            ? "Processing..."
+            : hasComingSoonItems
+              ? "Remove Coming Soon Services"
+              : `Pay ₹${fee} & Book Slot`}
         </button>
         <div className="mt-3 text-center text-xs text-muted">
           Secured by Cashfree. 100% refund on cancellation

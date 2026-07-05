@@ -30,21 +30,35 @@ const createServiceSchema = [
   body("categoryId").isUUID().withMessage("Valid category ID is required"),
   body("name").trim().notEmpty().withMessage("Service name is required"),
   body("description").optional({ nullable: true }).trim(),
-  body("basePrice").optional({ nullable: true, checkFalsy: true }).isInt({ min: 0 }),
+  body("basePrice")
+    .optional({ nullable: true, checkFalsy: true })
+    .isInt({ min: 0 }),
   body("minPrice").isInt({ min: 0 }).withMessage("minPrice must be positive"),
   body("maxPrice").isInt({ min: 0 }).withMessage("maxPrice must be positive"),
   body("isActive").optional({ nullable: true }).isBoolean(),
+  body("isComingSoon")
+    .optional({ nullable: true })
+    .isBoolean()
+    .withMessage("isComingSoon must be true or false"),
 ];
 
 const updateServiceSchema = [
   ...serviceIdSchema,
-  body("categoryId").optional({ nullable: true, checkFalsy: true }).isUUID(),
+  body("categoryId")
+    .optional({ nullable: true, checkFalsy: true })
+    .isUUID(),
   body("name").optional({ nullable: true }).trim().notEmpty(),
   body("description").optional({ nullable: true }).trim(),
-  body("basePrice").optional({ nullable: true, checkFalsy: true }).isInt({ min: 0 }),
+  body("basePrice")
+    .optional({ nullable: true, checkFalsy: true })
+    .isInt({ min: 0 }),
   body("minPrice").optional({ nullable: true }).isInt({ min: 0 }),
   body("maxPrice").optional({ nullable: true }).isInt({ min: 0 }),
   body("isActive").optional({ nullable: true }).isBoolean(),
+  body("isComingSoon")
+    .optional({ nullable: true })
+    .isBoolean()
+    .withMessage("isComingSoon must be true or false"),
 ];
 
 module.exports = {

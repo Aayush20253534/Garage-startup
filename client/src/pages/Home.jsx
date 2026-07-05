@@ -11,6 +11,7 @@ import {
   FiTool,
 } from "react-icons/fi";
 import { CATEGORY_UI } from "@/data/services";
+import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import homepageHero from "@/assets/Rovauto_home.png";
@@ -252,7 +253,12 @@ export default function Home() {
               const ui = CATEGORY_UI[category.name] || {};
               const image = getCategoryThumbnailUrl(category);
               const isSos = ui.isSos;
-              const serviceCount = category.services?.length || 0;
+              const categoryServices = category.services || [];
+              const serviceCount = categoryServices.length;
+              const categoryComingSoon =
+                !isSos &&
+                serviceCount > 0 &&
+                categoryServices.every((service) => service.isComingSoon);
 
               return (
                 <motion.div
@@ -271,7 +277,11 @@ export default function Home() {
                         src={image}
                         alt={category.name}
                         loading="lazy"
-                        className="absolute inset-0 h-full w-full object-cover transition duration-500 ease-out group-hover:scale-[1.07]"
+                        className={`absolute inset-0 h-full w-full object-cover transition duration-500 ease-out ${
+                          categoryComingSoon
+                            ? "scale-105 blur-sm grayscale"
+                            : "group-hover:scale-[1.07]"
+                        }`}
                       />
                     ) : (
                       <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-slate-800 to-slate-950 text-4xl text-white/70">
@@ -281,7 +291,13 @@ export default function Home() {
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/5 transition duration-300 group-hover:from-black/95 group-hover:via-black/30" />
 
-                    <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3 lg:p-4">
+                    {categoryComingSoon && (
+                      <span className="absolute right-3 top-3 z-20 rounded-full border border-white/25 bg-black/75 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white backdrop-blur-md lg:right-4 lg:top-4 lg:text-[11px]">
+                        Coming Soon
+                      </span>
+                    )}
+
+                    <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-3 lg:p-4">
                       <span
                         className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] backdrop-blur-md lg:text-[11px] ${
                           isSos
@@ -297,7 +313,7 @@ export default function Home() {
                       </span>
                     </div>
 
-                    <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 lg:p-5">
+                    <div className="absolute inset-x-0 bottom-0 z-10 p-3.5 sm:p-4 lg:p-5">
                       <div className="flex items-end justify-between gap-3">
                         <div className="min-w-0">
                           <h3 className="line-clamp-2 text-base font-bold leading-tight text-white sm:text-lg lg:text-xl">
@@ -397,35 +413,58 @@ export default function Home() {
               const image = getServiceThumbnailUrl(service);
               const hasPrice = Boolean(user && service.priceRange);
               const price = service.priceRange?.min;
+              const comingSoon = Boolean(service.isComingSoon);
 
               return (
                 <Link
-                  to="/booking/services"
+                  to={comingSoon ? "#" : "/booking/services"}
+                  onClick={(event) => {
+                    if (comingSoon) event.preventDefault();
+                  }}
+                  aria-disabled={comingSoon}
                   key={service.id}
-                  className="card-soft group rounded-2xl p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                  className={`card-soft group rounded-2xl p-4 shadow-sm transition ${
+                    comingSoon
+                      ? "cursor-not-allowed"
+                      : "hover:-translate-y-1 hover:shadow-md"
+                  }`}
                 >
                   {image && (
-                    <div className="mb-4 h-40 w-full overflow-hidden rounded-xl bg-bg-soft">
+                    <div className="relative mb-4 h-40 w-full overflow-hidden rounded-xl bg-bg-soft">
                       <img
                         src={image}
                         alt={service.name}
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        className={`h-full w-full object-cover transition-transform ${
+                          comingSoon
+                            ? "scale-105 blur-sm grayscale"
+                            : "group-hover:scale-105"
+                        }`}
                       />
+
+                      {comingSoon && <ComingSoonOverlay />}
                     </div>
                   )}
 
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="truncate text-lg font-bold text-ink">
-                        {service.name}
-                      </h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate text-lg font-bold text-ink">
+                          {service.name}
+                        </h3>
+
+                        {comingSoon && (
+                          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+                            Coming Soon
+                          </span>
+                        )}
+                      </div>
 
                       <p className="mt-1 line-clamp-2 text-sm text-muted">
                         {service.description}
                       </p>
                     </div>
 
-                    {hasPrice && (
+                    {hasPrice && !comingSoon && (
                       <div className="shrink-0 text-right">
                         <div className="text-xs text-muted">From</div>
                         <div className="text-xl font-bold text-ink">
@@ -441,7 +480,13 @@ export default function Home() {
                     </div>
 
                     <span className="text-sm font-semibold text-ink/80 group-hover:text-ink">
-                      Add <FiArrowRight className="inline" />
+                      {comingSoon ? (
+                        "Coming Soon"
+                      ) : (
+                        <>
+                          Add <FiArrowRight className="inline" />
+                        </>
+                      )}
                     </span>
                   </div>
                 </Link>

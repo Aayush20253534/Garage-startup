@@ -11,6 +11,7 @@ import {
 import api from "@/api/axios";
 import { setServices } from "@/store/garageSlice";
 import { CATEGORY_UI } from "@/data/services";
+import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import {
   formatServicePriceRange,
   getServiceMaxPrice,
@@ -52,7 +53,7 @@ export default function GarageServices() {
     } catch (err) {
       if (err.response?.status !== 404 && err.response?.status !== 403) {
         setError(
-          err.response?.data?.message || "Unable to load garage services"
+          err.response?.data?.message || "Unable to load garage services",
         );
       }
 
@@ -124,6 +125,7 @@ export default function GarageServices() {
             const includes = getIncludes(service);
             const minPrice = getServiceMinPrice(service);
             const maxPrice = getServiceMaxPrice(service);
+            const comingSoon = Boolean(service.isComingSoon);
 
             return (
               <motion.article
@@ -133,26 +135,38 @@ export default function GarageServices() {
                 className="card-soft overflow-hidden rounded-2xl p-4 shadow-sm transition hover:shadow-md"
               >
                 <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
-                  <div className="h-36 w-full overflow-hidden rounded-2xl bg-bg-soft md:h-full md:min-h-[160px]">
+                  <div className="relative h-36 w-full overflow-hidden rounded-2xl bg-bg-soft md:h-full md:min-h-[160px]">
                     {serviceImage ? (
                       <img
                         src={serviceImage}
                         alt={service.name}
-                        className="h-full w-full object-cover"
+                        className={`h-full w-full object-cover transition ${
+                          comingSoon ? "scale-105 blur-sm grayscale" : ""
+                        }`}
                       />
                     ) : (
                       <div className="grid h-full w-full place-items-center text-4xl text-muted">
                         <Icon />
                       </div>
                     )}
+
+                    {comingSoon && <ComingSoonOverlay />}
                   </div>
 
                   <div className="min-w-0">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
-                        <h2 className="truncate text-xl font-bold text-ink">
-                          {service.name}
-                        </h2>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="truncate text-xl font-bold text-ink">
+                            {service.name}
+                          </h2>
+
+                          {comingSoon && (
+                            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                              Coming Soon
+                            </span>
+                          )}
+                        </div>
 
                         <p className="mt-1 text-sm text-muted">
                           {categoryName}
@@ -161,10 +175,12 @@ export default function GarageServices() {
 
                       <div className="shrink-0 rounded-xl bg-brand-soft px-3 py-2 text-right">
                         <div className="text-lg font-bold text-ink">
-                          {formatServicePriceRange(service)}
+                          {comingSoon
+                            ? "Coming Soon"
+                            : formatServicePriceRange(service)}
                         </div>
 
-                        {maxPrice > minPrice && (
+                        {!comingSoon && maxPrice > minPrice && (
                           <div className="text-[11px] font-medium text-muted">
                             estimated range
                           </div>
@@ -186,6 +202,13 @@ export default function GarageServices() {
                         {includes.length} included
                       </span>
                     </div>
+
+                    {comingSoon && (
+                      <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                        This service is visible to customers but cannot be
+                        booked until an admin makes it available.
+                      </div>
+                    )}
 
                     <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
                       <div className="rounded-xl border border-line bg-white px-3 py-2">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { CATEGORY_UI } from "@/data/services";
+import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import api from "@/api/axios";
 import { FiStar, FiArrowLeft, FiX, FiTool } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
@@ -83,6 +84,10 @@ export default function CategoryDetail() {
   const Icon = ui.icon || FiTool;
 
   const handleBook = (service) => {
+    if (service.isComingSoon) {
+      return;
+    }
+
     if (!user) {
       nav("/login");
       return;
@@ -120,6 +125,7 @@ export default function CategoryDetail() {
           const includes = getIncludes(pkg);
           const serviceImage = getServiceThumbnailUrl(pkg);
           const hasPrice = Boolean(user && pkg.priceRange);
+          const comingSoon = Boolean(pkg.isComingSoon);
 
           return (
             <div
@@ -127,24 +133,36 @@ export default function CategoryDetail() {
               className="rounded-2xl bg-white p-4 shadow-lg sm:p-5"
             >
               <div className="flex flex-col gap-5 md:flex-row">
-                <div className="h-40 w-full flex-shrink-0 overflow-hidden rounded-2xl bg-bg-soft md:h-44 md:w-56">
+                <div className="relative h-40 w-full flex-shrink-0 overflow-hidden rounded-2xl bg-bg-soft md:h-44 md:w-56">
                   {serviceImage ? (
                     <img
                       src={serviceImage}
                       alt={pkg.name}
-                      className="h-full w-full object-cover"
+                      className={`h-full w-full object-cover transition ${
+                        comingSoon ? "scale-105 blur-sm grayscale" : ""
+                      }`}
                     />
                   ) : (
-                    <div className="h-full w-full grid place-items-center text-4xl text-muted">
+                    <div className="grid h-full w-full place-items-center text-4xl text-muted">
                       <Icon />
                     </div>
                   )}
+
+                  {comingSoon && <ComingSoonOverlay />}
                 </div>
 
                 <div className="flex-1">
-                  <h2 className="mb-2 text-xl font-bold sm:text-2xl">
-                    {pkg.name}
-                  </h2>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-bold sm:text-2xl">
+                      {pkg.name}
+                    </h2>
+
+                    {comingSoon && (
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                        Coming Soon
+                      </span>
+                    )}
+                  </div>
 
                   {hasPrice && (
                     <div className="mb-2 flex items-baseline gap-3">
@@ -201,10 +219,16 @@ export default function CategoryDetail() {
 
                     <button
                       onClick={() => handleBook(pkg)}
-                      disabled={user && !hasPrice}
+                      disabled={comingSoon || (user && !hasPrice)}
                       className="flex-1 rounded-2xl bg-[#b9f000] px-6 py-3 text-base font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {!user ? "Login to Book" : hasPrice ? "Book" : "Unavailable"}
+                      {comingSoon
+                        ? "Coming Soon"
+                        : !user
+                          ? "Login to Book"
+                          : hasPrice
+                            ? "Book"
+                            : "Unavailable"}
                     </button>
                   </div>
                 </div>
@@ -225,7 +249,15 @@ export default function CategoryDetail() {
           <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white">
             <div className="p-5">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-bold">{selectedPackage.name}</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-bold">{selectedPackage.name}</h2>
+
+                  {selectedPackage.isComingSoon && (
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                      Coming Soon
+                    </span>
+                  )}
+                </div>
 
                 <button
                   onClick={() => setSelectedPackage(null)}
@@ -235,18 +267,24 @@ export default function CategoryDetail() {
                 </button>
               </div>
 
-              <div className="mb-5 h-44 w-full overflow-hidden rounded-2xl bg-bg-soft">
+              <div className="relative mb-5 h-44 w-full overflow-hidden rounded-2xl bg-bg-soft">
                 {getServiceThumbnailUrl(selectedPackage) ? (
                   <img
                     src={getServiceThumbnailUrl(selectedPackage)}
                     alt={selectedPackage.name}
-                    className="h-full w-full object-cover"
+                    className={`h-full w-full object-cover transition ${
+                      selectedPackage.isComingSoon
+                        ? "scale-105 blur-sm grayscale"
+                        : ""
+                    }`}
                   />
                 ) : (
                   <div className="grid h-full w-full place-items-center text-3xl text-muted">
                     <Icon />
                   </div>
                 )}
+
+                {selectedPackage.isComingSoon && <ComingSoonOverlay />}
               </div>
 
               {user && selectedPackage.priceRange && (
@@ -321,14 +359,19 @@ export default function CategoryDetail() {
                     handleBook(selectedPackage);
                     setSelectedPackage(null);
                   }}
-                  disabled={user && !selectedPackage.priceRange}
+                  disabled={
+                    selectedPackage.isComingSoon ||
+                    (user && !selectedPackage.priceRange)
+                  }
                   className="flex-1 rounded-full bg-[#b9f000] px-6 py-3 font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {!user
-                    ? "Login to Book"
-                    : selectedPackage.priceRange
-                      ? "Book Now"
-                      : "Unavailable"}
+                  {selectedPackage.isComingSoon
+                    ? "Coming Soon"
+                    : !user
+                      ? "Login to Book"
+                      : selectedPackage.priceRange
+                        ? "Book Now"
+                        : "Unavailable"}
                 </button>
               </div>
             </div>
