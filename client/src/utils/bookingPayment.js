@@ -1,4 +1,5 @@
 import api from "@/api/axios";
+import { assertServiceHoursOpen } from "@/utils/serviceHours";
 
 const PAYMENT_AUTH_REQUIRED = "PAYMENT_AUTH_REQUIRED";
 
@@ -33,6 +34,12 @@ export const payForBooking = async ({ booking }) => {
   if (!booking?.id) {
     throw new Error("Booking not found");
   }
+
+  /*
+   * Check operating hours before creating a Cashfree order or loading the
+   * Cashfree SDK. Payments are accepted from 10:00 AM until 10:00 PM IST.
+   */
+  assertServiceHoursOpen();
 
   const orderRes = await api.post("/payments/create-order", {
     bookingId: booking.id,

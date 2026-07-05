@@ -10,6 +10,9 @@ const ApiError = require("../../utils/apiError");
 const garageRequestService = require("../../services/garageRequest.service");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const { deletePattern } = require("../../utils/cache");
+const {
+  assertServiceHoursOpen,
+} = require("../../utils/serviceHours");
 
 const bookingInclude = {
   user: {
@@ -130,6 +133,8 @@ const assertCashfreeOrderMatchesPayment = (
 };
 
 const createPaymentOrder = async (userId, { bookingId }) => {
+  assertServiceHoursOpen();
+
   if (!isCashfreeConfigured()) {
     throw new ApiError(
       500,

@@ -134,10 +134,17 @@ export default function Home() {
             transition={{ duration: 0.55 }}
             className="max-w-3xl text-white"
           >
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-              New in Prayagraj
-            </span>
+            <div className="flex flex-col items-start gap-2 lg:flex-row lg:items-center">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+                New in Prayagraj
+              </span>
+
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+                <FiClock className="shrink-0" />
+                Daily services · 10 AM–10 PM
+              </span>
+            </div>
 
             <h1 className="mt-4 text-4xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)] sm:text-5xl lg:text-7xl">
               India&apos;s Trusted Vehicle Service Platform
