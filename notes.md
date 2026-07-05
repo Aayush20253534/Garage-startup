@@ -456,6 +456,6 @@ npm run db:delete-notifications -- --confirm
 
 ## Features
 
-1) Full flow working
-2) Warranty fix
-3) Admin Page Issue Report
+1) Full flow working (Urgent)
+2) Warranty fix (Later- not- now)
+3) Admin Page Issue Report (Urgent)
