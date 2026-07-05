@@ -11,7 +11,6 @@ import {
   FiTool,
 } from "react-icons/fi";
 import { CATEGORY_UI } from "@/data/services";
-import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import homepageHero from "@/assets/Rovauto_home.png";
@@ -315,7 +314,15 @@ export default function Home() {
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/5 transition duration-300 group-hover:from-black/95 group-hover:via-black/30" />
 
-                    {categoryComingSoon && <ComingSoonOverlay />}
+                    {categoryComingSoon && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 p-4">
+                        <p className="text-center text-white">
+                          {isSos
+                            ? "Roadside assistance launching soon"
+                            : "This category is launching soon"}
+                        </p>
+                      </div>
+                    )}
 
                     <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-3 lg:p-4">
                       <span
