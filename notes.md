@@ -473,8 +473,3 @@ payment.service.js
 ## Bugs
 
 1) so in mobile version when i open navbar there is issue like whenever i click any button nothing moves i have to refresh then it works so check it.
-2) call from frontend on unawanted routes
-3) index-MFFGjefd.js:78  GET https://api.rovauto.com/api/v1/garages/me 403 (Forbidden)
-4) and others while werent login
-5) index-MFFGjefd.js:78  GET https://api.rovauto.com/api/v1/garages/me 401 (Unauthorized)
-6) GET https://api.rovauto.com/api/v1/auth/me 401 (Unauthorized)

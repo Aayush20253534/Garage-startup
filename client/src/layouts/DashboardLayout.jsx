@@ -34,35 +34,40 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const accountInitial = accountName?.charAt(0)?.toUpperCase() || "R";
 
   const isDashboardLink = (to) =>
-    ["/dashboard", "/customer/dashboard", "/dashboard/customer", "/garage", "/admin"].includes(
-      to
-    );
+    [
+      "/dashboard",
+      "/customer/dashboard",
+      "/dashboard/customer",
+      "/garage",
+      "/admin",
+    ].includes(to);
 
   const visibleItems = useMemo(() => {
     return Array.isArray(items) ? items : [];
   }, [items]);
 
-  useEffect(() => {
+  const closeSidebar = () => {
     setOpen(false);
     document.body.style.overflow = "";
+  };
+
+  useEffect(() => {
+    closeSidebar();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [pathname]);
 
   useEffect(() => {
-    if (!open) {
-      document.body.style.overflow = "";
-      return undefined;
-    }
-
-    document.body.style.overflow = "hidden";
-
     const closeOnEscape = (event) => {
       if (event.key === "Escape") {
-        setOpen(false);
+        closeSidebar();
       }
     };
 
-    window.addEventListener("keydown", closeOnEscape);
+    document.body.style.overflow = open ? "hidden" : "";
+
+    if (open) {
+      window.addEventListener("keydown", closeOnEscape);
+    }
 
     return () => {
       document.body.style.overflow = "";
@@ -71,6 +76,8 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   }, [open]);
 
   const handleLogout = async () => {
+    closeSidebar();
+
     if (isGaragePortal) {
       await logoutGarage();
       navigate("/garage/login", { replace: true });
@@ -87,7 +94,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         <button
           type="button"
           aria-label="Close sidebar overlay"
-          onClick={() => setOpen(false)}
+          onClick={closeSidebar}
           className="fixed inset-0 z-40 bg-black/40 lg:hidden"
         />
       )}
@@ -105,7 +112,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           <button
             type="button"
             aria-label="Close sidebar"
-            onClick={() => setOpen(false)}
+            onClick={closeSidebar}
             className="grid h-9 w-9 place-items-center rounded-lg border border-line transition hover:border-ink hover:bg-bg-soft lg:hidden"
           >
             <FiX />
@@ -122,6 +129,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
                   key={item.to}
                   to={item.to}
                   end={isDashboardLink(item.to)}
+                  onClick={closeSidebar}
                   className={({ isActive }) =>
                     [
                       "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
