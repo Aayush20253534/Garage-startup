@@ -305,6 +305,10 @@ function AppRoutes() {
           <Route path="/register" element={<Register />} />
           <Route path="/otp" element={<OTP />} />
           <Route path="/forgot" element={<Forgot />} />
+          <Route
+            path="/reset-password"
+            element={<Navigate to="/forgot" replace />}
+          />
           <Route path="/admin/login" element={<AdminLogin />} />
 
           <Route path="/garage/login" element={<GarageLogin />} />
