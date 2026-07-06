@@ -85,7 +85,7 @@ export default function Footer() {
         ["Warranty Center", "/warranty"],
         ["FAQs", "/contact"],
         ["Garage Login", "/garage"],
-        ["Admin", "/admin"],
+        // ["Admin", "/admin"],
       ],
     },
   ];
