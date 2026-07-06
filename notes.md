@@ -190,11 +190,10 @@ Platform Fee
 
 | Estimated Bill      | Platform Fee |
 | ------------------- | -----------: |
-| ₹300 – ₹999      |      ₹30/30 |
+| ₹300 – ₹999      |      ₹49/49 |
 | ₹1,000 – ₹4,999  |      ₹99/99 |
 | ₹5,000 – ₹19,999 |    ₹249/249 |
 | ₹20,000+           |    ₹500/500 |
-| SOS                 |      ₹50/50 |
 
 Final garage payment happens offline.
 
@@ -454,11 +453,12 @@ npm run db:delete-notifications -- --confirm
 
 ## Bugs
 
+1.issue in 49 rupee service
+
 ## Features
 
 1) Full flow working (Urgent)
 2) Warranty fix (Later- not- now)
-
 
 ## ADMIN
 
