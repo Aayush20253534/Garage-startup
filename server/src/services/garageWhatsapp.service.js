@@ -120,26 +120,79 @@ const sendGarageBookingRequestWhatsapp = async ({ garage, request, booking }) =>
 };
 
 const sendGarageCustomerLocationWhatsapp = async ({ garage, booking }) => {
-  const mapsLink = getMapsLink(booking.customerLatitude, booking.customerLongitude);
+  const mapsLink = getMapsLink(
+    booking.customerLatitude,
+    booking.customerLongitude,
+  );
   const message = [
     `Rovauto booking ${booking.bookingCode} accepted.`,
     `Customer: ${booking.user?.name || "Customer"}`,
+    booking.user?.phone ? `Phone: ${booking.user.phone}` : null,
+    booking.customerAddress ? `Address: ${booking.customerAddress}` : null,
     `Vehicle: ${formatVehicleDetails(booking.vehicle)}`,
+    `Services: ${formatServiceList(booking.services)}`,
     mapsLink ? `Customer location: ${mapsLink}` : null,
   ].filter(Boolean).join("\n");
 
-  return sendWhatsappMessage({ to: garage.whatsappNo || garage.phone, message });
+  return sendWhatsappMessage({
+    to: garage.whatsappNo || garage.phone,
+    message,
+  });
 };
 
-const sendCustomerGarageDetailsWhatsapp = async ({ customer, garage, booking }) => {
+const formatOtpExpiry = (value) => {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: process.env.APP_TIME_ZONE || "Asia/Kolkata",
+  });
+};
+
+const sendCustomerGarageDetailsWhatsapp = async ({
+  customer,
+  garage,
+  booking,
+  otp,
+  otpExpiresAt,
+  isRegenerated = false,
+}) => {
   const mapsLink = getMapsLink(garage.latitude, garage.longitude);
+  const otpExpiry = formatOtpExpiry(otpExpiresAt);
   const message = [
-    `Rovauto booking ${booking.bookingCode} confirmed.`,
+    isRegenerated
+      ? `New handover OTP for Rovauto booking ${booking.bookingCode}.`
+      : `Rovauto booking ${booking.bookingCode} confirmed.`,
     `Garage: ${garage.name}`,
     `Phone: ${garage.phone}`,
     garage.address ? `Address: ${garage.address}` : null,
     mapsLink ? `Garage location: ${mapsLink}` : null,
+    otp ? `Vehicle handover OTP: ${otp}` : null,
+    otpExpiry ? `OTP valid until: ${otpExpiry}` : null,
+    otp
+      ? "Share this OTP only when the garage representative is physically receiving your vehicle."
+      : null,
   ].filter(Boolean).join("\n");
+
+  return sendWhatsappMessage({ to: customer.phone, message });
+};
+
+const sendCustomerVehicleDeliveredWhatsapp = async ({
+  customer,
+  garage,
+  booking,
+}) => {
+  const trackingUrl = `${getFrontendBaseUrl()}/tracking?bookingId=${booking.id}`;
+  const message = [
+    `Rovauto booking ${booking.bookingCode} is ready for delivery.`,
+    `${garage.name} has uploaded the post-service inspection photos and marked your vehicle delivered.`,
+    "Accept delivery only after receiving and checking the vehicle.",
+    `Review and accept here: ${trackingUrl}`,
+  ].join("\n");
 
   return sendWhatsappMessage({ to: customer.phone, message });
 };
@@ -151,6 +204,7 @@ module.exports = {
   getWhatsappPhoneNumberId,
   getWhatsappProviderUrl,
   sendCustomerGarageDetailsWhatsapp,
+  sendCustomerVehicleDeliveredWhatsapp,
   sendGarageBookingRequestWhatsapp,
   sendGarageCustomerLocationWhatsapp,
   sendWhatsappMessage,

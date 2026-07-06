@@ -495,6 +495,17 @@ const acceptDelivery = async (userId, bookingId) => {
   return booking;
 };
 
+const regenerateHandoverOtp = async (userId, bookingId) => {
+  const result =
+    await bookingLifecycleService.regenerateBookingHandoverOtp({
+      userId,
+      bookingId,
+    });
+
+  await invalidateBookingCaches(userId);
+  return result;
+};
+
 const getServiceHistory = async (userId) => {
   return prisma.booking.findMany({
     where: {
@@ -563,6 +574,7 @@ module.exports = {
   getBookingById,
   getBookingSuccess,
   acceptDelivery,
+  regenerateHandoverOtp,
   getServiceHistory,
   cancelBooking,
 };

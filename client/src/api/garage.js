@@ -68,6 +68,9 @@ export const mapGarageRequestToBooking = (request) => {
     handoverOtpExpiresAt: booking.handoverOtpExpiresAt,
     deliveredAt: booking.deliveredAt,
     customerAcceptedAt: booking.customerAcceptedAt,
+    inspectionImages: Array.isArray(booking.inspectionImages)
+      ? booking.inspectionImages
+      : [],
     vehicle: {
       brand: vehicle.brand || vehicle.make || "Vehicle",
       model: vehicle.model || "",

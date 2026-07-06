@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { FiDownload, FiStar } from "react-icons/fi";
+import { FiDownload, FiEdit3, FiStar } from "react-icons/fi";
+import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
 
 const formatDate = (date) => {
@@ -31,13 +32,37 @@ const getAmount = (booking) => {
   );
 };
 
+function RatingDisplay({ review }) {
+  if (!review) {
+    return <span className="text-muted">Not rated</span>;
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-0.5 text-amber-500">
+        {[1, 2, 3, 4, 5].map((value) => (
+          <FiStar
+            key={value}
+            fill={value <= Number(review.rating || 0) ? "currentColor" : "none"}
+          />
+        ))}
+      </div>
+      {review.comment && (
+        <p className="mt-1 max-w-xs text-xs text-muted">{review.comment}</p>
+      )}
+    </div>
+  );
+}
+
 export default function ServiceHistory() {
-  const { fetchServiceHistory } = useApp();
+  const { fetchServiceHistory, clearBookingCaches } = useApp();
 
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [reviewBooking, setReviewBooking] = useState(null);
 
   const loadHistory = async ({ force = false } = {}) => {
     try {
@@ -60,10 +85,31 @@ export default function ServiceHistory() {
     loadHistory();
   }, []);
 
+  const handleReviewSaved = (savedReview) => {
+    setHistory((current) =>
+      current.map((booking) =>
+        booking.id === savedReview.bookingId
+          ? { ...booking, review: savedReview }
+          : booking,
+      ),
+    );
+    setReviewBooking((current) =>
+      current?.id === savedReview.bookingId
+        ? { ...current, review: savedReview }
+        : current,
+    );
+    clearBookingCaches?.();
+    setSuccess(
+      reviewBooking?.review
+        ? "Review updated successfully."
+        : "Review submitted successfully.",
+    );
+  };
+
   if (loading) {
     return (
       <div>
-        <h2 className="text-2xl font-bold mb-6">Service History</h2>
+        <h2 className="mb-6 text-2xl font-bold">Service History</h2>
         <div className="card-soft p-6 text-muted">
           Loading service history...
         </div>
@@ -73,7 +119,7 @@ export default function ServiceHistory() {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-4 mb-6">
+      <div className="mb-6 flex items-center justify-between gap-4">
         <h2 className="text-2xl font-bold">Service History</h2>
 
         <button
@@ -92,6 +138,12 @@ export default function ServiceHistory() {
         </div>
       )}
 
+      {success && (
+        <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {success}
+        </div>
+      )}
+
       <div className="card-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -104,7 +156,7 @@ export default function ServiceHistory() {
                   "Date",
                   "Amount",
                   "Rating",
-                  "",
+                  "Actions",
                 ].map((heading) => (
                   <th key={heading} className="px-4 py-3 font-semibold">
                     {heading}
@@ -114,53 +166,59 @@ export default function ServiceHistory() {
             </thead>
 
             <tbody>
-              {history.map((booking) => {
-                const rating = booking.review?.rating || 0;
+              {history.map((booking) => (
+                <tr key={booking.id} className="border-t border-line align-top">
+                  <td className="px-4 py-3 font-medium">
+                    #{booking.bookingCode}
+                  </td>
 
-                return (
-                  <tr key={booking.id} className="border-t border-line">
-                    <td className="px-4 py-3 font-medium">
-                      #{booking.bookingCode}
-                    </td>
+                  <td className="px-4 py-3">{getServicesText(booking)}</td>
 
-                    <td className="px-4 py-3">{getServicesText(booking)}</td>
+                  <td className="px-4 py-3">
+                    {booking.garage?.name || "Auto-assigned garage"}
+                  </td>
 
-                    <td className="px-4 py-3">
-                      {booking.garage?.name || "Auto-assigned garage"}
-                    </td>
+                  <td className="px-4 py-3">
+                    {formatDate(
+                      booking.customerAcceptedAt ||
+                        booking.updatedAt ||
+                        booking.createdAt,
+                    )}
+                  </td>
 
-                    <td className="px-4 py-3">
-                      {formatDate(booking.updatedAt || booking.createdAt)}
-                    </td>
+                  <td className="px-4 py-3 font-semibold">
+                    ₹{Number(getAmount(booking)).toLocaleString("en-IN")}
+                  </td>
 
-                    <td className="px-4 py-3 font-semibold">
-                      ₹{getAmount(booking)}
-                    </td>
+                  <td className="px-4 py-3">
+                    <RatingDisplay review={booking.review} />
+                  </td>
 
-                    <td className="px-4 py-3 text-amber-500">
-                      {rating > 0 ? (
-                        <div className="flex items-center gap-0.5">
-                          {Array.from({ length: rating }).map((_, index) => (
-                            <FiStar key={index} fill="currentColor" />
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted">Not rated</span>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3">
+                  <td className="px-4 py-3">
+                    <div className="flex min-w-max flex-col gap-2">
                       <button
                         type="button"
-                        className="btn-ghost !py-1.5 !px-3 text-xs"
+                        className="btn-primary !px-3 !py-1.5 text-xs"
+                        onClick={() => {
+                          setSuccess("");
+                          setReviewBooking(booking);
+                        }}
+                      >
+                        {booking.review ? <FiEdit3 /> : <FiStar />}
+                        {booking.review ? "Edit Review" : "Rate Garage"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn-ghost !px-3 !py-1.5 text-xs"
                         onClick={() => window.print()}
                       >
                         <FiDownload /> Receipt
                       </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                    </div>
+                  </td>
+                </tr>
+              ))}
 
               {history.length === 0 && (
                 <tr>
@@ -173,6 +231,14 @@ export default function ServiceHistory() {
           </table>
         </div>
       </div>
+
+      <ReviewModal
+        open={Boolean(reviewBooking)}
+        booking={reviewBooking}
+        review={reviewBooking?.review}
+        onClose={() => setReviewBooking(null)}
+        onSaved={handleReviewSaved}
+      />
     </div>
   );
 }

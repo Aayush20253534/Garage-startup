@@ -46,6 +46,17 @@ const acceptDelivery = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Delivery accepted successfully", booking));
 });
 
+const regenerateHandoverOtp = asyncHandler(async (req, res) => {
+  const result = await bookingService.regenerateHandoverOtp(
+    req.user.id,
+    req.params.id,
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "New handover OTP generated successfully", result));
+});
+
 const getServiceHistory = asyncHandler(async (req, res) => {
   const bookings = await bookingService.getServiceHistory(req.user.id);
 
@@ -67,6 +78,7 @@ module.exports = {
   getBookingById,
   getBookingSuccess,
   acceptDelivery,
+  regenerateHandoverOtp,
   getServiceHistory,
   cancelBooking,
 };

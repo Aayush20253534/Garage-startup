@@ -3,7 +3,7 @@ const ApiError = require("../../utils/apiError");
 const { deleteCache, deletePattern } = require("../../utils/cache");
 const { deleteGaragesDeep } = require("./garageDeletion.service");
 
-const garageInclude = {
+const garageListInclude = {
   owner: {
     select: {
       id: true,
@@ -26,6 +26,51 @@ const garageInclude = {
   },
   images: {
     orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
+  },
+};
+
+const garageDetailInclude = {
+  ...garageListInclude,
+  reviews: {
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+      booking: {
+        select: {
+          id: true,
+          bookingCode: true,
+          customerAcceptedAt: true,
+          createdAt: true,
+          vehicle: {
+            select: {
+              brand: true,
+              model: true,
+              registrationNumber: true,
+            },
+          },
+          services: {
+            include: {
+              service: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          inspectionImages: {
+            orderBy: [{ phase: "asc" }, { order: "asc" }],
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
   },
 };
 
@@ -58,7 +103,7 @@ const listGarages = async (query = {}) => {
 
   return prisma.garage.findMany({
     where,
-    include: garageInclude,
+    include: garageListInclude,
     orderBy: { createdAt: "desc" },
   });
 };
@@ -66,7 +111,7 @@ const listGarages = async (query = {}) => {
 const getGarage = async (garageId) => {
   const garage = await prisma.garage.findUnique({
     where: { id: garageId },
-    include: garageInclude,
+    include: garageDetailInclude,
   });
 
   if (!garage) throw new ApiError(404, "Garage not found");

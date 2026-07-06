@@ -8,6 +8,8 @@ import {
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import api from "@/api/axios";
+import InspectionGallery from "@/components/booking/InspectionGallery";
+import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
 import {
   isPaymentAuthError,
@@ -252,6 +254,9 @@ export default function Tracking() {
   const [actionLoading, setActionLoading] = useState("");
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [handoverOtpResult, setHandoverOtpResult] = useState(null);
   const requestInFlight = useRef(false);
 
   useEffect(() => {
@@ -418,6 +423,48 @@ export default function Tracking() {
     }
   };
 
+  const regenerateHandoverOtp = async () => {
+    try {
+      setActionLoading("otp");
+      setError("");
+      setSuccess("");
+
+      const response = await api.post(
+        `/bookings/${bookingId}/handover-otp/regenerate`,
+      );
+      const result = response.data.data;
+
+      setBooking((current) => ({
+        ...current,
+        handoverOtpExpiresAt: result.expiresAt,
+      }));
+      setHandoverOtpResult(result);
+      setSuccess(
+        "A new handover OTP was generated and sent to your notifications and WhatsApp.",
+      );
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Could not generate a new handover OTP.",
+      );
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleReviewSaved = (savedReview) => {
+    setBooking((current) => ({
+      ...current,
+      review: savedReview,
+    }));
+    clearBookingCaches?.();
+    setSuccess(
+      booking.review
+        ? "Your garage review was updated."
+        : "Your garage review was submitted.",
+    );
+  };
+
   if (!bookingId) {
     return (
       <div className="container-x max-w-3xl py-12">
@@ -498,6 +545,13 @@ export default function Tracking() {
   );
   const bookingCode =
     booking.bookingCode || location.state?.bookingCode || "Booking";
+  const inspectionImages = booking.inspectionImages || [];
+  const pickupImages = inspectionImages.filter(
+    (image) => image.phase === "PICKUP",
+  );
+  const deliveryImages = inspectionImages.filter(
+    (image) => image.phase === "DELIVERY",
+  );
 
   return (
     <div className="container-x grid max-w-6xl gap-8 py-12 lg:grid-cols-[1fr_380px]">
@@ -519,6 +573,12 @@ export default function Tracking() {
         {error && (
           <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mt-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            {success}
           </div>
         )}
 
@@ -621,6 +681,28 @@ export default function Tracking() {
           </div>
         </div>
 
+        {pickupImages.length > 0 && (
+          <div className="mt-6">
+            <InspectionGallery
+              images={pickupImages}
+              phase="PICKUP"
+              title="Pickup inspection photos"
+              description="These photos were recorded before the garage started working on your vehicle."
+            />
+          </div>
+        )}
+
+        {deliveryImages.length > 0 && (
+          <div className="mt-6">
+            <InspectionGallery
+              images={deliveryImages}
+              phase="DELIVERY"
+              title="Delivery inspection photos"
+              description="These photos were recorded after the garage completed the selected services."
+            />
+          </div>
+        )}
+
         {booking.deliveredAt && booking.status !== "COMPLETED" && (
           <div className="card-soft mt-6 p-6">
             <h2 className="text-xl font-bold">Vehicle delivery ready</h2>
@@ -657,10 +739,34 @@ export default function Tracking() {
                 <button type="button" className="btn-dark">
                   <FiDownload /> Download Receipt
                 </button>
-                <button type="button" className="btn-primary">
-                  <FiStar /> Rate Garage
+                <button
+                  type="button"
+                  onClick={() => setReviewOpen(true)}
+                  className="btn-primary"
+                >
+                  <FiStar /> {booking.review ? "Edit Review" : "Rate Garage"}
                 </button>
               </div>
+
+              {booking.review && (
+                <div className="mt-5 rounded-2xl bg-bg-soft p-4">
+                  <div className="flex items-center gap-1 text-amber-500">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <FiStar
+                        key={value}
+                        fill={
+                          value <= Number(booking.review.rating || 0)
+                            ? "currentColor"
+                            : "none"
+                        }
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-2 text-sm text-muted">
+                    {booking.review.comment || "No written review added."}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="mt-6 rounded-3xl bg-gradient-to-br from-ink to-ink-2 p-6 text-white">
@@ -753,9 +859,38 @@ export default function Tracking() {
               />
               <Row
                 label="Handover OTP"
-                value="Available in your booking notification"
+                value={
+                  handoverOtpResult?.otp ||
+                  "Available in your booking notification"
+                }
               />
+              {booking.handoverOtpExpiresAt && (
+                <Row
+                  label="OTP expires"
+                  value={new Date(booking.handoverOtpExpiresAt).toLocaleString(
+                    "en-IN",
+                    { dateStyle: "medium", timeStyle: "short" },
+                  )}
+                />
+              )}
             </div>
+
+            {booking.status === "CONFIRMED" &&
+              !booking.handoverOtpVerifiedAt && (
+                <button
+                  type="button"
+                  onClick={regenerateHandoverOtp}
+                  disabled={actionLoading === "otp"}
+                  className="btn-ghost mt-4 w-full disabled:opacity-60"
+                >
+                  <FiRefreshCw
+                    className={actionLoading === "otp" ? "animate-spin" : ""}
+                  />
+                  {actionLoading === "otp"
+                    ? "Generating..."
+                    : "Generate New Handover OTP"}
+                </button>
+              )}
 
             <div className="mt-5 grid grid-cols-3 gap-2.5">
               <button
@@ -829,6 +964,14 @@ export default function Tracking() {
           <Row label="Estimated service" value={`₹${servicesTotal}`} />
         </div>
       </aside>
+
+      <ReviewModal
+        open={reviewOpen}
+        booking={booking}
+        review={booking.review}
+        onClose={() => setReviewOpen(false)}
+        onSaved={handleReviewSaved}
+      />
     </div>
   );
 }

@@ -64,6 +64,13 @@ router.post(
   validate,
   bookingController.acceptDelivery
 );
+
+router.post(
+  "/:id/handover-otp/regenerate",
+  bookingIdValidation,
+  validate,
+  bookingController.regenerateHandoverOtp
+);
 /**
  * PATCH /api/bookings/:id/cancel
  * Cancel booking.

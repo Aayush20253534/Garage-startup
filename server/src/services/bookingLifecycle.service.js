@@ -5,11 +5,16 @@ const ApiError = require("../utils/apiError");
 const BOOKING_STATUS = require("../constants/bookingStatus");
 const BROADCAST_STATUS = require("../constants/broadcastStatus");
 const notificationService = require("../customer/services/notification.service");
+const {
+  sendCustomerGarageDetailsWhatsapp,
+  sendCustomerVehicleDeliveredWhatsapp,
+} = require("./garageWhatsapp.service");
 const { uploadToCloudinary } = require("../utils/cloudinaryUpload");
 const { REQUIRED_BOOKING_INSPECTION_IMAGES } = require("../garage/constants");
 
 const DEFAULT_SEARCH_TIMEOUT_SECONDS = 120;
-const DEFAULT_HANDOVER_OTP_TTL_MINUTES = 30;
+const DEFAULT_HANDOVER_OTP_TTL_MINUTES = 120;
+const DEFAULT_HANDOVER_OTP_RESEND_COOLDOWN_SECONDS = 60;
 const REQUIRED_INSPECTION_PHOTO_COUNT = REQUIRED_BOOKING_INSPECTION_IMAGES;
 const MAX_INSPECTION_PHOTO_SIZE_BYTES = 1024 * 1024;
 const INSPECTION_IMAGE_FOLDER = "project-x/bookings/inspection-images";
@@ -33,22 +38,36 @@ const getSearchExpiresAt = () =>
 const getOtpHash = (otp) =>
   crypto.createHash("sha256").update(String(otp)).digest("hex");
 
-const createHandoverOtp = () => {
-  const otp = String(crypto.randomInt(100000, 1000000));
+const getHandoverOtpTtlMinutes = () => {
   const ttlMinutes = Number(
     process.env.HANDOVER_OTP_TTL_MINUTES ||
       DEFAULT_HANDOVER_OTP_TTL_MINUTES,
   );
 
-  const safeTtlMinutes =
-    Number.isFinite(ttlMinutes) && ttlMinutes > 0
-      ? ttlMinutes
-      : DEFAULT_HANDOVER_OTP_TTL_MINUTES;
+  return Number.isFinite(ttlMinutes) && ttlMinutes > 0
+    ? ttlMinutes
+    : DEFAULT_HANDOVER_OTP_TTL_MINUTES;
+};
+
+const getHandoverOtpResendCooldownSeconds = () => {
+  const cooldownSeconds = Number(
+    process.env.HANDOVER_OTP_RESEND_COOLDOWN_SECONDS ||
+      DEFAULT_HANDOVER_OTP_RESEND_COOLDOWN_SECONDS,
+  );
+
+  return Number.isFinite(cooldownSeconds) && cooldownSeconds >= 0
+    ? cooldownSeconds
+    : DEFAULT_HANDOVER_OTP_RESEND_COOLDOWN_SECONDS;
+};
+
+const createHandoverOtp = () => {
+  const otp = String(crypto.randomInt(100000, 1000000));
+  const ttlMinutes = getHandoverOtpTtlMinutes();
 
   return {
     otp,
     otpHash: getOtpHash(otp),
-    expiresAt: new Date(Date.now() + safeTtlMinutes * 60 * 1000),
+    expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000),
   };
 };
 
@@ -257,6 +276,100 @@ const notifyVehicleDelivered = async ({ booking, garage }) => {
   });
 };
 
+const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
+  const booking = await prisma.booking.findFirst({
+    where: { id: bookingId, userId },
+    include: {
+      user: true,
+      garage: true,
+    },
+  });
+
+  if (!booking) {
+    throw new ApiError(404, "Booking not found");
+  }
+
+  if (!booking.garageId || !booking.garage) {
+    throw new ApiError(400, "A garage has not accepted this booking yet");
+  }
+
+  if (booking.status !== BOOKING_STATUS.CONFIRMED) {
+    throw new ApiError(
+      400,
+      "A new handover OTP can be generated only before service starts",
+    );
+  }
+
+  if (booking.handoverOtpVerifiedAt) {
+    throw new ApiError(400, "Vehicle handover is already verified");
+  }
+
+  if (booking.handoverOtpExpiresAt) {
+    const ttlMilliseconds = getHandoverOtpTtlMinutes() * 60 * 1000;
+    const previousGeneratedAt = new Date(
+      booking.handoverOtpExpiresAt.getTime() - ttlMilliseconds,
+    );
+    const cooldownMilliseconds =
+      getHandoverOtpResendCooldownSeconds() * 1000;
+    const retryAt = new Date(
+      previousGeneratedAt.getTime() + cooldownMilliseconds,
+    );
+
+    if (retryAt > new Date()) {
+      const remainingSeconds = Math.max(
+        1,
+        Math.ceil((retryAt.getTime() - Date.now()) / 1000),
+      );
+      throw new ApiError(
+        429,
+        `Please wait ${remainingSeconds} seconds before generating another OTP`,
+      );
+    }
+  }
+
+  const handoverOtp = createHandoverOtp();
+
+  const updatedBooking = await prisma.booking.update({
+    where: { id: booking.id },
+    data: {
+      handoverOtpHash: handoverOtp.otpHash,
+      handoverOtpExpiresAt: handoverOtp.expiresAt,
+    },
+    include: bookingDetailInclude,
+  });
+
+  await Promise.allSettled([
+    notificationService.createNotification({
+      userId: booking.userId,
+      type: "BOOKING",
+      title: "New vehicle handover OTP",
+      message: `Your new handover OTP is ${handoverOtp.otp}. Share it only when handing the vehicle to ${booking.garage.name}.`,
+      link: `/tracking?bookingId=${booking.id}`,
+      metadata: {
+        bookingId: booking.id,
+        garageId: booking.garage.id,
+        otp: handoverOtp.otp,
+        expiresAt: handoverOtp.expiresAt.toISOString(),
+        purpose: "VEHICLE_HANDOVER",
+      },
+    }),
+    sendCustomerGarageDetailsWhatsapp({
+      customer: booking.user,
+      garage: booking.garage,
+      booking,
+      otp: handoverOtp.otp,
+      otpExpiresAt: handoverOtp.expiresAt,
+      isRegenerated: true,
+    }),
+  ]);
+
+  return {
+    booking: updatedBooking,
+    otp: handoverOtp.otp,
+    expiresAt: handoverOtp.expiresAt,
+  };
+};
+
 const verifyBookingHandoverOtp = async ({
   garageId,
   requestId,
@@ -375,10 +488,17 @@ const markBookingDeliveredByGarage = async ({
     include: bookingDetailInclude,
   });
 
-  await notifyVehicleDelivered({
-    booking: updatedBooking,
-    garage: request.garage,
-  });
+  await Promise.allSettled([
+    notifyVehicleDelivered({
+      booking: updatedBooking,
+      garage: request.garage,
+    }),
+    sendCustomerVehicleDeliveredWhatsapp({
+      customer: request.booking.user,
+      garage: request.garage,
+      booking: updatedBooking,
+    }),
+  ]);
 
   return { request, booking: updatedBooking };
 };
@@ -428,6 +548,7 @@ module.exports = {
   getGarageSearchTimeoutMs,
   getSearchExpiresAt,
   notifyGarageAccepted,
+  regenerateBookingHandoverOtp,
   verifyBookingHandoverOtp,
   markBookingDeliveredByGarage,
   acceptDeliveredBookingByCustomer,

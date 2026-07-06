@@ -9,6 +9,7 @@ import {
   FiEye,
   FiImage,
   FiRefreshCw,
+  FiStar,
   FiTrash2,
   FiX,
 } from "react-icons/fi";
@@ -46,6 +47,61 @@ const getCleanGarageDescription = (description = "") =>
     .trim();
 
 const getGarageImageUrl = (image) => image?.imageUrl || image?.url || "";
+
+const formatAdminDate = (value) => {
+  if (!value) return "N/A";
+
+  return new Date(value).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
+
+function ReviewStars({ rating = 0 }) {
+  return (
+    <div className="flex items-center gap-1 text-amber-500">
+      {[1, 2, 3, 4, 5].map((value) => (
+        <FiStar
+          key={value}
+          fill={value <= Number(rating || 0) ? "currentColor" : "none"}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ReviewInspectionPhotos({ images = [], phase, label }) {
+  const filtered = images
+    .filter((image) => image.phase === phase)
+    .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+
+  if (!filtered.length) return null;
+
+  return (
+    <div>
+      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
+        {label}
+      </p>
+      <div className="grid grid-cols-5 gap-2">
+        {filtered.map((image, index) => (
+          <a
+            key={image.id || `${phase}-${index}`}
+            href={image.imageUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="overflow-hidden rounded-lg border border-line bg-bg-soft"
+          >
+            <img
+              src={image.imageUrl}
+              alt={`${label} ${index + 1}`}
+              className="aspect-square w-full object-cover"
+            />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Garages() {
   const [tab, setTab] = useState("applications");
@@ -123,11 +179,20 @@ export default function Garages() {
           : ""
       );
 
-      setSelectedGarageDetails((current) =>
-        current && garageList?.some((garage) => garage.id === current.id)
-          ? garageList.find((garage) => garage.id === current.id) || current
-          : null
-      );
+      setSelectedGarageDetails((current) => {
+        if (!current) return null;
+
+        const refreshedGarage = garageList?.find(
+          (garage) => garage.id === current.id,
+        );
+
+        return refreshedGarage
+          ? {
+              ...refreshedGarage,
+              reviews: current.reviews || [],
+            }
+          : null;
+      });
 
       setSelectedGarageIds((current) =>
         current.filter((id) => garageList?.some((garage) => garage.id === id))
@@ -854,6 +919,106 @@ export default function Garages() {
                     No garage photos were submitted during onboarding.
                   </div>
                 )}
+
+                <div className="border-t border-line pt-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-ink">Customer Reviews</h4>
+                      <p className="mt-1 text-sm text-muted">
+                        Individual reviews, linked booking details, and vehicle
+                        inspection evidence.
+                      </p>
+                    </div>
+                    <div className="rounded-full bg-bg-soft px-3 py-1.5 text-sm font-semibold text-ink">
+                      {Number(selectedGarage.ratingAvg || 0).toFixed(1)} average ·{" "}
+                      {selectedGarage.ratingCount || 0} reviews
+                    </div>
+                  </div>
+
+                  {selectedGarage.reviews?.length > 0 ? (
+                    <div className="mt-4 grid gap-4">
+                      {selectedGarage.reviews.map((review) => {
+                        const booking = review.booking || {};
+                        const services =
+                          booking.services
+                            ?.map((item) => item.service?.name)
+                            .filter(Boolean)
+                            .join(", ") || "Service details unavailable";
+                        const inspectionImages =
+                          booking.inspectionImages || [];
+
+                        return (
+                          <article
+                            key={review.id}
+                            className="rounded-2xl border border-line bg-white p-4"
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <ReviewStars rating={review.rating} />
+                                  <span className="text-sm font-bold text-ink">
+                                    {review.rating}/5
+                                  </span>
+                                </div>
+                                <p className="mt-2 font-semibold text-ink">
+                                  {review.user?.name || "Customer"}
+                                </p>
+                                <p className="text-xs text-muted">
+                                  {review.user?.email || review.user?.phone || "Customer contact unavailable"}
+                                </p>
+                              </div>
+
+                              <div className="text-left text-xs text-muted sm:text-right">
+                                <p>Booking #{booking.bookingCode || "N/A"}</p>
+                                <p>{formatAdminDate(review.createdAt)}</p>
+                              </div>
+                            </div>
+
+                            <p className="mt-4 whitespace-pre-wrap rounded-xl bg-bg-soft p-3 text-sm text-ink">
+                              {review.comment || "No written comment submitted."}
+                            </p>
+
+                            <div className="mt-4 grid gap-2 text-sm text-muted sm:grid-cols-2">
+                              <p>
+                                <strong className="text-ink">Vehicle:</strong>{" "}
+                                {[
+                                  booking.vehicle?.brand,
+                                  booking.vehicle?.model,
+                                  booking.vehicle?.registrationNumber,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ") || "N/A"}
+                              </p>
+                              <p>
+                                <strong className="text-ink">Services:</strong>{" "}
+                                {services}
+                              </p>
+                            </div>
+
+                            {inspectionImages.length > 0 && (
+                              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                                <ReviewInspectionPhotos
+                                  images={inspectionImages}
+                                  phase="PICKUP"
+                                  label="Pickup photos"
+                                />
+                                <ReviewInspectionPhotos
+                                  images={inspectionImages}
+                                  phase="DELIVERY"
+                                  label="Delivery photos"
+                                />
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl bg-bg-soft p-4 text-sm text-muted">
+                      No customer reviews have been submitted for this garage.
+                    </div>
+                  )}
+                </div>
               </section>
             )}
 

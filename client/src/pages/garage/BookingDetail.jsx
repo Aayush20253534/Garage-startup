@@ -9,6 +9,7 @@ import {
   FiCheckCircle,
 } from "react-icons/fi";
 import ImageUpload from "@/components/garage/ImageUpload";
+import InspectionGallery from "@/components/booking/InspectionGallery";
 import { setBookings } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
@@ -18,8 +19,18 @@ const timelineSteps = [
   { status: "ACCEPTED", label: "Booking Accepted" },
   { status: "CONFIRMED", label: "Vehicle Handover" },
   { status: "IN_PROGRESS", label: "Service In Progress" },
+  { status: "DELIVERED", label: "Awaiting Customer Acceptance" },
   { status: "COMPLETED", label: "Completed" },
 ];
+
+const formatDateTime = (value) => {
+  if (!value) return "Not available";
+
+  return new Date(value).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
 
 export default function GarageBookingDetail() {
   const { id } = useParams();
@@ -34,7 +45,7 @@ export default function GarageBookingDetail() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const booking = bookings.find((b) => b.id === id);
+  const booking = bookings.find((item) => item.id === id);
 
   if (!booking) {
     return (
@@ -52,29 +63,38 @@ export default function GarageBookingDetail() {
     );
   }
 
-  const updateLocalStatus = (status) => {
+  const updateLocalBooking = (patch) => {
     dispatch(
       setBookings(
         bookings.map((item) =>
-          item.id === booking.id ? { ...item, status } : item,
+          item.id === booking.id ? { ...item, ...patch } : item,
         ),
       ),
     );
   };
 
   const verifyHandover = async () => {
-    if (preServiceImages.length < 5 || !otp) return;
+    if (preServiceImages.length !== 5 || !otp.trim()) return;
+
     setLoading(true);
     setError("");
     setSuccess("");
+
     try {
-      await garageApi.verifyHandoverOtp(
+      const result = await garageApi.verifyHandoverOtp(
         garageToken,
         booking.requestId || booking.id,
-        otp,
+        otp.trim(),
         preServiceImages,
       );
-      updateLocalStatus("IN_PROGRESS");
+
+      updateLocalBooking({
+        status: "IN_PROGRESS",
+        inspectionImages:
+          result?.booking?.inspectionImages || booking.inspectionImages || [],
+      });
+      setOtp("");
+      setPreServiceImages([]);
       setSuccess("Vehicle handover verified and service started.");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to verify handover OTP");
@@ -84,18 +104,29 @@ export default function GarageBookingDetail() {
   };
 
   const markDelivered = async () => {
-    if (postServiceImages.length < 5) return;
+    if (postServiceImages.length !== 5) return;
+
     setLoading(true);
     setError("");
     setSuccess("");
+
     try {
-      await garageApi.markDelivered(
+      const result = await garageApi.markDelivered(
         garageToken,
         booking.requestId || booking.id,
         postServiceImages,
       );
-      updateLocalStatus("COMPLETED");
-      setSuccess("Booking marked delivered successfully.");
+
+      updateLocalBooking({
+        status: "DELIVERED",
+        deliveredAt: result?.booking?.deliveredAt || new Date().toISOString(),
+        inspectionImages:
+          result?.booking?.inspectionImages || booking.inspectionImages || [],
+      });
+      setPostServiceImages([]);
+      setSuccess(
+        "Vehicle marked delivered. The customer must now inspect and accept delivery.",
+      );
     } catch (err) {
       setError(
         err.response?.data?.message || "Unable to mark booking delivered",
@@ -107,20 +138,24 @@ export default function GarageBookingDetail() {
 
   const openGoogleMaps = () => {
     const { lat, lng } = booking.customer.location || {};
-    if (lat && lng)
+
+    if (lat !== null && lat !== undefined && lng !== null && lng !== undefined) {
       window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank");
+    }
   };
 
   const currentStepIndex = Math.max(
     0,
-    timelineSteps.findIndex((s) => s.status === booking.status),
+    timelineSteps.findIndex((step) => step.status === booking.status),
   );
+  const inspectionImages = booking.inspectionImages || [];
+  const isAwaitingCustomerAcceptance = booking.status === "DELIVERED";
 
   return (
     <div className="space-y-6">
       <button
         onClick={() => navigate("/garage/bookings")}
-        className="text-muted hover:text-ink flex items-center gap-2"
+        className="flex items-center gap-2 text-muted hover:text-ink"
       >
         Back to Bookings
       </button>
@@ -134,10 +169,10 @@ export default function GarageBookingDetail() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
           <div className="card-soft p-6">
-            <div className="flex items-start justify-between mb-6">
+            <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold">
                   {booking.bookingId || booking.id}
@@ -151,9 +186,9 @@ export default function GarageBookingDetail() {
               </span>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <div className="mb-6 grid gap-6 md:grid-cols-2">
               <div>
-                <h3 className="font-bold mb-3">Vehicle Details</h3>
+                <h3 className="mb-3 font-bold">Vehicle Details</h3>
                 <div className="space-y-2 text-sm">
                   <p>
                     <span className="text-muted">Make & Model:</span>{" "}
@@ -169,13 +204,14 @@ export default function GarageBookingDetail() {
                   </p>
                 </div>
               </div>
+
               <div>
-                <h3 className="font-bold mb-3">Services</h3>
+                <h3 className="mb-3 font-bold">Services</h3>
                 <div className="space-y-1 text-sm">
-                  {booking.services.map((service, idx) => (
+                  {booking.services.map((service, index) => (
                     <div
-                      key={service.id || idx}
-                      className="flex justify-between"
+                      key={service.id || index}
+                      className="flex justify-between gap-4"
                     >
                       <span>{service.name}</span>
                       <span className="font-semibold">
@@ -183,12 +219,11 @@ export default function GarageBookingDetail() {
                       </span>
                     </div>
                   ))}
-                  <div className="pt-2 border-t border-line mt-2">
+                  <div className="mt-2 border-t border-line pt-2">
                     <div className="flex justify-between font-bold">
                       <span>Estimated Total</span>
                       <span>
-                        ₹{" "}
-                        {Number(booking.estimatedBill || 0).toLocaleString()}
+                        ₹{Number(booking.estimatedBill || 0).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -199,16 +234,24 @@ export default function GarageBookingDetail() {
 
           {booking.status === "ACCEPTED" || booking.status === "CONFIRMED" ? (
             <div className="card-soft p-6">
-              <h3 className="text-xl font-bold mb-4">Receive Vehicle</h3>
-              <p className="text-muted mb-4">
-                Enter the customer handover OTP and upload 5 vehicle photos,
-                each 1 MB or less.
+              <h3 className="mb-2 text-xl font-bold">Receive Vehicle</h3>
+              <p className="text-muted">
+                Enter the customer handover OTP and upload exactly five vehicle
+                photos, each 1 MB or less.
+              </p>
+              <p className="mt-2 text-xs text-muted">
+                OTP expiry: {formatDateTime(booking.handoverOtpExpiresAt)}. The
+                customer can generate a new OTP from booking tracking if needed.
               </p>
               <input
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(event) =>
+                  setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 placeholder="6-digit handover OTP"
-                className="mb-4 w-full rounded-xl border border-line px-4 py-3 focus:border-ink focus:outline-none"
+                className="mb-4 mt-4 w-full rounded-xl border border-line px-4 py-3 focus:border-ink focus:outline-none"
               />
               <ImageUpload
                 min={5}
@@ -218,20 +261,22 @@ export default function GarageBookingDetail() {
               />
               <button
                 onClick={verifyHandover}
-                disabled={loading || preServiceImages.length < 5 || !otp}
-                className="btn-primary w-full mt-6"
+                disabled={
+                  loading || preServiceImages.length !== 5 || otp.length !== 6
+                }
+                className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? "Verifying..." : "Verify Handover & Start Service"}
               </button>
             </div>
           ) : null}
 
-          {booking.status === "IN_PROGRESS" ? (
+          {booking.status === "IN_PROGRESS" && !booking.deliveredAt ? (
             <div className="card-soft p-6">
-              <h3 className="text-xl font-bold mb-4">Complete Service</h3>
-              <p className="text-muted mb-4">
-                Upload 5 post-service photos, each 1 MB or less, before marking
-                delivery complete.
+              <h3 className="mb-2 text-xl font-bold">Complete Service</h3>
+              <p className="mb-4 text-muted">
+                Upload exactly five post-service photos, each 1 MB or less,
+                before marking the vehicle delivered.
               </p>
               <ImageUpload
                 min={5}
@@ -241,23 +286,52 @@ export default function GarageBookingDetail() {
               />
               <button
                 onClick={markDelivered}
-                disabled={loading || postServiceImages.length < 5}
-                className="btn-primary w-full mt-6"
+                disabled={loading || postServiceImages.length !== 5}
+                className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? "Completing..." : "Mark Delivered"}
               </button>
             </div>
           ) : null}
 
+          {isAwaitingCustomerAcceptance && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+              The vehicle is marked delivered. This booking becomes completed
+              only after the customer receives the vehicle and accepts delivery.
+            </div>
+          )}
+
+          {inspectionImages.some((image) => image.phase === "PICKUP") && (
+            <InspectionGallery
+              images={inspectionImages}
+              phase="PICKUP"
+              title="Pickup inspection photos"
+              description="Evidence recorded before the garage started service."
+            />
+          )}
+
+          {inspectionImages.some((image) => image.phase === "DELIVERY") && (
+            <InspectionGallery
+              images={inspectionImages}
+              phase="DELIVERY"
+              title="Delivery inspection photos"
+              description="Evidence recorded after the service was completed."
+            />
+          )}
+
           <div className="card-soft p-6">
-            <h3 className="text-xl font-bold mb-4">Live Timeline</h3>
+            <h3 className="mb-4 text-xl font-bold">Live Timeline</h3>
             <div className="space-y-4">
               {timelineSteps
                 .slice(0, currentStepIndex + 1)
                 .map((step, index) => (
                   <div key={step.status} className="flex gap-4">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${index === currentStepIndex ? "bg-brand text-black" : "bg-line text-muted"}`}
+                      className={`h-8 w-8 flex-shrink-0 rounded-full flex items-center justify-center ${
+                        index === currentStepIndex
+                          ? "bg-brand text-black"
+                          : "bg-line text-muted"
+                      }`}
                     >
                       {index < currentStepIndex ? (
                         <FiCheckCircle />
@@ -265,7 +339,7 @@ export default function GarageBookingDetail() {
                         <FiClock />
                       )}
                     </div>
-                    <div className="pb-4 border-l-2 border-line pl-4 -ml-1 mt-1">
+                    <div className="-ml-1 mt-1 border-l-2 border-line pb-4 pl-4">
                       <p className="font-semibold">{step.label}</p>
                     </div>
                   </div>
@@ -276,8 +350,8 @@ export default function GarageBookingDetail() {
 
         <div className="space-y-6">
           <div className="card-soft p-6">
-            <h3 className="font-bold mb-4">Customer Details</h3>
-            <div className="space-y-3 text-sm mb-4">
+            <h3 className="mb-4 font-bold">Customer Details</h3>
+            <div className="mb-4 space-y-3 text-sm">
               <p>
                 <span className="text-muted">Name:</span>{" "}
                 <span className="font-semibold">{booking.customer.name}</span>
@@ -303,7 +377,7 @@ export default function GarageBookingDetail() {
                 }
                 className="btn-ghost flex-col gap-2 py-3"
               >
-                <FiPhone className="w-5 h-5" />
+                <FiPhone className="h-5 w-5" />
                 <span className="text-xs font-semibold">Call</span>
               </button>
               <button
@@ -316,14 +390,14 @@ export default function GarageBookingDetail() {
                 }
                 className="btn-ghost flex-col gap-2 py-3"
               >
-                <FiMessageSquare className="w-5 h-5" />
+                <FiMessageSquare className="h-5 w-5" />
                 <span className="text-xs font-semibold">WhatsApp</span>
               </button>
               <button
                 onClick={openGoogleMaps}
                 className="btn-primary flex-col gap-2 py-3"
               >
-                <FiMapPin className="w-5 h-5" />
+                <FiMapPin className="h-5 w-5" />
                 <span className="text-xs font-semibold">Navigate</span>
               </button>
             </div>

@@ -1,5 +1,15 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
+const { deleteCache, deletePattern } = require("../../utils/cache");
+
+const invalidateGarageReviewCaches = async (garageId) => {
+  if (!garageId) return;
+
+  await Promise.allSettled([
+    deleteCache(`garages:detail:${garageId}`),
+    deletePattern("garages:list:*"),
+  ]);
+};
 
 const createReview = async (userId, data) => {
   const booking = await prisma.booking.findFirst({
@@ -56,6 +66,7 @@ const createReview = async (userId, data) => {
     return createdReview;
   });
 
+  await invalidateGarageReviewCaches(booking.garageId);
   return review;
 };
 
@@ -112,6 +123,7 @@ const updateReview = async (userId, reviewId, data) => {
     return updated;
   });
 
+  await invalidateGarageReviewCaches(review.garageId);
   return updatedReview;
 };
 
@@ -147,6 +159,7 @@ const deleteReview = async (userId, reviewId) => {
     });
   });
 
+  await invalidateGarageReviewCaches(review.garageId);
   return { deleted: true };
 };
 

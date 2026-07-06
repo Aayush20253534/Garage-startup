@@ -17,6 +17,7 @@ const statusFilters = [
   "Accepted",
   "Confirmed",
   "In Progress",
+  "Delivered",
   "Completed",
   "Rejected",
   "Expired",

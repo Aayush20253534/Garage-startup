@@ -149,7 +149,18 @@ const GARAGE_REQUEST_STATUS_FILTERS = {
   },
   IN_PROGRESS: {
     status: BROADCAST_STATUS.ACCEPTED,
-    booking: { status: BOOKING_STATUS.IN_PROGRESS },
+    booking: {
+      status: BOOKING_STATUS.IN_PROGRESS,
+      deliveredAt: null,
+    },
+  },
+  DELIVERED: {
+    status: BROADCAST_STATUS.ACCEPTED,
+    booking: {
+      status: BOOKING_STATUS.IN_PROGRESS,
+      deliveredAt: { not: null },
+      customerAcceptedAt: null,
+    },
   },
   COMPLETED: {
     status: BROADCAST_STATUS.ACCEPTED,
@@ -709,6 +720,8 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       customer: result.request.booking.user,
       garage: result.request.garage,
       booking: result.request.booking,
+      otp: result.handoverOtp.otp,
+      otpExpiresAt: result.handoverOtp.expiresAt,
     }),
     sendGarageCustomerLocationWhatsapp({
       garage: result.request.garage,
