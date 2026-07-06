@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host :: --port 8080",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
-    "preview": "vite preview --host :: --port 8080"
-  },
+  "dev": "vite --host 127.0.0.1 --port 8080",
+  "build": "vite build",
+  "build:dev": "vite build --mode development",
+  "preview": "vite preview --host 127.0.0.1 --port 8080"
+},
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",
     "@vercel/analytics": "^2.0.1",

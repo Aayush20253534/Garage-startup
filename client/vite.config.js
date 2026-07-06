@@ -5,13 +5,22 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
+
   server: {
-    host: "::",
+    host: "127.0.0.1",
     port: 8080,
+    strictPort: true,
+  },
+
+  preview: {
+    host: "127.0.0.1",
+    port: 8080,
+    strictPort: true,
   },
 });
