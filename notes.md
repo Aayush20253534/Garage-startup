@@ -453,8 +453,6 @@ npm run db:delete-notifications -- --confirm
 
 ## Bugs
 
-1.issue in 49 rupee service
-
 ## Features
 
 1) Full flow working (Urgent)
