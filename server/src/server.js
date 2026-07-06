@@ -2,11 +2,32 @@ require("dotenv/config");
 
 const app = require("./app");
 const prisma = require("./config/prisma");
+const systemIssueReporter = require("./services/systemIssueReporter.service");
 const {
   startGarageSearchWorker,
 } = require("./services/garageSearchWorker.service");
 
 const PORT = process.env.PORT || 5000;
+
+const reportProcessFailure = async (error, title, severity = "CRITICAL") => {
+  console.error(title, error);
+  await systemIssueReporter.captureBackgroundError(error, {
+    title,
+    component: "Node.js process",
+    severity,
+  });
+};
+
+process.on("unhandledRejection", (reason) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  void reportProcessFailure(error, "Unhandled promise rejection", "ERROR");
+});
+
+process.on("uncaughtException", async (error) => {
+  await reportProcessFailure(error, "Uncaught server exception");
+  process.exit(1);
+});
+
 
 const startServer = async () => {
   try {
@@ -53,6 +74,11 @@ const startServer = async () => {
     process.on("SIGINT", () => shutdown("SIGINT"));
   } catch (error) {
     console.error("Failed to start server:", error);
+    await systemIssueReporter.captureBackgroundError(error, {
+      title: "Server startup failed",
+      component: "Server startup",
+      severity: "CRITICAL",
+    });
 
     try {
       await prisma.$disconnect();

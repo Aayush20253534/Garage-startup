@@ -1,4 +1,5 @@
 const prisma = require("../../config/prisma");
+const systemIssueReporter = require("../../services/systemIssueReporter.service");
 const axios = require("axios");
 const {
   getCashfreeBaseUrl,
@@ -406,6 +407,11 @@ const verifyPayment = async (
       `[booking-search] unable to start after payment for ${bookingId}:`,
       error.message,
     );
+    void systemIssueReporter.captureBackgroundError(error, {
+      title: "Unable to start garage search after payment",
+      component: "Payment service",
+      metadata: { bookingId, userId },
+    });
   }
 
   await invalidatePaymentBookingCaches(userId);

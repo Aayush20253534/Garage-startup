@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import { store } from "./store";
 import { registerImageCacheWorker } from "./utils/imageCache";
+import { installGlobalErrorReporting } from "./utils/errorReporter";
 import "./index.css";
 
 const reloadOnStaleChunk = (error) => {
@@ -44,6 +45,7 @@ window.setTimeout(() => {
     .forEach((key) => sessionStorage.removeItem(key));
 }, 5000);
 
+installGlobalErrorReporting();
 registerImageCacheWorker();
 
 ReactDOM.createRoot(document.getElementById("root")).render(

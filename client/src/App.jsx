@@ -11,6 +11,7 @@ import api from "@/api/axios";
 import { CATEGORY_UI } from "@/data/services";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import { getCategoryThumbnailUrl } from "@/utils/imageCache";
+import { reportSystemIssue } from "@/utils/errorReporter";
 
 function ProtectedRoute({ children }) {
   const { user, garage, authLoading } = useApp();
@@ -278,9 +279,11 @@ const AdminNotifications = lazy(() => import("@/pages/admin/Notifications"));
 const AdminEmail = lazy(() => import("@/pages/admin/Email"));
 const AdminCars = lazy(() => import("@/pages/admin/Cars"));
 const AdminServices = lazy(() => import("@/pages/admin/Services"));
+const AdminSystemIssues = lazy(() => import("@/pages/admin/SystemIssues"));
 
 import {
   FiArrowLeft,
+  FiAlertTriangle,
   FiGrid,
   FiTruck,
   FiPlusCircle,
@@ -321,7 +324,16 @@ class AppErrorBoundary extends Component {
     return { error };
   }
 
-  componentDidCatch(error) {
+  componentDidCatch(error, errorInfo) {
+    void reportSystemIssue(error, {
+      title: "React rendering error",
+      component: "AppErrorBoundary",
+      severity: isChunkLoadError(error) ? "WARNING" : "CRITICAL",
+      metadata: {
+        componentStack: errorInfo?.componentStack || null,
+      },
+    });
+
     if (!isChunkLoadError(error)) return;
 
     const reloadKey = `rov_route_reload_attempted:${window.location.pathname}`;
@@ -434,6 +446,7 @@ const adminItems = [
   { to: "/admin/revenue", label: "Price Ranges", icon: FiDollarSign },
   { to: "/admin/customers", label: "Customers", icon: FiUsers },
   { to: "/admin/bookings", label: "Bookings", icon: FiCalendar },
+  { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
   { to: "/admin/notifications", label: "Notifications", icon: FiBell },
   { to: "/admin/email", label: "Email", icon: FiMail },
 ];
@@ -780,6 +793,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminRevenue />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/system-issues"
+            element={
+              <ProtectedRoute>
+                <AdminSystemIssues />
               </ProtectedRoute>
             }
           />

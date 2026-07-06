@@ -5,12 +5,16 @@ import Logo from "@/components/common/Logo";
 import FAB from "@/components/FAB";
 import { useApp } from "@/hooks/useApp";
 import useUnreadNotifications from "@/hooks/useUnreadNotifications";
+import useOpenSystemIssueCount from "@/hooks/useOpenSystemIssueCount";
 import { FiLogOut, FiMenu, FiX } from "react-icons/fi";
 
 export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const { pathname } = useLocation();
   const { user, garage, logout, logoutGarage } = useApp();
   const { unreadCount } = useUnreadNotifications();
+  const { openIssueCount } = useOpenSystemIssueCount({
+    enabled: pathname.startsWith("/admin"),
+  });
   const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
@@ -147,6 +151,13 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
                     unreadCount > 0 && (
                       <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-black">
                         {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+
+                  {item.to === "/admin/system-issues" &&
+                    openIssueCount > 0 && (
+                      <span className="ml-auto rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
+                        {openIssueCount > 99 ? "99+" : openIssueCount}
                       </span>
                     )}
                 </NavLink>

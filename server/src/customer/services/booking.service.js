@@ -1,4 +1,5 @@
 const prisma = require("../../config/prisma");
+const systemIssueReporter = require("../../services/systemIssueReporter.service");
 const ApiError = require("../../utils/apiError");
 const generateBookingCode = require("../../utils/bookingCode");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
@@ -362,6 +363,11 @@ const createBooking = async (userId, data) => {
         `[booking-search] unable to start first round for ${booking.id}:`,
         error.message,
       );
+      void systemIssueReporter.captureBackgroundError(error, {
+        title: "Unable to start garage search after booking",
+        component: "Booking service",
+        metadata: { bookingId: booking.id, userId },
+      });
     }
   }
 

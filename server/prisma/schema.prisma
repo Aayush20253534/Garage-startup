@@ -699,6 +699,73 @@ model GarageApplicationImage {
   @@index([isThumbnail])
 }
 
+
+model SystemIssue {
+  id              String               @id @default(uuid())
+  fingerprint     String               @unique
+  title           String
+  message         String
+  stack           String?
+  source          SystemIssueSource
+  severity        SystemIssueSeverity   @default(ERROR)
+  status          SystemIssueStatus     @default(OPEN)
+  actorType       SystemIssueActorType  @default(PUBLIC)
+  userId          String?
+  garageId        String?
+  route           String?
+  method          String?
+  endpoint        String?
+  httpStatus      Int?
+  errorName       String?
+  component       String?
+  environment     String?
+  release         String?
+  userAgent       String?
+  ipAddress       String?
+  metadata        Json?
+  occurrenceCount Int                  @default(1)
+  firstSeenAt     DateTime             @default(now())
+  lastSeenAt      DateTime             @default(now())
+  resolvedAt      DateTime?
+  resolvedById    String?
+  resolutionNote  String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([status, lastSeenAt])
+  @@index([severity, lastSeenAt])
+  @@index([actorType, lastSeenAt])
+  @@index([source, lastSeenAt])
+}
+
+
+enum SystemIssueSource {
+  FRONTEND
+  BACKEND
+}
+
+enum SystemIssueSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum SystemIssueStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  IGNORED
+}
+
+enum SystemIssueActorType {
+  CUSTOMER
+  GARAGE
+  ADMIN
+  PUBLIC
+  SYSTEM
+}
+
 enum GarageApplicationStatus {
   PENDING
   CHANGES_REQUESTED

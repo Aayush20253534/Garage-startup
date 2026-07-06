@@ -116,6 +116,8 @@ const getDashboardStats = async () => {
     priceRanges,
     customers,
     bookings,
+    openSystemIssues,
+    criticalSystemIssues,
     recentApplications,
   ] = await Promise.all([
     prisma.garage.count(),
@@ -124,6 +126,15 @@ const getDashboardStats = async () => {
     prisma.cityServicePriceRange.count(),
     prisma.user.count({ where: { role: "CUSTOMER" } }),
     prisma.booking.count(),
+    prisma.systemIssue.count({
+      where: { status: { in: ["OPEN", "INVESTIGATING"] } },
+    }),
+    prisma.systemIssue.count({
+      where: {
+        severity: "CRITICAL",
+        status: { in: ["OPEN", "INVESTIGATING"] },
+      },
+    }),
     prisma.garageApplication.findMany({
       where: { status: "PENDING" },
       select: {
@@ -147,6 +158,8 @@ const getDashboardStats = async () => {
       priceRanges,
       customers,
       bookings,
+      openSystemIssues,
+      criticalSystemIssues,
     },
     recentApplications,
   };

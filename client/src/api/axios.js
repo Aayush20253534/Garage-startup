@@ -1,4 +1,5 @@
 import axios from "axios";
+import { reportApiFailure } from "@/utils/errorReporter";
 
 const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
 const apiBaseUrl = configuredBaseUrl?.replace(/\/+$/, "");
@@ -66,6 +67,8 @@ api.interceptors.response.use(
           "Login session expired. Please login again.";
       }
     }
+
+    reportApiFailure(error);
 
     return Promise.reject(error);
   },

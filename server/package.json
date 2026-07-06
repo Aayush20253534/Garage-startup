@@ -1,38 +1,45 @@
 {
-  "name": "codebase",
+  "name": "rovauto-server",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Backend API for the Rovauto vehicle service platform",
+  "main": "src/server.js",
   "scripts": {
-  "dev": "nodemon src/server.js",
-  "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
 
-  "prisma:generate": "prisma generate",
-  "prisma:migrate": "prisma migrate dev",
-  "prisma:deploy": "prisma migrate deploy",
-  "prisma:studio": "prisma studio",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:status": "prisma migrate status",
+    "prisma:studio": "prisma studio",
 
-  "seed:admin": "node src/seed/seedAdmin.js",
+    "seed:admin": "node src/seed/seedAdmin.js",
+    "seed:all": "npm run seed:admin",
 
-  "seed:all": "npm run seed:admin",
-
-  "db:delete-user": "node src/scripts/deleteUserData.js",
-  "db:delete-active-bookings": "node src/scripts/deleteCustomerRecords.js --scope=active-bookings",
-  "db:delete-payments": "node src/scripts/deleteCustomerRecords.js --scope=payments",
-  "db:delete-service-history": "node src/scripts/deleteCustomerRecords.js --scope=service-history",
-  "db:delete-garages": "node src/scripts/adminCleanup.js --scope=garages",
-  "db:delete-price-ranges": "node src/scripts/adminCleanup.js --scope=price-ranges",
-  "db:delete-bookings": "node src/scripts/adminCleanup.js --scope=bookings",
-  "db:delete-notifications": "node src/scripts/adminCleanup.js --scope=notifications",
-  "db:nuke-users": "node src/scripts/nukeUsersData.js",
-  "db:approve-garage": "node src/scripts/approveGarageApplication.js",
-  "db:activate-garage": "node src/scripts/activateGarage.js"
-},
+    "db:delete-user": "node src/scripts/deleteUserData.js",
+    "db:delete-active-bookings": "node src/scripts/deleteCustomerRecords.js --scope=active-bookings",
+    "db:delete-payments": "node src/scripts/deleteCustomerRecords.js --scope=payments",
+    "db:delete-service-history": "node src/scripts/deleteCustomerRecords.js --scope=service-history",
+    "db:delete-garages": "node src/scripts/adminCleanup.js --scope=garages",
+    "db:delete-price-ranges": "node src/scripts/adminCleanup.js --scope=price-ranges",
+    "db:delete-bookings": "node src/scripts/adminCleanup.js --scope=bookings",
+    "db:delete-notifications": "node src/scripts/adminCleanup.js --scope=notifications",
+    "db:nuke-users": "node src/scripts/nukeUsersData.js",
+    "db:approve-garage": "node src/scripts/approveGarageApplication.js",
+    "db:activate-garage": "node src/scripts/activateGarage.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Aayush20253534/Garage-startup.git"
   },
-  "keywords": [],
+  "keywords": [
+    "rovauto",
+    "vehicle-service",
+    "garage",
+    "express",
+    "prisma",
+    "postgresql"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -69,5 +76,9 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
   }
 }

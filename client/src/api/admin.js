@@ -203,4 +203,54 @@ export const adminApi = {
       }),
     );
   },
+
+  async getSystemIssues(params = {}) {
+    return unwrap(
+      await api.get("/admin/system-issues", {
+        params,
+        skipErrorReporting: true,
+      }),
+    );
+  },
+
+  async getSystemIssueStats(config = {}) {
+    return unwrap(
+      await api.get("/admin/system-issues/stats", {
+        skipErrorReporting: true,
+        ...config,
+      }),
+    );
+  },
+
+  async getSystemIssue(issueId) {
+    return unwrap(
+      await api.get(`/admin/system-issues/${issueId}`, {
+        skipErrorReporting: true,
+      }),
+    );
+  },
+
+  async updateSystemIssueStatus(issueId, payload) {
+    return unwrap(
+      await api.patch(`/admin/system-issues/${issueId}/status`, payload, {
+        skipErrorReporting: true,
+      }),
+    );
+  },
+
+  async deleteSystemIssue(issueId) {
+    return unwrap(
+      await api.delete(`/admin/system-issues/${issueId}`, {
+        skipErrorReporting: true,
+      }),
+    );
+  },
+
+  async clearResolvedSystemIssues() {
+    return unwrap(
+      await api.delete("/admin/system-issues/resolved", {
+        skipErrorReporting: true,
+      }),
+    );
+  },
 };

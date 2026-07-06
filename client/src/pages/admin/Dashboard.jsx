@@ -1,6 +1,8 @@
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   FiAlertCircle,
+  FiAlertTriangle,
   FiCalendar,
   FiDollarSign,
   FiHome,
@@ -26,6 +28,8 @@ export default function AdminDashboard() {
     priceRanges: 0,
     customers: 0,
     bookings: 0,
+    openSystemIssues: 0,
+    criticalSystemIssues: 0,
   });
 
   const [recentApplications, setRecentApplications] = useState([]);
@@ -91,6 +95,13 @@ export default function AdminDashboard() {
       label: "Pending Applications",
       caption: "Needs review",
     },
+    {
+      icon: FiAlertTriangle,
+      number: stats.openSystemIssues,
+      label: "System Issues",
+      caption: `${stats.criticalSystemIssues || 0} critical`,
+      to: "/admin/system-issues",
+    },
   ];
 
   return (
@@ -119,13 +130,16 @@ export default function AdminDashboard() {
         {cards.map((card) => {
           const Icon = card.icon;
 
-          return (
-            <div
-              key={card.label}
-              className="card-soft rounded-2xl p-4 shadow-sm transition hover:shadow-md"
-            >
+          const content = (
+            <>
               <div className="flex items-start justify-between gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-lime-100 text-xl text-ink">
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl ${
+                    card.to
+                      ? "bg-red-50 text-red-700"
+                      : "bg-lime-100 text-ink"
+                  }`}
+                >
                   <Icon />
                 </div>
 
@@ -139,6 +153,23 @@ export default function AdminDashboard() {
               </div>
 
               <p className="mt-1 text-sm text-muted">{card.label}</p>
+            </>
+          );
+
+          return card.to ? (
+            <Link
+              key={card.label}
+              to={card.to}
+              className="card-soft rounded-2xl p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              {content}
+            </Link>
+          ) : (
+            <div
+              key={card.label}
+              className="card-soft rounded-2xl p-4 shadow-sm transition hover:shadow-md"
+            >
+              {content}
             </div>
           );
         })}

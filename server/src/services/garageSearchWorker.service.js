@@ -1,5 +1,6 @@
 const prisma = require("../config/prisma");
 const garageRequestService = require("./garageRequest.service");
+const systemIssueReporter = require("./systemIssueReporter.service");
 
 const DEFAULT_WORKER_INTERVAL_MS = 10 * 1000;
 const DEFAULT_WORKER_BATCH_SIZE = 100;
@@ -41,6 +42,11 @@ const runGarageSearchWorkerOnce = async () => {
           `[garage-search-worker] booking ${booking.id}:`,
           error.message,
         );
+        void systemIssueReporter.captureBackgroundError(error, {
+          title: "Garage search failed for booking",
+          component: "Garage search worker",
+          metadata: { bookingId: booking.id },
+        });
       }
     }
   } finally {
@@ -53,11 +59,19 @@ const startGarageSearchWorker = () => {
 
   runGarageSearchWorkerOnce().catch((error) => {
     console.error("[garage-search-worker] initial run failed:", error.message);
+    void systemIssueReporter.captureBackgroundError(error, {
+      title: "Garage search worker initial run failed",
+      component: "Garage search worker",
+    });
   });
 
   workerTimer = setInterval(() => {
     runGarageSearchWorkerOnce().catch((error) => {
       console.error("[garage-search-worker] run failed:", error.message);
+      void systemIssueReporter.captureBackgroundError(error, {
+        title: "Garage search worker run failed",
+        component: "Garage search worker",
+      });
     });
   }, getWorkerIntervalMs());
 
