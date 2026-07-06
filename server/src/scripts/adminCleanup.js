@@ -9,7 +9,12 @@ const {
 
 const args = process.argv.slice(2);
 
-const VALID_SCOPES = new Set(["garages", "price-ranges", "bookings", "notifications"]);
+const VALID_SCOPES = new Set([
+  "garages",
+  "price-ranges",
+  "bookings",
+  "notifications",
+]);
 
 const getArg = (name) => {
   const prefix = `--${name}=`;
@@ -50,15 +55,89 @@ const printDryRun = () => {
   console.log("\nDry-run only. Re-run with --confirm to delete these records.");
 };
 
+const countSystemIssueReferences = async ({ garageIds, ownerIds }) => {
+  const [byGarage, byOwner] = await Promise.all([
+    garageIds.length
+      ? prisma.systemIssue.count({
+          where: {
+            garageId: {
+              in: garageIds,
+            },
+          },
+        })
+      : 0,
+    ownerIds.length
+      ? prisma.systemIssue.count({
+          where: {
+            userId: {
+              in: ownerIds,
+            },
+          },
+        })
+      : 0,
+  ]);
+
+  return {
+    systemIssuesLinkedToGarages: byGarage,
+    systemIssuesLinkedToOwners: byOwner,
+  };
+};
+
+const detachSystemIssueReferences = async ({ garageIds, ownerIds }) => {
+  if (garageIds.length) {
+    await prisma.systemIssue.updateMany({
+      where: {
+        garageId: {
+          in: garageIds,
+        },
+      },
+      data: {
+        garageId: null,
+      },
+    });
+  }
+
+  if (ownerIds.length) {
+    await prisma.systemIssue.updateMany({
+      where: {
+        userId: {
+          in: ownerIds,
+        },
+      },
+      data: {
+        userId: null,
+      },
+    });
+  }
+};
+
 const deleteGarages = async () => {
   const email = getArg("email");
   const garages = await findGaragesForDeletion({ email });
   const garageIds = garages.map((garage) => garage.id);
+  const ownerIds = [
+    ...new Set(garages.map((garage) => garage.ownerId).filter(Boolean)),
+  ];
   const deleteAllApplications = !normalizeEmail(email);
-  const related = await buildDeletionSummary(garages, { deleteAllApplications });
+
+  const [related, issueReferences] = await Promise.all([
+    buildDeletionSummary(garages, {
+      deleteAllApplications,
+    }),
+    countSystemIssueReferences({
+      garageIds,
+      ownerIds,
+    }),
+  ]);
 
   console.log(`Matched ${garages.length} garage(s).`);
-  console.log({ related });
+  console.log({
+    related: {
+      ...related,
+      ...issueReferences,
+    },
+  });
+
   if (garages.length) {
     console.table(
       garages.map((garage) => ({
@@ -70,7 +149,7 @@ const deleteGarages = async () => {
         bookingsDeleted: garage._count.bookings,
         services: garage._count.services,
         broadcasts: garage._count.broadcasts,
-      }))
+      })),
     );
   }
 
@@ -84,8 +163,19 @@ const deleteGarages = async () => {
     return;
   }
 
-  const result = await deleteGaragesDeep({ garageIds, deleteAllApplications });
-  console.log(`Deleted ${result.deletedGarages} garage(s), ${result.deletedApplications} application(s), ${result.deletedBookings} booking(s), and ${result.deletedOwnerUsers} owner user(s).`);
+  await detachSystemIssueReferences({
+    garageIds,
+    ownerIds,
+  });
+
+  const result = await deleteGaragesDeep({
+    garageIds,
+    deleteAllApplications,
+  });
+
+  console.log(
+    `Deleted ${result.deletedGarages} garage(s), ${result.deletedApplications} application(s), ${result.deletedBookings} booking(s), and ${result.deletedOwnerUsers} owner user(s).`,
+  );
 };
 
 const deletePriceRanges = async () => {
@@ -103,21 +193,71 @@ const deletePriceRanges = async () => {
 
 const deleteBookings = async () => {
   const bookings = await prisma.booking.findMany({
-    select: { id: true, bookingCode: true, status: true, userId: true, garageId: true },
+    select: {
+      id: true,
+      bookingCode: true,
+      status: true,
+      userId: true,
+      garageId: true,
+    },
     orderBy: { createdAt: "desc" },
   });
+
   const bookingIds = bookings.map((booking) => booking.id);
 
   const related =
     bookingIds.length === 0
-      ? { payments: 0, services: 0, broadcasts: 0, images: 0, reviews: 0, complaintsDetached: 0 }
+      ? {
+          payments: 0,
+          services: 0,
+          broadcasts: 0,
+          images: 0,
+          reviews: 0,
+          complaintsDetached: 0,
+        }
       : {
-          payments: await prisma.payment.count({ where: { bookingId: { in: bookingIds } } }),
-          services: await prisma.bookingService.count({ where: { bookingId: { in: bookingIds } } }),
-          broadcasts: await prisma.garageBroadcastRequest.count({ where: { bookingId: { in: bookingIds } } }),
-          images: await prisma.bookingInspectionImage.count({ where: { bookingId: { in: bookingIds } } }),
-          reviews: await prisma.review.count({ where: { bookingId: { in: bookingIds } } }),
-          complaintsDetached: await prisma.complaint.count({ where: { bookingId: { in: bookingIds } } }),
+          payments: await prisma.payment.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          services: await prisma.bookingService.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          broadcasts: await prisma.garageBroadcastRequest.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          images: await prisma.bookingInspectionImage.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          reviews: await prisma.review.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          complaintsDetached: await prisma.complaint.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
         };
 
   console.log(`Matched ${bookings.length} booking(s).`);
@@ -130,9 +270,12 @@ const deleteBookings = async () => {
         status: booking.status,
         userId: booking.userId,
         garageId: booking.garageId,
-      }))
+      })),
     );
-    if (bookings.length > 25) console.log(`Showing first 25 of ${bookings.length} bookings.`);
+
+    if (bookings.length > 25) {
+      console.log(`Showing first 25 of ${bookings.length} bookings.`);
+    }
   }
 
   if (!hasFlag("confirm")) {
@@ -147,12 +290,22 @@ const deleteBookings = async () => {
 
   await prisma.$transaction(async (tx) => {
     await tx.complaint.updateMany({
-      where: { bookingId: { in: bookingIds } },
-      data: { bookingId: null },
+      where: {
+        bookingId: {
+          in: bookingIds,
+        },
+      },
+      data: {
+        bookingId: null,
+      },
     });
 
     await tx.booking.deleteMany({
-      where: { id: { in: bookingIds } },
+      where: {
+        id: {
+          in: bookingIds,
+        },
+      },
     });
   });
 

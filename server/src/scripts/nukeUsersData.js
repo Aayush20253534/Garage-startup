@@ -34,6 +34,7 @@ Example:
 
 const getBackupDir = () => {
   const customDir = getArg("backup-dir");
+
   return customDir
     ? path.resolve(process.cwd(), customDir)
     : path.resolve(process.cwd(), "backups");
@@ -45,6 +46,7 @@ const collectCounts = async () => {
   const [
     users,
     customerProfiles,
+    customerLocations,
     vehicles,
     bookings,
     payments,
@@ -58,14 +60,25 @@ const collectCounts = async () => {
     emailOtps,
     phoneOtps,
     ownedGarageLinks,
+    customerActivities,
+    chatbotConversations,
+    chatbotMessages,
+    systemIssuesLinkedToUsers,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.customerProfile.count(),
+    prisma.customerLocation.count(),
     prisma.vehicle.count(),
     prisma.booking.count(),
     prisma.payment.count(),
     prisma.complaint.count(),
-    prisma.notification.count({ where: { userId: { not: null } } }),
+    prisma.notification.count({
+      where: {
+        userId: {
+          not: null,
+        },
+      },
+    }),
     prisma.otp.count(),
     prisma.review.count(),
     prisma.wallet.count(),
@@ -73,12 +86,29 @@ const collectCounts = async () => {
     prisma.pendingSignup.count(),
     prisma.emailOtp.count(),
     prisma.phoneOtp.count(),
-    prisma.garage.count({ where: { ownerId: { not: null } } }),
+    prisma.garage.count({
+      where: {
+        ownerId: {
+          not: null,
+        },
+      },
+    }),
+    prisma.customerActivity.count(),
+    prisma.chatbotConversation.count(),
+    prisma.chatbotMessage.count(),
+    prisma.systemIssue.count({
+      where: {
+        userId: {
+          not: null,
+        },
+      },
+    }),
   ]);
 
   return {
     users,
     customerProfiles,
+    customerLocations,
     vehicles,
     bookings,
     payments,
@@ -92,30 +122,54 @@ const collectCounts = async () => {
     emailOtps,
     phoneOtps,
     ownedGarageLinks,
+    customerActivities,
+    chatbotConversations,
+    chatbotMessages,
+    systemIssuesLinkedToUsers,
   };
 };
 
 const collectBackup = async () => {
   const users = await prisma.user.findMany({
-    orderBy: { createdAt: "asc" },
+    orderBy: {
+      createdAt: "asc",
+    },
     include: {
       customerProfile: true,
       vehicles: true,
       locations: true,
+      customerActivities: true,
+      chatbotConversations: {
+        include: {
+          messages: true,
+        },
+      },
       bookings: {
         include: {
           services: true,
           payment: true,
           broadcasts: true,
           review: true,
+          inspectionImages: true,
+          complaints: {
+            include: {
+              images: true,
+            },
+          },
         },
       },
       complaints: {
-        include: { images: true },
+        include: {
+          images: true,
+        },
       },
       notifications: true,
       otps: true,
-      wallet: true,
+      wallet: {
+        include: {
+          transactions: true,
+        },
+      },
       walletTransactions: true,
       reviews: true,
       ownedGarages: {
@@ -130,25 +184,77 @@ const collectBackup = async () => {
     },
   });
 
+  const userIds = users.map((user) => user.id);
   const emails = users.map((user) => user.email).filter(Boolean);
   const phones = users.map((user) => user.phone).filter(Boolean);
 
-  const [pendingSignups, emailOtps, phoneOtps] = await Promise.all([
-    prisma.pendingSignup.findMany({
-      where: {
-        OR: [{ email: { in: emails } }, { phone: { in: phones } }],
+  const pendingSignupOR = [];
+
+  if (emails.length) {
+    pendingSignupOR.push({
+      email: {
+        in: emails,
       },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.emailOtp.findMany({
-      where: { email: { in: emails } },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.phoneOtp.findMany({
-      where: { phone: { in: phones } },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+    });
+  }
+
+  if (phones.length) {
+    pendingSignupOR.push({
+      phone: {
+        in: phones,
+      },
+    });
+  }
+
+  const [pendingSignups, emailOtps, phoneOtps, systemIssues] =
+    await Promise.all([
+      pendingSignupOR.length
+        ? prisma.pendingSignup.findMany({
+            where: {
+              OR: pendingSignupOR,
+            },
+            orderBy: {
+              createdAt: "asc",
+            },
+          })
+        : [],
+      emails.length
+        ? prisma.emailOtp.findMany({
+            where: {
+              email: {
+                in: emails,
+              },
+            },
+            orderBy: {
+              createdAt: "asc",
+            },
+          })
+        : [],
+      phones.length
+        ? prisma.phoneOtp.findMany({
+            where: {
+              phone: {
+                in: phones,
+              },
+            },
+            orderBy: {
+              createdAt: "asc",
+            },
+          })
+        : [],
+      userIds.length
+        ? prisma.systemIssue.findMany({
+            where: {
+              userId: {
+                in: userIds,
+              },
+            },
+            orderBy: {
+              createdAt: "asc",
+            },
+          })
+        : [],
+    ]);
 
   return {
     exportedAt: new Date().toISOString(),
@@ -160,15 +266,23 @@ const collectBackup = async () => {
       emailOtps,
       phoneOtps,
     },
+    systemIssues,
   };
 };
 
 const writeBackup = async () => {
   const backup = await collectBackup();
   const backupDir = getBackupDir();
-  fs.mkdirSync(backupDir, { recursive: true });
 
-  const backupPath = path.join(backupDir, `users-backup-${getTimestamp()}.json`);
+  fs.mkdirSync(backupDir, {
+    recursive: true,
+  });
+
+  const backupPath = path.join(
+    backupDir,
+    `users-backup-${getTimestamp()}.json`,
+  );
+
   fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2));
 
   return {
@@ -189,11 +303,13 @@ const deleteAllUsersData = async () => {
 
   console.log("User data currently in database:");
   console.log(counts);
-  console.log("\nPreserved tables: garages, garage media, garage services, services, categories, vehicle metadata.");
+  console.log(
+    "\nPreserved tables: garages, garage media, garage services, services, categories, vehicle metadata, and system issues.",
+  );
 
   if (!confirm || !understand) {
     console.log(
-      "\nDry-run only. Re-run with --confirm --i-understand-delete-all-users to create a backup and delete all users."
+      "\nDry-run only. Re-run with --confirm --i-understand-delete-all-users to create a backup and delete all users.",
     );
     return;
   }
@@ -207,31 +323,103 @@ const deleteAllUsersData = async () => {
   }
 
   const users = await prisma.user.findMany({
-    select: { id: true, email: true, phone: true },
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+    },
   });
+
   const userIds = users.map((user) => user.id);
   const emails = users.map((user) => user.email).filter(Boolean);
   const phones = users.map((user) => user.phone).filter(Boolean);
 
   await prisma.$transaction(async (tx) => {
-    await tx.emailOtp.deleteMany({ where: { email: { in: emails } } });
-    await tx.phoneOtp.deleteMany({ where: { phone: { in: phones } } });
-    await tx.pendingSignup.deleteMany({
+    if (emails.length) {
+      await tx.emailOtp.deleteMany({
+        where: {
+          email: {
+            in: emails,
+          },
+        },
+      });
+    }
+
+    if (phones.length) {
+      await tx.phoneOtp.deleteMany({
+        where: {
+          phone: {
+            in: phones,
+          },
+        },
+      });
+    }
+
+    const pendingSignupOR = [];
+
+    if (emails.length) {
+      pendingSignupOR.push({
+        email: {
+          in: emails,
+        },
+      });
+    }
+
+    if (phones.length) {
+      pendingSignupOR.push({
+        phone: {
+          in: phones,
+        },
+      });
+    }
+
+    if (pendingSignupOR.length) {
+      await tx.pendingSignup.deleteMany({
+        where: {
+          OR: pendingSignupOR,
+        },
+      });
+    }
+
+    /*
+     * SystemIssue userId is a historical scalar reference, not a relation.
+     * Preserve issue rows and null the deleted user IDs explicitly.
+     */
+    await tx.systemIssue.updateMany({
       where: {
-        OR: [{ email: { in: emails } }, { phone: { in: phones } }],
+        userId: {
+          in: userIds,
+        },
+      },
+      data: {
+        userId: null,
       },
     });
 
     await tx.garage.updateMany({
-      where: { ownerId: { in: userIds } },
-      data: { ownerId: null },
+      where: {
+        ownerId: {
+          in: userIds,
+        },
+      },
+      data: {
+        ownerId: null,
+      },
     });
 
-    await tx.user.deleteMany({ where: { id: { in: userIds } } });
+    await tx.user.deleteMany({
+      where: {
+        id: {
+          in: userIds,
+        },
+      },
+    });
   });
 
   console.log(`Deleted ${userCount} user(s) and their user-linked data.`);
-  console.log("Garages and service catalog data were preserved.");
+  console.log(
+    "Garages, service catalog data, and system issue history were preserved.",
+  );
 };
 
 deleteAllUsersData()

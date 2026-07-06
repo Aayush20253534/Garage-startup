@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+require("dotenv/config");
+
 const prisma = require("../config/prisma");
 const applicationService = require("../garage/services/application.service");
 
@@ -30,63 +32,85 @@ Dry-run is default. Add --confirm to approve and activate.
 `);
 };
 
-const printGarage = (g) => {
+const printGarage = (garage) => {
   console.log({
-    id: g.id,
-    name: g.name,
-    email: g.email,
-    phone: g.phone,
-    isVerified: g.isVerified,
-    isActive: g.isActive,
-    applicationId: g.applicationId,
-    createdAt: g.createdAt,
+    id: garage.id,
+    name: garage.name,
+    email: garage.email,
+    phone: garage.phone,
+    ownerId: garage.ownerId,
+    isVerified: garage.isVerified,
+    isActive: garage.isActive,
+    applicationId: garage.applicationId,
+    createdAt: garage.createdAt,
   });
 };
 
 const listPending = async () => {
-  const inactiveGarages = await prisma.garage.findMany({
-    where: { isActive: false },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
-
-  const pendingApps = await prisma.garageApplication.findMany({
-    where: { status: { in: ["PENDING", "CHANGES_REQUESTED"] } },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+  const [inactiveGarages, pendingApps] = await Promise.all([
+    prisma.garage.findMany({
+      where: { isActive: false },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+    prisma.garageApplication.findMany({
+      where: { status: { in: ["PENDING", "CHANGES_REQUESTED"] } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+  ]);
 
   console.log(`Inactive garages (${inactiveGarages.length}):`);
   inactiveGarages.forEach(printGarage);
 
   console.log("\nPending/changes-requested applications:");
-  pendingApps.forEach((a) =>
+  pendingApps.forEach((application) =>
     console.log({
-      id: a.id,
-      ownerName: a.ownerName,
-      email: a.email,
-      phone: a.phone,
-      garageName: a.garageName,
-      status: a.status,
-      createdAt: a.createdAt,
-    })
+      id: application.id,
+      ownerName: application.ownerName,
+      email: application.email,
+      phone: application.phone,
+      garageName: application.garageName,
+      status: application.status,
+      createdAt: application.createdAt,
+    }),
   );
 };
 
 const buildWhereForGarage = ({ garageId, applicationId, garageName }) => {
   if (garageId) return { id: garageId };
   if (applicationId) return { applicationId };
-  if (garageName) return { name: { equals: garageName, mode: "insensitive" } };
+  if (garageName) {
+    return {
+      name: {
+        equals: garageName,
+        mode: "insensitive",
+      },
+    };
+  }
+
   return null;
 };
 
-const buildWhereForApplication = ({ applicationId, email, phone, garageName }) => {
+const buildWhereForApplication = ({
+  applicationId,
+  email,
+  phone,
+  garageName,
+}) => {
   const OR = [];
 
   if (applicationId) OR.push({ id: applicationId });
   if (email) OR.push({ email: normalizeEmail(email) });
   if (phone) OR.push({ phone: normalizePhone(phone) });
-  if (garageName) OR.push({ garageName: { equals: garageName, mode: "insensitive" } });
+  if (garageName) {
+    OR.push({
+      garageName: {
+        equals: garageName,
+        mode: "insensitive",
+      },
+    });
+  }
 
   return OR.length ? { OR } : null;
 };
@@ -118,6 +142,18 @@ const activateGarageById = async (garageId) => {
   return updated;
 };
 
+const findGarageOwnerByEmail = async (email) => {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) return null;
+
+  return prisma.user.findFirst({
+    where: {
+      email: cleanEmail,
+      role: "GARAGE_OWNER",
+    },
+  });
+};
+
 const run = async () => {
   if (hasFlag("help")) {
     usage();
@@ -143,9 +179,9 @@ const run = async () => {
 
   let garage = null;
 
-  // Only search Garage directly when using actual garage identifiers.
-  // For email/phone, search GarageApplication first because garage may not exist yet.
-  const shouldSearchGarageFirst = Boolean(garageId || applicationId || garageName);
+  const shouldSearchGarageFirst = Boolean(
+    garageId || applicationId || garageName,
+  );
 
   if (shouldSearchGarageFirst) {
     const garageWhere = buildWhereForGarage({
@@ -174,24 +210,29 @@ const run = async () => {
     return;
   }
 
-  const appWhere = buildWhereForApplication({
+  const applicationWhere = buildWhereForApplication({
     applicationId,
     email,
     phone,
     garageName,
   });
 
-  if (!appWhere) {
+  if (!applicationWhere) {
     console.error("No search criteria resolved to an application or garage.");
     return;
   }
 
-  console.log("applicationWhere:", JSON.stringify(appWhere, null, 2));
+  console.log(
+    "applicationWhere:",
+    JSON.stringify(applicationWhere, null, 2),
+  );
 
   const applications = await prisma.garageApplication.findMany({
     where: {
-      ...appWhere,
-      status: { in: ["PENDING", "CHANGES_REQUESTED", "APPROVED"] },
+      ...applicationWhere,
+      status: {
+        in: ["PENDING", "CHANGES_REQUESTED", "APPROVED"],
+      },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -203,18 +244,18 @@ const run = async () => {
 
   if (applications.length > 1) {
     console.log(
-      `Matched ${applications.length} applications. Re-run with --application-id=<id>.`
+      `Matched ${applications.length} applications. Re-run with --application-id=<id>.`,
     );
 
-    applications.forEach((a) =>
+    applications.forEach((application) =>
       console.log({
-        id: a.id,
-        ownerName: a.ownerName,
-        email: a.email,
-        phone: a.phone,
-        garageName: a.garageName,
-        status: a.status,
-      })
+        id: application.id,
+        ownerName: application.ownerName,
+        email: application.email,
+        phone: application.phone,
+        garageName: application.garageName,
+        status: application.status,
+      }),
     );
 
     return;
@@ -244,7 +285,10 @@ const run = async () => {
   if (application.status !== "APPROVED") {
     console.log("Approving application now...");
 
-    result = await applicationService.approveApplication(application.id, note);
+    result = await applicationService.approveApplication(
+      application.id,
+      note,
+    );
 
     console.log("Application approved:");
     console.log({
@@ -260,14 +304,14 @@ const run = async () => {
     const linkedGarageId = application.approvedGarageId;
 
     const linkedGarage = linkedGarageId
-      ? await prisma.garage.findUnique({ where: { id: linkedGarageId } })
+      ? await prisma.garage.findUnique({
+          where: { id: linkedGarageId },
+        })
       : await prisma.garage.findFirst({
           where: { applicationId: application.id },
         });
 
-    const owner = await prisma.user.findUnique({
-      where: { email: normalizeEmail(application.email) },
-    });
+    const owner = await findGarageOwnerByEmail(application.email);
 
     result = {
       application,
@@ -288,21 +332,23 @@ const run = async () => {
 
   if (result.defaultPassword) {
     console.log(
-      `Default password for owner (${result.owner?.email || application.email}): ${
-        result.defaultPassword
-      }`
+      `Default password for owner (${
+        result.owner?.email || application.email
+      }): ${result.defaultPassword}`,
     );
   }
 };
 
 run()
-  .then(() => process.exit(0))
-  .catch((err) => {
+  .catch((error) => {
     console.error("FULL ERROR:");
-    console.error(err);
+    console.error(error);
 
     console.error("ERROR DETAILS:");
-    console.dir(err, { depth: null });
+    console.dir(error, { depth: null });
 
-    process.exit(2);
+    process.exitCode = 2;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });

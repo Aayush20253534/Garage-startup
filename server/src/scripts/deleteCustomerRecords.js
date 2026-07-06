@@ -51,14 +51,18 @@ const getBookingWhere = (userId, scope) => {
   if (scope === "active-bookings") {
     return {
       userId,
-      status: { in: ACTIVE_BOOKING_STATUSES },
+      status: {
+        in: ACTIVE_BOOKING_STATUSES,
+      },
     };
   }
 
   if (scope === "service-history") {
     return {
       userId,
-      status: { in: SERVICE_HISTORY_STATUSES },
+      status: {
+        in: SERVICE_HISTORY_STATUSES,
+      },
     };
   }
 
@@ -67,6 +71,7 @@ const getBookingWhere = (userId, scope) => {
 
 const summarizeBookings = async (user, scope) => {
   const bookingWhere = getBookingWhere(user.id, scope);
+
   const bookings = await prisma.booking.findMany({
     where: bookingWhere,
     select: {
@@ -76,23 +81,52 @@ const summarizeBookings = async (user, scope) => {
       payableAmount: true,
       totalServiceAmount: true,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: {
+      createdAt: "desc",
+    },
   });
+
   const bookingIds = bookings.map((booking) => booking.id);
 
   const [payments, complaints, bookingServices, broadcasts, reviews] =
     bookingIds.length === 0
       ? [0, 0, 0, 0, 0]
       : await Promise.all([
-          prisma.payment.count({ where: { bookingId: { in: bookingIds } } }),
-          prisma.complaint.count({ where: { bookingId: { in: bookingIds } } }),
+          prisma.payment.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          prisma.complaint.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
           prisma.bookingService.count({
-            where: { bookingId: { in: bookingIds } },
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
           }),
           prisma.garageBroadcastRequest.count({
-            where: { bookingId: { in: bookingIds } },
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
           }),
-          prisma.review.count({ where: { bookingId: { in: bookingIds } } }),
+          prisma.review.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
         ]);
 
   return {
@@ -110,16 +144,30 @@ const summarizeBookings = async (user, scope) => {
 
 const summarizePayments = async (user) => {
   const bookings = await prisma.booking.findMany({
-    where: { userId: user.id },
-    select: { id: true, bookingCode: true, status: true },
-    orderBy: { createdAt: "desc" },
+    where: {
+      userId: user.id,
+    },
+    select: {
+      id: true,
+      bookingCode: true,
+      status: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
   });
+
   const bookingIds = bookings.map((booking) => booking.id);
+
   const payments =
     bookingIds.length === 0
       ? []
       : await prisma.payment.findMany({
-          where: { bookingId: { in: bookingIds } },
+          where: {
+            bookingId: {
+              in: bookingIds,
+            },
+          },
           select: {
             id: true,
             bookingId: true,
@@ -128,7 +176,9 @@ const summarizePayments = async (user) => {
             cashfreeOrderId: true,
             cashfreePaymentId: true,
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: {
+            createdAt: "desc",
+          },
         });
 
   return {
@@ -164,7 +214,7 @@ const deleteBookingsForScope = async (user, scope) => {
         status: booking.status,
         payableAmount: booking.payableAmount,
         totalServiceAmount: booking.totalServiceAmount,
-      }))
+      })),
     );
   }
 
@@ -182,12 +232,22 @@ const deleteBookingsForScope = async (user, scope) => {
 
   await prisma.$transaction(async (tx) => {
     await tx.complaint.updateMany({
-      where: { bookingId: { in: bookingIds } },
-      data: { bookingId: null },
+      where: {
+        bookingId: {
+          in: bookingIds,
+        },
+      },
+      data: {
+        bookingId: null,
+      },
     });
 
     await tx.booking.deleteMany({
-      where: { id: { in: bookingIds } },
+      where: {
+        id: {
+          in: bookingIds,
+        },
+      },
     });
   });
 
@@ -202,15 +262,24 @@ const deletePayments = async (user) => {
     const paymentBookingById = new Map(
       (
         await prisma.booking.findMany({
-          where: { id: { in: bookingIds } },
-          select: { id: true, bookingCode: true, status: true },
+          where: {
+            id: {
+              in: bookingIds,
+            },
+          },
+          select: {
+            id: true,
+            bookingCode: true,
+            status: true,
+          },
         })
-      ).map((booking) => [booking.id, booking])
+      ).map((booking) => [booking.id, booking]),
     );
 
     console.table(
       payments.map((payment) => {
         const booking = paymentBookingById.get(payment.bookingId);
+
         return {
           bookingCode: booking?.bookingCode,
           bookingStatus: booking?.status,
@@ -218,7 +287,7 @@ const deletePayments = async (user) => {
           paymentStatus: payment.status,
           cashfreeOrderId: payment.cashfreeOrderId,
         };
-      })
+      }),
     );
   }
 
@@ -233,7 +302,11 @@ const deletePayments = async (user) => {
   }
 
   await prisma.payment.deleteMany({
-    where: { id: { in: payments.map((payment) => payment.id) } },
+    where: {
+      id: {
+        in: payments.map((payment) => payment.id),
+      },
+    },
   });
 
   console.log(`Deleted ${payments.length} payment record(s).`);
@@ -248,8 +321,16 @@ const deleteCustomerRecords = async () => {
     return;
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email },
+  /*
+   * User.email is unique with role, not globally. These commands are customer
+   * cleanup commands, so selecting CUSTOMER prevents an account with the same
+   * email under GARAGE_OWNER from being touched.
+   */
+  const user = await prisma.user.findFirst({
+    where: {
+      email,
+      role: "CUSTOMER",
+    },
     select: {
       id: true,
       name: true,
@@ -260,7 +341,7 @@ const deleteCustomerRecords = async () => {
   });
 
   if (!user) {
-    console.log(`No user found for email: ${email}`);
+    console.log(`No customer found for email: ${email}`);
     return;
   }
 
