@@ -664,11 +664,7 @@ function AppRoutes() {
             path="/dashboard/profile"
             element={
               <ProtectedRoute>
-                <AddressCheck>
-                  <VehicleCheck>
-                    <Profile />
-                  </VehicleCheck>
-                </AddressCheck>
+                <Profile />
               </ProtectedRoute>
             }
           />

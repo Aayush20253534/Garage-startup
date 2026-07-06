@@ -41,7 +41,15 @@ const normalizeIndianPhone = (value = "") => {
 
 const getDefaultLocation = (data = {}) => {
   const locations = Array.isArray(data.locations) ? data.locations : [];
-  return locations.find((item) => item.isDefault) || locations[0] || null;
+  const validLocations = locations.filter((item) =>
+    hasUsableIndiaCoordinates(item),
+  );
+
+  return (
+    validLocations.find((item) => item.isDefault) ||
+    validLocations[0] ||
+    null
+  );
 };
 
 const createFormFromUser = (data = {}) => {

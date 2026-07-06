@@ -1,38 +1,45 @@
 const { body, param, query } = require("express-validator");
 
-const INDIA_LATITUDE_RANGE = { min: 6, max: 38 };
-const INDIA_LONGITUDE_RANGE = { min: 68, max: 98 };
-
-const rejectZeroBodyCoordinates = (_, { req }) => {
-  const latitude = Number(req.body.latitude);
-  const longitude = Number(req.body.longitude);
-
-  if (
-    Number.isFinite(latitude) &&
-    Number.isFinite(longitude) &&
-    latitude === 0 &&
-    longitude === 0
-  ) {
-    throw new Error(
-      "Invalid location coordinates. Please choose your location again.",
-    );
-  }
-
-  return true;
+const INDIA_COORDINATE_BOUNDS = {
+  minLatitude: 6,
+  maxLatitude: 38,
+  minLongitude: 68,
+  maxLongitude: 98,
 };
 
-const rejectZeroQueryCoordinates = (_, { req }) => {
-  const latitude = Number(req.query.latitude);
-  const longitude = Number(req.query.longitude);
+const hasBodyField = (bodyValue, key) =>
+  Object.prototype.hasOwnProperty.call(bodyValue || {}, key);
 
-  if (
+const validateIndiaCoordinatePair = (
+  bodyValue = {},
+  { required = false } = {},
+) => {
+  const hasLatitude = hasBodyField(bodyValue, "latitude");
+  const hasLongitude = hasBodyField(bodyValue, "longitude");
+
+  if (!hasLatitude && !hasLongitude && !required) {
+    return true;
+  }
+
+  if (!hasLatitude || !hasLongitude) {
+    throw new Error("Latitude and longitude must be provided together.");
+  }
+
+  const latitude = Number(bodyValue.latitude);
+  const longitude = Number(bodyValue.longitude);
+
+  const valid =
     Number.isFinite(latitude) &&
     Number.isFinite(longitude) &&
-    latitude === 0 &&
-    longitude === 0
-  ) {
+    !(latitude === 0 && longitude === 0) &&
+    latitude >= INDIA_COORDINATE_BOUNDS.minLatitude &&
+    latitude <= INDIA_COORDINATE_BOUNDS.maxLatitude &&
+    longitude >= INDIA_COORDINATE_BOUNDS.minLongitude &&
+    longitude <= INDIA_COORDINATE_BOUNDS.maxLongitude;
+
+  if (!valid) {
     throw new Error(
-      "Invalid location coordinates. Please choose your location again.",
+      "Invalid location coordinates. Please choose a location within India.",
     );
   }
 
@@ -43,38 +50,27 @@ const geocodeLocationValidation = [
   query("address")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
-    .isLength({ max: 300 })
-    .withMessage("Address must be at most 300 characters"),
-
+    .isLength({ max: 300 }),
   query("area")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
-    .isLength({ max: 120 })
-    .withMessage("Area must be at most 120 characters"),
-
+    .isLength({ max: 120 }),
   query("city")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
-    .isLength({ max: 120 })
-    .withMessage("City must be at most 120 characters"),
-
+    .isLength({ max: 120 }),
   query("state")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
-    .isLength({ max: 120 })
-    .withMessage("State must be at most 120 characters"),
-
+    .isLength({ max: 120 }),
   query("pincode")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
-    .matches(/^\d{5,6}$/)
-    .withMessage("Pincode must contain 5 or 6 digits"),
-
+    .isLength({ max: 20 }),
   query("country")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
-    .isLength({ max: 120 })
-    .withMessage("Country must be at most 120 characters"),
+    .isLength({ max: 120 }),
 ];
 
 const reverseGeocodeLocationValidation = [
@@ -82,16 +78,20 @@ const reverseGeocodeLocationValidation = [
     .notEmpty()
     .withMessage("Latitude is required")
     .bail()
-    .isFloat(INDIA_LATITUDE_RANGE)
-    .withMessage("Rovauto is available only in India right now"),
-
+    .isFloat({
+      min: INDIA_COORDINATE_BOUNDS.minLatitude,
+      max: INDIA_COORDINATE_BOUNDS.maxLatitude,
+    })
+    .withMessage("Invalid latitude for an Indian location"),
   query("longitude")
     .notEmpty()
     .withMessage("Longitude is required")
     .bail()
-    .isFloat(INDIA_LONGITUDE_RANGE)
-    .withMessage("Rovauto is available only in India right now")
-    .custom(rejectZeroQueryCoordinates),
+    .isFloat({
+      min: INDIA_COORDINATE_BOUNDS.minLongitude,
+      max: INDIA_COORDINATE_BOUNDS.maxLongitude,
+    })
+    .withMessage("Invalid longitude for an Indian location"),
 ];
 
 const locationIdValidation = [
@@ -99,32 +99,18 @@ const locationIdValidation = [
 ];
 
 const createLocationValidation = [
-  body("latitude")
-    .notEmpty()
-    .withMessage("Latitude is required")
-    .bail()
-    .isFloat(INDIA_LATITUDE_RANGE)
-    .withMessage("Rovauto is available only in India right now"),
-
-  body("longitude")
-    .notEmpty()
-    .withMessage("Longitude is required")
-    .bail()
-    .isFloat(INDIA_LONGITUDE_RANGE)
-    .withMessage("Rovauto is available only in India right now")
-    .custom(rejectZeroBodyCoordinates),
-
+  body().custom((bodyValue) =>
+    validateIndiaCoordinatePair(bodyValue, { required: true }),
+  ),
   body("address")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
     .isLength({ max: 500 })
-    .withMessage("Address must be at most 500 characters"),
-
+    .withMessage("Address is too long"),
   body("source")
     .optional()
     .isIn(["GPS", "MANUAL"])
     .withMessage("Invalid location source"),
-
   body("isDefault")
     .optional()
     .isBoolean()
@@ -133,29 +119,18 @@ const createLocationValidation = [
 
 const updateLocationValidation = [
   param("id").isUUID().withMessage("Invalid location ID"),
-
-  body("latitude")
-    .optional()
-    .isFloat(INDIA_LATITUDE_RANGE)
-    .withMessage("Rovauto is available only in India right now"),
-
-  body("longitude")
-    .optional()
-    .isFloat(INDIA_LONGITUDE_RANGE)
-    .withMessage("Rovauto is available only in India right now")
-    .custom(rejectZeroBodyCoordinates),
-
+  body().custom((bodyValue) =>
+    validateIndiaCoordinatePair(bodyValue, { required: false }),
+  ),
   body("address")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
     .isLength({ max: 500 })
-    .withMessage("Address must be at most 500 characters"),
-
+    .withMessage("Address is too long"),
   body("source")
     .optional()
     .isIn(["GPS", "MANUAL"])
     .withMessage("Invalid location source"),
-
   body("isDefault")
     .optional()
     .isBoolean()
