@@ -3,7 +3,6 @@ const ApiResponse = require("../../utils/apiResponse");
 const locationService = require("../services/location.service");
 const geocodingService = require("../services/geocoding.service");
 
-
 const geocodeLocation = asyncHandler(async (req, res) => {
   const result = await geocodingService.geocodeAddress(req.query);
 
@@ -11,6 +10,24 @@ const geocodeLocation = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, "Address geocoded successfully", result));
 });
+
+const reverseGeocodeLocation = asyncHandler(async (req, res) => {
+  const result = await geocodingService.reverseGeocodeCoordinates({
+    latitude: req.query.latitude,
+    longitude: req.query.longitude,
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Coordinates reverse geocoded successfully",
+        result,
+      ),
+    );
+});
+
 const createLocation = asyncHandler(async (req, res) => {
   const location = await locationService.createLocation(req.user.id, req.body);
 
@@ -30,7 +47,7 @@ const getMyLocations = asyncHandler(async (req, res) => {
 const getLocationById = asyncHandler(async (req, res) => {
   const location = await locationService.getLocationById(
     req.user.id,
-    req.params.id
+    req.params.id,
   );
 
   return res
@@ -42,7 +59,7 @@ const updateLocation = asyncHandler(async (req, res) => {
   const location = await locationService.updateLocation(
     req.user.id,
     req.params.id,
-    req.body
+    req.body,
   );
 
   return res
@@ -51,7 +68,10 @@ const updateLocation = asyncHandler(async (req, res) => {
 });
 
 const deleteLocation = asyncHandler(async (req, res) => {
-  const result = await locationService.deleteLocation(req.user.id, req.params.id);
+  const result = await locationService.deleteLocation(
+    req.user.id,
+    req.params.id,
+  );
 
   return res
     .status(200)
@@ -61,7 +81,7 @@ const deleteLocation = asyncHandler(async (req, res) => {
 const setDefaultLocation = asyncHandler(async (req, res) => {
   const location = await locationService.setDefaultLocation(
     req.user.id,
-    req.params.id
+    req.params.id,
   );
 
   return res
@@ -71,6 +91,7 @@ const setDefaultLocation = asyncHandler(async (req, res) => {
 
 module.exports = {
   geocodeLocation,
+  reverseGeocodeLocation,
   createLocation,
   getMyLocations,
   getLocationById,

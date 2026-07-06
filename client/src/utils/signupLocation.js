@@ -1,5 +1,8 @@
 import api from "@/api/axios";
-import { hasUsableIndiaCoordinates } from "@/utils/address";
+import {
+  hasUsableIndiaCoordinates,
+  reverseGeocodeCoordinates,
+} from "@/utils/address";
 
 const LOCATION_OPTIONS = {
   enableHighAccuracy: false,
@@ -21,28 +24,6 @@ const getCurrentPosition = () => {
   });
 };
 
-const reverseGeocode = async ({ latitude, longitude }) => {
-  try {
-    const url = new URL("https://nominatim.openstreetmap.org/reverse");
-    url.searchParams.set("format", "jsonv2");
-    url.searchParams.set("lat", String(latitude));
-    url.searchParams.set("lon", String(longitude));
-
-    const response = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) return "";
-
-    const data = await response.json();
-    return data.display_name || "";
-  } catch {
-    return "";
-  }
-};
-
 export const requestSignupLocation = async () => {
   const position = await getCurrentPosition();
 
@@ -52,9 +33,23 @@ export const requestSignupLocation = async () => {
 
   const latitude = Number(position.coords.latitude.toFixed(6));
   const longitude = Number(position.coords.longitude.toFixed(6));
-  const address =
-    (await reverseGeocode({ latitude, longitude })) ||
-    `Lat ${latitude}, Lng ${longitude}`;
+
+  if (!hasUsableIndiaCoordinates({ latitude, longitude })) {
+    return null;
+  }
+
+  let address = `Lat ${latitude}, Lng ${longitude}`;
+
+  try {
+    const geocoded = await reverseGeocodeCoordinates({
+      latitude,
+      longitude,
+    });
+
+    address = geocoded.fullAddress || address;
+  } catch (error) {
+    console.warn("Signup reverse geocoding failed:", error.message);
+  }
 
   return {
     latitude,
@@ -65,6 +60,7 @@ export const requestSignupLocation = async () => {
 
 export const hasSavedUserLocation = (user) => {
   const locations = Array.isArray(user?.locations) ? user.locations : [];
+
   return locations.some(
     (location) =>
       hasUsableIndiaCoordinates(location) && Boolean(location.address),
@@ -72,26 +68,42 @@ export const hasSavedUserLocation = (user) => {
 };
 
 export const saveSignupLocationToProfile = async (signupLocation) => {
-  if (!signupLocation?.address) return false;
+  if (!hasUsableIndiaCoordinates(signupLocation)) return false;
 
   try {
+    let resolvedAddress = signupLocation.address || "";
+
+    try {
+      const geocoded = await reverseGeocodeCoordinates({
+        latitude: signupLocation.latitude,
+        longitude: signupLocation.longitude,
+      });
+
+      resolvedAddress = geocoded.fullAddress || resolvedAddress;
+    } catch (error) {
+      console.warn("Signup reverse geocoding failed:", error.message);
+    }
+
+    if (!resolvedAddress) {
+      resolvedAddress = `Lat ${signupLocation.latitude}, Lng ${signupLocation.longitude}`;
+    }
+
     await api.patch("/customer/profile", {
-      address: signupLocation.address,
+      address: resolvedAddress,
     });
 
-    if (hasUsableIndiaCoordinates(signupLocation)) {
-      await api.post("/locations", {
-        latitude: Number(signupLocation.latitude),
-        longitude: Number(signupLocation.longitude),
-        address: signupLocation.address,
-        source: "GPS",
-        isDefault: true,
-      });
-    }
+    await api.post("/locations", {
+      latitude: Number(signupLocation.latitude),
+      longitude: Number(signupLocation.longitude),
+      address: resolvedAddress,
+      source: "GPS",
+      isDefault: true,
+    });
 
     localStorage.removeItem("rov_profile");
     localStorage.removeItem("rov_profile_time");
-  } catch {
+  } catch (error) {
+    console.error("Could not save signup location:", error);
     return false;
   }
 

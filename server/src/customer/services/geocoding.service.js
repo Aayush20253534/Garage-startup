@@ -1,33 +1,10 @@
 const axios = require("axios");
 const ApiError = require("../../utils/apiError");
-const { deleteCache, getCache, setCache } = require("../../utils/cache");
-const { correctAddress, estimateIndianCoordinates } = require("../../utils/addressCorrection");
+const { correctAddress } = require("../../utils/addressCorrection");
 
-const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
-const GEOCODE_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
+const GOOGLE_GEOCODING_URL =
+  "https://maps.googleapis.com/maps/api/geocode/json";
 
-const normalizePart = (value) => String(value || "").trim();
-const uniqueParts = (parts = []) => {
-  const seen = new Set();
-  return parts
-    .map(normalizePart)
-    .filter(Boolean)
-    .filter((part) => {
-      const key = part.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-};
-
-const getNominatimUserAgent = () => (
-  process.env.NOMINATIM_USER_AGENT ||
-  process.env.GEOCODER_USER_AGENT ||
-  "Rovauto/1.0 (set-NOMINATIM_USER_AGENT@example.com)"
-);
-
-const getDefaultCountry = () => process.env.GEOCODER_DEFAULT_COUNTRY || "India";
-const getDefaultCountryCodes = () => process.env.GEOCODER_COUNTRYCODES || "in";
 const INDIA_COORDINATE_BOUNDS = {
   minLatitude: 6,
   maxLatitude: 38,
@@ -35,28 +12,77 @@ const INDIA_COORDINATE_BOUNDS = {
   maxLongitude: 98,
 };
 
-const isWithinIndiaBounds = (latitude, longitude) => (
-  latitude >= INDIA_COORDINATE_BOUNDS.minLatitude
-  && latitude <= INDIA_COORDINATE_BOUNDS.maxLatitude
-  && longitude >= INDIA_COORDINATE_BOUNDS.minLongitude
-  && longitude <= INDIA_COORDINATE_BOUNDS.maxLongitude
-);
+const normalizePart = (value) => String(value || "").trim();
 
-const isProviderUnavailable = (error) => (
-  [403, 429, 500, 502, 503, 504].includes(Number(error?.response?.status))
-  || ["ECONNABORTED", "ETIMEDOUT", "ENOTFOUND", "ECONNRESET"].includes(error?.code)
-);
+const uniqueParts = (parts = []) => {
+  const seen = new Set();
 
-const buildQuery = ({ address, area, city, state, pincode, country = getDefaultCountry() }) =>
-  uniqueParts([address, area, city, state, pincode, country]).join(", ");
+  return parts
+    .map(normalizePart)
+    .filter(Boolean)
+    .filter((part) => {
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+
+      seen.add(key);
+      return true;
+    });
+};
+
+const getGoogleApiKey = () => {
+  const key = normalizePart(process.env.GOOGLE_MAPS_API_KEY);
+
+  if (!key) {
+    throw new ApiError(503, "Google geocoding is not configured");
+  }
+
+  return key;
+};
+
+const getGoogleTimeout = () => {
+  const configured = Number(process.env.GOOGLE_GEOCODING_TIMEOUT_MS || 5000);
+
+  if (!Number.isFinite(configured)) return 5000;
+  return Math.max(2000, Math.min(configured, 15000));
+};
+
+const getGoogleLanguage = () =>
+  normalizePart(process.env.GOOGLE_GEOCODING_LANGUAGE) || "en";
+
+const getGoogleRegion = () =>
+  normalizePart(process.env.GOOGLE_GEOCODING_REGION) || "in";
+
+const getMaxCandidates = () => {
+  const configured = Number(
+    process.env.GOOGLE_GEOCODING_MAX_CANDIDATES || 2,
+  );
+
+  if (!Number.isFinite(configured)) return 2;
+  return Math.max(1, Math.min(Math.floor(configured), 4));
+};
+
+const isWithinIndiaBounds = (latitude, longitude) =>
+  latitude >= INDIA_COORDINATE_BOUNDS.minLatitude &&
+  latitude <= INDIA_COORDINATE_BOUNDS.maxLatitude &&
+  longitude >= INDIA_COORDINATE_BOUNDS.minLongitude &&
+  longitude <= INDIA_COORDINATE_BOUNDS.maxLongitude;
+
+const buildQuery = ({
+  address,
+  area,
+  city,
+  state,
+  pincode,
+  country = "India",
+}) => uniqueParts([address, area, city, state, pincode, country]).join(", ");
 
 const buildQueryCandidates = (params = {}) => {
-  const country = params.country ?? getDefaultCountry();
   const address = normalizePart(params.address);
   const area = normalizePart(params.area);
   const city = normalizePart(params.city);
   const state = normalizePart(params.state);
   const pincode = normalizePart(params.pincode);
+  const country = normalizePart(params.country) || "India";
 
   return uniqueParts([
     buildQuery({ address, area, city, state, pincode, country }),
@@ -64,69 +90,249 @@ const buildQueryCandidates = (params = {}) => {
     buildQuery({ address, city, state, pincode, country }),
     buildQuery({ area, city, state, pincode, country }),
     buildQuery({ address, city, pincode, country }),
-    buildQuery({ address, pincode, country }),
     buildQuery({ area, city, country }),
     buildQuery({ city, state, pincode, country }),
   ]);
 };
 
-const requestNominatim = (query, params = {}) =>
-  axios.get(NOMINATIM_URL, {
-    params: {
-      q: query,
-      format: "jsonv2",
-      addressdetails: 1,
-      limit: 5,
-      countrycodes: params.countrycodes || getDefaultCountryCodes(),
-    },
-    headers: {
-      "User-Agent": getNominatimUserAgent(),
-      Accept: "application/json",
-    },
-    timeout: Math.min(Number(process.env.NOMINATIM_TIMEOUT_MS || 3000), 3000),
-  });
+const getAddressComponent = (
+  components = [],
+  acceptedTypes = [],
+  { shortName = false } = {},
+) => {
+  const component = components.find((item) =>
+    acceptedTypes.some((type) => item.types?.includes(type)),
+  );
 
-const mapPlaceResult = ({
-  place,
+  if (!component) return "";
+  return shortName ? component.short_name || "" : component.long_name || "";
+};
+
+const parseGoogleAddress = (result = {}) => {
+  const components = Array.isArray(result.address_components)
+    ? result.address_components
+    : [];
+
+  const streetNumber = getAddressComponent(components, ["street_number"]);
+  const route = getAddressComponent(components, ["route"]);
+  const premise = getAddressComponent(components, ["premise"]);
+  const subpremise = getAddressComponent(components, ["subpremise"]);
+
+  const area = getAddressComponent(components, [
+    "sublocality_level_1",
+    "sublocality",
+    "neighborhood",
+    "administrative_area_level_3",
+  ]);
+
+  const city = getAddressComponent(components, [
+    "locality",
+    "postal_town",
+    "administrative_area_level_2",
+  ]);
+
+  const state = getAddressComponent(components, [
+    "administrative_area_level_1",
+  ]);
+
+  const pincode = getAddressComponent(components, ["postal_code"]);
+  const country = getAddressComponent(components, ["country"]);
+  const countryCode = getAddressComponent(
+    components,
+    ["country"],
+    { shortName: true },
+  );
+
+  const street = uniqueParts([
+    premise,
+    subpremise,
+    uniqueParts([streetNumber, route]).join(" "),
+  ]).join(", ");
+
+  return {
+    address: street,
+    area,
+    city,
+    state,
+    pincode,
+    country,
+    countryCode,
+  };
+};
+
+const isIndianGoogleResult = (result = {}) => {
+  const latitude = Number(result.geometry?.location?.lat);
+  const longitude = Number(result.geometry?.location?.lng);
+  const parsedAddress = parseGoogleAddress(result);
+
+  if (!isWithinIndiaBounds(latitude, longitude)) return false;
+  if (parsedAddress.countryCode && parsedAddress.countryCode !== "IN") {
+    return false;
+  }
+
+  return true;
+};
+
+const getReverseResultScore = (result = {}) => {
+  const types = Array.isArray(result.types) ? result.types : [];
+  const priorities = [
+    "street_address",
+    "premise",
+    "subpremise",
+    "route",
+    "point_of_interest",
+    "establishment",
+    "neighborhood",
+    "sublocality",
+    "locality",
+  ];
+
+  const index = priorities.findIndex((type) => types.includes(type));
+  return index === -1 ? priorities.length : index;
+};
+
+const selectBestResult = (results = [], { reverse = false } = {}) => {
+  const validResults = results.filter(isIndianGoogleResult);
+
+  if (!reverse) return validResults[0] || null;
+
+  return [...validResults].sort(
+    (left, right) =>
+      getReverseResultScore(left) - getReverseResultScore(right),
+  )[0] || null;
+};
+
+const mapGoogleResult = ({
+  result,
   query,
   corrected = false,
   originalQuery = null,
   correctedAddressText = null,
-}) => ({
-  provider: "nominatim",
-  query,
-  latitude: Number(place.lat),
-  longitude: Number(place.lon),
-  displayName: place.display_name,
-  importance: place.importance ?? null,
-  address: place.address || null,
-  attribution: "OpenStreetMap contributors",
-  corrected,
-  ...(originalQuery ? { originalQuery } : {}),
-  ...(correctedAddressText ? { correctedAddressText } : {}),
-});
+}) => {
+  const parsedAddress = parseGoogleAddress(result);
 
-const findNominatimPlace = async (queries = [], params = {}) => {
-  let lastError = null;
+  return {
+    provider: "google",
+    query,
+    latitude: Number(result.geometry.location.lat),
+    longitude: Number(result.geometry.location.lng),
+    displayName: result.formatted_address || "",
+    fullAddress: result.formatted_address || "",
+    address: {
+      address: parsedAddress.address,
+      area: parsedAddress.area,
+      city: parsedAddress.city,
+      state: parsedAddress.state,
+      pincode: parsedAddress.pincode,
+      country: parsedAddress.country || "India",
+    },
+    placeId: result.place_id || null,
+    locationType: result.geometry?.location_type || null,
+    partialMatch: Boolean(result.partial_match),
+    attribution: "Google Maps",
+    corrected,
+    ...(originalQuery ? { originalQuery } : {}),
+    ...(correctedAddressText ? { correctedAddressText } : {}),
+  };
+};
 
-  const maxCandidates = Number(process.env.GEOCODER_MAX_CANDIDATES || 2);
+const throwGoogleStatusError = (status, errorMessage = "") => {
+  const safeLogMessage = errorMessage || "No provider error message";
 
-  for (const query of queries.slice(0, maxCandidates)) {
-    try {
-      const response = await requestNominatim(query, params);
-      const places = Array.isArray(response.data) ? response.data : [];
-      const place = places.find((item) =>
-        isWithinIndiaBounds(Number(item.lat), Number(item.lon))
-      );
-      if (place) return { place, query };
-    } catch (error) {
-      lastError = error;
-      console.error(`Nominatim geocoding error for "${query}":`, error.message);
-      if (isProviderUnavailable(error)) break;
+  switch (status) {
+    case "INVALID_REQUEST":
+      throw new ApiError(400, "Invalid geocoding request");
+
+    case "OVER_QUERY_LIMIT":
+      console.error("Google Geocoding quota exceeded:", safeLogMessage);
+      throw new ApiError(429, "Geocoding request limit reached. Try again later.");
+
+    case "OVER_DAILY_LIMIT":
+      console.error("Google Geocoding daily limit or billing error:", safeLogMessage);
+      throw new ApiError(503, "Geocoding service is temporarily unavailable");
+
+    case "REQUEST_DENIED":
+      console.error("Google Geocoding request denied:", safeLogMessage);
+      throw new ApiError(502, "Geocoding provider rejected the request");
+
+    case "UNKNOWN_ERROR":
+      console.error("Google Geocoding unknown provider error:", safeLogMessage);
+      throw new ApiError(503, "Geocoding service is temporarily unavailable");
+
+    default:
+      console.error(`Google Geocoding unexpected status ${status}:`, safeLogMessage);
+      throw new ApiError(502, "Unable to geocode the location right now");
+  }
+};
+
+const requestGoogleGeocoding = async (params, attempt = 0) => {
+  try {
+    const response = await axios.get(GOOGLE_GEOCODING_URL, {
+      params: {
+        ...params,
+        key: getGoogleApiKey(),
+        language: getGoogleLanguage(),
+        region: getGoogleRegion(),
+      },
+      timeout: getGoogleTimeout(),
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    const status = response.data?.status;
+
+    if (status === "OK") {
+      return Array.isArray(response.data.results) ? response.data.results : [];
     }
+
+    if (status === "ZERO_RESULTS") {
+      return [];
+    }
+
+    if (status === "UNKNOWN_ERROR" && attempt < 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return requestGoogleGeocoding(params, attempt + 1);
+    }
+
+    throwGoogleStatusError(status, response.data?.error_message);
+  } catch (error) {
+    if (error instanceof ApiError || Number.isInteger(error?.statusCode)) {
+      throw error;
+    }
+
+    const code = String(error.code || "");
+    const statusCode = Number(error.response?.status || 0);
+
+    console.error("Google Geocoding network error:", {
+      code,
+      statusCode,
+      message: error.message,
+    });
+
+    if (code === "ECONNABORTED" || code === "ETIMEDOUT") {
+      throw new ApiError(504, "Geocoding provider timed out");
+    }
+
+    throw new ApiError(502, "Unable to reach the geocoding provider");
+  }
+};
+
+const findGooglePlace = async (queries = []) => {
+  for (const query of queries.slice(0, getMaxCandidates())) {
+    const results = await requestGoogleGeocoding({
+      address: query,
+      components: "country:IN",
+    });
+
+    const result = selectBestResult(results);
+    if (result) return { result, query };
   }
 
-  return { place: null, query: queries[0] || "", error: lastError };
+  return {
+    result: null,
+    query: queries[0] || "",
+  };
 };
 
 const geocodeWithCorrection = async ({ params, originalQuery }) => {
@@ -135,119 +341,94 @@ const geocodeWithCorrection = async ({ params, originalQuery }) => {
     params.city,
     params.state,
     params.area,
-    params.pincode
+    params.pincode,
   );
-  const correctedParams = {
-    address: correctedAddressText,
-    area: params.area,
-    city: params.city,
-    state: params.state,
-    pincode: params.pincode,
-    country: params.country,
-  };
-  const correctedQueries = buildQueryCandidates(correctedParams);
-  const { place: correctedPlace, query: correctedQuery } = await findNominatimPlace(correctedQueries, params);
 
-  if (!correctedPlace) {
+  const correctedParams = {
+    ...params,
+    address: correctedAddressText,
+  };
+
+  const correctedQueries = buildQueryCandidates(correctedParams);
+  const { result, query } = await findGooglePlace(correctedQueries);
+
+  if (!result) {
     throw new ApiError(404, "No location found even after address correction");
   }
 
-  return mapPlaceResult({
-    place: correctedPlace,
-    query: correctedQuery,
+  return mapGoogleResult({
+    result,
+    query,
     corrected: true,
     originalQuery,
     correctedAddressText,
   });
 };
 
-const geocodeWithGroqCoordinates = async (params = {}) => {
-  const result = await estimateIndianCoordinates(params);
-
-  if (!isWithinIndiaBounds(result.latitude, result.longitude)) {
-    throw new ApiError(404, "No valid Indian coordinates found for this address");
-  }
-
-  return {
-    provider: "groq",
-    query: buildQuery({
-      address: params.address,
-      area: params.area,
-      city: params.city,
-      state: params.state,
-      pincode: params.pincode,
-      country: params.country,
-    }),
-    latitude: result.latitude,
-    longitude: result.longitude,
-    displayName: result.displayName,
-    importance: null,
-    address: null,
-    attribution: "Groq coordinate fallback",
-    corrected: true,
-    correctedAddressText: result.displayName,
-    confidence: result.confidence,
-  };
-};
-
 const geocodeAddress = async (params = {}) => {
   const queries = buildQueryCandidates(params);
-  const query = queries[0];
-  if (!query) throw new ApiError(400, "Address or city is required for geocoding");
+  const originalQuery = queries[0];
 
-  const cacheKey = `geocode:nominatim:${query.toLowerCase()}`;
-  const cached = await getCache(cacheKey);
-  if (cached) {
-    if (isWithinIndiaBounds(Number(cached.latitude), Number(cached.longitude))) {
-      return { ...cached, cached: true };
-    }
-
-    await deleteCache(cacheKey);
+  if (!originalQuery) {
+    throw new ApiError(400, "Address or city is required for geocoding");
   }
 
-  const { place, query: matchedQuery, error: providerError } = await findNominatimPlace(queries, params);
-  if (place) {
-    const result = mapPlaceResult({ place, query: matchedQuery });
-    await setCache(cacheKey, result, GEOCODE_CACHE_TTL_SECONDS);
-    return result;
+  const { result, query } = await findGooglePlace(queries);
+
+  if (result) {
+    return mapGoogleResult({ result, query });
   }
 
   if (process.env.GROQ_API_KEY) {
     try {
-      if (providerError) {
-        console.log("Nominatim unavailable, attempting Groq coordinate fallback...");
-        const result = await geocodeWithGroqCoordinates(params);
-        await setCache(cacheKey, result, GEOCODE_CACHE_TTL_SECONDS);
-        return result;
-      }
+      return await geocodeWithCorrection({
+        params,
+        originalQuery,
+      });
+    } catch (error) {
+      console.error(
+        "Google geocoding after address correction failed:",
+        error.message,
+      );
 
-      console.log("Nominatim failed, attempting Groq address correction...");
-      const result = await geocodeWithCorrection({ params, originalQuery: query });
-      await setCache(cacheKey, result, GEOCODE_CACHE_TTL_SECONDS);
-      return result;
-    } catch (correctionError) {
-      console.error("Groq address correction failed:", correctionError.message);
-      try {
-        console.log("Attempting Groq coordinate fallback...");
-        const result = await geocodeWithGroqCoordinates(params);
-        await setCache(cacheKey, result, GEOCODE_CACHE_TTL_SECONDS);
-        return result;
-      } catch (coordinateError) {
-        console.error("Groq coordinate fallback failed:", coordinateError.message);
-        if (coordinateError.status) throw coordinateError;
-        throw new ApiError(404, "No location found for this address");
+      if ([429, 502, 503, 504].includes(Number(error?.statusCode))) {
+        throw error;
       }
     }
   }
 
-  if (providerError) {
-    throw new ApiError(providerError.response?.status || 502, "Unable to geocode address right now");
+  throw new ApiError(404, "No location found for this address");
+};
+
+const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
+  const numericLatitude = Number(latitude);
+  const numericLongitude = Number(longitude);
+
+  if (
+    !Number.isFinite(numericLatitude) ||
+    !Number.isFinite(numericLongitude) ||
+    !isWithinIndiaBounds(numericLatitude, numericLongitude)
+  ) {
+    throw new ApiError(400, "Invalid Indian location coordinates");
   }
 
-  console.warn("Address not found and Groq not configured");
-  throw new ApiError(404, "No location found for this address");
+  const results = await requestGoogleGeocoding({
+    latlng: `${numericLatitude},${numericLongitude}`,
+  });
+
+  const result = selectBestResult(results, { reverse: true });
+
+  if (!result) {
+    throw new ApiError(404, "No address found for these coordinates");
+  }
+
+  return mapGoogleResult({
+    result,
+    query: `${numericLatitude},${numericLongitude}`,
+  });
 };
 
 module.exports = {
   geocodeAddress,
+  reverseGeocodeCoordinates,
 };

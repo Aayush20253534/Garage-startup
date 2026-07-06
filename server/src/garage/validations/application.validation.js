@@ -2,18 +2,38 @@ const { body, param, query } = require("express-validator");
 
 const submitGarageApplicationSchema = [
   body("ownerName").trim().notEmpty().withMessage("Owner name is required"),
-  body("email").trim().isEmail().withMessage("Valid email is required").normalizeEmail(),
+
+  body("email")
+    .trim()
+    .isEmail()
+    .withMessage("Valid email is required")
+    .normalizeEmail(),
+
   body("phone")
     .trim()
     .matches(/^\+91[6-9]\d{9}$/)
     .withMessage("Enter a valid 10-digit Indian mobile number"),
+
   body("garageName").trim().notEmpty().withMessage("Garage name is required"),
-  body("description").optional({ nullable: true, checkFalsy: true }).trim(),
+
+  body("description")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim(),
+
   body("address").trim().notEmpty().withMessage("Address is required"),
   body("city").trim().notEmpty().withMessage("City is required"),
   body("area").trim().notEmpty().withMessage("Area is required"),
-  body("latitude").optional({ nullable: true, checkFalsy: true }).isFloat({ min: -90, max: 90 }).withMessage("Latitude must be valid"),
-  body("longitude").optional({ nullable: true, checkFalsy: true }).isFloat({ min: -180, max: 180 }).withMessage("Longitude must be valid"),
+
+  body("latitude")
+    .optional({ nullable: true, checkFalsy: true })
+    .isFloat({ min: 6, max: 38 })
+    .withMessage("Latitude must be within India"),
+
+  body("longitude")
+    .optional({ nullable: true, checkFalsy: true })
+    .isFloat({ min: 68, max: 98 })
+    .withMessage("Longitude must be within India"),
+
   body("workingRadiusKm")
     .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 1, max: 100 })
@@ -21,12 +41,41 @@ const submitGarageApplicationSchema = [
 ];
 
 const geocodeGarageApplicationSchema = [
-  query("address").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 300 }),
-  query("city").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
-  query("state").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
-  query("pincode").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 20 }),
-  query("country").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
-  query("countrycodes").optional({ nullable: true, checkFalsy: true }).trim().isLength({ min: 2, max: 8 }),
+  query("address")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 300 })
+    .withMessage("Address must be at most 300 characters"),
+
+  query("area")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage("Area must be at most 120 characters"),
+
+  query("city")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage("City must be at most 120 characters"),
+
+  query("state")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage("State must be at most 120 characters"),
+
+  query("pincode")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .matches(/^\d{5,6}$/)
+    .withMessage("Pincode must contain 5 or 6 digits"),
+
+  query("country")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage("Country must be at most 120 characters"),
 ];
 
 const applicationIdSchema = [
@@ -42,7 +91,9 @@ const applicationQuerySchema = [
 
 const reviewApplicationSchema = [
   ...applicationIdSchema,
-  body("adminNote").optional({ nullable: true, checkFalsy: true }).trim(),
+  body("adminNote")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim(),
 ];
 
 module.exports = {

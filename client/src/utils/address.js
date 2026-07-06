@@ -1,3 +1,5 @@
+import api from "@/api/axios";
+
 const compactParts = (parts = []) =>
   parts.map((part) => String(part || "").trim()).filter(Boolean);
 
@@ -9,9 +11,11 @@ const normalizeKey = (value) =>
 
 const uniqueParts = (parts = []) => {
   const seen = new Set();
+
   return compactParts(parts).filter((part) => {
     const key = normalizeKey(part);
     if (!key || seen.has(key)) return false;
+
     seen.add(key);
     return true;
   });
@@ -39,142 +43,103 @@ export const hasUsableIndiaCoordinates = (location = {}) => {
   );
 };
 
-const withoutLocationParts = (parts = [], locationParts = []) => {
-  const blocked = new Set(locationParts.map(normalizeKey).filter(Boolean));
-  return uniqueParts(parts).filter((part) => !blocked.has(normalizeKey(part)));
-};
-
 export const buildFullAddress = (parts = {}) =>
-  compactParts([parts.address, parts.area, parts.city, parts.pincode]).join(
-    ", ",
-  );
+  uniqueParts([
+    parts.address,
+    parts.area,
+    parts.city,
+    parts.state,
+    parts.pincode,
+  ]).join(", ");
 
 export const parseAddressParts = (fullAddress = "") => {
   const value = String(fullAddress || "").trim();
-  if (!value) return { address: "", area: "", city: "", pincode: "" };
+  if (!value) {
+    return {
+      address: "",
+      area: "",
+      city: "",
+      state: "",
+      pincode: "",
+    };
+  }
 
-  const parts = compactParts(value.split(","));
-  const lastPart = parts[parts.length - 1] || "";
   const pincodeMatch = value.match(/\b\d{5,6}\b/);
   const pincode = pincodeMatch?.[0] || "";
-  const withoutPincode = pincode
-    ? parts.map((part) => part.replace(pincode, "").trim()).filter(Boolean)
-    : parts;
 
-  const city = withoutPincode[withoutPincode.length - 1] || "";
-  const area =
-    withoutPincode.length > 1 ? withoutPincode[withoutPincode.length - 2] : "";
+  const parts = compactParts(value.split(","))
+    .map((part) => (pincode ? part.replace(pincode, "").trim() : part))
+    .filter(Boolean)
+    .filter((part) => !["india", "bharat"].includes(normalizeKey(part)));
+
+  const city = parts[parts.length - 1] || "";
+  const area = parts.length > 1 ? parts[parts.length - 2] : "";
   const addressParts =
-    withoutPincode.length > 2
-      ? withoutPincode.slice(0, -2)
-      : withoutPincode.slice(0, 1);
+    parts.length > 2 ? parts.slice(0, -2) : parts.slice(0, 1);
 
   return {
     address: addressParts.join(", ") || value,
     area,
     city,
+    state: "",
     pincode,
   };
 };
 
-export const getAddressPartsFromNominatim = (data = {}) => {
-  const address = data.address || {};
-  const pincode = address.postcode || "";
-  const city =
-    address.city ||
-    address.town ||
-    address.village ||
-    address.municipality ||
-    address.county ||
-    address.state_district ||
-    "";
-  const area =
-    address.suburb ||
-    address.neighbourhood ||
-    address.quarter ||
-    address.city_district ||
-    address.hamlet ||
-    address.road ||
-    "";
-  const namedetails = data.namedetails || {};
-  const name = data.name || namedetails.name || namedetails["name:en"] || "";
-  const landmark = compactParts([
-    address.landmark,
-    address.amenity,
-    address.shop,
-    address.tourism,
-    address.office,
-    address.leisure,
-    address.historic,
-    address.railway,
-    address.aeroway,
-    address.highway,
-    address.public_building,
-    data.category && data.type ? name : "",
-    address.building,
-  ])[0];
-  const streetParts = withoutLocationParts(
-    [
-      address.house_number,
-      address.building,
-      address.road,
-      address.pedestrian,
-      address.footway,
-    ],
-    [area, city, pincode],
-  );
-  const landmarkPart =
-    landmark &&
-    !streetParts.some((part) => normalizeKey(part) === normalizeKey(landmark))
-      ? `Near ${landmark}`
-      : "";
-  const street = uniqueParts([...streetParts, landmarkPart]).join(", ");
-  const parsedFallback = parseAddressParts(data.display_name || "");
-  const fallbackAddress = withoutLocationParts(
-    [parsedFallback.address],
-    [
-      area || parsedFallback.area,
-      city || parsedFallback.city,
-      pincode || parsedFallback.pincode,
-    ],
-  ).join(", ");
-
-  return {
-    address:
-      street ||
-      fallbackAddress ||
-      parsedFallback.address ||
-      data.display_name ||
-      "",
-    area: area || parsedFallback.area,
-    city: city || parsedFallback.city,
-    pincode: pincode || parsedFallback.pincode,
-    fullAddress: data.display_name || buildFullAddress(parsedFallback),
-  };
-};
+const unwrapApiData = (response) => response?.data?.data ?? response?.data ?? {};
 
 export const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
-  const url = new URL("https://nominatim.openstreetmap.org/reverse");
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("addressdetails", "1");
-  url.searchParams.set("namedetails", "1");
-  url.searchParams.set("extratags", "1");
-  url.searchParams.set("zoom", "18");
-  url.searchParams.set("lat", String(latitude));
-  url.searchParams.set("lon", String(longitude));
+  const numericLatitude = Number(latitude);
+  const numericLongitude = Number(longitude);
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      Accept: "application/json",
-      "Accept-Language": "en-IN,en",
+  if (
+    !hasUsableIndiaCoordinates({
+      latitude: numericLatitude,
+      longitude: numericLongitude,
+    })
+  ) {
+    throw new Error("Invalid Indian location coordinates.");
+  }
+
+  const response = await api.get("/locations/reverse-geocode", {
+    params: {
+      latitude: numericLatitude,
+      longitude: numericLongitude,
     },
   });
 
-  if (!response.ok) {
+  const result = unwrapApiData(response);
+  const structuredAddress =
+    result.address && typeof result.address === "object" ? result.address : {};
+  const fallback = parseAddressParts(
+    result.fullAddress || result.displayName || "",
+  );
+
+  const normalized = {
+    address: structuredAddress.address || fallback.address || "",
+    area: structuredAddress.area || fallback.area || "",
+    city: structuredAddress.city || fallback.city || "",
+    state: structuredAddress.state || fallback.state || "",
+    pincode: structuredAddress.pincode || fallback.pincode || "",
+    country: structuredAddress.country || "India",
+    fullAddress:
+      result.fullAddress ||
+      result.displayName ||
+      buildFullAddress(structuredAddress) ||
+      buildFullAddress(fallback),
+    latitude: Number(result.latitude ?? numericLatitude),
+    longitude: Number(result.longitude ?? numericLongitude),
+    placeId: result.placeId || null,
+    locationType: result.locationType || null,
+    provider: result.provider || "google",
+    attribution: result.attribution || "Google Maps",
+  };
+
+  if (!normalized.fullAddress) {
     throw new Error("Could not resolve address for current location.");
   }
 
-  return getAddressPartsFromNominatim(await response.json());
+  return normalized;
 };
 
 export const getDefaultUserLocation = (user) => {
@@ -182,6 +147,7 @@ export const getDefaultUserLocation = (user) => {
   const validLocations = locations.filter(
     (item) => hasUsableIndiaCoordinates(item) && Boolean(item.address),
   );
+
   return (
     validLocations.find((item) => item.isDefault) || validLocations[0] || null
   );
@@ -192,6 +158,7 @@ export const getProfileAddress = (user) =>
 
 export const getLocationAddress = (location) => {
   if (!location) return "";
+
   return (
     location.fullAddress || buildFullAddress(location) || location.address || ""
   );

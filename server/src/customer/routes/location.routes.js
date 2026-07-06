@@ -10,18 +10,36 @@ const {
   createLocationValidation,
   updateLocationValidation,
   geocodeLocationValidation,
+  reverseGeocodeLocationValidation,
 } = require("../validations/location.validation");
 
 const router = express.Router();
 
+// Reverse geocoding is also needed before customer signup and during public
+// garage onboarding. The Google key stays on the server, while this proxy is
+// constrained by an IP-based rate limit.
+const publicReverseGeocodeRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => `reverse-geocode:${req.ip}`,
+});
+
+router.get(
+  "/reverse-geocode",
+  publicReverseGeocodeRateLimit,
+  reverseGeocodeLocationValidation,
+  validate,
+  locationController.reverseGeocodeLocation,
+);
+
 router.use(protect);
 
-// Increased rate limit for geocoding to allow Nominatim + Groq fallback flow
-// 20 requests per minute per user (Groq free tier: 30 RPM)
+// Forward geocoding is billed per request. Keep this conservative and scoped
+// to an authenticated customer account.
 const geocodeRateLimit = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 20, // 20 requests per window (increased from 10)
-  keyGenerator: (req) => `geocode:${req.user.id}`, // Per-user limit
+  windowMs: 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => `geocode:${req.user.id}`,
 });
 
 router.get(
@@ -29,7 +47,7 @@ router.get(
   geocodeRateLimit,
   geocodeLocationValidation,
   validate,
-  locationController.geocodeLocation
+  locationController.geocodeLocation,
 );
 
 router
@@ -37,17 +55,17 @@ router
   .post(createLocationValidation, validate, locationController.createLocation)
   .get(locationController.getMyLocations);
 
+router.patch(
+  "/:id/default",
+  locationIdValidation,
+  validate,
+  locationController.setDefaultLocation,
+);
+
 router
   .route("/:id")
   .get(locationIdValidation, validate, locationController.getLocationById)
   .patch(updateLocationValidation, validate, locationController.updateLocation)
   .delete(locationIdValidation, validate, locationController.deleteLocation);
-
-router.patch(
-  "/:id/default",
-  locationIdValidation,
-  validate,
-  locationController.setDefaultLocation
-);
 
 module.exports = router;
