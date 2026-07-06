@@ -1,14 +1,18 @@
-const IMAGE_CACHE = "rovauto-cloudinary-images-v1";
+const IMAGE_CACHE = "rovauto-cloudinary-images-v2";
 const CLOUDINARY_HOSTS = ["res.cloudinary.com"];
 
 const isCloudinaryImage = (request) => {
-  if (request.method !== "GET") return false;
+  if (request.method !== "GET") {
+    return false;
+  }
 
   try {
     const url = new URL(request.url);
+
     return (
       CLOUDINARY_HOSTS.includes(url.hostname) &&
-      (request.destination === "image" || /\.(avif|gif|jpe?g|png|webp)$/i.test(url.pathname))
+      (request.destination === "image" ||
+        /\.(avif|gif|jpe?g|png|webp)$/i.test(url.pathname))
     );
   } catch {
     return false;
@@ -19,16 +23,17 @@ const cacheImage = async (request) => {
   const cache = await caches.open(IMAGE_CACHE);
   const cached = await cache.match(request);
 
-  const fresh = fetch(request)
+  const networkRequest = fetch(request)
     .then((response) => {
       if (response && (response.ok || response.type === "opaque")) {
-        cache.put(request, response.clone());
+        void cache.put(request, response.clone());
       }
+
       return response;
     })
     .catch(() => cached);
 
-  return cached || fresh;
+  return cached || networkRequest;
 };
 
 self.addEventListener("install", () => {
@@ -42,7 +47,11 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith("rovauto-cloudinary-images-") && key !== IMAGE_CACHE)
+            .filter(
+              (key) =>
+                key.startsWith("rovauto-cloudinary-images-") &&
+                key !== IMAGE_CACHE,
+            )
             .map((key) => caches.delete(key)),
         ),
       )
@@ -51,26 +60,43 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (!isCloudinaryImage(event.request)) return;
+  if (!isCloudinaryImage(event.request)) {
+    return;
+  }
+
   event.respondWith(cacheImage(event.request));
 });
 
 self.addEventListener("message", (event) => {
-  if (event.data?.type !== "WARM_IMAGE_CACHE") return;
+  if (event.data?.type !== "WARM_IMAGE_CACHE") {
+    return;
+  }
 
-  const urls = Array.isArray(event.data.urls) ? event.data.urls : [];
+  const urls = Array.isArray(event.data.urls)
+    ? event.data.urls
+    : [];
 
   event.waitUntil(
     caches.open(IMAGE_CACHE).then((cache) =>
       Promise.allSettled(
         urls
           .filter(Boolean)
-          .map((url) => new Request(url, { mode: "no-cors", credentials: "omit" }))
+          .map(
+            (url) =>
+              new Request(url, {
+                mode: "no-cors",
+                credentials: "omit",
+              }),
+          )
           .map((request) =>
             fetch(request).then((response) => {
-              if (response && (response.ok || response.type === "opaque")) {
+              if (
+                response &&
+                (response.ok || response.type === "opaque")
+              ) {
                 return cache.put(request, response);
               }
+
               return null;
             }),
           ),

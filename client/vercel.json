@@ -1,4 +1,5 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -15,49 +16,34 @@
         {
           "key": "Cache-Control",
           "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
         }
       ]
     },
     {
-      "source": "/index.html",
+      "source": "/((?!assets/).*)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/booking/(.*)",
-      "headers": [
+        },
         {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/services/(.*)",
-      "headers": [
+          "key": "Pragma",
+          "value": "no-cache"
+        },
         {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/dashboard/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+          "key": "Expires",
+          "value": "0"
         }
       ]
     }
   ],
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|sw\\.js$|favicon\\.ico$|robots\\.txt$).*)",
       "destination": "/index.html"
     }
   ]

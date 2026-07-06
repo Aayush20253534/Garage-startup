@@ -29,16 +29,45 @@ export const getServiceImageUrls = (categories = []) =>
   );
 
 export const registerImageCacheWorker = () => {
-  if (!("serviceWorker" in navigator) || !import.meta.env.PROD) return;
+  if (!("serviceWorker" in navigator) || !import.meta.env.PROD) {
+    return;
+  }
 
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => null);
+  window.addEventListener("load", async () => {
+    try {
+      const registrations =
+        await navigator.serviceWorker.getRegistrations();
+
+      await Promise.all(
+        registrations
+          .filter((registration) => {
+            const scriptUrl =
+              registration.active?.scriptURL ||
+              registration.waiting?.scriptURL ||
+              registration.installing?.scriptURL ||
+              "";
+
+            return scriptUrl && !scriptUrl.endsWith("/sw.js");
+          })
+          .map((registration) => registration.unregister()),
+      );
+
+      await navigator.serviceWorker.register("/sw.js", {
+        scope: "/",
+        updateViaCache: "none",
+      });
+    } catch (error) {
+      console.warn("Service worker registration failed:", error);
+    }
   });
 };
 
 export const warmImageCache = (urls = []) => {
   const imageUrls = uniqueCloudinaryUrls(urls);
-  if (imageUrls.length === 0) return;
+
+  if (imageUrls.length === 0) {
+    return;
+  }
 
   if (navigator.serviceWorker?.controller) {
     navigator.serviceWorker.controller.postMessage({
