@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import api from "@/api/axios";
 import { FcGoogle } from "react-icons/fc";
 import completeGoogleAuth from "@/utils/googleAuth";
@@ -12,8 +12,8 @@ const PASSWORD_MESSAGE =
 const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
-const getPhoneDigits = (value) => {
-  let digits = value.replace(/\D/g, "");
+const getPhoneDigits = (value = "") => {
+  let digits = String(value).replace(/\D/g, "");
 
   if (digits.length > 10 && digits.startsWith("91")) {
     digits = digits.slice(2);
@@ -22,9 +22,12 @@ const getPhoneDigits = (value) => {
   return digits.slice(0, 10);
 };
 
+const normalizeEmail = (value = "") => String(value).trim().toLowerCase();
+
 export default function Register() {
   const nav = useNavigate();
   const { login } = useApp();
+  const actionLockRef = useRef(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -34,8 +37,9 @@ export default function Register() {
     confirmPassword: "",
   });
 
-  const [loading, setLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState("");
   const [error, setError] = useState("");
+  const loading = Boolean(loadingAction);
 
   const change = (event) => {
     const { name, value } = event.target;
@@ -44,14 +48,32 @@ export default function Register() {
       ...previous,
       [name]: name === "phone" ? getPhoneDigits(value) : value,
     }));
+
+    if (error) setError("");
   };
 
   const submit = async (event) => {
     event.preventDefault();
+    if (actionLockRef.current) return;
+
+    actionLockRef.current = true;
     setError("");
-    setLoading(true);
+    setLoadingAction("FORM");
 
     try {
+      const name = form.name.trim();
+      const email = normalizeEmail(form.email);
+      const phoneDigits = getPhoneDigits(form.phone);
+      const fullPhone = `${COUNTRY_CODE}${phoneDigits}`;
+
+      if (name.length < 2) {
+        throw new Error("Enter your full name.");
+      }
+
+      if (!email) {
+        throw new Error("Enter a valid email address.");
+      }
+
       if (!PASSWORD_REGEX.test(form.password)) {
         throw new Error(PASSWORD_MESSAGE);
       }
@@ -60,56 +82,56 @@ export default function Register() {
         throw new Error("Passwords do not match.");
       }
 
-      const phoneDigits = getPhoneDigits(form.phone);
-      const fullPhone = `${COUNTRY_CODE}${phoneDigits}`;
-
       if (!/^\+91[6-9]\d{9}$/.test(fullPhone)) {
         throw new Error("Enter a valid 10-digit Indian mobile number.");
       }
 
       const payload = {
-        name: form.name.trim(),
-        email: form.email.trim(),
+        name,
+        email,
         phone: fullPhone,
         password: form.password,
         confirmPassword: form.confirmPassword,
         role: "CUSTOMER",
       };
 
+      // Location is collected after authentication. This avoids delaying signup
+      // with an extra geocoding request and keeps the Google key server-side.
       const signupLocation = null;
 
       await api.post("/auth/signup", payload);
 
-      sessionStorage.setItem(
-        "pendingSignupOtp",
-        JSON.stringify({
-          email: payload.email,
-          phone: fullPhone,
-          role: payload.role,
-          signupLocation,
-          createdAt: Date.now(),
-        }),
-      );
+      const pendingOtp = {
+        email: payload.email,
+        phone: payload.phone,
+        role: payload.role,
+        signupLocation,
+        createdAt: Date.now(),
+      };
+
+      sessionStorage.setItem("pendingSignupOtp", JSON.stringify(pendingOtp));
 
       nav("/otp", {
+        replace: true,
         state: {
-          email: payload.email,
-          phone: fullPhone,
-          role: payload.role,
-          signupLocation,
+          ...pendingOtp,
           fromSignup: true,
         },
       });
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Signup failed");
     } finally {
-      setLoading(false);
+      actionLockRef.current = false;
+      setLoadingAction("");
     }
   };
 
   const handleGoogleAuth = async () => {
+    if (actionLockRef.current) return;
+
+    actionLockRef.current = true;
     setError("");
-    setLoading(true);
+    setLoadingAction("GOOGLE");
 
     try {
       const data = await completeGoogleAuth("CUSTOMER");
@@ -119,14 +141,13 @@ export default function Register() {
         throw new Error("Invalid Google signup response");
       }
 
-      // The backend sets the HttpOnly cookie. Store only user-facing state.
+      // Authentication is held by the HttpOnly cookie. Local state contains
+      // only the safe user bundle required to render the interface.
       login(freshUser);
 
-      const redirectPath = hasSavedUserLocation(freshUser)
-        ? "/dashboard"
-        : "/booking/address";
-
-      nav(redirectPath, { replace: true });
+      nav(hasSavedUserLocation(freshUser) ? "/dashboard" : "/booking/address", {
+        replace: true,
+      });
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -135,32 +156,37 @@ export default function Register() {
           "Google signup failed",
       );
     } finally {
-      setLoading(false);
+      actionLockRef.current = false;
+      setLoadingAction("");
     }
   };
 
   return (
     <div className="container-x grid min-h-[80vh] gap-12 py-10 sm:py-16 lg:grid-cols-2">
       <div className="hidden lg:block">
-        <h1 className="text-5xl font-bold leading-tight mt-38">
+        <h1 className="mt-38 text-5xl font-bold leading-tight">
           Create your <span className="text-brand-dark">Rovauto</span> account.
         </h1>
       </div>
 
-      <div className="card-soft p-7 max-w-md w-full mx-auto">
+      <div className="card-soft mx-auto w-full max-w-md p-7">
         <h2 className="text-2xl font-bold">Create account</h2>
 
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+            {error}
+          </p>
+        )}
 
         <form onSubmit={submit} className="mt-5 grid gap-2.5">
           <button
             type="button"
             onClick={handleGoogleAuth}
             disabled={loading}
-            className="flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-3 font-medium transition hover:border-ink disabled:opacity-60"
+            className="flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-3 font-medium transition hover:border-ink disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FcGoogle className="text-xl" />
-            Continue with Google
+            {loadingAction === "GOOGLE" ? "Connecting..." : "Continue with Google"}
           </button>
 
           <div className="flex items-center gap-3 text-xs text-muted">
@@ -174,8 +200,10 @@ export default function Register() {
             name="name"
             value={form.name}
             onChange={change}
+            autoComplete="name"
             placeholder="Full name"
-            className="px-4 py-2.5 rounded-xl border border-line focus:border-ink outline-none"
+            disabled={loading}
+            className="rounded-xl border border-line px-4 py-2.5 outline-none focus:border-ink disabled:opacity-60"
           />
 
           <input
@@ -184,8 +212,10 @@ export default function Register() {
             value={form.email}
             onChange={change}
             type="email"
+            autoComplete="email"
             placeholder="Email"
-            className="px-4 py-2.5 rounded-xl border border-line focus:border-ink outline-none"
+            disabled={loading}
+            className="rounded-xl border border-line px-4 py-2.5 outline-none focus:border-ink disabled:opacity-60"
           />
 
           <div className="flex items-center overflow-hidden rounded-xl border border-line bg-white transition focus-within:border-ink">
@@ -199,39 +229,40 @@ export default function Register() {
               value={form.phone}
               onChange={change}
               maxLength={10}
-              inputMode="tel"
+              inputMode="numeric"
+              autoComplete="tel-national"
               placeholder="Mobile number"
-              className="min-w-0 flex-1 border-0 px-4 py-2.5 outline-none"
+              disabled={loading}
+              className="min-w-0 flex-1 border-0 px-4 py-2.5 outline-none disabled:opacity-60"
             />
           </div>
 
-          <label className="grid gap-1 text-sm">
-            <input
-              required
-              name="password"
-              value={form.password}
-              onChange={change}
-              type="password"
-              placeholder="Create password"
-              minLength={8}
-              pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}"
-              title={PASSWORD_MESSAGE}
-              className="px-4 py-2.5 rounded-xl border border-line focus:border-ink outline-none"
-            />
-          </label>
+          <input
+            required
+            name="password"
+            value={form.password}
+            onChange={change}
+            type="password"
+            autoComplete="new-password"
+            placeholder="Create password"
+            minLength={8}
+            title={PASSWORD_MESSAGE}
+            disabled={loading}
+            className="rounded-xl border border-line px-4 py-2.5 outline-none focus:border-ink disabled:opacity-60"
+          />
 
-          <label className="grid gap-1 text-sm">
-            <input
-              required
-              name="confirmPassword"
-              value={form.confirmPassword}
-              onChange={change}
-              type="password"
-              placeholder="Re-enter password"
-              minLength={8}
-              className="px-4 py-2.5 rounded-xl border border-line focus:border-ink outline-none"
-            />
-          </label>
+          <input
+            required
+            name="confirmPassword"
+            value={form.confirmPassword}
+            onChange={change}
+            type="password"
+            autoComplete="new-password"
+            placeholder="Re-enter password"
+            minLength={8}
+            disabled={loading}
+            className="rounded-xl border border-line px-4 py-2.5 outline-none focus:border-ink disabled:opacity-60"
+          />
 
           {form.confirmPassword && form.password !== form.confirmPassword && (
             <p className="text-xs text-red-600">Passwords do not match.</p>
@@ -241,13 +272,17 @@ export default function Register() {
             {PASSWORD_MESSAGE}
           </p>
 
-          <button disabled={loading} className="btn-primary mt-2">
-            {loading ? "Creating..." : "Create Account"}
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary mt-2 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loadingAction === "FORM" ? "Creating..." : "Create Account"}
           </button>
 
           <div className="text-center text-sm text-muted">
             Already a member?{" "}
-            <Link to="/login" className="text-ink font-medium">
+            <Link to="/login" className="font-medium text-ink">
               Login
             </Link>
           </div>

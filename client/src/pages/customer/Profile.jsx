@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import CitySelect from "@/components/common/CitySelect";
@@ -15,10 +15,50 @@ import {
   UNAVAILABLE_CITY_MESSAGE,
 } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
-import { FiCheckCircle, FiMapPin, FiNavigation, FiSave, FiX } from "react-icons/fi";
+import {
+  FiCheckCircle,
+  FiMapPin,
+  FiNavigation,
+  FiSave,
+  FiX,
+} from "react-icons/fi";
+
+const INDIA_PHONE_REGEX = /^\+91[6-9]\d{9}$/;
 
 const hasCoordinateValue = (value) =>
   value !== null && value !== undefined && value !== "";
+
+const normalizeIndianPhone = (value = "") => {
+  let digits = String(value).replace(/\D/g, "");
+
+  if (digits.length > 10 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  }
+
+  digits = digits.slice(0, 10);
+  return digits ? `+91${digits}` : "";
+};
+
+const getDefaultLocation = (data = {}) => {
+  const locations = Array.isArray(data.locations) ? data.locations : [];
+  return locations.find((item) => item.isDefault) || locations[0] || null;
+};
+
+const createFormFromUser = (data = {}) => {
+  const defaultLocation = getDefaultLocation(data);
+
+  return {
+    name: data.name || "",
+    email: data.email || "",
+    phone: data.phone || "",
+    address: data.customerProfile?.address || data.address || "",
+    location: {
+      latitude: defaultLocation?.latitude ?? null,
+      longitude: defaultLocation?.longitude ?? null,
+      source: defaultLocation?.source || "MANUAL",
+    },
+  };
+};
 
 export default function Profile() {
   const {
@@ -30,19 +70,12 @@ export default function Profile() {
     clearDashboardCache,
   } = useApp();
 
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-    location: {
-      latitude: null,
-      longitude: null,
-      source: "MANUAL",
-    },
-  });
+  const initialLoadRef = useRef(false);
+  const profileRequestRef = useRef(null);
+  const mountedRef = useRef(true);
 
-  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(() => createFormFromUser(user));
+  const [loading, setLoading] = useState(!user);
   const [saving, setSaving] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationSaving, setLocationSaving] = useState(false);
@@ -60,24 +93,14 @@ export default function Profile() {
   const [locationError, setLocationError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const fillForm = (data) => {
-    const addressText = data.customerProfile?.address || data.address || "";
-    const defaultLocation =
-      data.locations?.find((item) => item.isDefault) || data.locations?.[0];
+  const applyProfileData = (data, { updateContext = false } = {}) => {
+    if (!data) return;
 
-    setForm({
-      name: data.name || "",
-      email: data.email || "",
-      phone: data.phone || "",
-      address: addressText,
-      location: {
-        latitude: defaultLocation?.latitude ?? null,
-        longitude: defaultLocation?.longitude ?? null,
-        source: defaultLocation?.source || "MANUAL",
-      },
-    });
+    setForm(createFormFromUser(data));
 
-    setUser(data);
+    if (updateContext) {
+      setUser(data);
+    }
 
     const syncedLocation = getLocationStateFromUser(data);
     if (syncedLocation) {
@@ -85,30 +108,86 @@ export default function Profile() {
     }
   };
 
-  const loadProfile = async ({ force = false } = {}) => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const data = await fetchProfile({ force });
-      fillForm(data);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to load profile");
-    } finally {
-      setLoading(false);
+  const loadProfile = async ({ force = false, showLoader = true } = {}) => {
+    if (profileRequestRef.current) {
+      return profileRequestRef.current;
     }
+
+    if (showLoader) setLoading(true);
+    setError("");
+
+    let request;
+    request = (async () => {
+      try {
+        const data = await fetchProfile({ force });
+
+        if (mountedRef.current) {
+          applyProfileData(data);
+        }
+
+        return data;
+      } catch (err) {
+        if (mountedRef.current) {
+          setError(
+            err.response?.data?.message ||
+              err.message ||
+              "Failed to load profile",
+          );
+        }
+        return null;
+      } finally {
+        if (mountedRef.current && showLoader) {
+          setLoading(false);
+        }
+      }
+    })().finally(() => {
+      if (profileRequestRef.current === request) {
+        profileRequestRef.current = null;
+      }
+    });
+
+    profileRequestRef.current = request;
+    return request;
   };
 
   useEffect(() => {
-    loadProfile();
+    mountedRef.current = true;
+
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+
+      if (user) {
+        applyProfileData(user);
+        setLoading(false);
+        void loadProfile({ force: false, showLoader: false });
+      } else {
+        void loadProfile();
+      }
+    }
+
+    return () => {
+      mountedRef.current = false;
+    };
+    // The provider methods are intentionally read once for the page mount.
+    // useApp currently recreates its function references on context updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const change = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const change = (event) => {
+    const { name, value } = event.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: name === "phone" ? value.replace(/[^\d+]/g, "") : value,
+    }));
+
+    setError("");
+    setSuccess("");
   };
 
   const openLocationEditor = () => {
     const parsed = parseAddressParts(form.address);
+
     setLocationDraft({
       address: parsed.address || "",
       area: parsed.area || "",
@@ -118,14 +197,16 @@ export default function Profile() {
       longitude: form.location?.longitude ?? null,
       source: form.location?.source || "MANUAL",
     });
+
     setLocationError("");
+    setSuccess("");
     setLocationOpen(true);
   };
 
   const updateLocationDraft = (field, value) => {
-    setLocationDraft((prev) => ({
-      ...prev,
-      [field]: value,
+    setLocationDraft((previous) => ({
+      ...previous,
+      [field]: field === "pincode" ? String(value).replace(/\D/g, "").slice(0, 6) : value,
       latitude: null,
       longitude: null,
       source: "MANUAL",
@@ -134,9 +215,11 @@ export default function Profile() {
   };
 
   const getCurrentCoordinates = async () => {
+    if (!navigator.geolocation) {
+      throw new Error("Geolocation is not supported by this browser.");
+    }
+
     const position = await new Promise((resolve, reject) => {
-      if (!navigator.geolocation)
-        reject(new Error("Geolocation not supported"));
       navigator.geolocation.getCurrentPosition(resolve, reject, {
         enableHighAccuracy: true,
         timeout: 15000,
@@ -151,15 +234,19 @@ export default function Profile() {
   };
 
   const detectLocation = async () => {
+    if (locationSaving) return;
+
     setLocationSaving(true);
     setLocationError("");
+
     try {
       const { latitude, longitude } = await getCurrentCoordinates();
       const parsed = await reverseGeocodeCoordinates({ latitude, longitude });
+
       if (!(await isCityAvailable(parsed.city))) {
-        setLocationError(UNAVAILABLE_CITY_MESSAGE);
-        return;
+        throw new Error(UNAVAILABLE_CITY_MESSAGE);
       }
+
       setLocationDraft({
         address: parsed.address || "",
         area: parsed.area || "",
@@ -170,25 +257,53 @@ export default function Profile() {
         source: "GPS",
       });
     } catch (err) {
-      setLocationError(err.message || "Could not detect location.");
+      setLocationError(
+        err.response?.data?.message ||
+          err.message ||
+          "Could not detect location.",
+      );
     } finally {
       setLocationSaving(false);
     }
   };
 
+  const validateLocationDraft = () => {
+    if (!locationDraft.address.trim()) {
+      throw new Error("Enter your house, street, or landmark.");
+    }
+
+    if (!locationDraft.area.trim()) {
+      throw new Error("Enter your area.");
+    }
+
+    if (!locationDraft.city.trim()) {
+      throw new Error("Select your city.");
+    }
+
+    if (!/^\d{6}$/.test(locationDraft.pincode)) {
+      throw new Error("Enter a valid 6-digit pincode.");
+    }
+  };
+
   const applyLocationDraft = async () => {
+    if (locationSaving) return;
+
     setLocationSaving(true);
     setLocationError("");
+    setSuccess("");
+
     try {
+      validateLocationDraft();
+
       if (!(await isCityAvailable(locationDraft.city))) {
-        setLocationError(UNAVAILABLE_CITY_MESSAGE);
-        return;
+        throw new Error(UNAVAILABLE_CITY_MESSAGE);
       }
 
       const fullAddress = buildFullAddress(locationDraft);
       const hasDraftCoordinates =
         hasCoordinateValue(locationDraft.latitude) &&
         hasCoordinateValue(locationDraft.longitude);
+
       let latitude = hasDraftCoordinates
         ? Number(locationDraft.latitude)
         : null;
@@ -204,8 +319,9 @@ export default function Profile() {
           locationDraft.area,
           locationDraft.pincode,
         );
-        latitude = result.latitude;
-        longitude = result.longitude;
+
+        latitude = Number(result.latitude);
+        longitude = Number(result.longitude);
         source = "MANUAL";
       }
 
@@ -215,7 +331,7 @@ export default function Profile() {
         );
       }
 
-      await api.post("/locations", {
+      const locationResponse = await api.post("/locations", {
         latitude,
         longitude,
         address: fullAddress,
@@ -223,28 +339,50 @@ export default function Profile() {
         isDefault: true,
       });
 
+      // Keep the profile address and saved default location consistent without
+      // forcing an immediate GET /customer/profile after a successful write.
+      const profileResponse = await api.patch("/customer/profile", {
+        address: fullAddress,
+      });
+
+      const savedLocationData = locationResponse.data?.data;
+      const savedLocation = savedLocationData?.location || savedLocationData || {};
+      const profileData = profileResponse.data?.data;
+      const profileUser = profileData?.user || profileData || {};
+
       const nextLocation = {
         ...locationDraft,
+        ...savedLocation,
         fullAddress,
+        address: fullAddress,
         latitude,
         longitude,
         source,
+        isDefault: true,
       };
 
+      const existingLocations = Array.isArray(user?.locations)
+        ? user.locations.filter((item) => !item.isDefault)
+        : [];
+
+      const nextUser = {
+        ...(user || {}),
+        ...profileUser,
+        customerProfile: {
+          ...(user?.customerProfile || {}),
+          ...(profileUser.customerProfile || {}),
+          address: fullAddress,
+        },
+        address: profileUser.address || user?.address || fullAddress,
+        locations: [nextLocation, ...existingLocations],
+      };
+
+      setUser(nextUser);
       setLocation(nextLocation);
-      setForm((prev) => ({
-        ...prev,
-        address: fullAddress,
-        location: { latitude, longitude, source },
-      }));
+      setForm(createFormFromUser(nextUser));
 
       clearProfileCache?.();
       clearDashboardCache?.();
-
-      const refreshedProfile = await fetchProfile?.({ force: true });
-      if (refreshedProfile) {
-        fillForm(refreshedProfile);
-      }
 
       addRecentActivity({
         type: "LOCATION",
@@ -252,9 +390,12 @@ export default function Profile() {
           source === "GPS"
             ? "Updated location from GPS"
             : "Updated location manually",
-        detail: `${locationDraft.city}${locationDraft.area ? `, ${locationDraft.area}` : ""}`,
+        detail: `${locationDraft.city}${
+          locationDraft.area ? `, ${locationDraft.area}` : ""
+        }`,
         path: "/dashboard/profile",
       });
+
       setSuccess("Location updated successfully");
       setLocationOpen(false);
     } catch (err) {
@@ -268,32 +409,71 @@ export default function Profile() {
     }
   };
 
-  const saveProfile = async (e) => {
-    e.preventDefault();
+  const saveProfile = async (event) => {
+    event.preventDefault();
+    if (saving) return;
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
 
     try {
-      setSaving(true);
-      setError("");
-      setSuccess("");
+      const name = form.name.trim();
+      const phone = normalizeIndianPhone(form.phone);
+      const address = form.address.trim();
 
-      await api.patch("/customer/profile", {
-        name: form.name,
-        phone: form.phone,
-        address: form.address,
+      if (name.length < 2) {
+        throw new Error("Enter your full name.");
+      }
+
+      if (!INDIA_PHONE_REGEX.test(phone)) {
+        throw new Error("Enter a valid 10-digit Indian mobile number.");
+      }
+
+      const before = {
+        name: user?.name || "",
+        phone: user?.phone || "",
+        address: user?.customerProfile?.address || user?.address || "",
+      };
+
+      const response = await api.patch("/customer/profile", {
+        name,
+        phone,
+        address,
       });
+
+      const responseData = response.data?.data;
+      const responseUser = responseData?.user || responseData || {};
+
+      const nextUser = {
+        ...(user || {}),
+        ...responseUser,
+        name: responseUser.name || name,
+        phone: responseUser.phone || phone,
+        customerProfile: {
+          ...(user?.customerProfile || {}),
+          ...(responseUser.customerProfile || {}),
+          address:
+            responseUser.customerProfile?.address ||
+            responseUser.address ||
+            address,
+        },
+      };
+
+      setUser(nextUser);
+      setForm(createFormFromUser(nextUser));
+
+      const syncedLocation = getLocationStateFromUser(nextUser);
+      if (syncedLocation) setLocation(syncedLocation);
 
       clearProfileCache?.();
       clearDashboardCache?.();
 
-      await loadProfile({ force: true });
-
       const changed = [];
-      if ((user?.name || "") !== form.name) changed.push("name");
-      if ((user?.phone || "") !== form.phone) changed.push("phone");
-      if (
-        (user?.customerProfile?.address || user?.address || "") !== form.address
-      )
-        changed.push("address");
+      if (before.name !== name) changed.push("name");
+      if (before.phone !== phone) changed.push("phone");
+      if (before.address !== address) changed.push("address");
+
       if (changed.length) {
         addRecentActivity({
           type: "PROFILE",
@@ -305,7 +485,11 @@ export default function Profile() {
 
       setSuccess("Profile updated successfully");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to update profile");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to update profile",
+      );
     } finally {
       setSaving(false);
     }
@@ -321,19 +505,18 @@ export default function Profile() {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-2xl font-bold mb-6">Profile Settings</h2>
+      <h2 className="mb-6 text-2xl font-bold">Profile Settings</h2>
 
-      <form onSubmit={saveProfile} className="card-soft p-6 grid gap-4">
+      <form onSubmit={saveProfile} className="card-soft grid gap-4 p-6">
         <div className="flex items-center gap-4">
-          <span className="grid place-items-center h-16 w-16 rounded-2xl bg-ink text-white font-bold text-xl">
+          <span className="grid h-16 w-16 place-items-center rounded-2xl bg-ink text-xl font-bold text-white">
             {form.name?.[0]?.toUpperCase() || "U"}
           </span>
 
           <div>
-            <div className="font-semibold text-lg">
+            <div className="text-lg font-semibold">
               {form.name || user?.name || "User"}
             </div>
-
             <div className="text-sm text-muted">
               {form.phone || "Phone not available"}
             </div>
@@ -354,39 +537,40 @@ export default function Profile() {
 
         <label className="grid gap-1.5 text-sm">
           <span className="font-medium">Full Name</span>
-
           <input
+            required
             name="name"
             value={form.name}
             onChange={change}
-            className="px-4 py-3 rounded-xl border border-line focus:border-ink outline-none"
+            autoComplete="name"
+            className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
           />
         </label>
 
         <label className="grid gap-1.5 text-sm">
           <span className="font-medium">Email</span>
-
           <input
             type="email"
             value={form.email}
             disabled
-            className="px-4 py-3 rounded-xl border border-line bg-bg-soft text-muted outline-none cursor-not-allowed"
+            className="cursor-not-allowed rounded-xl border border-line bg-bg-soft px-4 py-3 text-muted outline-none"
           />
         </label>
 
         <label className="grid gap-1.5 text-sm">
           <span className="font-medium">Phone</span>
-
           <input
+            required
             name="phone"
             value={form.phone}
             onChange={change}
             inputMode="tel"
+            autoComplete="tel"
             placeholder="Enter mobile number"
-            className="px-4 py-3 rounded-xl border border-line focus:border-ink outline-none"
+            className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
           />
           <span className="text-xs text-muted">
-            Use a 10-digit Indian mobile number. It will be saved as +91 format.
+            Enter a 10-digit Indian number. It is saved in +91 format.
           </span>
         </label>
 
@@ -410,6 +594,7 @@ export default function Profile() {
         </div>
 
         <button
+          type="submit"
           disabled={saving}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
         >
@@ -428,10 +613,13 @@ export default function Profile() {
                   Set your service location details.
                 </p>
               </div>
+
               <button
                 type="button"
-                onClick={() => setLocationOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-white text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
+                onClick={() => !locationSaving && setLocationOpen(false)}
+                disabled={locationSaving}
+                aria-label="Close address editor"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-white text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:opacity-60"
               >
                 <FiX />
               </button>
@@ -457,7 +645,9 @@ export default function Profile() {
               <textarea
                 required
                 value={locationDraft.address}
-                onChange={(e) => updateLocationDraft("address", e.target.value)}
+                onChange={(event) =>
+                  updateLocationDraft("address", event.target.value)
+                }
                 placeholder="House number, street, landmark"
                 rows={3}
                 className="resize-none rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
@@ -467,10 +657,13 @@ export default function Profile() {
                 <input
                   required
                   value={locationDraft.area}
-                  onChange={(e) => updateLocationDraft("area", e.target.value)}
+                  onChange={(event) =>
+                    updateLocationDraft("area", event.target.value)
+                  }
                   placeholder="Area"
                   className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
                 />
+
                 <CitySelect
                   required
                   value={locationDraft.city}
@@ -482,7 +675,9 @@ export default function Profile() {
               <input
                 required
                 value={locationDraft.pincode}
-                onChange={(e) => updateLocationDraft("pincode", e.target.value)}
+                onChange={(event) =>
+                  updateLocationDraft("pincode", event.target.value)
+                }
                 placeholder="Pincode"
                 inputMode="numeric"
                 maxLength={6}
@@ -490,8 +685,8 @@ export default function Profile() {
               />
 
               <div className="text-xs text-muted">
-                Lat: {locationDraft.latitude || "Not set"}, Lng:{" "}
-                {locationDraft.longitude || "Not set"}
+                Lat: {locationDraft.latitude ?? "Not set"}, Lng:{" "}
+                {locationDraft.longitude ?? "Not set"}
               </div>
 
               <button

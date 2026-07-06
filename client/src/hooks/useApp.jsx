@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import api from "@/api/axios";
 import { garageApi } from "@/api/garage";
@@ -100,6 +100,12 @@ export function AppProvider({ children }) {
 
   const [cart, setCart] = useState([]);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Prevent duplicate session/profile requests when multiple components mount
+  // together or the tab becomes visible repeatedly.
+  const authRequestRef = useRef(null);
+  const garageRequestRef = useRef(null);
+  const profileRequestRef = useRef(null);
 
   const [dashboardCache, setDashboardCache] = useState(() =>
     readJson("rov_dashboard", null),
@@ -379,60 +385,88 @@ export function AppProvider({ children }) {
   };
 
   const fetchMe = async ({ sync = true } = {}) => {
-    try {
-      const response = await api.get("/auth/me", {
-        skipSessionExpiryMessage: true,
-      });
-      const me = response.data?.data;
-
-      if (!me || !VALID_SESSION_ROLES.has(me.role)) {
-        throw new Error("Invalid current-user response");
-      }
-
-      setSessionRole(me.role);
-
-      if (sync && me.role !== "GARAGE_OWNER") {
-        syncAuthenticatedUser(me);
-      }
-
-      return me;
-    } catch (err) {
-      if (err.response?.status === 401) {
-        clearAllLocalSessions();
-      }
-
-      return null;
+    if (authRequestRef.current) {
+      return authRequestRef.current;
     }
+
+    let request;
+    request = (async () => {
+      try {
+        const response = await api.get("/auth/me", {
+          skipSessionExpiryMessage: true,
+        });
+        const me = response.data?.data;
+
+        if (!me || !VALID_SESSION_ROLES.has(me.role)) {
+          throw new Error("Invalid current-user response");
+        }
+
+        setSessionRole(me.role);
+
+        if (sync && me.role !== "GARAGE_OWNER") {
+          syncAuthenticatedUser(me);
+        }
+
+        return me;
+      } catch (err) {
+        if (err.response?.status === 401) {
+          clearAllLocalSessions();
+        }
+
+        return null;
+      }
+    })().finally(() => {
+      if (authRequestRef.current === request) {
+        authRequestRef.current = null;
+      }
+    });
+
+    authRequestRef.current = request;
+    return request;
   };
 
   const refreshGarage = async () => {
-    try {
-      const garageData = await garageApi.getProfile();
-
-      if (!garageData) {
-        throw new Error("Invalid garage profile response");
-      }
-
-      localStorage.setItem("garage", JSON.stringify(garageData));
-      setSessionRole("GARAGE_OWNER");
-      dispatch(setGarage(garageData));
-
-      return garageData;
-    } catch (err) {
-      if (err.response?.status === 401) {
-        clearAllLocalSessions();
-      } else if (err.response?.status === 403) {
-        // A valid non-garage session must not be destroyed just because an old
-        // garage cache existed. Remove only the garage-side state.
-        clearGarageSession({ clearRole: false });
-
-        if (localStorage.getItem(SESSION_ROLE_KEY) === "GARAGE_OWNER") {
-          clearSessionRole();
-        }
-      }
-
-      return null;
+    if (garageRequestRef.current) {
+      return garageRequestRef.current;
     }
+
+    let request;
+    request = (async () => {
+      try {
+        const garageData = await garageApi.getProfile();
+
+        if (!garageData) {
+          throw new Error("Invalid garage profile response");
+        }
+
+        localStorage.setItem("garage", JSON.stringify(garageData));
+        setSessionRole("GARAGE_OWNER");
+        dispatch(setGarage(garageData));
+
+        return garageData;
+      } catch (err) {
+        if (err.response?.status === 401) {
+          clearAllLocalSessions();
+        } else if (err.response?.status === 403) {
+          // A valid non-garage session must not be destroyed just because an old
+          // garage cache existed. Remove only the garage-side state.
+          clearGarageSession({ clearRole: false });
+
+          if (localStorage.getItem(SESSION_ROLE_KEY) === "GARAGE_OWNER") {
+            clearSessionRole();
+          }
+        }
+
+        return null;
+      }
+    })().finally(() => {
+      if (garageRequestRef.current === request) {
+        garageRequestRef.current = null;
+      }
+    });
+
+    garageRequestRef.current = request;
+    return request;
   };
 
   const logoutGarage = async () => {
@@ -576,14 +610,28 @@ export function AppProvider({ children }) {
       return profileCache;
     }
 
-    const response = await api.get("/customer/profile");
-    const data = response.data.data;
-    const fetchedAt = Date.now();
+    if (profileRequestRef.current) {
+      return profileRequestRef.current;
+    }
 
-    saveProfileCache(data, fetchedAt);
-    syncUserData(data);
+    let request;
+    request = (async () => {
+      const response = await api.get("/customer/profile");
+      const data = response.data.data;
+      const fetchedAt = Date.now();
 
-    return data;
+      saveProfileCache(data, fetchedAt);
+      syncUserData(data);
+
+      return data;
+    })().finally(() => {
+      if (profileRequestRef.current === request) {
+        profileRequestRef.current = null;
+      }
+    });
+
+    profileRequestRef.current = request;
+    return request;
   };
 
   const fetchServiceCategories = async ({ force = false } = {}) => {
