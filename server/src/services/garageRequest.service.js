@@ -368,8 +368,12 @@ const startNextGarageSearchCycle = async (bookingId) => {
     },
   });
 
+  const serviceUpperLimit = Math.max(
+    Number(booking.totalServiceAmount) || 0,
+    Number(booking.totalServiceMaxAmount) || 0,
+  );
   const garageAcceptFee = calculatePlatformFee(
-    booking.totalServiceMaxAmount || booking.totalServiceAmount,
+    serviceUpperLimit,
     booking.requestType,
   );
 
@@ -571,9 +575,12 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       throw new ApiError(400, "This two-minute request round has expired");
     }
 
+    const serviceUpperLimit = Math.max(
+      Number(freshBooking.totalServiceAmount) || 0,
+      Number(freshBooking.totalServiceMaxAmount) || 0,
+    );
     const garageAcceptFee = calculatePlatformFee(
-      freshBooking.totalServiceMaxAmount ||
-        freshBooking.totalServiceAmount,
+      serviceUpperLimit,
       freshBooking.requestType,
     );
 

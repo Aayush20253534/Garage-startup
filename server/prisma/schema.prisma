@@ -392,7 +392,7 @@ model Booking {
   status                BookingStatus            @default(PENDING_PAYMENT)
   customerNote          String?
   garageNote            String?
-  handlingFee           Int                      @default(99)
+  handlingFee           Int                      @default(49)
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
   acceptedAt            DateTime?
@@ -400,7 +400,7 @@ model Booking {
   customerLatitude      Float?
   customerLongitude     Float?
   expiredAt             DateTime?
-  payableAmount         Int                      @default(99)
+  payableAmount         Int                      @default(49)
   requestType           RequestType              @default(NORMAL)
   totalServiceAmount    Int                      @default(0)
   walletAmountUsed      Int                      @default(0)

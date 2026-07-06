@@ -17,6 +17,7 @@ import {
   getServiceMinPrice,
   getServiceMaxPrice,
 } from "@/utils/priceRange";
+import { calculatePlatformFee } from "@/utils/platformFee";
 import {
   isCityAvailable,
   UNAVAILABLE_CITY_MESSAGE,
@@ -55,15 +56,6 @@ const isCartItemComingSoon = (item) =>
   toBoolean(item?.categoryComingSoon) ||
   toBoolean(item?.category?.isComingSoon);
 
-const calculateHandlingFee = (totalServiceAmount) => {
-  if (totalServiceAmount >= 300 && totalServiceAmount < 1000) return 30;
-  if (totalServiceAmount >= 1000 && totalServiceAmount < 5000) return 99;
-  if (totalServiceAmount >= 5000 && totalServiceAmount < 20000) return 249;
-  if (totalServiceAmount >= 20000) return 500;
-
-  return 99;
-};
-
 export default function Checkout() {
   const {
     cart,
@@ -93,8 +85,11 @@ export default function Checkout() {
     (sum, item) => sum + getServiceMaxPrice(item),
     0,
   );
-  const feeBaseAmount = subTotalMax || subTotalMin || 0;
-  const fee = cart.length === 0 ? 0 : calculateHandlingFee(feeBaseAmount);
+  // The platform fee is selected from the combined service upper limit.
+  // Example: Rs. 100 - Rs. 1,200 uses Rs. 1,200 and therefore costs Rs. 99.
+  const serviceUpperLimit = Math.max(subTotalMin, subTotalMax);
+  const fee =
+    cart.length === 0 ? 0 : calculatePlatformFee(serviceUpperLimit);
   const payAtGarageMin = subTotalMin;
   const payAtGarageMax = subTotalMax;
   const comingSoonItems = cart.filter(isCartItemComingSoon);

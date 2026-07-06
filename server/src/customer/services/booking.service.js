@@ -11,6 +11,7 @@ const {
 const bookingLifecycleService = require("../../services/bookingLifecycle.service");
 const garageRequestService = require("../../services/garageRequest.service");
 const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
+const { calculatePlatformFee } = require("../../utils/platformFee");
 
 const bookingInclude = {
   user: {
@@ -108,14 +109,6 @@ const sumServiceRanges = (services = [], priceRangeMap = new Map()) => {
     },
     { min: 0, max: 0 },
   );
-};
-
-const calculateHandlingFee = (totalServiceAmount) => {
-  if (totalServiceAmount >= 300 && totalServiceAmount < 1000) return 30;
-  if (totalServiceAmount >= 1000 && totalServiceAmount < 5000) return 99;
-  if (totalServiceAmount >= 5000 && totalServiceAmount < 20000) return 249;
-  if (totalServiceAmount >= 20000) return 500;
-  return 99;
 };
 
 const normalizeStatuses = (status) => {
@@ -234,9 +227,12 @@ const createBooking = async (userId, data) => {
   );
   const totalServiceAmount = serviceRangeTotal.min;
   const totalServiceMaxAmount = serviceRangeTotal.max;
-  const handlingFee = calculateHandlingFee(
-    totalServiceMaxAmount || totalServiceAmount,
+  // Fee brackets are determined from the combined service upper limit.
+  const serviceUpperLimit = Math.max(
+    totalServiceAmount,
+    totalServiceMaxAmount,
   );
+  const handlingFee = calculatePlatformFee(serviceUpperLimit);
 
   let walletAmountUsed = 0;
 
