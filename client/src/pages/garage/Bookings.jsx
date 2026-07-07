@@ -32,7 +32,7 @@ const toStatus = (filter) => {
 export default function GarageBookings() {
   const { bookings } = useSelector((state) => state.garage);
   const dispatch = useDispatch();
-  const { garageToken } = useApp();
+  const { garage } = useApp();
 
   const [activeFilter, setActiveFilter] = useState("All");
   const [loading, setLoading] = useState(false);
@@ -44,17 +44,14 @@ export default function GarageBookings() {
 
   const loadBookings = useCallback(
     async ({ initial = false } = {}) => {
-      if (!garageToken || requestInFlight.current) return;
+      if (!garage || requestInFlight.current) return;
 
       requestInFlight.current = true;
       if (initial) setLoading(true);
       else setRefreshing(true);
 
       try {
-        const data = await garageApi.getRequests(
-          garageToken,
-          toStatus(activeFilter),
-        );
+        const data = await garageApi.getRequests(toStatus(activeFilter));
 
         dispatch(setBookings(Array.isArray(data) ? data : []));
         setError("");
@@ -68,7 +65,7 @@ export default function GarageBookings() {
         setRefreshing(false);
       }
     },
-    [activeFilter, dispatch, garageToken],
+    [activeFilter, dispatch, garage],
   );
 
   useEffect(() => {
@@ -76,7 +73,7 @@ export default function GarageBookings() {
   }, [loadBookings]);
 
   useEffect(() => {
-    if (!garageToken) return undefined;
+    if (!garage) return undefined;
 
     const interval = window.setInterval(() => {
       loadBookings();
@@ -92,14 +89,13 @@ export default function GarageBookings() {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
-  }, [garageToken, loadBookings]);
+  }, [garage, loadBookings]);
 
   const handleAccept = async (booking) => {
     try {
       setError("");
 
       const updated = await garageApi.acceptRequest(
-        garageToken,
         booking.requestId || booking.id,
       );
 
@@ -111,8 +107,6 @@ export default function GarageBookings() {
         ),
       );
 
-      // Refresh once because accepting also expires the same booking's other
-      // garage requests and changes the underlying booking status.
       await loadBookings();
     } catch (err) {
       setError(
@@ -126,7 +120,6 @@ export default function GarageBookings() {
       setError("");
 
       const updated = await garageApi.rejectRequest(
-        garageToken,
         booking.requestId || booking.id,
       );
 
