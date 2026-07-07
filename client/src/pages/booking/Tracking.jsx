@@ -277,7 +277,6 @@ export default function Tracking() {
       try {
         const response = await api.get(`/bookings/${bookingId}`, {
           params: { tracking: 1, timestamp: Date.now() },
-          headers: { "Cache-Control": "no-cache" },
         });
 
         setBooking(response.data.data);
