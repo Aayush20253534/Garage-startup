@@ -106,7 +106,16 @@ export const mapGarageRequestToBooking = (request) => {
     services: services.map((item) => ({
       id: item.serviceId || item.service?.id,
       name: item.service?.name || item.name || "Service",
-      price: item.price || item.service?.basePrice || 0,
+      price:
+        item.finalPrice ??
+        item.estimatedMaxPrice ??
+        item.estimatedPrice ??
+        item.price ??
+        item.service?.basePrice ??
+        0,
+      minPrice: item.estimatedMinPrice ?? item.estimatedPrice ?? null,
+      maxPrice: item.estimatedMaxPrice ?? item.estimatedPrice ?? null,
+      finalPrice: item.finalPrice ?? null,
     })),
   };
 };
@@ -316,10 +325,11 @@ export const garageApi = {
   },
 
   async markDelivered(...args) {
-    // New: markDelivered(requestId, images)
-    const [requestId, images = []] = args.slice(-2);
+    // New: markDelivered(requestId, images, finalAmount)
+    const [requestId, images = [], finalAmount] = args.slice(-3);
 
     const formData = new FormData();
+    formData.append("finalAmount", finalAmount);
 
     images
       .map((item) => item.file || item)

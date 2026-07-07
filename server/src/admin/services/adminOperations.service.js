@@ -117,6 +117,8 @@ const getDashboardStats = async () => {
     priceRanges,
     customers,
     bookings,
+    totalRevenue,
+    platformFeeRevenue,
     openSystemIssues,
     criticalSystemIssues,
     recentApplications,
@@ -127,6 +129,20 @@ const getDashboardStats = async () => {
     prisma.cityServicePriceRange.count(),
     prisma.user.count({ where: { role: "CUSTOMER" } }),
     prisma.booking.count(),
+    prisma.booking.aggregate({
+      where: {
+        status: "COMPLETED",
+        customerAcceptedAt: { not: null },
+      },
+      _sum: { totalServiceAmount: true },
+    }),
+    prisma.garageWalletTransaction.aggregate({
+      where: {
+        type: "GARAGE_ACCEPT_FEE",
+        status: "SUCCESS",
+      },
+      _sum: { amount: true },
+    }),
     prisma.systemIssue.count({
       where: { status: { in: ["OPEN", "INVESTIGATING"] } },
     }),
@@ -159,6 +175,8 @@ const getDashboardStats = async () => {
       priceRanges,
       customers,
       bookings,
+      totalRevenue: totalRevenue._sum.totalServiceAmount || 0,
+      platformFeeRevenue: platformFeeRevenue._sum.amount || 0,
       openSystemIssues,
       criticalSystemIssues,
     },

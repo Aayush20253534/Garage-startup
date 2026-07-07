@@ -21,6 +21,15 @@ const verifyHandoverOtpSchema = [
 
 const markDeliveredSchema = [
   param("requestId").isUUID().withMessage("Invalid request ID"),
+  body("finalAmount")
+    .exists({ checkFalsy: true })
+    .withMessage("Final service amount is required")
+    .bail()
+    .custom((value) => {
+      const amount = Number(value);
+      return Number.isFinite(amount) && amount > 0;
+    })
+    .withMessage("Final service amount must be greater than zero"),
 ];
 
 const acceptGarageRequestSchema = [

@@ -436,7 +436,14 @@ const markBookingDeliveredByGarage = async ({
   garageId,
   requestId,
   images,
+  finalAmount,
 }) => {
+  const parsedFinalAmount = Math.round(Number(finalAmount));
+
+  if (!Number.isFinite(parsedFinalAmount) || parsedFinalAmount <= 0) {
+    throw new ApiError(400, "Final service amount is required");
+  }
+
   const request = await prisma.garageBroadcastRequest.findFirst({
     where: {
       id: requestId,
@@ -484,7 +491,11 @@ const markBookingDeliveredByGarage = async ({
 
   const updatedBooking = await prisma.booking.update({
     where: { id: booking.id },
-    data: { deliveredAt: new Date() },
+    data: {
+      deliveredAt: new Date(),
+      totalServiceAmount: parsedFinalAmount,
+      totalServiceMaxAmount: parsedFinalAmount,
+    },
     include: bookingDetailInclude,
   });
 
@@ -516,10 +527,6 @@ const acceptDeliveredBookingByCustomer = async ({ userId, bookingId }) => {
       400,
       "Garage has not marked this booking delivered yet",
     );
-  }
-
-  if (booking.payment && booking.payment.status !== "PAID") {
-    throw new ApiError(400, "Payment is not completed");
   }
 
   return prisma.booking.update({

@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+﻿import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import LocationPicker from "@/components/maps/LocationPicker";
-import { isPaymentAuthError, payForBooking } from "@/utils/bookingPayment";
 import {
   buildFullAddress,
   getDefaultUserLocation,
@@ -16,12 +15,10 @@ import {
   getServiceMinPrice,
   getServiceMaxPrice,
 } from "@/utils/priceRange";
-import { calculatePlatformFee } from "@/utils/platformFee";
 import { requireAvailableCityName } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 import {
   FiCheckCircle,
-  FiLock,
   FiTrash2,
   FiTruck,
   FiEdit,
@@ -75,7 +72,6 @@ export default function Checkout() {
     fetchProfile,
   } = useApp();
   const nav = useNavigate();
-  const routeLocation = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [editingAddress, setEditingAddress] = useState(false);
@@ -91,11 +87,6 @@ export default function Checkout() {
     (sum, item) => sum + getServiceMaxPrice(item),
     0,
   );
-  // The platform fee is selected from the combined service upper limit.
-  // Example: Rs. 100 - Rs. 1,200 uses Rs. 1,200 and therefore costs Rs. 99.
-  const serviceUpperLimit = Math.max(subTotalMin, subTotalMax);
-  const fee =
-    cart.length === 0 ? 0 : calculatePlatformFee(serviceUpperLimit);
   const payAtGarageMin = subTotalMin;
   const payAtGarageMax = subTotalMax;
   const comingSoonItems = cart.filter(isCartItemComingSoon);
@@ -202,7 +193,7 @@ export default function Checkout() {
     setError("");
   };
 
-  const pay = async () => {
+  const bookService = async () => {
     if (!vehicle?.id) {
       setError("Please select a vehicle before checkout.");
       nav("/booking/vehicle");
@@ -260,58 +251,27 @@ export default function Checkout() {
         path: "/dashboard/bookings",
       });
 
-      if (booking.payableAmount <= 0 || booking.status === "SEARCHING_GARAGE") {
-        clearCart();
-        clearBookingCaches?.();
-        nav("/tracking", {
-          state: { bookingId: booking.id, bookingCode: booking.bookingCode },
-        });
-        return;
-      }
-
-      const verifiedBooking = await payForBooking({ booking, user });
-      addRecentActivity({
-        type: "PAYMENT",
-        title: "Paid booking fee",
-        detail: `${verifiedBooking.bookingCode || booking.bookingCode || "Booking"} · \u20b9${booking.payableAmount}`,
-        path: "/dashboard/payments",
-      });
-
       clearCart();
       clearBookingCaches?.();
       nav("/tracking", {
-        state: {
-          bookingId: verifiedBooking.id,
-          bookingCode: verifiedBooking.bookingCode,
-        },
+        state: { bookingId: booking.id, bookingCode: booking.bookingCode },
       });
     } catch (err) {
-      if (isPaymentAuthError(err)) {
-        nav("/login", {
-          state: {
-            from: routeLocation,
-            message: "Please login to continue payment.",
-          },
-        });
-        return;
-      }
-
       setError(
         err.response?.data?.message ||
           err.message ||
-          "Could not complete payment. Please try again.",
+          "Could not create booking. Please try again.",
       );
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="container-x grid gap-8 py-12 lg:grid-cols-[1fr_400px]">
       <div>
         <h1 className="text-3xl font-bold sm:text-4xl">Checkout</h1>
         <p className="mt-1 text-muted">
-          Pay a small fee to confirm your booking. Rest pays at garage.
+          Confirm the request now. Pay the final service amount directly to the
+          garage in cash after the work is complete.
         </p>
 
         {error && (
@@ -382,35 +342,6 @@ export default function Checkout() {
         </div>
 
         <div className="card-soft mt-6 p-6">
-          <h3 className="mb-4 text-lg font-semibold">Payment Method</h3>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[["Cashfree", "UPI, cards, wallets"]].map(
-              ([name, description], index) => (
-                <label
-                  key={name}
-                  className={`flex min-h-[72px] cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition ${
-                    index === 0
-                      ? "border-ink bg-bg-soft shadow-sm"
-                      : "border-line hover:border-ink/25 hover:bg-bg-soft"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="pay"
-                    defaultChecked={index === 0}
-                    className="h-4 w-4 accent-ink"
-                  />
-                  <div>
-                    <div className="font-semibold">{name}</div>
-                    <div className="text-xs text-muted">{description}</div>
-                  </div>
-                </label>
-              ),
-            )}
-          </div>
-        </div>
-
-        <div className="card-soft mt-6 p-6">
           <h3 className="mb-4 text-lg font-semibold">
             Benefits with this booking
           </h3>
@@ -462,7 +393,7 @@ export default function Checkout() {
           {cart.length === 0 ? (
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-muted">
               <span className="min-w-0 truncate">No services selected</span>
-              <span className="whitespace-nowrap text-right">₹0</span>
+              <span className="whitespace-nowrap text-right">â‚¹0</span>
             </div>
           ) : (
             cart.map((item) => (
@@ -477,44 +408,42 @@ export default function Checkout() {
               </div>
             ))
           )}
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-muted">
-            <span className="min-w-0">Platform fee</span>
-            <span className="whitespace-nowrap text-right">₹{fee}</span>
-          </div>
         </div>
 
         <hr className="my-4 border-line" />
 
         <div className="grid gap-2 text-sm">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-            <span className="text-muted">Pay at garage</span>
+            <span className="text-muted">Service estimate</span>
             <span className="whitespace-nowrap text-right font-semibold">
-              ₹{payAtGarageMin} - ₹{payAtGarageMax}
+              â‚¹{payAtGarageMin} - â‚¹{payAtGarageMax}
             </span>
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-base">
-            <span className="font-semibold">Pay now</span>
+            <span className="font-semibold">Cash at garage</span>
             <span className="whitespace-nowrap text-right text-xl font-bold">
-              ₹{fee}
+              {payAtGarageMin === payAtGarageMax
+                ? `\u20b9${payAtGarageMax}`
+                : `\u20b9${payAtGarageMin} - \u20b9${payAtGarageMax}`}
             </span>
           </div>
         </div>
 
         <button
           type="button"
-          onClick={pay}
+          onClick={bookService}
           disabled={loading || hasComingSoonItems}
           className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <FiLock />{" "}
+          <FiCheckCircle />{" "}
           {loading
-            ? "Processing..."
+            ? "Booking..."
             : hasComingSoonItems
               ? "Remove Coming Soon Services"
-              : `Pay ₹${fee} & Book Slot`}
+              : "Confirm Booking"}
         </button>
         <div className="mt-3 text-center text-xs text-muted">
-          Secured by Cashfree. 100% refund on cancellation
+          The garage records the final amount before delivery.
         </div>
       </aside>
     </div>

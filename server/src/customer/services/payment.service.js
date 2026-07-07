@@ -165,6 +165,13 @@ const createPaymentOrder = async (userId, { bookingId }) => {
     throw new ApiError(404, "Booking not found");
   }
 
+  if (booking.requestType === "NORMAL") {
+    throw new ApiError(
+      400,
+      "Customer booking payments are collected directly by the garage",
+    );
+  }
+
   if (booking.status !== "PENDING_PAYMENT") {
     throw new ApiError(400, "Booking is not pending payment");
   }
@@ -432,6 +439,7 @@ const getMyPayments = async (userId) => {
   return prisma.payment.findMany({
     where: {
       booking: { userId },
+      status: { in: ["PAID", "REFUNDED"] },
     },
     include: {
       booking: {

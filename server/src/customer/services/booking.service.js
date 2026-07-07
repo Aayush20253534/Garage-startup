@@ -131,6 +131,54 @@ const invalidateBookingCaches = async (userId) => {
   ]);
 };
 
+const activateCashBookingSearch = async (booking) => {
+  if (!booking || booking.status !== "PENDING_PAYMENT") {
+    return booking;
+  }
+
+  const updatedBooking = await prisma.$transaction(async (tx) => {
+    await tx.payment.deleteMany({
+      where: {
+        bookingId: booking.id,
+        status: { in: ["CREATED", "FAILED"] },
+      },
+    });
+
+    return tx.booking.update({
+      where: { id: booking.id },
+      data: {
+        status: "SEARCHING_GARAGE",
+        payableAmount: 0,
+        searchExpiresAt: null,
+        expiredAt: null,
+      },
+      include: bookingInclude,
+    });
+  });
+
+  try {
+    await garageRequestService.ensureBookingSearchActive(updatedBooking.id);
+  } catch (error) {
+    console.error(
+      `[booking-search] unable to activate cash booking ${updatedBooking.id}:`,
+      error.message,
+    );
+    void systemIssueReporter.captureBackgroundError(error, {
+      title: "Unable to start garage search for cash booking",
+      component: "Booking service",
+      metadata: { bookingId: updatedBooking.id, userId: updatedBooking.userId },
+    });
+  }
+
+  return prisma.booking.findUnique({
+    where: { id: updatedBooking.id },
+    include: bookingInclude,
+  });
+};
+
+const normalizeCashBookings = async (bookings = []) =>
+  Promise.all(bookings.map((booking) => activateCashBookingSearch(booking)));
+
 const createBooking = async (userId, data) => {
   const {
     vehicleId,
@@ -140,7 +188,6 @@ const createBooking = async (userId, data) => {
     endTime,
     customerNote,
     location,
-    useWalletCoins = 0,
   } = data;
 
   if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
@@ -233,61 +280,11 @@ const createBooking = async (userId, data) => {
   );
   const handlingFee = calculatePlatformFee(serviceUpperLimit);
 
-  let walletAmountUsed = 0;
-
-  if (Number(useWalletCoins) > 0) {
-    const wallet = await prisma.wallet.findUnique({
-      where: { userId },
-    });
-
-    if (!wallet) {
-      throw new ApiError(404, "Wallet not found");
-    }
-
-    if (wallet.balance < Number(useWalletCoins)) {
-      throw new ApiError(400, "Insufficient wallet balance");
-    }
-
-    walletAmountUsed = Math.min(
-      Number(useWalletCoins),
-      handlingFee,
-    );
-  }
-
-  const payableAmount = handlingFee - walletAmountUsed;
+  const walletAmountUsed = 0;
+  const payableAmount = 0;
   const bookingCode = await generateBookingCode();
 
   const booking = await prisma.$transaction(async (tx) => {
-    if (walletAmountUsed > 0) {
-      const wallet = await tx.wallet.findUnique({
-        where: { userId },
-      });
-
-      if (!wallet || wallet.balance < walletAmountUsed) {
-        throw new ApiError(400, "Insufficient wallet balance");
-      }
-
-      const balanceAfter = wallet.balance - walletAmountUsed;
-
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: balanceAfter },
-      });
-
-      await tx.walletTransaction.create({
-        data: {
-          walletId: wallet.id,
-          userId,
-          type: "BOOKING_PAYMENT",
-          status: "SUCCESS",
-          amount: walletAmountUsed,
-          balanceAfter,
-          description:
-            "Wallet coins used for booking handling fee",
-        },
-      });
-    }
-
     return tx.booking.create({
       data: {
         userId,
@@ -300,10 +297,7 @@ const createBooking = async (userId, data) => {
         startTime: startTime || null,
         endTime: endTime || null,
         requestType: "NORMAL",
-        status:
-          payableAmount > 0
-            ? "PENDING_PAYMENT"
-            : "SEARCHING_GARAGE",
+        status: "SEARCHING_GARAGE",
 
         // The garage request service claims the first two-minute round.
         searchExpiresAt: null,
@@ -333,15 +327,6 @@ const createBooking = async (userId, data) => {
               estimatedMaxPrice: range.max,
             };
           }),
-        },
-        payment: {
-          create: {
-            amount: payableAmount,
-            currency: "INR",
-            status: payableAmount > 0 ? "CREATED" : "PAID",
-            walletAmountUsed,
-            upiAmountPaid: payableAmount,
-          },
         },
       },
       include: bookingInclude,
@@ -402,7 +387,7 @@ const getMyBookings = async (userId, query = {}) => {
         : { status: statuses[0] };
   }
 
-  return prisma.booking.findMany({
+  const bookings = await prisma.booking.findMany({
     where: {
       userId,
       ...statusFilter,
@@ -410,6 +395,8 @@ const getMyBookings = async (userId, query = {}) => {
     include: bookingInclude,
     orderBy: { createdAt: "desc" },
   });
+
+  return normalizeCashBookings(bookings);
 };
 
 const getBookingById = async (userId, bookingId) => {
@@ -448,7 +435,7 @@ const getBookingById = async (userId, bookingId) => {
     throw new ApiError(404, "Booking not found");
   }
 
-  return booking;
+  return activateCashBookingSearch(booking);
 };
 
 const getBookingSuccess = async (userId, bookingId) => {

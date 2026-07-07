@@ -70,6 +70,7 @@ const markDelivered = asyncHandler(async (req, res) => {
     garageId,
     requestId: req.params.requestId,
     images: req.files,
+    finalAmount: req.body.finalAmount,
   });
 
   return res

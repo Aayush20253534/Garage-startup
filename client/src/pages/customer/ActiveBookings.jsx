@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
-import { isPaymentAuthError, payForBooking } from "@/utils/bookingPayment";
 import {
   FiCheckCircle,
-  FiCreditCard,
   FiNavigation,
   FiRefreshCw,
 } from "react-icons/fi";
@@ -22,19 +20,21 @@ const getServicesText = (booking) => {
 const getGarageText = (booking) => {
   if (booking.garage?.name) return booking.garage.name;
 
-  if (booking.status === "PENDING_PAYMENT") return "Payment pending";
+  if (booking.status === "PENDING_PAYMENT") return "Preparing garage search";
   if (booking.status === "SEARCHING_GARAGE") return "Finding nearby garage";
 
   return "Garage not assigned yet";
 };
 
 const getAmount = (booking) => {
-  return (
-    booking.totalServiceAmount ||
-    booking.payment?.amount ||
-    booking.payableAmount ||
-    0
-  );
+  const min = Number(booking.totalServiceAmount || 0);
+  const max = Number(booking.totalServiceMaxAmount || min || 0);
+
+  if (min > 0 && max > 0 && min !== max) {
+    return `\u20b9${min.toLocaleString("en-IN")} - \u20b9${max.toLocaleString("en-IN")}`;
+  }
+
+  return `\u20b9${Number(max || min || 0).toLocaleString("en-IN")}`;
 };
 
 const formatStatus = (status) => {
@@ -42,14 +42,12 @@ const formatStatus = (status) => {
 };
 
 export default function ActiveBookings() {
-  const { user, fetchActiveBookings, clearBookingCaches } = useApp();
+  const { fetchActiveBookings, clearBookingCaches } = useApp();
   const nav = useNavigate();
-  const location = useLocation();
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [payingId, setPayingId] = useState(null);
   const [acceptingId, setAcceptingId] = useState(null);
   const [error, setError] = useState("");
 
@@ -73,42 +71,6 @@ export default function ActiveBookings() {
   useEffect(() => {
     loadBookings();
   }, []);
-
-  const payBooking = async (booking) => {
-    try {
-      setPayingId(booking.id);
-      setError("");
-
-      const verifiedBooking = await payForBooking({ booking, user });
-
-      clearBookingCaches?.();
-      await loadBookings({ force: true });
-      nav("/tracking", {
-        state: {
-          bookingId: verifiedBooking.id,
-          bookingCode: verifiedBooking.bookingCode,
-        },
-      });
-    } catch (err) {
-      if (isPaymentAuthError(err)) {
-        nav("/login", {
-          state: {
-            from: location,
-            message: "Please login to continue payment.",
-          },
-        });
-        return;
-      }
-
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Could not complete payment. Please try again.",
-      );
-    } finally {
-      setPayingId(null);
-    }
-  };
 
   const acceptDelivery = async (booking) => {
     try {
