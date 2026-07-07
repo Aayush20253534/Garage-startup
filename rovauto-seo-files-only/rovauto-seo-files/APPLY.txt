@@ -1,6 +1,0 @@
-Copy these files into the root of the existing client project, preserving folders.
-Then run:
-
-npm install
-npm run build
-npm run preview
