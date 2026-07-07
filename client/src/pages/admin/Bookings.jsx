@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { mapsApi } from "@/api/maps";
+import StaticMapPreview from "@/components/maps/StaticMapPreview";
 import { useApp } from "@/hooks/useApp";
 import {
   FiAlertCircle,
   FiCalendar,
+  FiMap,
+  FiNavigation,
   FiRefreshCw,
   FiSearch,
   FiTrash2,
@@ -73,6 +77,9 @@ export default function Bookings() {
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimization, setOptimization] = useState(null);
+  const [showOptimization, setShowOptimization] = useState(false);
 
   const isAdmin =
     user?.accountType === "STAFF" &&
@@ -174,6 +181,34 @@ export default function Bookings() {
     }
   };
 
+  const optimizeActiveRoutes = async () => {
+    if (!isAdmin) return;
+
+    try {
+      setOptimizing(true);
+      setError("");
+      setSuccess("");
+      const activeIds = bookings
+        .filter((booking) =>
+          ["GARAGE_ASSIGNED", "CONFIRMED", "IN_PROGRESS"].includes(
+            booking.status,
+          ),
+        )
+        .map((booking) => booking.id);
+      const result = await mapsApi.optimizeRoutes(activeIds);
+      setOptimization(result);
+      setShowOptimization(true);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to optimize active garage routes",
+      );
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-4 overflow-x-hidden">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
@@ -187,6 +222,18 @@ export default function Bookings() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={optimizeActiveRoutes}
+              disabled={loading || clearing || optimizing}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-3 text-sm font-semibold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiNavigation className={optimizing ? "animate-pulse" : ""} />
+              {optimizing ? "Optimizing…" : "Optimize active routes"}
+            </button>
+          )}
+
           {isAdmin && (
             <button
               type="button"
@@ -381,6 +428,125 @@ export default function Bookings() {
           </table>
         </div>
       </section>
+
+      {showOptimization && isAdmin && optimization && (
+        <div
+          className="fixed inset-0 z-[100] overflow-y-auto bg-black/65 px-4 py-8"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowOptimization(false);
+            }
+          }}
+        >
+          <section className="mx-auto w-full max-w-6xl rounded-3xl bg-bg-soft p-4 shadow-2xl sm:p-6">
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-muted">
+                  Admin route optimization
+                </p>
+                <h3 className="mt-1 text-2xl font-bold text-ink">
+                  Optimized garage dispatch plan
+                </h3>
+                <p className="mt-2 max-w-3xl text-sm text-muted">
+                  Active assigned bookings are grouped by garage and sequenced
+                  through Google Route Optimization. This is a planning view and
+                  does not silently reassign bookings.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOptimization(false)}
+                className="rounded-xl border border-line bg-white p-3 text-muted transition hover:text-ink"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-5">
+              {optimization.routes?.length ? (
+                optimization.routes.map((route, routeIndex) => (
+                  <article
+                    key={`${route.garage?.id || routeIndex}`}
+                    className="grid gap-5 rounded-3xl border border-line bg-white p-5 lg:grid-cols-[340px_minmax(0,1fr)]"
+                  >
+                    <StaticMapPreview
+                      origin={route.garage}
+                      destination={route.visits?.at(-1)}
+                      points={route.visits || []}
+                      title={route.garage?.name || `Route ${routeIndex + 1}`}
+                    />
+
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-muted">
+                            Garage route {routeIndex + 1}
+                          </p>
+                          <h4 className="mt-1 text-xl font-bold">
+                            {route.garage?.name || "Assigned garage"}
+                          </h4>
+                        </div>
+                        <span className="inline-flex items-center gap-2 rounded-full bg-brand/20 px-3 py-1.5 text-xs font-bold">
+                          <FiMap /> {route.visits?.length || 0} stop{route.visits?.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+
+                      <div className="mt-5 grid gap-3">
+                        {(route.visits || []).map((visit) => (
+                          <div
+                            key={`${visit.bookingId}-${visit.order}`}
+                            className="flex items-start gap-4 rounded-2xl bg-bg-soft p-4"
+                          >
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink text-sm font-bold text-white">
+                              {visit.order}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <h5 className="font-bold">
+                                  #{visit.bookingCode || visit.bookingId?.slice(0, 8)}
+                                </h5>
+                                <span className="text-xs font-semibold text-muted">
+                                  {visit.startTime
+                                    ? new Date(visit.startTime).toLocaleTimeString("en-IN", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })
+                                    : "Time pending"}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-sm font-semibold">
+                                {visit.customerName}
+                              </p>
+                              <p className="mt-1 text-xs text-muted">
+                                {visit.customerAddress || "Customer coordinates confirmed"}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-line bg-white p-6 text-sm text-muted">
+                  No optimized routes were returned.
+                </div>
+              )}
+
+              {optimization.skippedBookings?.length > 0 && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+                  <h4 className="font-bold">Skipped bookings</h4>
+                  <p className="mt-1">
+                    {optimization.skippedBookings.length} booking(s) could not be
+                    included. Review their garage assignment and coordinates.
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       {showClearDialog && isAdmin && (
         <div

@@ -9,6 +9,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import api from "@/api/axios";
 import InspectionGallery from "@/components/booking/InspectionGallery";
+import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
 import {
@@ -628,6 +629,15 @@ export default function Tracking() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {!searching && booking.garage && (
+          <div className="mt-8">
+            <LiveBookingTracking
+              bookingId={booking.id}
+              title={booking.requestType === "SOS" ? "Live SOS response route" : "Live garage route"}
+            />
           </div>
         )}
 

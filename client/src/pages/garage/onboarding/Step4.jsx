@@ -85,6 +85,7 @@ export default function OnboardingStep4({ data, onChange }) {
         area: data.area,
         latitude: data.location?.lat,
         longitude: data.location?.lng,
+        placeId: data.placeId || null,
         workingRadiusKm: data.workingRadius,
       };
 

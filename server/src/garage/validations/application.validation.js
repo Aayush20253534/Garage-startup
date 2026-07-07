@@ -34,6 +34,11 @@ const submitGarageApplicationSchema = [
     .isFloat({ min: 68, max: 98 })
     .withMessage("Longitude must be within India"),
 
+  body("placeId")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 300 }),
+
   body("workingRadiusKm")
     .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 1, max: 100 })

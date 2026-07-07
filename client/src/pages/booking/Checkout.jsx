@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
-import CitySelect from "@/components/common/CitySelect";
+import LocationPicker from "@/components/maps/LocationPicker";
 import { isPaymentAuthError, payForBooking } from "@/utils/bookingPayment";
-import { queueGeocodeRequest } from "@/utils/geocodeService";
 import {
   buildFullAddress,
   getDefaultUserLocation,
@@ -35,14 +34,21 @@ import {
 
 const getCheckoutAddressForm = ({ location, user }) => {
   const defaultUserLocation = getDefaultUserLocation(user);
+  const source = location || defaultUserLocation || {};
   const fullAddress =
-    location?.fullAddress ||
-    buildFullAddress(location) ||
-    defaultUserLocation?.address ||
+    source.formattedAddress ||
+    source.fullAddress ||
+    source.address ||
     getProfileAddress(user) ||
     "";
 
-  return parseAddressParts(fullAddress);
+  return {
+    ...parseAddressParts(fullAddress),
+    ...source,
+    address: source.address || parseAddressParts(fullAddress).address,
+    formattedAddress: fullAddress,
+    fullAddress,
+  };
 };
 
 const toBoolean = (value) =>
@@ -111,6 +117,7 @@ export default function Checkout() {
         latitude: Number(location.latitude),
         longitude: Number(location.longitude),
         address: currentAddress,
+        placeId: location.placeId || null,
       };
     }
 
@@ -121,15 +128,12 @@ export default function Checkout() {
       return {
         latitude: Number(defaultUserLocation.latitude),
         longitude: Number(defaultUserLocation.longitude),
-        address: defaultUserLocation.address,
+        address: defaultUserLocation.formattedAddress || defaultUserLocation.address,
+        placeId: defaultUserLocation.placeId || null,
       };
     }
 
     return null;
-  };
-
-  const handleAddressChange = (e) => {
-    setAddressForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const saveAddress = async () => {
@@ -138,34 +142,35 @@ export default function Checkout() {
       return;
     }
 
-    const fullAddress = buildFullAddress(addressForm);
-    let latitude = null;
-    let longitude = null;
-
-    try {
-      const geocode = await queueGeocodeRequest(
-        addressForm.address,
-        addressForm.city,
-        addressForm.area,
-        addressForm.pincode,
-      );
-      latitude = geocode.latitude;
-      longitude = geocode.longitude;
-    } catch (err) {
-      setError(err.message || "Could not find coordinates for this address.");
+    if (!hasUsableIndiaCoordinates(addressForm)) {
+      setError("Search and confirm the exact address on the map.");
       return;
     }
 
-    const nextLocation = { ...addressForm, fullAddress, latitude, longitude };
+    const fullAddress =
+      addressForm.formattedAddress ||
+      addressForm.fullAddress ||
+      buildFullAddress(addressForm);
+    const nextLocation = {
+      ...addressForm,
+      fullAddress,
+      formattedAddress: fullAddress,
+      address: fullAddress,
+      latitude: Number(addressForm.latitude),
+      longitude: Number(addressForm.longitude),
+    };
 
     setLocation(nextLocation);
 
     try {
       await api.post("/locations", {
-        latitude,
-        longitude,
+        latitude: nextLocation.latitude,
+        longitude: nextLocation.longitude,
         address: fullAddress,
-        source: "MANUAL",
+        formattedAddress: fullAddress,
+        placeId: nextLocation.placeId || null,
+        addressComponents: nextLocation.addressComponents || undefined,
+        source: nextLocation.source === "GPS" ? "GPS" : "MANUAL",
         isDefault: true,
       });
       clearProfileCache?.();
@@ -181,6 +186,7 @@ export default function Checkout() {
     }
 
     setEditingAddress(false);
+    setError("");
   };
 
   const pay = async () => {
@@ -318,81 +324,38 @@ export default function Checkout() {
 
           {editingAddress ? (
             <div className="grid gap-4">
-              <label className="grid gap-1.5 text-sm">
-                <span className="font-semibold">Full Address</span>
-                <input
-                  required
-                  name="address"
-                  value={addressForm.address}
-                  onChange={handleAddressChange}
-                  placeholder="House number, Street, Landmark"
-                  className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-                />
-              </label>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-1.5 text-sm">
-                  <span className="font-semibold">Area</span>
-                  <input
-                    required
-                    name="area"
-                    value={addressForm.area}
-                    onChange={handleAddressChange}
-                    placeholder="Locality"
-                    className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-                  />
-                </label>
-
-                <label className="grid gap-1.5 text-sm">
-                  <span className="font-semibold">City</span>
-                  <CitySelect
-                    required
-                    value={addressForm.city}
-                    onChange={(city) =>
-                      setAddressForm((prev) => ({ ...prev, city }))
-                    }
-                    placeholder="City"
-                    className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-                  />
-                </label>
-              </div>
-
-              <label className="grid gap-1.5 text-sm">
-                <span className="font-semibold">Pincode</span>
-                <input
-                  required
-                  name="pincode"
-                  value={addressForm.pincode}
-                  onChange={handleAddressChange}
-                  placeholder="6-digit pincode"
-                  inputMode="numeric"
-                  maxLength={6}
-                  className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-                />
-              </label>
+              <LocationPicker
+                value={addressForm}
+                onChange={(next) => {
+                  setAddressForm(next);
+                  setError("");
+                }}
+                label="Search delivery address"
+                helper="Select the address and confirm the exact service entrance."
+                showCurrentLocation
+                required
+              />
 
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => setEditingAddress(false)}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
                 >
-                  <FiX />
-                  Cancel
+                  <FiX /> Cancel
                 </button>
                 <button
                   type="button"
                   onClick={saveAddress}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark"
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark"
                 >
-                  <FiSave />
-                  Save Address
+                  <FiSave /> Save address
                 </button>
               </div>
             </div>
           ) : (
             <div className="text-muted">
-              {buildFullAddress(addressForm) || "No address set"}
+              {addressForm.formattedAddress || addressForm.fullAddress || buildFullAddress(addressForm) || "No address set"}
             </div>
           )}
         </div>

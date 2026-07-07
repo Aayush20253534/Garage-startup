@@ -1,31 +1,53 @@
 import { useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useApp } from "@/hooks/useApp";
+import { useLocation, useNavigate } from "react-router-dom";
+import { FiCheckCircle, FiMapPin, FiShield } from "react-icons/fi";
 import api from "@/api/axios";
+import LocationPicker from "@/components/maps/LocationPicker";
+import CitySelect from "@/components/common/CitySelect";
+import { useApp } from "@/hooks/useApp";
 import {
   buildFullAddress,
   getDefaultUserLocation,
   hasUsableIndiaCoordinates,
   parseAddressParts,
-  reverseGeocodeCoordinates,
 } from "@/utils/address";
 import { queueGeocodeRequest, clearGeocodeCache } from "@/utils/geocodeService";
-import { FiCheckCircle, FiMapPin } from "react-icons/fi";
-import CitySelect from "@/components/common/CitySelect";
 import {
   isCityAvailable,
   UNAVAILABLE_CITY_MESSAGE,
 } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 
-const toCoordinateOrNull = (value) => {
-  if (value === null || value === undefined || value === "") return null;
-
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-};
-
 const hasText = (value) => Boolean(String(value || "").trim());
+
+const getInitialLocation = ({ user, routeLocation }) => {
+  const defaultLocation = getDefaultUserLocation(user);
+  const existingAddress =
+    routeLocation.state?.existingAddress ??
+    defaultLocation?.formattedAddress ??
+    defaultLocation?.address ??
+    user?.customerProfile?.address ??
+    user?.address ??
+    "";
+  const parts = parseAddressParts(existingAddress);
+
+  return {
+    address: parts.address || "",
+    area: parts.area || "",
+    city: parts.city || "",
+    state: parts.state || "",
+    pincode: parts.pincode || "",
+    formattedAddress: existingAddress,
+    fullAddress: existingAddress,
+    latitude:
+      routeLocation.state?.latitude ?? defaultLocation?.latitude ?? null,
+    longitude:
+      routeLocation.state?.longitude ?? defaultLocation?.longitude ?? null,
+    placeId: defaultLocation?.placeId || null,
+    addressComponents: defaultLocation?.addressComponents || null,
+    source: defaultLocation?.source || "MANUAL",
+  };
+};
 
 export default function AddressForm() {
   const nav = useNavigate();
@@ -39,137 +61,73 @@ export default function AddressForm() {
   } = useApp();
 
   const saveLockRef = useRef(false);
-  const detectLockRef = useRef(false);
-
   const [loading, setLoading] = useState(false);
-  const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState("");
-  const [manualLocationEdited, setManualLocationEdited] = useState(false);
+  const [form, setForm] = useState(() =>
+    getInitialLocation({ user, routeLocation }),
+  );
 
-  const defaultUserLocation = getDefaultUserLocation(user);
-  const initialAddress =
-    routeLocation.state?.existingAddress ??
-    user?.customerProfile?.address ??
-    defaultUserLocation?.address ??
-    user?.address ??
-    "";
-
-  const initialParts = parseAddressParts(initialAddress);
-
-  const [form, setForm] = useState({
-    address: initialParts.address || "",
-    area: initialParts.area || "",
-    city: initialParts.city || "",
-    pincode: initialParts.pincode || "",
-    latitude:
-      routeLocation.state?.latitude ?? defaultUserLocation?.latitude ?? null,
-    longitude:
-      routeLocation.state?.longitude ?? defaultUserLocation?.longitude ?? null,
-  });
-
-  const change = (event) => {
-    const { name, value } = event.target;
-
+  const updateField = (field, value) => {
     setForm((previous) => ({
       ...previous,
-      [name]:
-        name === "pincode"
+      [field]:
+        field === "pincode"
           ? String(value).replace(/\D/g, "").slice(0, 6)
           : value,
-      latitude: null,
-      longitude: null,
+      ...(field !== "pincode" &&
+        ["address", "area", "city"].includes(field) && {
+          placeId: null,
+          addressComponents: null,
+        }),
     }));
-
-    setManualLocationEdited(true);
     setError("");
   };
 
-  const getCurrentCoordinates = async () => {
-    if (!navigator.geolocation) {
-      throw new Error("Geolocation is not supported by this browser.");
-    }
-
-    const position = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
-      });
-    });
-
-    const coordinates = {
-      latitude: Number(position.coords.latitude.toFixed(6)),
-      longitude: Number(position.coords.longitude.toFixed(6)),
-    };
-
-    if (!hasUsableIndiaCoordinates(coordinates)) {
-      throw new Error("Rovauto is available only in India right now.");
-    }
-
-    return coordinates;
-  };
-
-  const detectLocation = async () => {
-    if (detectLockRef.current) return;
-
-    detectLockRef.current = true;
-    setDetecting(true);
+  const handleLocationChange = (next) => {
+    setForm((previous) => ({
+      ...previous,
+      ...next,
+      address: next.address || previous.address || "",
+      area: next.area || previous.area || "",
+      city: next.city || previous.city || "",
+      state: next.state || previous.state || "",
+      pincode: next.pincode || previous.pincode || "",
+      formattedAddress:
+        next.formattedAddress || next.fullAddress || previous.formattedAddress,
+      fullAddress:
+        next.formattedAddress || next.fullAddress || previous.fullAddress,
+      source: next.source || "MANUAL",
+    }));
     setError("");
-
-    try {
-      const { latitude, longitude } = await getCurrentCoordinates();
-      const parsed = await reverseGeocodeCoordinates({ latitude, longitude });
-
-      if (!(await isCityAvailable(parsed.city))) {
-        throw new Error(UNAVAILABLE_CITY_MESSAGE);
-      }
-
-      setForm({
-        address: parsed.address || "",
-        area: parsed.area || "",
-        city: parsed.city || "",
-        pincode: parsed.pincode || "",
-        latitude,
-        longitude,
-      });
-
-      setManualLocationEdited(false);
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Could not detect location. Please enter it manually.",
-      );
-    } finally {
-      detectLockRef.current = false;
-      setDetecting(false);
-    }
   };
 
-  const validateAddressFields = async () => {
+  const validate = async () => {
     if (!hasText(form.address)) {
       throw new Error("Enter your house number, street, or landmark.");
     }
-
     if (!hasText(form.area)) {
       throw new Error("Enter your area or locality.");
     }
-
     if (!hasText(form.city)) {
       throw new Error("Select your city.");
     }
-
     if (!/^\d{6}$/.test(String(form.pincode || ""))) {
       throw new Error("Enter a valid 6-digit pincode.");
     }
-
     if (!(await isCityAvailable(form.city))) {
       throw new Error(UNAVAILABLE_CITY_MESSAGE);
     }
   };
 
-  const geocodeManualAddress = async () => {
-    const geocodeResult = await queueGeocodeRequest(
+  const ensureCoordinates = async () => {
+    if (hasUsableIndiaCoordinates(form)) {
+      return {
+        latitude: Number(form.latitude),
+        longitude: Number(form.longitude),
+      };
+    }
+
+    const geocode = await queueGeocodeRequest(
       form.address.trim(),
       form.city.trim(),
       form.area.trim(),
@@ -177,13 +135,13 @@ export default function AddressForm() {
     );
 
     const coordinates = {
-      latitude: Number(geocodeResult?.latitude),
-      longitude: Number(geocodeResult?.longitude),
+      latitude: Number(geocode?.latitude),
+      longitude: Number(geocode?.longitude),
     };
 
     if (!hasUsableIndiaCoordinates(coordinates)) {
       throw new Error(
-        "Could not find valid Indian coordinates for this address. Please check the address and pincode.",
+        "Select a suggestion or place the map pin on a valid Indian address.",
       );
     }
 
@@ -199,41 +157,21 @@ export default function AddressForm() {
     setError("");
 
     try {
-      await validateAddressFields();
-
-      const fullAddress = buildFullAddress({
-        address: form.address.trim(),
-        area: form.area.trim(),
-        city: form.city.trim(),
-        pincode: form.pincode.trim(),
-      });
-
-      let latitude = toCoordinateOrNull(form.latitude);
-      let longitude = toCoordinateOrNull(form.longitude);
-      let source = "GPS";
-
-      const currentCoordinatesAreUsable = hasUsableIndiaCoordinates({
-        latitude,
-        longitude,
-      });
-
-      if (manualLocationEdited || !currentCoordinatesAreUsable) {
-        const geocoded = await geocodeManualAddress();
-        latitude = geocoded.latitude;
-        longitude = geocoded.longitude;
-        source = "MANUAL";
-      }
-
-      if (!hasUsableIndiaCoordinates({ latitude, longitude })) {
-        throw new Error(
-          "Could not determine valid Indian coordinates. Please choose current location or verify the address.",
-        );
-      }
+      await validate();
+      const coordinates = await ensureCoordinates();
+      const fullAddress =
+        form.formattedAddress ||
+        form.fullAddress ||
+        buildFullAddress(form);
+      const source = form.source === "GPS" ? "GPS" : "MANUAL";
 
       const locationResponse = await api.post("/locations", {
-        latitude,
-        longitude,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
         address: fullAddress,
+        formattedAddress: fullAddress,
+        placeId: form.placeId || null,
+        addressComponents: form.addressComponents || undefined,
         source,
         isDefault: true,
       });
@@ -249,19 +187,17 @@ export default function AddressForm() {
 
       const nextLocation = {
         ...savedLocation,
+        ...form,
         address: fullAddress,
+        formattedAddress: fullAddress,
         fullAddress,
-        area: form.area.trim(),
-        city: form.city.trim(),
-        pincode: form.pincode.trim(),
-        latitude,
-        longitude,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
         source,
         isDefault: true,
       };
 
       setLocation(nextLocation);
-
       setUser((previous) => {
         const previousLocations = Array.isArray(previous?.locations)
           ? previous.locations.filter((item) => !item.isDefault)
@@ -287,18 +223,12 @@ export default function AddressForm() {
 
       addRecentActivity({
         type: "LOCATION",
-        title:
-          source === "GPS"
-            ? "Saved current location"
-            : "Saved manual location",
+        title: "Saved service location",
         detail: `${form.city}${form.area ? `, ${form.area}` : ""}`,
         path: "/dashboard/profile",
       });
 
-      const nextPath =
-        routeLocation.state?.from?.pathname || "/booking/vehicle";
-
-      nav(nextPath, {
+      nav(routeLocation.state?.from?.pathname || "/booking/vehicle", {
         replace: true,
         state: routeLocation.state?.from?.state,
       });
@@ -315,109 +245,105 @@ export default function AddressForm() {
   };
 
   return (
-    <div className="container-x mx-auto max-w-lg py-12">
-      <h1 className="text-3xl font-bold">Complete Your Profile</h1>
-      <p className="mt-1 text-muted">
-        Add your address to get started with booking services.
-      </p>
+    <div className="container-x mx-auto max-w-4xl py-10 sm:py-14">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <main>
+          <span className="chip-brand">Customer location</span>
+          <h1 className="mt-3 text-3xl font-bold sm:text-4xl">
+            Confirm the exact service address
+          </h1>
+          <p className="mt-2 max-w-2xl text-muted">
+            Search an address, use your current GPS location, and move the pin
+            to the entrance where the garage should arrive.
+          </p>
 
-      {error && (
-        <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={save} className="mt-8 grid gap-4">
-        <button
-          type="button"
-          onClick={detectLocation}
-          disabled={loading || detecting}
-          className="flex items-center justify-center gap-2 rounded-xl border border-ink px-4 py-3 font-medium text-ink transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <FiMapPin />
-          {detecting ? "Detecting location..." : "Use Current Location"}
-        </button>
-
-        <div className="grid gap-4">
-          <label className="grid gap-1.5 text-sm">
-            <span className="font-semibold">Full Address</span>
-            <input
-              required
-              name="address"
-              value={form.address}
-              onChange={change}
-              placeholder="House number, Street, Landmark"
-              disabled={loading}
-              className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink disabled:opacity-60"
-            />
-          </label>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-1.5 text-sm">
-              <span className="font-semibold">Area</span>
-              <input
-                required
-                name="area"
-                value={form.area}
-                onChange={change}
-                placeholder="Locality"
-                disabled={loading}
-                className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink disabled:opacity-60"
-              />
-            </label>
-
-            <label className="grid gap-1.5 text-sm">
-              <span className="font-semibold">City</span>
-              <CitySelect
-                required
-                value={form.city}
-                onChange={(city) => {
-                  setForm((previous) => ({
-                    ...previous,
-                    city,
-                    latitude: null,
-                    longitude: null,
-                  }));
-                  setManualLocationEdited(true);
-                  setError("");
-                }}
-                disabled={loading}
-                className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
-              />
-            </label>
-          </div>
-
-          <label className="grid gap-1.5 text-sm">
-            <span className="font-semibold">Pincode</span>
-            <input
-              required
-              name="pincode"
-              value={form.pincode}
-              onChange={change}
-              placeholder="6-digit pincode"
-              inputMode="numeric"
-              maxLength={6}
-              disabled={loading}
-              className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink disabled:opacity-60"
-            />
-          </label>
-        </div>
-
-        <button
-          disabled={loading || detecting}
-          type="submit"
-          className="btn-primary mt-4 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {loading ? (
-            "Saving..."
-          ) : (
-            <>
-              <FiCheckCircle />
-              Save & Continue
-            </>
+          {error && (
+            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
           )}
-        </button>
-      </form>
+
+          <form onSubmit={save} className="card-soft mt-7 space-y-6 p-5 sm:p-7">
+            <LocationPicker
+              value={form}
+              onChange={handleLocationChange}
+              label="Search and confirm address"
+              showCurrentLocation
+              required
+            />
+
+            <div className="grid gap-4 border-t border-line pt-6">
+              <div className="flex items-center gap-2">
+                <FiMapPin className="text-brand-dark" />
+                <h2 className="font-bold">Address details</h2>
+              </div>
+
+              <label className="grid gap-1.5 text-sm">
+                <span className="font-semibold">House, street or landmark</span>
+                <input
+                  required
+                  value={form.address}
+                  onChange={(event) => updateField("address", event.target.value)}
+                  className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+                />
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-1.5 text-sm">
+                  <span className="font-semibold">Area</span>
+                  <input
+                    required
+                    value={form.area}
+                    onChange={(event) => updateField("area", event.target.value)}
+                    className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+                  />
+                </label>
+
+                <label className="grid gap-1.5 text-sm">
+                  <span className="font-semibold">City</span>
+                  <CitySelect
+                    required
+                    value={form.city}
+                    onChange={(city) => updateField("city", city)}
+                    className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-1.5 text-sm sm:max-w-xs">
+                <span className="font-semibold">Pincode</span>
+                <input
+                  required
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={form.pincode}
+                  onChange={(event) => updateField("pincode", event.target.value)}
+                  className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+                />
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full py-4 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiCheckCircle />
+              {loading ? "Saving location…" : "Save and continue"}
+            </button>
+          </form>
+        </main>
+
+        <aside className="h-fit rounded-3xl bg-ink p-6 text-white lg:sticky lg:top-24">
+          <FiShield className="text-3xl text-brand" />
+          <h2 className="mt-4 text-xl font-bold">Why exact location matters</h2>
+          <div className="mt-4 grid gap-4 text-sm text-white/70">
+            <p>Nearby garages are ranked by real driving time, not only straight-line distance.</p>
+            <p>The confirmed pin becomes the destination used for routing and live ETA.</p>
+            <p>Your saved coordinates are reused, reducing repeated Google Maps requests.</p>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

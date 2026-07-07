@@ -33,6 +33,7 @@ model User {
   chatbotConversations ChatbotConversation[]
   chatbotMessages      ChatbotMessage[]
   customerActivities   CustomerActivity[]
+  trackingPoints       BookingTrackingPoint[]
 
   @@unique([email, role])
   @@unique([phone, role])
@@ -201,8 +202,11 @@ model CustomerLocation {
   userId    String
   latitude  Float
   longitude Float
-  address   String?
-  source    LocationSource @default(GPS)
+  address           String?
+  formattedAddress  String?
+  placeId           String?
+  addressComponents Json?
+  source            LocationSource @default(GPS)
   isDefault Boolean        @default(true)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
@@ -224,6 +228,7 @@ model Garage {
   area               String
   latitude           Float
   longitude          Float
+  placeId            String?
   workingRadiusKm    Int                       @default(15)
   garageType         String?                   @default("MULTI_BRAND")
   supportedBrands    Json?
@@ -247,6 +252,7 @@ model Garage {
   wallet             GarageWallet?
   walletTransactions GarageWalletTransaction[]
   reviews            Review[]
+  trackingPoints     BookingTrackingPoint[]
 
   @@index([ownerId])
   @@index([city])
@@ -430,6 +436,19 @@ model Booking {
   handoverOtpVerifiedAt DateTime?
   deliveredAt           DateTime?
   customerAcceptedAt    DateTime?
+  customerPlaceId       String?
+  routeDistanceMeters   Int?
+  routeDurationSeconds  Int?
+  routePolyline         String?
+  routeUpdatedAt        DateTime?
+  trackingStartedAt     DateTime?
+  trackingEndedAt       DateTime?
+  lastGarageLatitude    Float?
+  lastGarageLongitude   Float?
+  lastGarageHeading     Float?
+  lastGarageSpeedKph    Float?
+  lastGarageAccuracyM   Float?
+  lastGarageLocationAt  DateTime?
   garage                Garage?                  @relation(fields: [garageId], references: [id])
   user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   vehicle               Vehicle                  @relation(fields: [vehicleId], references: [id])
@@ -439,6 +458,7 @@ model Booking {
   broadcasts            GarageBroadcastRequest[]
   payment               Payment?
   review                Review?
+  trackingPoints        BookingTrackingPoint[]
 
   @@index([userId])
   @@index([garageId])
@@ -504,6 +524,32 @@ model GarageBroadcastRequest {
   @@index([bookingId])
   @@index([garageId])
   @@index([status])
+}
+
+model BookingTrackingPoint {
+  id               String         @id @default(uuid())
+  bookingId        String
+  garageId         String?
+  userId           String?
+  source           TrackingSource @default(GARAGE)
+  latitude         Float
+  longitude        Float
+  snappedLatitude  Float?
+  snappedLongitude Float?
+  roadPlaceId      String?
+  heading          Float?
+  speedKph         Float?
+  accuracyM        Float?
+  recordedAt       DateTime       @default(now())
+  createdAt        DateTime       @default(now())
+  booking          Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  garage           Garage?        @relation(fields: [garageId], references: [id], onDelete: SetNull)
+  user             User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, recordedAt])
+  @@index([garageId, recordedAt])
+  @@index([userId, recordedAt])
+  @@map("booking_tracking_points")
 }
 
 model Payment {
@@ -688,6 +734,7 @@ model GarageApplication {
   area             String
   latitude         Float?
   longitude        Float?
+  placeId          String?
   workingRadiusKm  Int                      @default(15)
   status           GarageApplicationStatus  @default(PENDING)
   adminNote        String?
@@ -897,6 +944,12 @@ enum BroadcastStatus {
 enum RequestType {
   NORMAL
   SOS
+}
+
+enum TrackingSource {
+  GARAGE
+  CUSTOMER
+  ADMIN
 }
 
 enum BookingPhotoPhase {

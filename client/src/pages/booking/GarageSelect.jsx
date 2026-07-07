@@ -1,249 +1,245 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { GARAGES } from "@/data/garages";
 import {
-  FiStar,
-  FiMapPin,
   FiArrowRight,
   FiCheckCircle,
+  FiClock,
+  FiMapPin,
+  FiRefreshCw,
+  FiShield,
+  FiStar,
   FiTool,
   FiZap,
 } from "react-icons/fi";
+import api from "@/api/axios";
+import RouteMapCard from "@/components/maps/RouteMapCard";
 import { useApp } from "@/hooks/useApp";
-import CitySelect from "@/components/common/CitySelect";
-import {
-  isCityAvailable,
-  UNAVAILABLE_CITY_MESSAGE,
-} from "@/utils/cityAvailability";
-import {
-  buildFullAddress,
-  hasUsableIndiaCoordinates,
-  reverseGeocodeCoordinates,
-} from "@/utils/address";
-import { queueGeocodeRequest } from "@/utils/geocodeService";
-import { addRecentActivity } from "@/utils/activityLog";
+import { hasUsableIndiaCoordinates } from "@/utils/address";
+
+const formatDistance = (garage) => {
+  const value = garage.roadDistanceKm ?? garage.distanceKm;
+  return Number.isFinite(Number(value))
+    ? `${Number(value).toFixed(1)} km`
+    : "Distance unavailable";
+};
+
+const getImage = (garage) =>
+  garage.thumbnail?.imageUrl || garage.images?.[0]?.imageUrl || "";
 
 export default function GarageSelect() {
-  const { location, setLocation } = useApp();
-  const [picked, setPicked] = useState("auto");
-  const [error, setError] = useState("");
-  const [locationLoading, setLocationLoading] = useState(false);
+  const { location, cart } = useApp();
   const nav = useNavigate();
+  const [garages, setGarages] = useState([]);
+  const [selectedGarageId, setSelectedGarageId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const proceed = async () => {
-    setError("");
-    if (!(await isCityAvailable(location.city))) {
-      setError(UNAVAILABLE_CITY_MESSAGE);
-      return;
-    }
+  const serviceIds = useMemo(
+    () => cart.map((item) => item.id).filter(Boolean),
+    [cart],
+  );
+  const selectedGarage =
+    garages.find((garage) => garage.id === selectedGarageId) || garages[0] || null;
 
+  const loadGarages = async () => {
     if (!hasUsableIndiaCoordinates(location)) {
-      try {
-        const geocode = await queueGeocodeRequest(
-          location.address || location.area,
-          location.city,
-          location.area,
-          location.pincode,
-        );
-        setLocation({
-          ...location,
-          latitude: geocode.latitude,
-          longitude: geocode.longitude,
-          fullAddress: buildFullAddress(location),
-        });
-      } catch (err) {
-        setError(
-          err.message || "Could not find coordinates for this location.",
-        );
-        return;
-      }
-    }
-
-    nav("/checkout");
-  };
-
-  const useCurrentLocation = () => {
-    setError("");
-    if (!navigator.geolocation) {
-      setError("Current location is not supported by this browser.");
+      setLoading(false);
+      setError("Save a valid service location before finding garages.");
       return;
     }
 
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const latitude = Number(position.coords.latitude.toFixed(6));
-        const longitude = Number(position.coords.longitude.toFixed(6));
-
-        try {
-          const parsed = await reverseGeocodeCoordinates({
-            latitude,
-            longitude,
-          });
-          if (!(await isCityAvailable(parsed.city))) {
-            setError(UNAVAILABLE_CITY_MESSAGE);
-            return;
-          }
-
-          const nextLocation = {
-            address: parsed.address,
-            area: parsed.area,
-            city: parsed.city,
-            pincode: parsed.pincode,
-            fullAddress: buildFullAddress(parsed),
-            latitude,
-            longitude,
-          };
-          setLocation(nextLocation);
-          addRecentActivity({
-            type: "LOCATION",
-            title: "Used current location",
-            detail: `${parsed.city}${parsed.area ? `, ${parsed.area}` : ""}`,
-            path: "/booking/garage",
-          });
-        } catch (err) {
-          setError(err.message || "Could not resolve current location.");
-        } finally {
-          setLocationLoading(false);
-        }
-      },
-      (err) => {
-        setError(err.message || "Unable to fetch current location.");
-        setLocationLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+    try {
+      setLoading(true);
+      setError("");
+      const response = await api.get("/garages/nearby", {
+        params: {
+          verified: true,
+          openNow: true,
+          maxDistance: 30,
+          ...(serviceIds.length && { serviceIds: serviceIds.join(",") }),
+        },
+      });
+      const result = Array.isArray(response.data?.data) ? response.data.data : [];
+      setGarages(result.slice(0, 10));
+      setSelectedGarageId((current) =>
+        result.some((item) => item.id === current) ? current : result[0]?.id || null,
+      );
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to rank nearby garages.",
+      );
+      setGarages([]);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    void loadGarages();
+  }, [location?.latitude, location?.longitude, serviceIds.join(",")]);
 
   return (
-    <div className="container-x py-12 max-w-5xl">
-      <div className="flex items-center gap-3 mb-2">
-        <span className="chip-brand">Step 3 of 3</span>
-      </div>
-      <h1 className="text-3xl sm:text-4xl font-bold">
-        Where do you want the service?
-      </h1>
-      <p className="text-muted mt-2">
-        Enter your location and pick a garage — or let us auto-assign the best
-        one.
-      </p>
-
-      <div className="mt-8 card-soft p-5 grid sm:grid-cols-4 gap-3">
-        <input
-          value={location.area || ""}
-          onChange={(e) =>
-            setLocation({
-              ...location,
-              area: e.target.value,
-              latitude: null,
-              longitude: null,
-            })
-          }
-          placeholder="Area"
-          className="px-4 py-3 rounded-xl border border-line focus:border-ink outline-none"
-        />
-        <CitySelect
-          value={location.city || ""}
-          onChange={(city) =>
-            setLocation({ ...location, city, latitude: null, longitude: null })
-          }
-          placeholder="City"
-          className="px-4 py-3 rounded-xl border border-line focus:border-ink outline-none"
-        />
-        <input
-          value={location.pincode || ""}
-          onChange={(e) =>
-            setLocation({
-              ...location,
-              pincode: e.target.value,
-              latitude: null,
-              longitude: null,
-            })
-          }
-          placeholder="Pincode"
-          className="px-4 py-3 rounded-xl border border-line focus:border-ink outline-none"
-        />
+    <div className="container-x py-10 sm:py-12">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span className="chip-brand">Step 3 of 3</span>
+          <h1 className="mt-3 text-3xl font-bold sm:text-4xl">
+            Best garages for this booking
+          </h1>
+          <p className="mt-2 max-w-2xl text-muted">
+            RovAuto first filters eligible garages, then ranks the closest
+            candidates by Google driving time. Final assignment still goes to
+            the first eligible garage that accepts after payment.
+          </p>
+        </div>
         <button
           type="button"
-          onClick={useCurrentLocation}
-          disabled={locationLoading}
-          className="btn-dark"
+          onClick={loadGarages}
+          disabled={loading}
+          className="btn-ghost"
         >
-          <FiMapPin /> {locationLoading ? "Fetching..." : "Current Location"}
+          <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
         </button>
       </div>
+
       {error && (
-        <div className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      <button
-        onClick={() => setPicked("auto")}
-        className={`mt-6 w-full text-left rounded-3xl p-6 transition border-2 ${picked === "auto" ? "border-ink bg-ink text-white" : "border-line bg-white"}`}
-      >
-        <div className="flex items-center gap-4">
-          <span className="grid place-items-center h-14 w-14 rounded-2xl bg-brand text-ink">
-            <FiZap className="text-2xl" />
-          </span>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="chip-brand">Recommended</span>
+      <div className="mt-8 grid gap-7 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <section className="space-y-3">
+          <div className="rounded-3xl border-2 border-ink bg-ink p-5 text-white">
+            <div className="flex items-start gap-4">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand text-xl text-ink">
+                <FiZap />
+              </div>
+              <div>
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
+                  Assignment mode
+                </span>
+                <h2 className="mt-3 text-xl font-bold">Auto-assign best acceptance</h2>
+                <p className="mt-1 text-sm leading-6 text-white/70">
+                  Ranking influences the broadcast order, while live eligibility
+                  and the first valid acceptance determine assignment.
+                </p>
+              </div>
             </div>
-            <h3 className="font-semibold text-xl mt-2">
-              Auto Assign Best Garage
-            </h3>
-            <p
-              className={`text-sm mt-1 ${picked === "auto" ? "text-white/70" : "text-muted"}`}
-            >
-              Automatically assign based on ratings, expertise, quality score
-              and availability.
-            </p>
           </div>
-          {picked === "auto" && (
-            <FiCheckCircle className="text-brand text-2xl" />
-          )}
-        </div>
-      </button>
 
-      <div className="mt-6 text-sm font-semibold text-muted">
-        Or pick from top 3 nearby verified garages
-      </div>
-      <div className="mt-3 grid gap-3">
-        {GARAGES.map((g) => (
-          <button
-            key={g.id}
-            onClick={() => setPicked(g.id)}
-            className={`w-full text-left card-soft p-5 transition ${picked === g.id ? "ring-2 ring-ink" : ""}`}
-          >
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="grid place-items-center h-14 w-14 rounded-2xl bg-bg-soft text-2xl">
-                <FiTool />
+          {loading ? (
+            <div className="card-soft p-6 text-sm text-muted">
+              Calculating real driving times…
+            </div>
+          ) : garages.length ? (
+            garages.slice(0, 5).map((garage, index) => {
+              const selected = selectedGarage?.id === garage.id;
+              return (
+                <button
+                  key={garage.id}
+                  type="button"
+                  onClick={() => setSelectedGarageId(garage.id)}
+                  className={`w-full overflow-hidden rounded-3xl border p-4 text-left transition ${
+                    selected
+                      ? "border-ink bg-white shadow-soft ring-2 ring-ink/10"
+                      : "border-line bg-white hover:border-ink/30"
+                  }`}
+                >
+                  <div className="flex gap-4">
+                    <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-2xl bg-bg-soft">
+                      {getImage(garage) ? (
+                        <img
+                          src={getImage(garage)}
+                          alt={garage.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="grid h-full place-items-center text-2xl text-muted">
+                          <FiTool />
+                        </div>
+                      )}
+                      <span className="absolute left-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-gray-950 text-[10px] font-bold text-white">
+                        {index + 1}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="truncate font-bold">{garage.name}</h3>
+                          <p className="mt-1 truncate text-xs text-muted">
+                            {garage.area}, {garage.city}
+                          </p>
+                        </div>
+                        {garage.isVerified && (
+                          <FiCheckCircle className="shrink-0 text-green-600" />
+                        )}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-bg-soft px-2.5 py-1">
+                          <FiClock /> {garage.etaMinutes ? `${garage.etaMinutes} min` : "ETA pending"}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-bg-soft px-2.5 py-1">
+                          <FiMapPin /> {formatDistance(garage)}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
+                          <FiStar fill="currentColor" /> {Number(garage.ratingAvg || 0).toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          ) : (
+            <div className="card-soft p-6 text-sm text-muted">
+              No eligible garage is currently available for every selected service.
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-5">
+          {selectedGarage && (
+            <RouteMapCard
+              origin={selectedGarage}
+              destination={location}
+              route={{
+                distanceMeters: selectedGarage.routeDistanceMeters,
+                durationSeconds: selectedGarage.etaSeconds,
+              }}
+              title={selectedGarage.name}
+              subtitle="Preview route to your confirmed service location"
+            />
+          )}
+
+          <div className="card-soft p-6">
+            <div className="flex items-start gap-4">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand text-xl">
+                <FiShield />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-semibold text-lg">{g.name}</h4>
-                  {g.verified && <span className="chip-brand">Verified</span>}
-                </div>
-                <div className="text-sm text-muted">
-                  {g.area} · {g.distance} away · ETA {g.eta}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center gap-1 text-amber-500 text-sm justify-end">
-                  <FiStar fill="currentColor" /> {g.rating}{" "}
-                  <span className="text-muted">({g.reviews})</span>
-                </div>
-                <div className="font-bold mt-1">₹{g.cost}</div>
+              <div>
+                <h2 className="font-bold">How ranking is used</h2>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  Straight-line distance is used only for the first shortlist.
+                  Google Route Matrix then ranks up to ten candidates by driving
+                  duration. Availability, supported services, vehicle scope,
+                  verification, working radius, and acceptance still apply.
+                </p>
               </div>
             </div>
-          </button>
-        ))}
-      </div>
+          </div>
 
-      <button onClick={proceed} className="btn-primary mt-8 w-full sm:w-auto">
-        Proceed to Checkout <FiArrowRight />
-      </button>
+          <button
+            type="button"
+            onClick={() => nav("/checkout")}
+            className="btn-primary w-full py-4 text-base"
+          >
+            Continue to checkout <FiArrowRight />
+          </button>
+        </section>
+      </div>
     </div>
   );
 }

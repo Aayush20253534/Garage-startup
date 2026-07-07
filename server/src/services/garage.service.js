@@ -4,6 +4,7 @@ const calculateDistanceKm = require("../utils/distance");
 const { getCache, setCache } = require("../utils/cache");
 const { addGarageWhatsappLink } = require("../utils/whatsapp");
 const { addServicePriceRange } = require("../utils/pricing");
+const googleMapsService = require("../maps/services/googleMaps.service");
 
 const GARAGE_LIST_TTL = 5 * 60;
 const GARAGE_DETAIL_TTL = 5 * 60;
@@ -152,6 +153,59 @@ const serializeGarage = (garage) =>
     services: garage.services ? garage.services.map(serializeGarageService) : garage.services,
   });
 
+
+const addDrivingMetrics = async ({ latitude, longitude, garages = [] }) => {
+  if (!garages.length || process.env.GOOGLE_ROUTE_MATRIX_ENABLED === "false") {
+    return garages;
+  }
+
+  const limit = Math.max(1, Math.min(
+    Number(process.env.GOOGLE_ROUTE_MATRIX_GARAGE_LIMIT || 10),
+    25,
+  ));
+  const candidates = garages.slice(0, limit);
+
+  try {
+    const ranked = await googleMapsService.rankDestinations({
+      origin: { latitude, longitude },
+      destinations: candidates.map((garage) => ({
+        latitude: garage.latitude,
+        longitude: garage.longitude,
+      })),
+      trafficAware: process.env.GOOGLE_TRAFFIC_AWARE !== "false",
+    });
+
+    const metricsByIndex = new Map(
+      ranked.map((item) => [item.destinationIndex, item]),
+    );
+
+    const enriched = candidates.map((garage, index) => {
+      const metric = metricsByIndex.get(index);
+      return {
+        ...garage,
+        roadDistanceKm: metric?.distanceKm ?? null,
+        routeDistanceMeters: metric?.distanceMeters ?? null,
+        etaSeconds: metric?.durationSeconds ?? null,
+        etaMinutes: metric?.durationSeconds
+          ? Math.max(1, Math.ceil(metric.durationSeconds / 60))
+          : null,
+      };
+    });
+
+    return [
+      ...enriched.sort((left, right) => {
+        const leftEta = left.etaSeconds ?? Number.MAX_SAFE_INTEGER;
+        const rightEta = right.etaSeconds ?? Number.MAX_SAFE_INTEGER;
+        return leftEta - rightEta;
+      }),
+      ...garages.slice(limit),
+    ];
+  } catch (error) {
+    console.warn("[garage-search] route matrix fallback:", error.message);
+    return garages;
+  }
+};
+
 const getGarages = async (query = {}) => {
   const {
     search,
@@ -289,14 +343,14 @@ const getNearbyGarages = async (userId, query = {}) => {
     openNow,
   });
 
-  return garages
+  const nearby = garages
     .map((garage) => ({
       ...garage,
       distanceKm: calculateDistanceKm(
         defaultLocation.latitude,
         defaultLocation.longitude,
         garage.latitude,
-        garage.longitude
+        garage.longitude,
       ),
     }))
     .filter((garage) => {
@@ -310,6 +364,12 @@ const getNearbyGarages = async (userId, query = {}) => {
       return garage.distanceKm <= effectiveRadius;
     })
     .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  return addDrivingMetrics({
+    latitude: defaultLocation.latitude,
+    longitude: defaultLocation.longitude,
+    garages: nearby,
+  });
 };
 
 const findNearbyEligibleGarages = async ({
@@ -362,14 +422,14 @@ const findNearbyEligibleGarages = async ({
     garages = garages.filter(isGarageOpenNow);
   }
 
-  return garages
+  const nearby = garages
     .map((garage) => ({
       ...serializeGarage(garage),
       distanceKm: calculateDistanceKm(
         latitude,
         longitude,
         garage.latitude,
-        garage.longitude
+        garage.longitude,
       ),
     }))
     .filter((garage) => {
@@ -383,6 +443,12 @@ const findNearbyEligibleGarages = async ({
       return garage.distanceKm <= effectiveRadius;
     })
     .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  return addDrivingMetrics({
+    latitude,
+    longitude,
+    garages: nearby,
+  });
 };
 
 const getGarageById = async (garageId) => {

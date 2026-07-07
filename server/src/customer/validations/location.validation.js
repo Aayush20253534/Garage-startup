@@ -107,6 +107,17 @@ const createLocationValidation = [
     .trim()
     .isLength({ max: 500 })
     .withMessage("Address is too long"),
+  body("formattedAddress")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 500 }),
+  body("placeId")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 300 }),
+  body("addressComponents")
+    .optional({ nullable: true })
+    .isArray({ max: 30 }),
   body("source")
     .optional()
     .isIn(["GPS", "MANUAL"])
@@ -127,6 +138,17 @@ const updateLocationValidation = [
     .trim()
     .isLength({ max: 500 })
     .withMessage("Address is too long"),
+  body("formattedAddress")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 500 }),
+  body("placeId")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 300 }),
+  body("addressComponents")
+    .optional({ nullable: true })
+    .isArray({ max: 30 }),
   body("source")
     .optional()
     .isIn(["GPS", "MANUAL"])

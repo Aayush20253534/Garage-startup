@@ -66,6 +66,9 @@ const createLocation = async (userId, data) => {
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
         address: data.address || null,
+        formattedAddress: data.formattedAddress || data.address || null,
+        placeId: data.placeId || null,
+        addressComponents: data.addressComponents || undefined,
         source: data.source || "GPS",
         isDefault: shouldBeDefault,
       },
@@ -141,6 +144,15 @@ const updateLocation = async (userId, locationId, data) => {
         ...(coordinates && { longitude: coordinates.longitude }),
         ...(data.address !== undefined && {
           address: data.address || null,
+        }),
+        ...(data.formattedAddress !== undefined && {
+          formattedAddress: data.formattedAddress || null,
+        }),
+        ...(data.placeId !== undefined && {
+          placeId: data.placeId || null,
+        }),
+        ...(data.addressComponents !== undefined && {
+          addressComponents: data.addressComponents || undefined,
         }),
         ...(data.source !== undefined && {
           source: data.source,

@@ -1,32 +1,58 @@
-import { FiCheck, FiPhone } from "react-icons/fi";
-
-const SUPPORT_PHONE_WITH_COUNTRY = "+919899319913";
+import { useLocation, useNavigate } from "react-router-dom";
+import { FiCheck, FiNavigation, FiShield } from "react-icons/fi";
 
 export default function SOSSuccessScreen() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const bookingId = location.state?.bookingId;
+  const bookingCode = location.state?.bookingCode;
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <div className="container-x py-10 text-center">
-        <div className="mb-10">
-          <div className="w-20 h-20 mx-auto bg-green-500 rounded-full flex items-center justify-center mb-6">
-            <FiCheck className="text-4xl text-white" />
-          </div>
-          <h1 className="text-3xl font-extrabold text-green-400 mb-2">
-            Mechanic Found!
-          </h1>
-          <p className="text-gray-400">Help is on the way</p>
+    <div className="min-h-screen bg-gray-950 px-4 py-12 text-white">
+      <div className="mx-auto max-w-xl text-center">
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-green-500 text-4xl shadow-2xl shadow-green-500/20">
+          <FiCheck />
         </div>
-        <div className="max-w-md mx-auto bg-gray-800 rounded-2xl p-6 border border-gray-700 mb-8">
-          <div className="text-xl font-semibold mb-2">Rajesh Kumar</div>
-          <div className="text-sm text-gray-400 mb-6">
-            Verified Mechanic • 2.1 km away
+        <h1 className="mt-6 text-3xl font-extrabold text-green-300">
+          SOS request broadcast
+        </h1>
+        <p className="mt-3 text-gray-400">
+          Nearby eligible garages are receiving your request. The first valid
+          acceptance will become your assigned garage.
+        </p>
+
+        <div className="mt-8 rounded-3xl border border-gray-800 bg-gray-900 p-6 text-left">
+          <div className="flex items-start gap-4">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-yellow-400/10 text-yellow-300">
+              <FiShield />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-500">
+                Emergency booking
+              </p>
+              <h2 className="mt-1 text-xl font-bold">
+                {bookingCode || "Request created"}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-gray-400">
+                Keep your phone reachable and remain at the confirmed safe
+                pickup point whenever possible.
+              </p>
+            </div>
           </div>
-          <a
-            href={`tel:${SUPPORT_PHONE_WITH_COUNTRY}`}
-            className="block w-full p-5 rounded-2xl bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-3 font-bold text-lg transition-all"
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/tracking", {
+                replace: true,
+                state: { bookingId, bookingCode },
+              })
+            }
+            disabled={!bookingId}
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 py-4 font-bold text-gray-950 transition hover:bg-yellow-300 disabled:opacity-50"
           >
-            <FiPhone className="text-2xl" />
-            Call Mechanic
-          </a>
+            <FiNavigation /> Track garage search
+          </button>
         </div>
       </div>
     </div>

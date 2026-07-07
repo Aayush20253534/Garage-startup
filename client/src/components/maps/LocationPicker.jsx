@@ -1,0 +1,319 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  FiCheckCircle,
+  FiLoader,
+  FiMapPin,
+  FiNavigation,
+  FiSearch,
+} from "react-icons/fi";
+import { mapsApi } from "@/api/maps";
+import { reverseGeocodeCoordinates } from "@/utils/address";
+import MapPanel from "./MapPanel";
+
+const createSessionToken = () =>
+  globalThis.crypto?.randomUUID?.() ||
+  `rovauto-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+const getDisplayValue = (value = {}) =>
+  value.formattedAddress ||
+  value.fullAddress ||
+  value.address ||
+  "";
+
+export default function LocationPicker({
+  value = {},
+  onChange,
+  label = "Search address",
+  helper = "Search, select, then drag the pin to the exact entrance.",
+  dark = false,
+  required = false,
+  showCurrentLocation = false,
+}) {
+  const [query, setQuery] = useState(() => getDisplayValue(value));
+  const [suggestions, setSuggestions] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [error, setError] = useState("");
+  const [focused, setFocused] = useState(false);
+  const sessionTokenRef = useRef(createSessionToken());
+  const selectedTextRef = useRef(getDisplayValue(value));
+
+  const coordinate = useMemo(() => {
+    const latitude = Number(value.latitude ?? value.lat);
+    const longitude = Number(value.longitude ?? value.lng);
+    return Number.isFinite(latitude) && Number.isFinite(longitude)
+      ? { latitude, longitude }
+      : null;
+  }, [value.latitude, value.longitude, value.lat, value.lng]);
+
+  useEffect(() => {
+    const next = getDisplayValue(value);
+    if (next && next !== selectedTextRef.current) {
+      selectedTextRef.current = next;
+      setQuery(next);
+    }
+  }, [value.formattedAddress, value.fullAddress, value.address]);
+
+  useEffect(() => {
+    const clean = query.trim();
+    if (!focused || clean.length < 3 || clean === selectedTextRef.current) {
+      setSuggestions([]);
+      return undefined;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setSearching(true);
+      setError("");
+      try {
+        const results = await mapsApi.autocomplete({
+          input: clean,
+          sessionToken: sessionTokenRef.current,
+          latitude: coordinate?.latitude,
+          longitude: coordinate?.longitude,
+        });
+        setSuggestions(Array.isArray(results) ? results : []);
+      } catch (err) {
+        setSuggestions([]);
+        setError(err.response?.data?.message || err.message || "Address search failed");
+      } finally {
+        setSearching(false);
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [query, focused, coordinate?.latitude, coordinate?.longitude]);
+
+  const chooseSuggestion = async (suggestion) => {
+    setSelecting(true);
+    setError("");
+    try {
+      const place = await mapsApi.getPlaceDetails(
+        suggestion.placeId,
+        sessionTokenRef.current,
+      );
+      const next = {
+        ...place.address,
+        formattedAddress: place.formattedAddress,
+        fullAddress: place.formattedAddress,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        placeId: place.placeId,
+        addressComponents: place.addressComponents,
+        source: "MANUAL",
+      };
+      selectedTextRef.current = place.formattedAddress;
+      setQuery(place.formattedAddress);
+      setSuggestions([]);
+      setFocused(false);
+      sessionTokenRef.current = createSessionToken();
+      onChange?.(next);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Could not load this address");
+    } finally {
+      setSelecting(false);
+    }
+  };
+
+  const resolveDraggedLocation = async (nextCoordinate) => {
+    setSelecting(true);
+    setError("");
+    try {
+      const parsed = await reverseGeocodeCoordinates(nextCoordinate);
+      const formattedAddress = parsed.fullAddress || parsed.displayName || parsed.address || query;
+      const next = {
+        ...value,
+        ...parsed,
+        formattedAddress,
+        fullAddress: formattedAddress,
+        latitude: nextCoordinate.latitude,
+        longitude: nextCoordinate.longitude,
+        placeId: parsed.placeId || value.placeId || null,
+        source: "MANUAL",
+      };
+      selectedTextRef.current = formattedAddress;
+      setQuery(formattedAddress);
+      onChange?.(next);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Could not resolve this pin location");
+    } finally {
+      setSelecting(false);
+    }
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setError("Current location is not supported by this browser");
+      return;
+    }
+
+    setLocating(true);
+    setError("");
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await resolveDraggedLocation({
+            latitude: Number(position.coords.latitude.toFixed(6)),
+            longitude: Number(position.coords.longitude.toFixed(6)),
+          });
+        } finally {
+          setLocating(false);
+        }
+      },
+      (err) => {
+        setLocating(false);
+        setError(err.message || "Unable to access current location");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <label
+            className={`text-sm font-semibold ${dark ? "text-white" : "text-ink"}`}
+          >
+            {label}
+          </label>
+          {coordinate && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-600">
+              <FiCheckCircle /> Location confirmed
+            </span>
+          )}
+        </div>
+        <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-muted"}`}>
+          {helper}
+        </p>
+      </div>
+
+      <div className="relative">
+        <FiSearch
+          className={`absolute left-4 top-1/2 z-10 -translate-y-1/2 ${
+            dark ? "text-gray-400" : "text-muted"
+          }`}
+        />
+        <input
+          required={required}
+          value={query}
+          onFocus={() => setFocused(true)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setQuery(next);
+            selectedTextRef.current = "";
+            onChange?.({
+              ...value,
+              address: next,
+              formattedAddress: next,
+              fullAddress: next,
+              latitude: null,
+              longitude: null,
+              placeId: null,
+              addressComponents: null,
+            });
+          }}
+          placeholder="Search house, street, landmark, or area"
+          className={`w-full rounded-2xl border py-3.5 pl-11 pr-12 text-sm outline-none transition ${
+            dark
+              ? "border-gray-700 bg-gray-900 text-white placeholder:text-gray-500 focus:border-yellow-400"
+              : "border-line bg-white text-ink focus:border-ink"
+          }`}
+        />
+        {(searching || selecting) && (
+          <FiLoader className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-muted" />
+        )}
+
+        {focused && suggestions.length > 0 && (
+          <div
+            className={`absolute z-30 mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border p-2 shadow-2xl ${
+              dark
+                ? "border-gray-700 bg-gray-900"
+                : "border-line bg-white"
+            }`}
+          >
+            {suggestions.map((suggestion) => (
+              <button
+                key={suggestion.placeId}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => chooseSuggestion(suggestion)}
+                className={`flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition ${
+                  dark ? "hover:bg-gray-800" : "hover:bg-bg-soft"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
+                    dark ? "bg-gray-800 text-yellow-300" : "bg-brand/25 text-ink"
+                  }`}
+                >
+                  <FiMapPin />
+                </span>
+                <span className="min-w-0">
+                  <span
+                    className={`block truncate text-sm font-semibold ${
+                      dark ? "text-white" : "text-ink"
+                    }`}
+                  >
+                    {suggestion.mainText || suggestion.text}
+                  </span>
+                  <span
+                    className={`mt-0.5 block text-xs ${
+                      dark ? "text-gray-400" : "text-muted"
+                    }`}
+                  >
+                    {suggestion.secondaryText}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showCurrentLocation && (
+        <button
+          type="button"
+          onClick={useCurrentLocation}
+          disabled={locating || selecting}
+          className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition disabled:opacity-60 ${
+            dark
+              ? "border-gray-700 bg-gray-800 text-white hover:border-yellow-400"
+              : "border-line bg-white text-ink hover:border-ink"
+          }`}
+        >
+          <FiNavigation />
+          {locating ? "Finding your exact location…" : "Use current GPS location"}
+        </button>
+      )}
+
+      {error && (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            dark
+              ? "border-red-500/30 bg-red-500/10 text-red-300"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {error}
+        </div>
+      )}
+
+      <div className={`flex items-center justify-end text-[11px] font-medium ${
+        dark ? "text-gray-500" : "text-muted"
+      }`}>
+        Powered by Google
+      </div>
+
+      {coordinate && (
+        <MapPanel
+          center={coordinate}
+          draggable
+          onLocationChange={resolveDraggedLocation}
+          dark={dark}
+          height={320}
+        />
+      )}
+    </div>
+  );
+}

@@ -312,6 +312,7 @@ const createBooking = async (userId, data) => {
         customerLatitude: Number(location.latitude),
         customerLongitude: Number(location.longitude),
         customerAddress: location.address || location.city || null,
+        customerPlaceId: location.placeId || null,
         customerNote: customerNote || null,
         handlingFee,
         totalServiceAmount,

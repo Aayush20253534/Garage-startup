@@ -28,6 +28,7 @@ const activityRoutes = require("../customer/routes/activity.routes");
 const publicRoutes = require("./public.routes");
 const cityRoutes = require("./city.routes");
 const systemIssueReportRoutes = require("./systemIssue.routes");
+const mapsRoutes = require("../maps/routes/maps.routes");
 const adminGarageApplicationRoutes = require("../admin/routes/garageApplication.routes");
 const cityServicePriceRangeRoutes = require("../admin/routes/cityServicePriceRange.routes");
 const adminGarageRoutes = require("../admin/routes/garageAdmin.routes");
@@ -61,6 +62,7 @@ router.use("/auth", authRoutes);
 router.use("/public", publicRoutes);
 router.use("/system-issues", systemIssueReportRoutes);
 router.use("/cities", cityRoutes);
+router.use("/maps", mapsRoutes);
 
 router.post(
   "/send-otp",

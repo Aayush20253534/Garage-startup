@@ -10,6 +10,8 @@ import {
 } from "react-icons/fi";
 import ImageUpload from "@/components/garage/ImageUpload";
 import InspectionGallery from "@/components/booking/InspectionGallery";
+import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
+import EmbedMap from "@/components/maps/EmbedMap";
 import { setBookings } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
@@ -319,6 +321,14 @@ export default function GarageBookingDetail() {
             />
           )}
 
+          {["ACCEPTED", "CONFIRMED", "IN_PROGRESS", "DELIVERED"].includes(booking.status) && (
+            <LiveBookingTracking
+              bookingId={booking.bookingId}
+              canShare
+              title="Customer route and live sharing"
+            />
+          )}
+
           <div className="card-soft p-6">
             <h3 className="mb-4 text-xl font-bold">Live Timeline</h3>
             <div className="space-y-4">
@@ -369,6 +379,13 @@ export default function GarageBookingDetail() {
                 </span>
               </p>
             </div>
+            <EmbedMap
+              latitude={booking.customer.location?.lat}
+              longitude={booking.customer.location?.lng}
+              height={220}
+              title="Customer service destination"
+              className="mb-4"
+            />
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() =>

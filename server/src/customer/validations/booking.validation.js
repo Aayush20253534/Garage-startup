@@ -54,6 +54,11 @@ const createBookingValidation = [
     .optional({ nullable: true, checkFalsy: true })
     .trim(),
 
+  body("location.placeId")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 300 }),
+
   body("useWalletCoins")
     .optional({ nullable: true })
     .isInt({ min: 0 })

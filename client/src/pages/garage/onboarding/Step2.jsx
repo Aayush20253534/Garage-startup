@@ -1,77 +1,115 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  FiArrowRight,
-  FiMapPin,
-  FiNavigation,
-  FiArrowLeft,
-} from "react-icons/fi";
-import Logo from "@/components/common/Logo";
-import { garageApi } from "@/api/garage";
-import { reverseGeocodeCoordinates } from "@/utils/address";
+import { FiArrowRight, FiMapPin, FiTarget } from "react-icons/fi";
+import LocationPicker from "@/components/maps/LocationPicker";
+import { mapsApi } from "@/api/maps";
 import CitySelect from "@/components/common/CitySelect";
 import {
   isCityAvailable,
   UNAVAILABLE_CITY_MESSAGE,
 } from "@/utils/cityAvailability";
 
-export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
-  const [loading, setLoading] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState("");
+const hasCoordinates = (location) =>
+  Number.isFinite(Number(location?.lat)) &&
+  Number.isFinite(Number(location?.lng));
 
-  const hasCoordinates = (location) =>
-    Number.isFinite(Number(location?.lat)) &&
-    Number.isFinite(Number(location?.lng));
+export default function OnboardingStep2({ data, onChange, onNext }) {
+  const [loading, setLoading] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [validationResult, setValidationResult] = useState(null);
+
+  const pickerValue = {
+    address: data.address,
+    area: data.area,
+    city: data.city,
+    formattedAddress: data.formattedAddress || data.address,
+    fullAddress: data.formattedAddress || data.address,
+    latitude: data.location?.lat,
+    longitude: data.location?.lng,
+    placeId: data.placeId,
+    addressComponents: data.addressComponents,
+    source: data.locationSource,
+  };
+
+  const applyLocation = (next) => {
+    onChange({
+      ...data,
+      address: next.formattedAddress || next.fullAddress || next.address || data.address,
+      formattedAddress:
+        next.formattedAddress || next.fullAddress || next.address || "",
+      area: next.area || data.area,
+      city: next.city || data.city,
+      placeId: next.placeId || null,
+      addressComponents: next.addressComponents || null,
+      location: {
+        lat: next.latitude ?? null,
+        lng: next.longitude ?? null,
+      },
+      locationSource: next.source === "GPS" ? "GPS" : "MANUAL",
+    });
+    setLocationError("");
+    setValidationResult(null);
+  };
 
   const updateAddressField = (field, value) => {
     onChange({
       ...data,
       [field]: value,
+      formattedAddress: field === "address" ? value : data.formattedAddress,
+      placeId: null,
+      addressComponents: null,
       location: { lat: null, lng: null },
       locationSource: "MANUAL",
     });
     setLocationError("");
+    setValidationResult(null);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setLoading(true);
     setLocationError("");
 
     try {
       if (!(await isCityAvailable(data.city))) {
-        setLocationError(UNAVAILABLE_CITY_MESSAGE);
-        return;
+        throw new Error(UNAVAILABLE_CITY_MESSAGE);
       }
 
-      let nextData = data;
+      if (!hasCoordinates(data.location)) {
+        throw new Error(
+          "Search the garage address and confirm the exact entrance on the map.",
+        );
+      }
 
-      if (data.locationSource !== "GPS" || !hasCoordinates(data.location)) {
-        const result = await garageApi.geocodeApplicationLocation({
-          address: data.address,
-          city: data.city,
-          area: data.area,
-        });
+      if (!data.address || !data.area || !data.city) {
+        throw new Error("Complete the garage address, area, and city.");
+      }
 
-        if (
-          !Number.isFinite(result.latitude) ||
-          !Number.isFinite(result.longitude)
-        ) {
-          throw new Error(
-            "Could not determine coordinates for this garage address.",
-          );
-        }
+      const validated = await mapsApi.validateAddress({
+        addressLines: [data.address, data.area].filter(Boolean),
+        locality: data.city,
+      });
+      setValidationResult(validated);
 
-        nextData = {
+      if (!validated?.accepted) {
+        throw new Error(
+          "Google could not fully validate this business address. Confirm the suggestion or improve the address details.",
+        );
+      }
+
+      if (validated.formattedAddress) {
+        onChange({
           ...data,
-          location: {
-            lat: result.latitude,
-            lng: result.longitude,
-          },
-          locationSource: "MANUAL",
-        };
-        onChange(nextData);
+          address: validated.formattedAddress,
+          formattedAddress: validated.formattedAddress,
+          placeId: validated.placeId || data.placeId,
+          location: validated.location
+            ? {
+                lat: validated.location.latitude,
+                lng: validated.location.longitude,
+              }
+            : data.location,
+        });
       }
 
       onNext();
@@ -79,195 +117,171 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
       setLocationError(
         err.response?.data?.message ||
           err.message ||
-          "Could not find this garage location. Please verify the address and try again.",
+          "Could not confirm this garage location.",
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const getCurrentLocation = () => {
-    setLocationError("");
-
-    if (!navigator.geolocation) {
-      setLocationError("Current location is not supported by this browser.");
-      return;
-    }
-
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const latitude = Number(position.coords.latitude.toFixed(6));
-        const longitude = Number(position.coords.longitude.toFixed(6));
-
-        try {
-          const parsed = await reverseGeocodeCoordinates({
-            latitude,
-            longitude,
-          });
-          if (!(await isCityAvailable(parsed.city))) {
-            setLocationError(UNAVAILABLE_CITY_MESSAGE);
-            setLocationLoading(false);
-            return;
-          }
-          onChange({
-            ...data,
-            address: parsed.address || data.address,
-            area: parsed.area || data.area,
-            city: parsed.city || data.city,
-            location: {
-              lat: latitude,
-              lng: longitude,
-            },
-            locationSource: "GPS",
-          });
-        } catch {
-          onChange({
-            ...data,
-            location: {
-              lat: latitude,
-              lng: longitude,
-            },
-            locationSource: "GPS",
-          });
-          setLocationError(
-            "Location detected, but address details could not be filled. Please complete the address boxes.",
-          );
-        }
-        setLocationLoading(false);
-      },
-      (error) => {
-        setLocationError(error.message || "Unable to fetch current location.");
-        setLocationLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
-  };
-
   return (
-    <div className="min-h-screen flex flex-col bg-bg-soft">
-      <div className="flex-1 flex items-center justify-center px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-lg card-soft p-8"
-        >
-          <h1 className="text-3xl font-bold mb-2">Location Details</h1>
-          <p className="text-muted mb-8">
-            Set your garage address and working radius
+    <div className="min-h-screen bg-bg-soft px-4 py-10">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-auto w-full max-w-5xl"
+      >
+        <div className="mb-7">
+          <span className="chip-brand">Step 2 · Garage location</span>
+          <h1 className="mt-3 text-3xl font-bold sm:text-4xl">
+            Pin the exact garage entrance
+          </h1>
+          <p className="mt-2 max-w-2xl text-muted">
+            Customers, routing, and service-radius checks will use this point.
+            Search the address and move the marker if the entrance is elsewhere.
           </p>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Garage Address
-              </label>
-              <div className="relative">
-                <FiMapPin className="absolute left-4 top-4 text-muted" />
+        {locationError && (
+          <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {locationError}
+          </div>
+        )}
+
+        <form
+          onSubmit={handleSubmit}
+          className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
+        >
+          <section className="card-soft space-y-6 p-5 sm:p-7">
+            <LocationPicker
+              value={pickerValue}
+              onChange={applyLocation}
+              label="Search garage address"
+              helper="Select a Google result, then drag the pin to the customer entrance."
+              showCurrentLocation
+              required
+            />
+
+            <div className="grid gap-4 border-t border-line pt-6">
+              <div className="flex items-center gap-2">
+                <FiMapPin className="text-brand-dark" />
+                <h2 className="font-bold">Business address</h2>
+              </div>
+
+              <label className="grid gap-2 text-sm font-medium">
+                Full address
                 <textarea
-                  value={data.address}
-                  onChange={(e) =>
-                    updateAddressField("address", e.target.value)
-                  }
-                  placeholder="Enter full address"
+                  required
                   rows={3}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors resize-none"
-                  required
+                  value={data.address}
+                  onChange={(event) =>
+                    updateAddressField("address", event.target.value)
+                  }
+                  className="resize-none rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
                 />
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">City</label>
-                <CitySelect
-                  value={data.city}
-                  onChange={(city) => updateAddressField("city", city)}
-                  required
-                  className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Area</label>
-                <input
-                  type="text"
-                  value={data.area}
-                  onChange={(e) => updateAddressField("area", e.target.value)}
-                  placeholder="Karol Bagh"
-                  className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Short Description
               </label>
-              <textarea
-                value={data.description}
-                onChange={(e) =>
-                  onChange({ ...data, description: e.target.value })
-                }
-                placeholder="Tell customers what your garage specializes in"
-                rows={2}
-                className="w-full px-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors resize-none"
-              />
-            </div>
 
-            <div className="card-soft p-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-semibold">GPS Location</span>
-                <button
-                  type="button"
-                  onClick={getCurrentLocation}
-                  disabled={locationLoading}
-                  className="btn-ghost text-sm py-2 px-3"
-                >
-                  <FiNavigation className="w-4 h-4" />
-                  {locationLoading ? "Fetching..." : "Get Current Location"}
-                </button>
-              </div>
-              <div className="text-muted text-sm">
-                Lat: {data.location?.lat || "Not set"}, Lng:{" "}
-                {data.location?.lng || "Not set"}
-              </div>
-              {locationError && (
-                <div className="mt-2 text-sm text-red-600">{locationError}</div>
-              )}
-            </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-2 text-sm font-medium">
+                  City
+                  <CitySelect
+                    required
+                    value={data.city}
+                    onChange={(city) => updateAddressField("city", city)}
+                    className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+                  />
+                </label>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Working Radius: {data.workingRadius} km
+                <label className="grid gap-2 text-sm font-medium">
+                  Area
+                  <input
+                    required
+                    value={data.area}
+                    onChange={(event) =>
+                      updateAddressField("area", event.target.value)
+                    }
+                    className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-2 text-sm font-medium">
+                Short description
+                <textarea
+                  rows={3}
+                  value={data.description}
+                  onChange={(event) =>
+                    onChange({ ...data, description: event.target.value })
+                  }
+                  placeholder="Specializations, landmark, parking access, or operating notes"
+                  className="resize-none rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
+                />
               </label>
+            </div>
+          </section>
+
+          <aside className="card-soft h-fit p-6 lg:sticky lg:top-20">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-brand text-xl">
+              <FiTarget />
+            </div>
+            <h2 className="mt-4 text-xl font-bold">Working radius</h2>
+            <p className="mt-2 text-sm text-muted">
+              This is the maximum initial distance used when RovAuto shortlists
+              your garage. Driving-time ranking is applied afterward.
+            </p>
+
+            <div className="mt-6 rounded-2xl bg-bg-soft p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">Coverage</span>
+                <span className="text-2xl font-bold">{data.workingRadius} km</span>
+              </div>
               <input
                 type="range"
                 min="5"
                 max="30"
                 value={data.workingRadius}
-                onChange={(e) =>
-                  onChange({ ...data, workingRadius: Number(e.target.value) })
+                onChange={(event) =>
+                  onChange({
+                    ...data,
+                    workingRadius: Number(event.target.value),
+                  })
                 }
-                className="w-full h-2 bg-line rounded-full appearance-none cursor-pointer accent-brand"
+                className="mt-5 h-2 w-full cursor-pointer appearance-none rounded-full bg-line accent-brand"
               />
-              <div className="flex justify-between text-xs text-muted mt-1">
+              <div className="mt-2 flex justify-between text-xs text-muted">
                 <span>5 km</span>
                 <span>30 km</span>
               </div>
             </div>
 
+            {validationResult && (
+              <div className={`mt-6 rounded-2xl border p-4 text-sm ${
+                validationResult.accepted
+                  ? "border-green-200 bg-green-50 text-green-800"
+                  : "border-amber-200 bg-amber-50 text-amber-900"
+              }`}>
+                <p className="font-bold">
+                  {validationResult.accepted
+                    ? "Business address validated"
+                    : "Address needs confirmation"}
+                </p>
+                <p className="mt-1">
+                  {validationResult.formattedAddress || data.address}
+                </p>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full py-4 text-lg mt-4"
+              className="btn-primary mt-6 w-full py-4 text-base disabled:opacity-60"
             >
-              {loading ? "Saving..." : "Save and Continue"}
-              <FiArrowRight className="w-5 h-5" />
+              {loading ? "Checking location…" : "Save and continue"}
+              <FiArrowRight />
             </button>
-          </form>
-        </motion.div>
-      </div>
+          </aside>
+        </form>
+      </motion.div>
     </div>
   );
 }
