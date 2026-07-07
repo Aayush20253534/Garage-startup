@@ -2,7 +2,7 @@ import api from "@/api/axios";
 import { verifyCurrentSession } from "@/utils/authSession";
 
 const unwrap = (response) => response.data?.data ?? response.data;
-const GARAGE_MINIMUM_ACTIVATION_BALANCE = 1;
+const GARAGE_MINIMUM_ACTIVATION_BALANCE = 100;
 
 export const normalizeGarage = (garage) => {
   if (!garage) return null;
@@ -12,6 +12,16 @@ export const normalizeGarage = (garage) => {
   const owner = garage.owner || {};
   const images = Array.isArray(garage.images) ? garage.images : [];
 
+  const walletBalance = Number(wallet.balance ?? activation.walletBalance ?? 0);
+  const minimumActivationAmount = Number(
+    activation.minimumActivationAmount ??
+      activation.minimumBalance ??
+      GARAGE_MINIMUM_ACTIVATION_BALANCE
+  );
+  const isActive = activation.isActive ?? garage.isActive;
+  const hasActivationBalance =
+    Boolean(isActive) || walletBalance >= minimumActivationAmount;
+
   return {
     ...garage,
     ownerName: owner.name || garage.ownerName || garage.name,
@@ -19,21 +29,22 @@ export const normalizeGarage = (garage) => {
     name: garage.name || garage.garageName || "Garage",
     phone: garage.phone || owner.phone || "",
     email: garage.email || owner.email || "",
-    walletBalance: wallet.balance || activation.walletBalance || 0,
+    walletBalance,
     imageCount: images.length || activation.photoCount || 0,
-    minimumBalance:
-      activation.minimumBalance || GARAGE_MINIMUM_ACTIVATION_BALANCE,
+    minimumBalance: minimumActivationAmount,
+    minimumActivationAmount,
     isOnboardingComplete: Boolean(garage.isVerified),
     activation: {
-      minimumBalance:
-        activation.minimumBalance || GARAGE_MINIMUM_ACTIVATION_BALANCE,
-      walletBalance: wallet.balance || activation.walletBalance || 0,
+      minimumBalance: minimumActivationAmount,
+      minimumActivationAmount,
+      walletBalance,
       photoCount: images.length || activation.photoCount || 0,
       hasMinimumBalance:
-        activation.hasMinimumBalance ??
-        (wallet.balance || 0) >=
-          (activation.minimumBalance || GARAGE_MINIMUM_ACTIVATION_BALANCE),
-      isActive: activation.isActive ?? garage.isActive,
+        Boolean(isActive) || (activation.hasMinimumBalance ?? hasActivationBalance),
+      hasActivationBalance:
+        Boolean(isActive) ||
+        (activation.hasActivationBalance ?? hasActivationBalance),
+      isActive,
     },
   };
 };
@@ -64,6 +75,7 @@ export const mapGarageRequestToBooking = (request) => {
     acceptUrl: request.acceptUrl,
     estimatedBill:
       booking.totalServiceMaxAmount || booking.totalServiceAmount || 0,
+    acceptFee: request.acceptFee || booking.handlingFee || 0,
     raw: request,
     customerLocationLink: request.customerLocationLink,
     handoverOtpExpiresAt: booking.handoverOtpExpiresAt,

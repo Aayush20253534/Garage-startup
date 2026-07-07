@@ -96,7 +96,8 @@ export default function GarageProfile() {
   const uploadedImages = Array.isArray(garage?.images) ? garage.images : [];
   const supportedBrands = getSupportedBrands(garage);
 
-  const minimumBalance = activation.minimumBalance || 100;
+  const minimumActivationAmount =
+    activation.minimumActivationAmount || activation.minimumBalance || 100;
   const balance =
     activation.walletBalance ||
     garage?.walletBalance ||
@@ -295,16 +296,16 @@ export default function GarageProfile() {
           },
           {
             title: "Wallet Balance",
-            value: `Rs. ${Number(balance).toLocaleString()} / Rs. ${Number(
-              minimumBalance
-            ).toLocaleString()}`,
-            active: balance >= minimumBalance,
+            value: `Rs. ${Number(balance).toLocaleString()}`,
+            active: garage?.isActive || balance >= minimumActivationAmount,
           },
           {
             title: "Customer Visibility",
             value: garage?.isActive
               ? "Garage is visible"
-              : "Maintain required wallet balance",
+              : `Recharge Rs. ${Number(
+                  minimumActivationAmount
+                ).toLocaleString()} once to activate`,
             active: garage?.isActive,
           },
         ].map((item) => (

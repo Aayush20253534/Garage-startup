@@ -228,6 +228,14 @@ export default function GarageBookingDetail() {
                         ₹{Number(booking.estimatedBill || 0).toLocaleString()}
                       </span>
                     </div>
+                    {Number(booking.acceptFee || 0) > 0 && (
+                      <div className="mt-2 flex justify-between text-xs text-muted">
+                        <span>Wallet fee deducted on accept</span>
+                        <span className="font-semibold text-ink">
+                          ₹{Number(booking.acceptFee || 0).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

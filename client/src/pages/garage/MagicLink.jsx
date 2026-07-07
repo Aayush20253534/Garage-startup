@@ -228,6 +228,15 @@ export default function MagicLink() {
                   </div>
                 </div>
 
+                {Number(booking.acceptFee || 0) > 0 && (
+                  <div className="rounded-xl border border-line bg-white p-4 text-center text-sm">
+                    <span className="text-muted">Wallet fee deducted when accepting: </span>
+                    <span className="font-bold text-ink">
+                      Rs. {Number(booking.acceptFee || 0).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
                 {accepted && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}

@@ -48,8 +48,10 @@ export default function GarageWallet() {
 
   const balance = Number(wallet?.balance || 0);
 
-  const minimumBalance =
-    wallet?.activation?.minimumBalance || MINIMUM_RECHARGE_AMOUNT;
+  const minimumActivationAmount =
+    wallet?.activation?.minimumActivationAmount ||
+    wallet?.activation?.minimumBalance ||
+    MINIMUM_RECHARGE_AMOUNT;
 
   const loadWallet = async () => {
     if (!garageToken) return;
@@ -205,7 +207,9 @@ export default function GarageWallet() {
             </h2>
 
             <p className="mt-3 text-sm text-muted">
-              Minimum ₹{minimumBalance} wallet balance required for activation.
+              ₹{minimumActivationAmount} is required only for first activation.
+              After activation, keep enough balance to cover the platform fee of
+              a booking request; that fee is deducted when you accept it.
             </p>
           </div>
 
@@ -303,7 +307,9 @@ export default function GarageWallet() {
                   Recharge Wallet
                 </h3>
                 <p className="mt-1 text-sm text-muted">
-                  Create a Cashfree recharge order. Minimum amount is ₹100.
+                  Create a Cashfree recharge order. The first activation needs at
+                  least ₹{minimumActivationAmount}; after activation, there is no
+                  ₹{minimumActivationAmount} wallet-balance cap.
                 </p>
               </div>
 

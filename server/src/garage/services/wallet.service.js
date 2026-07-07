@@ -29,8 +29,13 @@ const getGarageWalletForOwner = async (userId) => {
     wallet,
     activation: {
       minimumBalance: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
+      minimumActivationAmount: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
       isEligible:
-        garage.isVerified &&
+        garage.isActive ||
+        (garage.isVerified &&
+          wallet.balance >= GARAGE_MINIMUM_ACTIVATION_RECHARGE),
+      hasActivationBalance:
+        garage.isActive ||
         wallet.balance >= GARAGE_MINIMUM_ACTIVATION_RECHARGE,
       photoCount: garage.images?.length || 0,
       isActive: garage.isActive,
@@ -146,6 +151,10 @@ const verifyGarageWalletRechargeOrder = async (userId, cashfreeOrderId) => {
       garage: updatedGarage,
       activation: {
         minimumBalance: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
+        minimumActivationAmount: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
+        hasActivationBalance:
+          updatedGarage.isActive ||
+          updatedWallet.balance >= GARAGE_MINIMUM_ACTIVATION_RECHARGE,
         photoCount: updatedGarage.images?.length || 0,
         isActive: updatedGarage.isActive,
       },

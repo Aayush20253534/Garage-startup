@@ -94,6 +94,22 @@ const getRequestDistanceKm = (request) => {
   );
 };
 
+
+const getGarageAcceptFee = (booking = {}) => {
+  const storedHandlingFee = Number(booking.handlingFee);
+
+  if (Number.isFinite(storedHandlingFee) && storedHandlingFee > 0) {
+    return storedHandlingFee;
+  }
+
+  const serviceUpperLimit = Math.max(
+    Number(booking.totalServiceAmount) || 0,
+    Number(booking.totalServiceMaxAmount) || 0,
+  );
+
+  return calculatePlatformFee(serviceUpperLimit, booking.requestType);
+};
+
 const redactPendingCustomerDetails = (request) => {
   if (
     request.status !== BROADCAST_STATUS.SENT ||
@@ -124,11 +140,13 @@ const redactPendingCustomerDetails = (request) => {
 const serializeGarageRequest = (request) => {
   const safeRequest = redactPendingCustomerDetails(request);
   const distanceKm = getRequestDistanceKm(request);
+  const acceptFee = getGarageAcceptFee(request.booking);
 
   return {
     ...safeRequest,
     distanceKm,
     etaMinutes: estimateArrivalMinutes(distanceKm),
+    acceptFee,
     acceptUrl: getGarageAcceptUrl(request.id),
     garage: addGarageWhatsappLink(safeRequest.garage),
   };
@@ -379,14 +397,7 @@ const startNextGarageSearchCycle = async (bookingId) => {
     },
   });
 
-  const serviceUpperLimit = Math.max(
-    Number(booking.totalServiceAmount) || 0,
-    Number(booking.totalServiceMaxAmount) || 0,
-  );
-  const garageAcceptFee = calculatePlatformFee(
-    serviceUpperLimit,
-    booking.requestType,
-  );
+  const garageAcceptFee = getGarageAcceptFee(booking);
 
   const serviceIds = booking.services.map((item) => item.serviceId);
   const eligibleGarages = await garageService.findNearbyEligibleGarages({
@@ -586,14 +597,7 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       throw new ApiError(400, "This two-minute request round has expired");
     }
 
-    const serviceUpperLimit = Math.max(
-      Number(freshBooking.totalServiceAmount) || 0,
-      Number(freshBooking.totalServiceMaxAmount) || 0,
-    );
-    const garageAcceptFee = calculatePlatformFee(
-      serviceUpperLimit,
-      freshBooking.requestType,
-    );
+    const garageAcceptFee = getGarageAcceptFee(freshBooking);
 
     const garageWallet = await tx.garageWallet.findUnique({
       where: { garageId },

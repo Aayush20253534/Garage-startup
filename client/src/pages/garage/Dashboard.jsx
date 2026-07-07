@@ -147,8 +147,9 @@ export default function GarageDashboard() {
               </h2>
 
               <p className="mt-1 text-sm text-yellow-800">
-                Keep ₹{activation.minimumBalance || 100}+ in your wallet to
-                activate customer visibility.
+                Recharge at least ₹{activation.minimumBalance || 100} once to
+                activate customer visibility. After activation, your balance may
+                go below this amount.
               </p>
 
               <div className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-sm font-semibold text-yellow-900">
@@ -164,6 +165,14 @@ export default function GarageDashboard() {
           <FiAlertCircle className="shrink-0" />
           <span>{error}</span>
         </div>
+      )}
+
+      {garage?.isActive && (
+        <section className="rounded-2xl border border-line bg-white p-4 text-sm text-muted shadow-sm">
+          Requests are shown only when your wallet can cover that booking's
+          platform fee. The same fee is deducted from your wallet when you
+          accept the request.
+        </section>
       )}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">

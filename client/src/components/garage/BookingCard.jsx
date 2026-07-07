@@ -74,6 +74,14 @@ export default function BookingCard({ booking, onAccept, onDecline }) {
               ₹{Number(booking.estimatedBill || 0).toLocaleString()}
             </span>
           </div>
+          {Number(booking.acceptFee || 0) > 0 && (
+            <div className="flex items-center justify-between rounded-lg bg-bg-soft px-3 py-2 text-xs">
+              <span className="text-muted">Deducted on accept</span>
+              <span className="font-bold text-ink">
+                ₹{Number(booking.acceptFee || 0).toLocaleString()}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

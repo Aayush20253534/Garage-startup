@@ -44,9 +44,14 @@ const getGarageOwnerProfile = async (userId) => {
     ...garage,
     activation: {
       minimumBalance: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
+      minimumActivationAmount: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
       walletBalance: garage.wallet?.balance || 0,
       photoCount: garage.images?.length || 0,
       hasMinimumBalance:
+        garage.isActive ||
+        (garage.wallet?.balance || 0) >= GARAGE_MINIMUM_ACTIVATION_RECHARGE,
+      hasActivationBalance:
+        garage.isActive ||
         (garage.wallet?.balance || 0) >= GARAGE_MINIMUM_ACTIVATION_RECHARGE,
       isActive: garage.isActive,
     },
