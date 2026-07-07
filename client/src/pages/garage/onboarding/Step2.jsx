@@ -13,6 +13,20 @@ const hasCoordinates = (location) =>
   Number.isFinite(Number(location?.lat)) &&
   Number.isFinite(Number(location?.lng));
 
+const getValidatedLocation = (validated, fallbackLocation) => {
+  const lat = validated?.location?.latitude ?? validated?.location?.lat;
+  const lng = validated?.location?.longitude ?? validated?.location?.lng;
+
+  if (hasCoordinates({ lat, lng })) {
+    return {
+      lat: Number(lat),
+      lng: Number(lng),
+    };
+  }
+
+  return fallbackLocation;
+};
+
 export default function OnboardingStep2({ data, onChange, onNext }) {
   const [loading, setLoading] = useState(false);
   const [locationError, setLocationError] = useState("");
@@ -34,7 +48,8 @@ export default function OnboardingStep2({ data, onChange, onNext }) {
   const applyLocation = (next) => {
     onChange({
       ...data,
-      address: next.formattedAddress || next.fullAddress || next.address || data.address,
+      address:
+        next.formattedAddress || next.fullAddress || next.address || data.address,
       formattedAddress:
         next.formattedAddress || next.fullAddress || next.address || "",
       area: next.area || data.area,
@@ -85,30 +100,32 @@ export default function OnboardingStep2({ data, onChange, onNext }) {
         throw new Error("Complete the garage address, area, and city.");
       }
 
-      const validated = await mapsApi.validateAddress({
-        addressLines: [data.address, data.area].filter(Boolean),
-        locality: data.city,
-      });
-      setValidationResult(validated);
+      let validated = null;
 
-      if (!validated?.accepted) {
-        throw new Error(
-          "Google could not fully validate this business address. Confirm the suggestion or improve the address details.",
-        );
+      try {
+        validated = await mapsApi.validateAddress({
+          addressLines: [data.address, data.area].filter(Boolean),
+          locality: data.city,
+        });
+        setValidationResult(validated);
+      } catch (validationError) {
+        setValidationResult({
+          accepted: false,
+          formattedAddress: data.formattedAddress || data.address,
+          message:
+            validationError.response?.data?.message ||
+            validationError.message ||
+            "Google could not fully validate this address.",
+        });
       }
 
-      if (validated.formattedAddress) {
+      if (validated?.accepted && validated.formattedAddress) {
         onChange({
           ...data,
           address: validated.formattedAddress,
           formattedAddress: validated.formattedAddress,
           placeId: validated.placeId || data.placeId,
-          location: validated.location
-            ? {
-                lat: validated.location.latitude,
-                lng: validated.location.longitude,
-              }
-            : data.location,
+          location: getValidatedLocation(validated, data.location),
         });
       }
 
@@ -233,7 +250,9 @@ export default function OnboardingStep2({ data, onChange, onNext }) {
             <div className="mt-6 rounded-2xl bg-bg-soft p-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">Coverage</span>
-                <span className="text-2xl font-bold">{data.workingRadius} km</span>
+                <span className="text-2xl font-bold">
+                  {data.workingRadius} km
+                </span>
               </div>
               <input
                 type="range"
@@ -255,19 +274,27 @@ export default function OnboardingStep2({ data, onChange, onNext }) {
             </div>
 
             {validationResult && (
-              <div className={`mt-6 rounded-2xl border p-4 text-sm ${
-                validationResult.accepted
-                  ? "border-green-200 bg-green-50 text-green-800"
-                  : "border-amber-200 bg-amber-50 text-amber-900"
-              }`}>
+              <div
+                className={`mt-6 rounded-2xl border p-4 text-sm ${
+                  validationResult.accepted
+                    ? "border-green-200 bg-green-50 text-green-800"
+                    : "border-amber-200 bg-amber-50 text-amber-900"
+                }`}
+              >
                 <p className="font-bold">
                   {validationResult.accepted
                     ? "Business address validated"
-                    : "Address needs confirmation"}
+                    : "Address saved with map pin"}
                 </p>
                 <p className="mt-1">
                   {validationResult.formattedAddress || data.address}
                 </p>
+                {!validationResult.accepted && (
+                  <p className="mt-2 text-xs">
+                    Google could not fully validate the postal address, but the
+                    selected pin, city, and coordinates will be used.
+                  </p>
+                )}
               </div>
             )}
 
