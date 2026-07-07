@@ -1,5 +1,6 @@
 import {
   getRedirectResult,
+  signInWithPopup,
   signInWithRedirect,
 } from "firebase/auth";
 import api from "@/api/axios";
@@ -7,6 +8,32 @@ import { auth, googleProvider } from "@/config/firebase";
 import { verifyCurrentSession } from "@/utils/authSession";
 
 export const GOOGLE_AUTH_PENDING_ROLE_KEY = "rov_google_auth_role";
+
+const writePendingRole = (role) => {
+  sessionStorage.setItem(GOOGLE_AUTH_PENDING_ROLE_KEY, role);
+  localStorage.setItem(GOOGLE_AUTH_PENDING_ROLE_KEY, role);
+};
+
+const readPendingRole = () =>
+  sessionStorage.getItem(GOOGLE_AUTH_PENDING_ROLE_KEY) ||
+  localStorage.getItem(GOOGLE_AUTH_PENDING_ROLE_KEY);
+
+const clearPendingRole = () => {
+  sessionStorage.removeItem(GOOGLE_AUTH_PENDING_ROLE_KEY);
+  localStorage.removeItem(GOOGLE_AUTH_PENDING_ROLE_KEY);
+};
+
+const shouldFallbackToRedirect = (error) => {
+  const code = String(error?.code || "");
+  const message = String(error?.message || "");
+
+  return (
+    code === "auth/popup-blocked" ||
+    code === "auth/popup-closed-by-user" ||
+    code === "auth/cancelled-popup-request" ||
+    /Cross-Origin-Opener-Policy|window\.closed|popup/i.test(message)
+  );
+};
 
 const finishGoogleCredential = async (credential, role = "CUSTOMER") => {
   if (!credential?.user) {
@@ -38,18 +65,31 @@ const finishGoogleCredential = async (credential, role = "CUSTOMER") => {
 };
 
 export const startGoogleAuth = async (role = "CUSTOMER") => {
-  sessionStorage.setItem(GOOGLE_AUTH_PENDING_ROLE_KEY, role);
-  await signInWithRedirect(auth, googleProvider);
-  return null;
+  writePendingRole(role);
+
+  try {
+    const credential = await signInWithPopup(auth, googleProvider);
+    const result = await finishGoogleCredential(credential, role);
+    clearPendingRole();
+    return result;
+  } catch (error) {
+    if (shouldFallbackToRedirect(error)) {
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
+
+    clearPendingRole();
+    throw error;
+  }
 };
 
 export const completeGoogleRedirectAuth = async () => {
-  if (!sessionStorage.getItem(GOOGLE_AUTH_PENDING_ROLE_KEY)) {
+  const pendingRole = readPendingRole();
+
+  if (!pendingRole) {
     return null;
   }
 
-  const role =
-    sessionStorage.getItem(GOOGLE_AUTH_PENDING_ROLE_KEY) || "CUSTOMER";
   const credential = await getRedirectResult(auth);
 
   if (!credential) {
@@ -57,9 +97,9 @@ export const completeGoogleRedirectAuth = async () => {
   }
 
   try {
-    return await finishGoogleCredential(credential, role);
+    return await finishGoogleCredential(credential, pendingRole || "CUSTOMER");
   } finally {
-    sessionStorage.removeItem(GOOGLE_AUTH_PENDING_ROLE_KEY);
+    clearPendingRole();
   }
 };
 

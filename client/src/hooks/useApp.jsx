@@ -134,6 +134,43 @@ const getStoredSessionRole = () => {
   return null;
 };
 
+const isProtectedPath = (pathname = window.location.pathname) => {
+  if (
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
+    pathname.startsWith("/booking/") ||
+    pathname === "/checkout" ||
+    pathname === "/tracking"
+  ) {
+    return true;
+  }
+
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return pathname !== "/admin/login";
+  }
+
+  if (pathname === "/intern" || pathname.startsWith("/intern/")) {
+    return pathname !== "/intern/login";
+  }
+
+  if (pathname === "/garage") {
+    return true;
+  }
+
+  if (pathname.startsWith("/garage/")) {
+    return !(
+      pathname === "/garage/login" ||
+      pathname === "/garage/otp-login" ||
+      pathname === "/garage/forgot-password" ||
+      pathname === "/garage/onboarding" ||
+      pathname.startsWith("/garage/magic/") ||
+      pathname.startsWith("/garage/requests/")
+    );
+  }
+
+  return false;
+};
+
 export function AppProvider({ children }) {
   const dispatch = useDispatch();
 
@@ -413,6 +450,7 @@ export function AppProvider({ children }) {
     );
 
     syncAuthenticatedUser(userData);
+    setAuthLoading(false);
 
     clearDashboardCache();
     clearVehiclesCache();
@@ -432,6 +470,7 @@ export function AppProvider({ children }) {
     localStorage.setItem("garage", JSON.stringify(garageData));
     setSessionRole("GARAGE_OWNER", "USER");
     dispatch(setGarage(garageData));
+    setAuthLoading(false);
   };
 
   const fetchMe = async ({ sync = true } = {}) => {
@@ -752,9 +791,10 @@ export function AppProvider({ children }) {
     const restoreSession = async () => {
       const roleHint = getStoredSessionRole();
 
-      // No local hint means the visitor is logged out. Do not probe protected
-      // endpoints on every public page and manufacture predictable 401 noise.
-      if (!roleHint) {
+      // No local hint on public pages means the visitor is logged out. On
+      // protected pages still verify /auth/me because the HttpOnly cookie can
+      // survive while localStorage was cleared by the browser or another tab.
+      if (!roleHint && !isProtectedPath()) {
         if (active) {
           setAuthLoading(false);
         }

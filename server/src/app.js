@@ -47,6 +47,13 @@ const allowedOrigins = new Set(
      */
     "https://rovauto.com",
     "https://www.rovauto.com",
+    "https://rovauto-d5f9c.firebaseapp.com",
+    "https://rovauto-d5f9c.web.app",
+    process.env.FIREBASE_HOSTING_URL,
+    process.env.FIREBASE_AUTH_DOMAIN &&
+      `https://${process.env.FIREBASE_AUTH_DOMAIN}`,
+    process.env.VITE_FIREBASE_AUTH_DOMAIN &&
+      `https://${process.env.VITE_FIREBASE_AUTH_DOMAIN}`,
 
     /*
      * Local Vite development.

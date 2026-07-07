@@ -103,18 +103,25 @@ const applyContextualPriceRanges = async (services = [], context = null) => {
     vehicle: context.vehicle,
   });
 
-  return services.map((service) => {
+  return services.reduce((matchedServices, service) => {
     const range = ranges.get(service.id);
-    if (!range) return stripServicePrice(service);
 
-    return stripServicePrice({
-      ...service,
-      priceRange: {
-        min: Number(range.minPrice) || 0,
-        max: Number(range.maxPrice) || Number(range.minPrice) || 0,
-      },
-    });
-  });
+    if (!range) {
+      return matchedServices;
+    }
+
+    matchedServices.push(
+      stripServicePrice({
+        ...service,
+        priceRange: {
+          min: Number(range.minPrice) || 0,
+          max: Number(range.maxPrice) || Number(range.minPrice) || 0,
+        },
+      }),
+    );
+
+    return matchedServices;
+  }, []);
 };
 
 const getServiceCategories = async (options = {}) => {
@@ -137,12 +144,14 @@ const getServiceCategories = async (options = {}) => {
       orderBy: { name: "asc" },
     });
 
-    return Promise.all(
+    const result = await Promise.all(
       categories.map(async (category) => ({
         ...category,
         services: await applyContextualPriceRanges(category.services, context),
       })),
     );
+
+    return result.filter((category) => category.services.length > 0);
   }
 
   const cacheKey = "services:categories:public:v2";
@@ -287,8 +296,14 @@ const getServiceById = async (serviceId, options = {}) => {
     throw new ApiError(404, "Service not found");
   }
 
+  const [pricedService] = await applyContextualPriceRanges([service], context);
+
+  if (context && !pricedService) {
+    throw new ApiError(404, "Service is not available for this city and vehicle");
+  }
+
   const result = {
-    ...(await applyContextualPriceRanges([service], context))[0],
+    ...pricedService,
     thumbnail: service.media.find((item) => item.isThumbnail) || null,
   };
 

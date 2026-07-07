@@ -3,12 +3,15 @@ import { reportApiFailure } from "@/utils/errorReporter";
 
 const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
 
-// Production requests must stay on the frontend origin. Vercel proxies
-// /api/v1/* to Render, which makes the HttpOnly auth cookie first-party.
+// If VITE_API_URL is set, always use it. This is required when the frontend
+// is deployed somewhere without the Vercel /api/v1 proxy, such as Firebase
+// Hosting. Leave VITE_API_URL empty on Vercel to keep first-party /api/v1
+// cookie auth through vercel.json rewrites.
 const apiBaseUrl = (
-  import.meta.env.PROD
+  configuredBaseUrl ||
+  (import.meta.env.PROD
     ? "/api/v1"
-    : configuredBaseUrl || "http://localhost:5000/api/v1"
+    : "http://localhost:5000/api/v1")
 ).replace(/\/+$/, "");
 
 const SESSION_ROLE_KEY = "rov_session_role";

@@ -7,13 +7,27 @@ const normalizeScopeValue = (value) => {
   const text = normalizeText(value);
   return !text || ["ALL", "ANY"].includes(text.toUpperCase()) ? null : text;
 };
-const scopeMatches = (rangeValue, vehicleValue) => {
-  const rangeText = normalizeText(rangeValue);
-  if (!rangeText || ["ALL", "ANY"].includes(rangeText.toUpperCase())) {
+const normalizeComparable = (value) => normalizeText(value).toLowerCase();
+
+const brandMatches = (rangeBrand, vehicleBrand) => {
+  const rangeText = normalizeScopeValue(rangeBrand);
+  const vehicleText = normalizeScopeValue(vehicleBrand);
+
+  if (!rangeText || !vehicleText) {
+    return false;
+  }
+
+  return normalizeComparable(rangeText) === normalizeComparable(vehicleText);
+};
+
+const modelMatches = (rangeModel, vehicleModel) => {
+  const rangeText = normalizeScopeValue(rangeModel);
+
+  if (!rangeText) {
     return true;
   }
 
-  return rangeText.toLowerCase() === normalizeText(vehicleValue).toLowerCase();
+  return normalizeComparable(rangeText) === normalizeComparable(vehicleModel);
 };
 
 const scopeWhere = (payload = {}) => ({
@@ -74,6 +88,10 @@ const createPriceRange = async (payload) => {
   const service = await prisma.service.findUnique({ where: { id: payload.serviceId } });
   if (!service) throw new ApiError(404, "Service not found");
 
+  if (!normalizeScopeValue(payload.vehicleBrand)) {
+    throw new ApiError(400, "Vehicle brand is required for a price range");
+  }
+
   const duplicates = await findDuplicateScopes(payload);
   if (duplicates.length > 0) {
     await removeOlderDuplicates(duplicates);
@@ -115,6 +133,10 @@ const updatePriceRange = async (id, payload) => {
       payload.vehicleModel !== undefined ? payload.vehicleModel : existing.vehicleModel,
     fuelType: payload.fuelType !== undefined ? payload.fuelType : existing.fuelType,
   };
+
+  if (!normalizeScopeValue(nextScope.vehicleBrand)) {
+    throw new ApiError(400, "Vehicle brand is required for a price range");
+  }
 
   const duplicates = await findDuplicateScopes(nextScope);
   const conflictingDuplicate = duplicates.find((item) => item.id !== id);
@@ -165,12 +187,15 @@ const deletePriceRange = async (id) => {
 
 const scoreMatch = (range, vehicle) => {
   let score = 0;
-  if (!scopeMatches(range.vehicleBrand, vehicle.brand)) return -1;
-  if (!scopeMatches(range.vehicleModel, vehicle.model)) return -1;
-  if (range.fuelType && range.fuelType !== vehicle.fuelType) return -1;
-  if (normalizeScopeValue(range.vehicleBrand)) score += 2;
+
+  if (!brandMatches(range.vehicleBrand, vehicle?.brand)) return -1;
+  if (!modelMatches(range.vehicleModel, vehicle?.model)) return -1;
+  if (range.fuelType && range.fuelType !== vehicle?.fuelType) return -1;
+
+  score += 2;
   if (normalizeScopeValue(range.vehicleModel)) score += 3;
   if (range.fuelType) score += 1;
+
   return score;
 };
 

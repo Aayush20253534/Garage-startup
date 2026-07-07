@@ -135,10 +135,16 @@ export default function Revenue() {
       return;
     }
 
+    if (!form.vehicleBrand.trim()) {
+      setError("Select a vehicle brand. Brand is required for service visibility.");
+      setSaving(false);
+      return;
+    }
+
     const payload = {
       city: form.city.trim(),
       serviceId: form.serviceId,
-      vehicleBrand: form.vehicleBrand.trim() || null,
+      vehicleBrand: form.vehicleBrand.trim(),
       vehicleModel: form.vehicleModel.trim() || null,
       fuelType: form.fuelType || null,
       minPrice,
@@ -313,11 +319,12 @@ export default function Revenue() {
           </select>
 
           <select
+            required
             value={form.vehicleBrand}
             onChange={(e) => updateForm("vehicleBrand", e.target.value)}
             className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
           >
-            <option value="">Any brand</option>
+            <option value="">Select brand</option>
             {vehicleBrands.map((brand) => (
               <option key={brand.id || brand.name} value={brand.name}>
                 {brand.name}
@@ -331,7 +338,7 @@ export default function Revenue() {
             disabled={!form.vehicleBrand}
             className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink disabled:bg-bg-soft"
           >
-            <option value="">Any model</option>
+            <option value="">All models</option>
             {vehicleModels.map((model) => (
               <option key={model.id || model.name} value={model.name}>
                 {model.name}
@@ -540,9 +547,9 @@ export default function Revenue() {
                       </td>
 
                       <td className="px-4 py-3 text-muted">
-                        {[range.vehicleBrand, range.vehicleModel]
-                          .filter(Boolean)
-                          .join(" / ") || "Any"}
+                        {range.vehicleBrand
+                          ? `${range.vehicleBrand} / ${range.vehicleModel || "All models"}`
+                          : "Missing brand"}
                       </td>
 
                       <td className="whitespace-nowrap px-4 py-3 text-muted">
