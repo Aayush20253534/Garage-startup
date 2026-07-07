@@ -11,6 +11,14 @@ const ACTIVE_STATUSES = [
   "IN_PROGRESS",
 ];
 
+const withUserAccountType = (user) =>
+  user
+    ? {
+        ...user,
+        accountType: "USER",
+      }
+    : user;
+
 const bookingListInclude = {
   vehicle: true,
 
@@ -57,6 +65,7 @@ const getCustomerDashboard = async (userId) => {
   if (cached) {
     return {
       ...cached,
+      user: withUserAccountType(cached.user),
       fromCache: true,
     };
   }
@@ -135,10 +144,11 @@ const getCustomerDashboard = async (userId) => {
       }),
     ]);
 
-  const vehicles = user?.vehicles || [];
+  const userWithAccountType = withUserAccountType(user);
+  const vehicles = userWithAccountType?.vehicles || [];
 
   const data = {
-    user,
+    user: userWithAccountType,
     vehicles,
     vehicle: vehicles.find((item) => item.isDefault) || vehicles[0] || null,
     wallet:

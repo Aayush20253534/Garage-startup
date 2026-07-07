@@ -15,20 +15,39 @@ import { reportSystemIssue } from "@/utils/errorReporter";
 import PrivatePageSeo from "@/components/seo/PrivatePageSeo";
 import Home from "@/pages/Home";
 
+const getEffectiveAccountType = (user) => {
+  if (user?.accountType) {
+    return user.accountType;
+  }
+
+  if (user?.role === "ADMIN" || user?.role === "INTERN") {
+    return "STAFF";
+  }
+
+  if (user?.role === "CUSTOMER" || user?.role === "GARAGE_OWNER") {
+    return "USER";
+  }
+
+  return null;
+};
+
+const hasPortalRole = (user, role, accountType) =>
+  user?.role === role && getEffectiveAccountType(user) === accountType;
+
 const getAccountPortal = (user) => {
-  if (user?.accountType === "STAFF" && user.role === "ADMIN") {
+  if (hasPortalRole(user, "ADMIN", "STAFF")) {
     return "/admin";
   }
 
-  if (user?.accountType === "STAFF" && user.role === "INTERN") {
+  if (hasPortalRole(user, "INTERN", "STAFF")) {
     return "/intern";
   }
 
-  if (user?.accountType === "USER" && user.role === "GARAGE_OWNER") {
+  if (hasPortalRole(user, "GARAGE_OWNER", "USER")) {
     return "/garage";
   }
 
-  if (user?.accountType === "USER" && user.role === "CUSTOMER") {
+  if (hasPortalRole(user, "CUSTOMER", "USER")) {
     return "/dashboard";
   }
 
@@ -48,9 +67,7 @@ function ProtectedRoute({ children }) {
   }
 
   if (isAdminRoute) {
-    const isAdmin =
-      user?.accountType === "STAFF" &&
-      user?.role === "ADMIN";
+    const isAdmin = hasPortalRole(user, "ADMIN", "STAFF");
 
     if (!isAdmin) {
       return (
@@ -62,9 +79,7 @@ function ProtectedRoute({ children }) {
       );
     }
   } else if (isInternRoute) {
-    const isIntern =
-      user?.accountType === "STAFF" &&
-      user?.role === "INTERN";
+    const isIntern = hasPortalRole(user, "INTERN", "STAFF");
 
     if (!isIntern) {
       return (
@@ -86,9 +101,7 @@ function ProtectedRoute({ children }) {
       );
     }
   } else {
-    const isCustomer =
-      user?.accountType === "USER" &&
-      user?.role === "CUSTOMER";
+    const isCustomer = hasPortalRole(user, "CUSTOMER", "USER");
 
     if (!isCustomer) {
       return (

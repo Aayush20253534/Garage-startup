@@ -45,22 +45,51 @@ const ROLE_ACCOUNT_TYPES = {
   INTERN: "STAFF",
 };
 
-const isValidSessionIdentity = (account) =>
-  Boolean(
-    account &&
-      VALID_SESSION_ROLES.has(account.role) &&
-      ROLE_ACCOUNT_TYPES[account.role] === account.accountType,
-  );
+const getExpectedAccountType = (role) => ROLE_ACCOUNT_TYPES[role] || null;
 
-const setSessionRole = (role, accountType) => {
-  if (ROLE_ACCOUNT_TYPES[role] !== accountType) {
+const normalizeSessionAccount = (account) => {
+  if (!account || !VALID_SESSION_ROLES.has(account.role)) {
+    return account || null;
+  }
+
+  const expectedAccountType = getExpectedAccountType(account.role);
+
+  if (!expectedAccountType) {
+    return account;
+  }
+
+  return {
+    ...account,
+    accountType: account.accountType || expectedAccountType,
+  };
+};
+
+const isValidSessionIdentity = (account) => {
+  const normalizedAccount = normalizeSessionAccount(account);
+
+  return Boolean(
+    normalizedAccount &&
+      VALID_SESSION_ROLES.has(normalizedAccount.role) &&
+      getExpectedAccountType(normalizedAccount.role) ===
+        normalizedAccount.accountType,
+  );
+};
+
+const setSessionRole = (role, accountType = getExpectedAccountType(role)) => {
+  if (!VALID_SESSION_ROLES.has(role)) {
+    return false;
+  }
+
+  const expectedAccountType = getExpectedAccountType(role);
+
+  if (accountType && expectedAccountType !== accountType) {
     return false;
   }
 
   localStorage.setItem(SESSION_ROLE_KEY, role);
   localStorage.setItem(
     SESSION_ACCOUNT_TYPE_KEY,
-    accountType,
+    expectedAccountType,
   );
 
   return true;
@@ -91,19 +120,23 @@ const getStoredSessionRole = () => {
     SESSION_ACCOUNT_TYPE_KEY,
   );
 
-  if (
-    ROLE_ACCOUNT_TYPES[explicitRole] === explicitAccountType
-  ) {
-    return explicitRole;
+  if (VALID_SESSION_ROLES.has(explicitRole)) {
+    const expectedAccountType = getExpectedAccountType(explicitRole);
+
+    if (!explicitAccountType || explicitAccountType === expectedAccountType) {
+      setSessionRole(explicitRole, expectedAccountType);
+      return explicitRole;
+    }
   }
 
   const pathname = window.location.pathname;
-  const cachedUser =
-    readJson("rov_user", null) ||
-    readJson("user", null);
+  const cachedUser = normalizeSessionAccount(
+    readJson("rov_user", null) || readJson("user", null),
+  );
   const cachedGarage = readJson("garage", null);
 
   if (pathname.startsWith("/garage") && cachedGarage) {
+    setSessionRole("GARAGE_OWNER", "USER");
     return "GARAGE_OWNER";
   }
 
@@ -112,6 +145,7 @@ const getStoredSessionRole = () => {
     isValidSessionIdentity(cachedUser) &&
     cachedUser.role === "ADMIN"
   ) {
+    setSessionRole(cachedUser.role, cachedUser.accountType);
     return "ADMIN";
   }
 
@@ -120,14 +154,17 @@ const getStoredSessionRole = () => {
     isValidSessionIdentity(cachedUser) &&
     cachedUser.role === "INTERN"
   ) {
+    setSessionRole(cachedUser.role, cachedUser.accountType);
     return "INTERN";
   }
 
   if (isValidSessionIdentity(cachedUser)) {
+    setSessionRole(cachedUser.role, cachedUser.accountType);
     return cachedUser.role;
   }
 
   if (cachedGarage) {
+    setSessionRole("GARAGE_OWNER", "USER");
     return "GARAGE_OWNER";
   }
 
@@ -396,39 +433,44 @@ export function AppProvider({ children }) {
   };
 
   const syncUserData = (me) => {
-    if (!me) return null;
+    const normalizedUser = normalizeSessionAccount(me);
+    if (!normalizedUser) return null;
 
-    dispatch(syncCustomerBundle(me));
+    dispatch(syncCustomerBundle(normalizedUser));
 
-    const syncedLocation = getLocationStateFromUser(me, location);
+    const syncedLocation = getLocationStateFromUser(normalizedUser, location);
     if (syncedLocation) {
       dispatch(setCustomerLocation(syncedLocation));
     }
 
     // These values are UI caches only. Authentication still comes exclusively
     // from the HttpOnly cookie validated by /auth/me.
-    localStorage.setItem("user", JSON.stringify(me));
-    localStorage.setItem("rov_user", JSON.stringify(me));
+    localStorage.setItem("user", JSON.stringify(normalizedUser));
+    localStorage.setItem("rov_user", JSON.stringify(normalizedUser));
 
-    syncVehicles(me.vehicles || []);
+    syncVehicles(normalizedUser.vehicles || []);
 
-    return me;
+    return normalizedUser;
   };
 
   const syncAuthenticatedUser = (me) => {
-    if (!me) return null;
+    const normalizedUser = normalizeSessionAccount(me);
+    if (!normalizedUser) return null;
 
-    if (me.accountType === "USER" && me.role === "CUSTOMER") {
-      return syncUserData(me);
+    if (
+      normalizedUser.accountType === "USER" &&
+      normalizedUser.role === "CUSTOMER"
+    ) {
+      return syncUserData(normalizedUser);
     }
 
     // Staff accounts use the same top-level user state, but should not be
     // treated as customer profile/vehicle data.
-    dispatch(setCustomerUser(me));
-    localStorage.setItem("user", JSON.stringify(me));
-    localStorage.setItem("rov_user", JSON.stringify(me));
+    dispatch(setCustomerUser(normalizedUser));
+    localStorage.setItem("user", JSON.stringify(normalizedUser));
+    localStorage.setItem("rov_user", JSON.stringify(normalizedUser));
 
-    return me;
+    return normalizedUser;
   };
 
   const login = (userData) => {
@@ -440,16 +482,18 @@ export function AppProvider({ children }) {
     clearCustomerSession({ clearRole: false });
     clearGarageSession({ clearRole: false });
     localStorage.removeItem("token");
-    if (!isValidSessionIdentity(userData)) {
+    const normalizedUser = normalizeSessionAccount(userData);
+
+    if (!isValidSessionIdentity(normalizedUser)) {
       throw new Error("Invalid authenticated account");
     }
 
     setSessionRole(
-      userData.role,
-      userData.accountType,
+      normalizedUser.role,
+      normalizedUser.accountType,
     );
 
-    syncAuthenticatedUser(userData);
+    syncAuthenticatedUser(normalizedUser);
     setAuthLoading(false);
 
     clearDashboardCache();
@@ -484,7 +528,7 @@ export function AppProvider({ children }) {
         const response = await api.get("/auth/me", {
           skipSessionExpiryMessage: true,
         });
-        const me = response.data?.data;
+        const me = normalizeSessionAccount(response.data?.data);
 
         if (!isValidSessionIdentity(me)) {
           throw new Error("Invalid current-user response");
@@ -928,7 +972,7 @@ export function AppProvider({ children }) {
 
   const setUser = (value) => {
     const nextUser = typeof value === "function" ? value(user) : value;
-    dispatch(setCustomerUser(nextUser));
+    dispatch(setCustomerUser(normalizeSessionAccount(nextUser)));
   };
 
   const setVehicle = (value) => {

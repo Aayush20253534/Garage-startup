@@ -7,6 +7,14 @@ const { normalizePhone } = require("../../utils/phone");
 
 const PROFILE_CACHE_TTL = 5 * 60;
 
+const withUserAccountType = (user) =>
+  user
+    ? {
+        ...user,
+        accountType: "USER",
+      }
+    : user;
+
 const getProfileCacheKey = (userId) => {
   return `customer:${userId}:profile`;
 };
@@ -93,7 +101,7 @@ const completeOnboarding = async (userId, { vehicle, location }) => {
     });
 
     return {
-      user: updatedUser,
+      user: withUserAccountType(updatedUser),
       vehicle: createdVehicle,
       location: createdLocation,
     };
@@ -108,7 +116,7 @@ const getProfile = async (userId) => {
   const cacheKey = getProfileCacheKey(userId);
 
   const cached = await getCache(cacheKey);
-  if (cached) return cached;
+  if (cached) return withUserAccountType(cached);
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -142,9 +150,11 @@ const getProfile = async (userId) => {
     throw new ApiError(404, "User not found");
   }
 
-  await setCache(cacheKey, user, PROFILE_CACHE_TTL);
+  const profile = withUserAccountType(user);
 
-  return user;
+  await setCache(cacheKey, profile, PROFILE_CACHE_TTL);
+
+  return profile;
 };
 
 const updateProfile = async (userId, data) => {
@@ -223,10 +233,10 @@ const updateProfile = async (userId, data) => {
       });
     }
 
-    return {
+    return withUserAccountType({
       ...updatedUser,
       customerProfile: updatedProfile,
-    };
+    });
   });
 
   await invalidateProfileCaches(userId);
