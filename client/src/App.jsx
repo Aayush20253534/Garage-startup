@@ -13,6 +13,7 @@ import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import { getCategoryThumbnailUrl } from "@/utils/imageCache";
 import { reportSystemIssue } from "@/utils/errorReporter";
 import PrivatePageSeo from "@/components/seo/PrivatePageSeo";
+import Home from "@/pages/Home";
 
 function ProtectedRoute({ children }) {
   const { user, garage, authLoading } = useApp();
@@ -221,7 +222,6 @@ function SOSAvailabilityGuard({ children }) {
   );
 }
 
-const Home = lazy(() => import("@/pages/Home"));
 const Services = lazy(() => import("@/pages/Services"));
 const CategoryDetail = lazy(() => import("@/pages/CategoryDetail"));
 const HowItWorks = lazy(() => import("@/pages/HowItWorks"));
@@ -296,7 +296,6 @@ import {
   FiUser,
   FiInbox,
   FiBriefcase,
-  FiTrendingUp,
   FiStar,
   FiUsers,
   FiSettings,

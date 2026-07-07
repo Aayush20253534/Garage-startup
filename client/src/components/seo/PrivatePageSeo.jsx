@@ -19,11 +19,21 @@ const PRIVATE_PATH_PREFIXES = [
   "/sos",
 ];
 
-export const isPrivateSeoPath = (pathname = "") =>
-  PRIVATE_EXACT_PATHS.has(pathname) ||
-  PRIVATE_PATH_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+export const isPrivateSeoPath = (pathname = "") => {
+  const normalizedPath =
+    pathname.length > 1 && pathname.endsWith("/")
+      ? pathname.slice(0, -1)
+      : pathname;
+
+  return (
+    PRIVATE_EXACT_PATHS.has(normalizedPath) ||
+    PRIVATE_PATH_PREFIXES.some(
+      (prefix) =>
+        normalizedPath === prefix ||
+        normalizedPath.startsWith(`${prefix}/`),
+    )
   );
+};
 
 export default function PrivatePageSeo() {
   const { pathname } = useLocation();
@@ -33,11 +43,21 @@ export default function PrivatePageSeo() {
   }
 
   return (
-    <Helmet>
+    <Helmet prioritizeSeoTags>
       <title>Secure Page | Rovauto</title>
-      <meta name="robots" content="noindex, nofollow" />
-      <meta name="googlebot" content="noindex, nofollow" />
+
+      <meta name="robots" content="noindex, nofollow, noarchive" />
+      <meta
+        name="googlebot"
+        content="noindex, nofollow, noarchive"
+      />
+
       <meta name="referrer" content="same-origin" />
+
+      <link
+        rel="canonical"
+        href={`https://www.rovauto.com${pathname}`}
+      />
     </Helmet>
   );
 }
