@@ -8,11 +8,7 @@ const isProduction = process.env.NODE_ENV === "production";
 const accessTokenCookieOptions = Object.freeze({
   httpOnly: true,
   secure: isProduction,
-
-  // Required when frontend and backend use different domains,
-  // such as Vercel/custom domain + Render.
   sameSite: isProduction ? "none" : "lax",
-
   path: "/",
   maxAge:
     Number.isFinite(configuredMaxAge) && configuredMaxAge > 0
