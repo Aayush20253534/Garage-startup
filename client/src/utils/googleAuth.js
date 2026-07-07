@@ -1,6 +1,5 @@
 import {
   getRedirectResult,
-  signInWithPopup,
   signInWithRedirect,
 } from "firebase/auth";
 import api from "@/api/axios";
@@ -39,26 +38,9 @@ const finishGoogleCredential = async (credential, role = "CUSTOMER") => {
 };
 
 export const startGoogleAuth = async (role = "CUSTOMER") => {
-  try {
-    const credential = await signInWithPopup(auth, googleProvider);
-    return await finishGoogleCredential(credential, role);
-  } catch (error) {
-    const code = String(error?.code || "");
-    const shouldUseRedirect = [
-      "auth/popup-blocked",
-      "auth/popup-closed-by-user",
-      "auth/cancelled-popup-request",
-      "auth/operation-not-supported-in-this-environment",
-    ].includes(code);
-
-    if (!shouldUseRedirect) {
-      throw error;
-    }
-
-    sessionStorage.setItem(GOOGLE_AUTH_PENDING_ROLE_KEY, role);
-    await signInWithRedirect(auth, googleProvider);
-    return null;
-  }
+  sessionStorage.setItem(GOOGLE_AUTH_PENDING_ROLE_KEY, role);
+  await signInWithRedirect(auth, googleProvider);
+  return null;
 };
 
 export const completeGoogleRedirectAuth = async () => {
