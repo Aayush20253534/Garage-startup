@@ -17,19 +17,48 @@ const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const ROUTE_OPTIMIZATION_SCOPE =
   "https://www.googleapis.com/auth/cloud-platform";
 
-const INDIA_BOUNDS = {
-  minLatitude: 6,
-  maxLatitude: 38,
-  minLongitude: 68,
-  maxLongitude: 98,
-};
+const DEFAULT_REGION_CODES = ["np", "in"];
+const SUPPORTED_BOUNDS = [
+  {
+    code: "np",
+    minLatitude: 26,
+    maxLatitude: 31,
+    minLongitude: 80,
+    maxLongitude: 89,
+  },
+  {
+    code: "in",
+    minLatitude: 6,
+    maxLatitude: 38,
+    minLongitude: 68,
+    maxLongitude: 98,
+  },
+];
 
 let routeOptimizationTokenCache = null;
 
 const normalizeText = (value) => String(value || "").trim();
 
+const getRegionCodes = () => {
+  const configured = normalizeText(
+    process.env.GOOGLE_MAPS_REGION_CODES || process.env.GOOGLE_MAPS_REGION_CODE,
+  );
+  const values = configured
+    ? configured.split(",").map((item) => item.trim().toLowerCase())
+    : DEFAULT_REGION_CODES;
+
+  const unique = [...new Set(values.filter(Boolean))];
+  return unique.length ? unique : DEFAULT_REGION_CODES;
+};
+
+const getPrimaryRegionCode = () => getRegionCodes()[0] || "np";
+
 const getApiKey = () => {
-  const key = normalizeText(process.env.GOOGLE_MAPS_API_KEY);
+  const key = normalizeText(
+    process.env.GOOGLE_MAPS_API_KEY ||
+      process.env.GOOGLE_MAPS_BROWSER_KEY ||
+      process.env.VITE_GOOGLE_MAPS_BROWSER_KEY,
+  );
   if (!key) {
     throw new ApiError(503, "Google Maps web services are not configured");
   }
@@ -44,16 +73,18 @@ const getTimeoutMs = () => {
 
 const isCoordinate = (value) => Number.isFinite(Number(value));
 
-const isWithinIndia = ({ latitude, longitude }) => {
+const isWithinSupportedBounds = ({ latitude, longitude }) => {
   const lat = Number(latitude);
   const lng = Number(longitude);
-  return (
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    lat >= INDIA_BOUNDS.minLatitude &&
-    lat <= INDIA_BOUNDS.maxLatitude &&
-    lng >= INDIA_BOUNDS.minLongitude &&
-    lng <= INDIA_BOUNDS.maxLongitude
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
+  const regionCodes = new Set(getRegionCodes());
+  return SUPPORTED_BOUNDS.filter((bounds) => regionCodes.has(bounds.code)).some(
+    (bounds) =>
+      lat >= bounds.minLatitude &&
+      lat <= bounds.maxLatitude &&
+      lng >= bounds.minLongitude &&
+      lng <= bounds.maxLongitude,
   );
 };
 
@@ -65,8 +96,8 @@ const normalizeCoordinate = (coordinate, label = "location") => {
     coordinate?.longitude ?? coordinate?.lng ?? coordinate?.location?.longitude,
   );
 
-  if (!isWithinIndia({ latitude, longitude })) {
-    throw new ApiError(400, `Invalid Indian ${label} coordinates`);
+  if (!isWithinSupportedBounds({ latitude, longitude })) {
+    throw new ApiError(400, `Invalid service-area ${label} coordinates`);
   }
 
   return { latitude, longitude };
@@ -171,8 +202,8 @@ const autocompletePlaces = async ({
   const body = {
     input: cleanInput,
     sessionToken: normalizeText(sessionToken) || undefined,
-    includedRegionCodes: ["in"],
-    regionCode: "in",
+    includedRegionCodes: getRegionCodes(),
+    regionCode: getPrimaryRegionCode(),
     languageCode: process.env.GOOGLE_MAPS_LANGUAGE || "en",
     includeQueryPredictions: false,
   };
@@ -229,7 +260,7 @@ const getPlaceDetails = async ({ placeId, sessionToken }) => {
         timeout: getTimeoutMs(),
         params: {
           languageCode: process.env.GOOGLE_MAPS_LANGUAGE || "en",
-          regionCode: "in",
+          regionCode: getPrimaryRegionCode(),
           ...(sessionToken ? { sessionToken } : {}),
         },
         headers: {
@@ -244,8 +275,15 @@ const getPlaceDetails = async ({ placeId, sessionToken }) => {
     const location = normalizeCoordinate(place.location, "place");
     const address = parsePlaceAddress(place);
 
-    if (address.countryCode && address.countryCode !== "IN") {
-      throw new ApiError(400, "Select an address within India");
+    const allowedCountryCodes = new Set(
+      getRegionCodes().map((code) => code.toUpperCase()),
+    );
+    if (
+      address.countryCode &&
+      allowedCountryCodes.size > 0 &&
+      !allowedCountryCodes.has(address.countryCode)
+    ) {
+      throw new ApiError(400, "Select an address within the service area");
     }
 
     return {
@@ -281,7 +319,7 @@ const validateAddress = async ({ addressLines = [], locality, administrativeArea
       ADDRESS_VALIDATION_URL,
       {
         address: {
-          regionCode: "IN",
+          regionCode: getPrimaryRegionCode().toUpperCase(),
           languageCode: process.env.GOOGLE_MAPS_LANGUAGE || "en",
           addressLines: lines,
           ...(normalizeText(locality) && { locality: normalizeText(locality) }),
@@ -304,7 +342,7 @@ const validateAddress = async ({ addressLines = [], locality, administrativeArea
     const verdict = result.verdict || {};
     const postalAddress = result.address?.postalAddress || {};
     const geocode = result.geocode || {};
-    const location = geocode.location && isWithinIndia(geocode.location)
+    const location = geocode.location && isWithinSupportedBounds(geocode.location)
       ? normalizeCoordinate(geocode.location, "validated address")
       : null;
 
@@ -618,10 +656,10 @@ const getBrowserConfig = () => ({
   enabled: Boolean(process.env.GOOGLE_MAPS_BROWSER_KEY),
   browserKey: process.env.GOOGLE_MAPS_BROWSER_KEY || null,
   mapId: process.env.GOOGLE_MAPS_MAP_ID || null,
-  country: "IN",
+  country: getPrimaryRegionCode().toUpperCase(),
   defaultCenter: {
-    latitude: Number(process.env.GOOGLE_MAPS_DEFAULT_LATITUDE || 20.5937),
-    longitude: Number(process.env.GOOGLE_MAPS_DEFAULT_LONGITUDE || 78.9629),
+    latitude: Number(process.env.GOOGLE_MAPS_DEFAULT_LATITUDE || 27.7172),
+    longitude: Number(process.env.GOOGLE_MAPS_DEFAULT_LONGITUDE || 85.324),
   },
 });
 
@@ -632,7 +670,7 @@ module.exports = {
   computeRouteMatrix,
   getBrowserConfig,
   getPlaceDetails,
-  isWithinIndia,
+  isWithinIndia: isWithinSupportedBounds,
   normalizeCoordinate,
   optimizeTours,
   parseDurationSeconds,

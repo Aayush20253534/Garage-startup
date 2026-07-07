@@ -37,6 +37,15 @@ const parseCityFromAddress = async (address = "") => {
   return parts[parts.length - 1] || "";
 };
 
+const getLocationAddressText = (location = null) =>
+  [
+    location?.city,
+    location?.formattedAddress,
+    location?.address,
+  ]
+    .map((value) => String(value || "").trim())
+    .find(Boolean) || "";
+
 const stripServicePrice = (service) => {
   const { basePrice, minPrice, maxPrice, priceRange, ...rest } = service;
   return {
@@ -72,7 +81,9 @@ const getCustomerPricingContext = async (options = {}) => {
 
   const city =
     String(options.city || "").trim() ||
-    (await parseCityFromAddress(location?.address || profile?.address));
+    (await parseCityFromAddress(
+      getLocationAddressText(location) || profile?.address,
+    ));
   if (!vehicle || !city) return null;
 
   return {

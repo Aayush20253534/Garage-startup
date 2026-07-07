@@ -5,14 +5,45 @@ const { correctAddress } = require("../../utils/addressCorrection");
 const GOOGLE_GEOCODING_URL =
   "https://maps.googleapis.com/maps/api/geocode/json";
 
-const INDIA_COORDINATE_BOUNDS = {
-  minLatitude: 6,
-  maxLatitude: 38,
-  minLongitude: 68,
-  maxLongitude: 98,
-};
+const DEFAULT_REGION_CODES = ["np", "in"];
+const SERVICE_AREA_BOUNDS = [
+  {
+    code: "np",
+    minLatitude: 26,
+    maxLatitude: 31,
+    minLongitude: 80,
+    maxLongitude: 89,
+  },
+  {
+    code: "in",
+    minLatitude: 6,
+    maxLatitude: 38,
+    minLongitude: 68,
+    maxLongitude: 98,
+  },
+];
 
 const normalizePart = (value) => String(value || "").trim();
+
+const getRegionCodes = () => {
+  const configured = normalizePart(
+    process.env.GOOGLE_MAPS_REGION_CODES ||
+      process.env.GOOGLE_GEOCODING_REGION ||
+      process.env.GOOGLE_MAPS_REGION_CODE,
+  );
+  const values = configured
+    ? configured.split(",").map((item) => item.trim().toLowerCase())
+    : DEFAULT_REGION_CODES;
+  const unique = [...new Set(values.filter(Boolean))];
+  return unique.length ? unique : DEFAULT_REGION_CODES;
+};
+
+const getPrimaryRegionCode = () => getRegionCodes()[0] || "np";
+
+const getCountryComponentFilter = () => {
+  const regionCodes = getRegionCodes();
+  return regionCodes.length === 1 ? `country:${regionCodes[0].toUpperCase()}` : null;
+};
 
 const uniqueParts = (parts = []) => {
   const seen = new Set();
@@ -30,7 +61,11 @@ const uniqueParts = (parts = []) => {
 };
 
 const getGoogleApiKey = () => {
-  const key = normalizePart(process.env.GOOGLE_MAPS_API_KEY);
+  const key = normalizePart(
+    process.env.GOOGLE_MAPS_API_KEY ||
+      process.env.GOOGLE_MAPS_BROWSER_KEY ||
+      process.env.VITE_GOOGLE_MAPS_BROWSER_KEY,
+  );
 
   if (!key) {
     throw new ApiError(503, "Google geocoding is not configured");
@@ -50,7 +85,7 @@ const getGoogleLanguage = () =>
   normalizePart(process.env.GOOGLE_GEOCODING_LANGUAGE) || "en";
 
 const getGoogleRegion = () =>
-  normalizePart(process.env.GOOGLE_GEOCODING_REGION) || "in";
+  getPrimaryRegionCode();
 
 const getMaxCandidates = () => {
   const configured = Number(
@@ -61,11 +96,18 @@ const getMaxCandidates = () => {
   return Math.max(1, Math.min(Math.floor(configured), 4));
 };
 
-const isWithinIndiaBounds = (latitude, longitude) =>
-  latitude >= INDIA_COORDINATE_BOUNDS.minLatitude &&
-  latitude <= INDIA_COORDINATE_BOUNDS.maxLatitude &&
-  longitude >= INDIA_COORDINATE_BOUNDS.minLongitude &&
-  longitude <= INDIA_COORDINATE_BOUNDS.maxLongitude;
+const isWithinServiceAreaBounds = (latitude, longitude) => {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+
+  const regionCodes = new Set(getRegionCodes());
+  return SERVICE_AREA_BOUNDS.filter((bounds) => regionCodes.has(bounds.code)).some(
+    (bounds) =>
+      latitude >= bounds.minLatitude &&
+      latitude <= bounds.maxLatitude &&
+      longitude >= bounds.minLongitude &&
+      longitude <= bounds.maxLongitude,
+  );
+};
 
 const buildQuery = ({
   address,
@@ -73,7 +115,7 @@ const buildQuery = ({
   city,
   state,
   pincode,
-  country = "India",
+  country = "",
 }) => uniqueParts([address, area, city, state, pincode, country]).join(", ");
 
 const buildQueryCandidates = (params = {}) => {
@@ -82,7 +124,7 @@ const buildQueryCandidates = (params = {}) => {
   const city = normalizePart(params.city);
   const state = normalizePart(params.state);
   const pincode = normalizePart(params.pincode);
-  const country = normalizePart(params.country) || "India";
+  const country = normalizePart(params.country);
 
   return uniqueParts([
     buildQuery({ address, area, city, state, pincode, country }),
@@ -160,13 +202,20 @@ const parseGoogleAddress = (result = {}) => {
   };
 };
 
-const isIndianGoogleResult = (result = {}) => {
+const isServiceAreaGoogleResult = (result = {}) => {
   const latitude = Number(result.geometry?.location?.lat);
   const longitude = Number(result.geometry?.location?.lng);
   const parsedAddress = parseGoogleAddress(result);
+  const allowedCountryCodes = new Set(
+    getRegionCodes().map((code) => code.toUpperCase()),
+  );
 
-  if (!isWithinIndiaBounds(latitude, longitude)) return false;
-  if (parsedAddress.countryCode && parsedAddress.countryCode !== "IN") {
+  if (!isWithinServiceAreaBounds(latitude, longitude)) return false;
+  if (
+    parsedAddress.countryCode &&
+    allowedCountryCodes.size > 0 &&
+    !allowedCountryCodes.has(parsedAddress.countryCode)
+  ) {
     return false;
   }
 
@@ -192,7 +241,7 @@ const getReverseResultScore = (result = {}) => {
 };
 
 const selectBestResult = (results = [], { reverse = false } = {}) => {
-  const validResults = results.filter(isIndianGoogleResult);
+  const validResults = results.filter(isServiceAreaGoogleResult);
 
   if (!reverse) return validResults[0] || null;
 
@@ -224,7 +273,7 @@ const mapGoogleResult = ({
       city: parsedAddress.city,
       state: parsedAddress.state,
       pincode: parsedAddress.pincode,
-      country: parsedAddress.country || "India",
+      country: parsedAddress.country || "",
     },
     placeId: result.place_id || null,
     locationType: result.geometry?.location_type || null,
@@ -322,7 +371,9 @@ const findGooglePlace = async (queries = []) => {
   for (const query of queries.slice(0, getMaxCandidates())) {
     const results = await requestGoogleGeocoding({
       address: query,
-      components: "country:IN",
+      ...(getCountryComponentFilter() && {
+        components: getCountryComponentFilter(),
+      }),
     });
 
     const result = selectBestResult(results);
@@ -407,9 +458,9 @@ const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
   if (
     !Number.isFinite(numericLatitude) ||
     !Number.isFinite(numericLongitude) ||
-    !isWithinIndiaBounds(numericLatitude, numericLongitude)
+    !isWithinServiceAreaBounds(numericLatitude, numericLongitude)
   ) {
-    throw new ApiError(400, "Invalid Indian location coordinates");
+    throw new ApiError(400, "Invalid service-area location coordinates");
   }
 
   const results = await requestGoogleGeocoding({

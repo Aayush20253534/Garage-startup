@@ -21,12 +21,22 @@ const uniqueParts = (parts = []) => {
   });
 };
 
-export const INDIA_COORDINATE_BOUNDS = {
-  minLatitude: 6,
-  maxLatitude: 38,
-  minLongitude: 68,
-  maxLongitude: 98,
-};
+export const SERVICE_AREA_COORDINATE_BOUNDS = [
+  {
+    minLatitude: 26,
+    maxLatitude: 31,
+    minLongitude: 80,
+    maxLongitude: 89,
+  },
+  {
+    minLatitude: 6,
+    maxLatitude: 38,
+    minLongitude: 68,
+    maxLongitude: 98,
+  },
+];
+
+export const INDIA_COORDINATE_BOUNDS = SERVICE_AREA_COORDINATE_BOUNDS[1];
 
 export const hasUsableIndiaCoordinates = (location = {}) => {
   const latitude = Number(location.latitude);
@@ -35,11 +45,12 @@ export const hasUsableIndiaCoordinates = (location = {}) => {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
   if (latitude === 0 && longitude === 0) return false;
 
-  return (
-    latitude >= INDIA_COORDINATE_BOUNDS.minLatitude &&
-    latitude <= INDIA_COORDINATE_BOUNDS.maxLatitude &&
-    longitude >= INDIA_COORDINATE_BOUNDS.minLongitude &&
-    longitude <= INDIA_COORDINATE_BOUNDS.maxLongitude
+  return SERVICE_AREA_COORDINATE_BOUNDS.some(
+    (bounds) =>
+      latitude >= bounds.minLatitude &&
+      latitude <= bounds.maxLatitude &&
+      longitude >= bounds.minLongitude &&
+      longitude <= bounds.maxLongitude,
   );
 };
 
@@ -70,7 +81,7 @@ export const parseAddressParts = (fullAddress = "") => {
   const parts = compactParts(value.split(","))
     .map((part) => (pincode ? part.replace(pincode, "").trim() : part))
     .filter(Boolean)
-    .filter((part) => !["india", "bharat"].includes(normalizeKey(part)));
+    .filter((part) => !["india", "bharat", "nepal"].includes(normalizeKey(part)));
 
   const city = parts[parts.length - 1] || "";
   const area = parts.length > 1 ? parts[parts.length - 2] : "";
@@ -98,7 +109,7 @@ export const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
       longitude: numericLongitude,
     })
   ) {
-    throw new Error("Invalid Indian location coordinates.");
+    throw new Error("Invalid service-area location coordinates.");
   }
 
   const response = await api.get("/locations/reverse-geocode", {
@@ -121,7 +132,7 @@ export const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
     city: structuredAddress.city || fallback.city || "",
     state: structuredAddress.state || fallback.state || "",
     pincode: structuredAddress.pincode || fallback.pincode || "",
-    country: structuredAddress.country || "India",
+    country: structuredAddress.country || fallback.country || "",
     fullAddress:
       result.fullAddress ||
       result.displayName ||

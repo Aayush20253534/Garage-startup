@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import api from "@/api/axios";
 import { FiArrowRight } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
-import completeGoogleAuth from "@/utils/googleAuth";
+import startGoogleAuth, { completeGoogleRedirectAuth } from "@/utils/googleAuth";
 import { verifyCurrentSession } from "@/utils/authSession";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { useApp } from "@/hooks/useApp";
@@ -23,6 +23,50 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const completeLogin = (freshUser) => {
+    login(freshUser);
+
+    const redirectPath = !hasSavedUserLocation(freshUser)
+      ? "/booking/address"
+      : from || "/dashboard";
+
+    nav(redirectPath, { replace: true });
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const finishRedirectLogin = async () => {
+      try {
+        const data = await completeGoogleRedirectAuth();
+        if (!active || !data) return;
+
+        const freshUser = data?.user;
+        if (!freshUser) {
+          throw new Error("Invalid Google login response");
+        }
+
+        completeLogin(freshUser);
+      } catch (err) {
+        if (!active) return;
+        setError(
+          err.response?.data?.message ||
+            err.response?.data?.error ||
+            err.message ||
+            "Google login failed",
+        );
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    finishRedirectLogin();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const change = (event) => {
     setForm((previous) => ({
@@ -57,13 +101,7 @@ export default function Login() {
         expectedRole: "CUSTOMER",
       });
 
-      login(freshUser);
-
-      const redirectPath = !hasSavedUserLocation(freshUser)
-        ? "/booking/address"
-        : from || "/dashboard";
-
-      nav(redirectPath, { replace: true });
+      completeLogin(freshUser);
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -81,20 +119,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const data = await completeGoogleAuth("CUSTOMER");
-      const freshUser = data?.user;
-
-      if (!freshUser) {
-        throw new Error("Invalid Google login response");
-      }
-
-      login(freshUser);
-
-      const redirectPath = !hasSavedUserLocation(freshUser)
-        ? "/booking/address"
-        : from || "/dashboard";
-
-      nav(redirectPath, { replace: true });
+      await startGoogleAuth("CUSTOMER");
     } catch (err) {
       setError(
         err.response?.data?.message ||

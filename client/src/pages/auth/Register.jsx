@@ -1,8 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "@/api/axios";
 import { FcGoogle } from "react-icons/fc";
-import completeGoogleAuth from "@/utils/googleAuth";
+import startGoogleAuth, { completeGoogleRedirectAuth } from "@/utils/googleAuth";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { useApp } from "@/hooks/useApp";
 
@@ -40,6 +40,51 @@ export default function Register() {
   const [loadingAction, setLoadingAction] = useState("");
   const [error, setError] = useState("");
   const loading = Boolean(loadingAction);
+
+  const completeGoogleLogin = (freshUser) => {
+    login(freshUser);
+
+    nav(hasSavedUserLocation(freshUser) ? "/dashboard" : "/booking/address", {
+      replace: true,
+    });
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const finishRedirectSignup = async () => {
+      try {
+        const data = await completeGoogleRedirectAuth();
+        if (!active || !data) return;
+
+        const freshUser = data?.user;
+        if (!freshUser) {
+          throw new Error("Invalid Google signup response");
+        }
+
+        completeGoogleLogin(freshUser);
+      } catch (err) {
+        if (!active) return;
+        setError(
+          err.response?.data?.message ||
+            err.response?.data?.error ||
+            err.message ||
+            "Google signup failed",
+        );
+      } finally {
+        if (active) {
+          actionLockRef.current = false;
+          setLoadingAction("");
+        }
+      }
+    };
+
+    finishRedirectSignup();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const change = (event) => {
     const { name, value } = event.target;
@@ -134,20 +179,7 @@ export default function Register() {
     setLoadingAction("GOOGLE");
 
     try {
-      const data = await completeGoogleAuth("CUSTOMER");
-      const freshUser = data?.user;
-
-      if (!freshUser) {
-        throw new Error("Invalid Google signup response");
-      }
-
-      // Authentication is held by the HttpOnly cookie. Local state contains
-      // only the safe user bundle required to render the interface.
-      login(freshUser);
-
-      nav(hasSavedUserLocation(freshUser) ? "/dashboard" : "/booking/address", {
-        replace: true,
-      });
+      await startGoogleAuth("CUSTOMER");
     } catch (err) {
       setError(
         err.response?.data?.message ||
