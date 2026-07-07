@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { cityApi } from "@/api/cities";
 import { useApp } from "@/hooks/useApp";
 import CitySelect from "@/components/common/CitySelect";
+import { resetCityAvailabilityCache } from "@/utils/cityAvailability";
 import {
   FiCheckCircle,
   FiEdit3,
@@ -52,13 +54,26 @@ export default function Revenue() {
   const isIntern = user?.role === "INTERN";
   const [ranges, setRanges] = useState([]);
   const [services, setServices] = useState([]);
+  const [cities, setCities] = useState([]);
   const [vehicleBrands, setVehicleBrands] = useState([]);
   const [form, setForm] = useState(emptyForm);
+  const [cityForm, setCityForm] = useState({ name: "", state: "" });
   const [filterCity, setFilterCity] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [citySaving, setCitySaving] = useState(false);
+  const [citySelectKey, setCitySelectKey] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const loadCities = async () => {
+    try {
+      const data = await cityApi.getAdminCities({ includeInactive: true });
+      setCities(Array.isArray(data) ? data : []);
+    } catch {
+      setCities([]);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -84,6 +99,7 @@ export default function Revenue() {
       .getCarBrands()
       .then((brands) => setVehicleBrands(Array.isArray(brands) ? brands : []))
       .catch(() => setVehicleBrands([]));
+    loadCities();
   }, []);
 
   useEffect(() => {
@@ -145,6 +161,46 @@ export default function Revenue() {
       setError(err.response?.data?.message || "Unable to save price range");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const addCity = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+    setCitySaving(true);
+
+    try {
+      const city = await cityApi.createCity(cityForm);
+      resetCityAvailabilityCache();
+      setCityForm({ name: "", state: "" });
+      setForm((current) => ({
+        ...current,
+        city: city?.name || current.city,
+      }));
+      setFilterCity(city?.name || filterCity);
+      setSuccess("City added. You can now create price ranges for it.");
+      await loadCities();
+      setCitySelectKey((key) => key + 1);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to add city");
+    } finally {
+      setCitySaving(false);
+    }
+  };
+
+  const toggleCity = async (city) => {
+    setError("");
+    setSuccess("");
+
+    try {
+      await cityApi.updateCity(city.id, { isActive: !city.isActive });
+      resetCityAvailabilityCache();
+      await loadCities();
+      setCitySelectKey((key) => key + 1);
+      setSuccess(`${city.name} ${city.isActive ? "disabled" : "enabled"}.`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update city");
     }
   };
 
@@ -233,6 +289,7 @@ export default function Revenue() {
       >
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <CitySelect
+            key={`form-city-${citySelectKey}`}
             required
             value={form.city}
             onChange={(city) => updateForm("city", city)}
@@ -338,8 +395,74 @@ export default function Revenue() {
       </form>
 
       <section className="card-soft rounded-2xl p-4 shadow-sm">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-ink">Service Cities</h3>
+            <div className="mt-3 flex max-h-24 flex-wrap gap-2 overflow-y-auto pr-1">
+              {cities.length ? (
+                cities.map((city) => (
+                  <button
+                    key={city.id}
+                    type="button"
+                    onClick={() => toggleCity(city)}
+                    title="Click to toggle city status"
+                    className={[
+                      "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                      city.isActive
+                        ? "border-lime-200 bg-lime-100 text-ink hover:bg-lime-200"
+                        : "border-line bg-bg-soft text-muted hover:text-ink",
+                    ].join(" ")}
+                  >
+                    {city.name}
+                    {city.state ? `, ${city.state}` : ""}
+                    {!city.isActive ? " - inactive" : ""}
+                  </button>
+                ))
+              ) : (
+                <span className="text-sm text-muted">No cities added yet.</span>
+              )}
+            </div>
+          </div>
+
+          <form
+            onSubmit={addCity}
+            className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_88px]"
+          >
+            <input
+              required
+              value={cityForm.name}
+              onChange={(e) =>
+                setCityForm({ ...cityForm, name: e.target.value })
+              }
+              placeholder="City name"
+              className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+            />
+
+            <input
+              value={cityForm.state}
+              onChange={(e) =>
+                setCityForm({ ...cityForm, state: e.target.value })
+              }
+              placeholder="State"
+              className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+            />
+
+            <button
+              type="submit"
+              disabled={citySaving}
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-lime-400 px-3 text-sm font-bold text-black transition hover:bg-lime-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiPlus />
+              {citySaving ? "..." : "Add"}
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section className="card-soft rounded-2xl p-4 shadow-sm">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
           <CitySelect
+            key={`filter-city-${citySelectKey}`}
             value={filterCity}
             onChange={setFilterCity}
             placeholder="Filter by city"

@@ -1,5 +1,6 @@
 import api from "@/api/axios";
 import {
+  getLocationAddress,
   hasUsableIndiaCoordinates,
   reverseGeocodeCoordinates,
 } from "@/utils/address";
@@ -63,7 +64,7 @@ export const hasSavedUserLocation = (user) => {
 
   return locations.some(
     (location) =>
-      hasUsableIndiaCoordinates(location) && Boolean(location.address),
+      hasUsableIndiaCoordinates(location) && Boolean(getLocationAddress(location)),
   );
 };
 

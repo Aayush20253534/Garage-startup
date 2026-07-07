@@ -156,7 +156,7 @@ export const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
 export const getDefaultUserLocation = (user) => {
   const locations = Array.isArray(user?.locations) ? user.locations : [];
   const validLocations = locations.filter(
-    (item) => hasUsableIndiaCoordinates(item) && Boolean(item.address),
+    (item) => hasUsableIndiaCoordinates(item) && Boolean(getLocationAddress(item)),
   );
 
   return (
@@ -171,7 +171,11 @@ export const getLocationAddress = (location) => {
   if (!location) return "";
 
   return (
-    location.fullAddress || buildFullAddress(location) || location.address || ""
+    location.formattedAddress ||
+    location.fullAddress ||
+    buildFullAddress(location) ||
+    location.address ||
+    ""
   );
 };
 
@@ -190,7 +194,7 @@ export const getLocationStateFromAddress = (fullAddress = "", base = {}) => {
 export const getLocationStateFromUser = (user, fallbackLocation = null) => {
   const defaultLocation = getDefaultUserLocation(user);
   const addressText =
-    defaultLocation?.address ||
+    getLocationAddress(defaultLocation) ||
     getProfileAddress(user) ||
     getLocationAddress(fallbackLocation);
 

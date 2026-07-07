@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { hasUsableIndiaCoordinates } from "@/utils/address";
+import { getLocationAddress, hasUsableIndiaCoordinates } from "@/utils/address";
 
 const readJson = (key, fallback = null) => {
   try {
@@ -57,7 +57,7 @@ const customerSlice = createSlice({
       state.vehicle = getDefaultVehicle(vehicles);
 
       const validLocations = locations.filter(
-        (item) => hasUsableIndiaCoordinates(item) && Boolean(item.address),
+        (item) => hasUsableIndiaCoordinates(item) && Boolean(getLocationAddress(item)),
       );
 
       if (validLocations.length > 0) {
