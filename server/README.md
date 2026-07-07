@@ -4,7 +4,7 @@ The Rovauto server is an Express 5 API for customer bookings, garage-partner ope
 
 ## Stack
 
-- Node.js 20+
+- Node.js  20+
 - Express 5
 - PostgreSQL
 - Prisma 7 and `@prisma/adapter-pg`
@@ -143,10 +143,10 @@ npm start
 
 The project intentionally uses two environment variables:
 
-| Variable | Used by | Purpose |
-| --- | --- | --- |
-| `DATABASE_URL` | Runtime Prisma client | Application database connection through `PrismaPg` |
-| `DIRECT_URL` | Prisma CLI config | Migrations, generation, status, and Studio configuration |
+| Variable         | Used by               | Purpose                                                  |
+| ---------------- | --------------------- | -------------------------------------------------------- |
+| `DATABASE_URL` | Runtime Prisma client | Application database connection through`PrismaPg`      |
+| `DIRECT_URL`   | Prisma CLI config     | Migrations, generation, status, and Studio configuration |
 
 For a simple local PostgreSQL installation, both may use the same connection string. Hosted providers may supply a pooled runtime URL and a separate direct migration URL.
 
@@ -288,36 +288,36 @@ Important enum groups include booking, payment, broadcast, wallet-transaction, g
 
 All routes below are prefixed with `/api/v1`.
 
-| Prefix | Purpose |
-| --- | --- |
-| `/auth` | Customer signup, verification, login, Google auth, logout, session lookup, password operations |
-| `/customer` | Onboarding, profile, password, and account deletion |
-| `/vehicles` | Customer vehicle CRUD/default operations |
-| `/locations` | Manual geocoding, reverse geocoding, and saved-location operations |
-| `/services` | Public service catalog and admin-protected service media |
-| `/vehicle-meta` | Public vehicle brands and models |
-| `/garages` | Garage discovery, nearby search, owner profile/services, and media |
-| `/garage/applications` | Garage application submission and application geocoding |
-| `/garage/requests` | Garage requests, accept/reject, handover OTP, and delivery |
-| `/garage/wallet` | Current garage wallet and Cashfree recharge flow |
-| `/garage/wallet-legacy` | Older garage-wallet endpoints retained for compatibility |
-| `/bookings` | Checkout, list/detail, service history, success/tracking data, delivery acceptance, cancellation |
-| `/payments` | Customer payment listing, Cashfree order creation, and verification |
-| `/wallet` | Customer wallet, transactions, and recharge |
-| `/sos` | SOS creation and lookup |
-| `/reviews` | Customer review create/list |
-| `/complaints` | Complaint creation and customer complaint history |
-| `/notifications` | Notification list and read state |
-| `/dashboard` | Customer dashboard aggregation |
-| `/chatbot` | History, ask, and clear |
-| `/activities` | Customer activity feed |
-| `/contact` | Public contact submission |
-| `/cities` | Public cities and admin city management |
-| `/public/stats` | Public statistics |
-| `/system-issues/report` | Frontend issue intake |
-| `/admin/*` | Admin operations, catalogs, garages, applications, prices, and issue management |
-| `/whatsapp` | Health and webhook endpoints |
-| `/webhooks/whatsapp` | Alternate mount for the WhatsApp webhook router |
+| Prefix                    | Purpose                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------------------ |
+| `/auth`                 | Customer signup, verification, login, Google auth, logout, session lookup, password operations   |
+| `/customer`             | Onboarding, profile, password, and account deletion                                              |
+| `/vehicles`             | Customer vehicle CRUD/default operations                                                         |
+| `/locations`            | Manual geocoding, reverse geocoding, and saved-location operations                               |
+| `/services`             | Public service catalog and admin-protected service media                                         |
+| `/vehicle-meta`         | Public vehicle brands and models                                                                 |
+| `/garages`              | Garage discovery, nearby search, owner profile/services, and media                               |
+| `/garage/applications`  | Garage application submission and application geocoding                                          |
+| `/garage/requests`      | Garage requests, accept/reject, handover OTP, and delivery                                       |
+| `/garage/wallet`        | Current garage wallet and Cashfree recharge flow                                                 |
+| `/garage/wallet-legacy` | Older garage-wallet endpoints retained for compatibility                                         |
+| `/bookings`             | Checkout, list/detail, service history, success/tracking data, delivery acceptance, cancellation |
+| `/payments`             | Customer payment listing, Cashfree order creation, and verification                              |
+| `/wallet`               | Customer wallet, transactions, and recharge                                                      |
+| `/sos`                  | SOS creation and lookup                                                                          |
+| `/reviews`              | Customer review create/list                                                                      |
+| `/complaints`           | Complaint creation and customer complaint history                                                |
+| `/notifications`        | Notification list and read state                                                                 |
+| `/dashboard`            | Customer dashboard aggregation                                                                   |
+| `/chatbot`              | History, ask, and clear                                                                          |
+| `/activities`           | Customer activity feed                                                                           |
+| `/contact`              | Public contact submission                                                                        |
+| `/cities`               | Public cities and admin city management                                                          |
+| `/public/stats`         | Public statistics                                                                                |
+| `/system-issues/report` | Frontend issue intake                                                                            |
+| `/admin/*`              | Admin operations, catalogs, garages, applications, prices, and issue management                  |
+| `/whatsapp`             | Health and webhook endpoints                                                                     |
+| `/webhooks/whatsapp`    | Alternate mount for the WhatsApp webhook router                                                  |
 
 The root router also exposes compatibility OTP endpoints:
 
@@ -532,15 +532,15 @@ The client uses lazy connection, short timeouts, one retry, and fail-soft cache 
 
 ### Core
 
-| Variable | Notes |
-| --- | --- |
-| `NODE_ENV` | `development` or `production` |
-| `PORT` | Defaults to `5000` |
-| `DATABASE_URL` | Required runtime database URL |
-| `DIRECT_URL` | Required by Prisma CLI config |
-| `JWT_SECRET` | Required; use a long random value |
-| `JWT_EXPIRES_IN` | Defaults to `7d` |
-| `JWT_COOKIE_MAX_AGE_MS` | Defaults to seven days |
+| Variable                  | Notes                             |
+| ------------------------- | --------------------------------- |
+| `NODE_ENV`              | `development` or `production` |
+| `PORT`                  | Defaults to`5000`               |
+| `DATABASE_URL`          | Required runtime database URL     |
+| `DIRECT_URL`            | Required by Prisma CLI config     |
+| `JWT_SECRET`            | Required; use a long random value |
+| `JWT_EXPIRES_IN`        | Defaults to`7d`                 |
+| `JWT_COOKIE_MAX_AGE_MS` | Defaults to seven days            |
 
 ### Origins
 
