@@ -1,7 +1,23 @@
 const { body, param, query } = require("express-validator");
 
-const INDIA_LAT = { min: 6, max: 38 };
-const INDIA_LNG = { min: 68, max: 98 };
+const SERVICE_AREA_BOUNDS = [
+  { minLatitude: 26, maxLatitude: 31, minLongitude: 80, maxLongitude: 89 },
+  { minLatitude: 6, maxLatitude: 38, minLongitude: 68, maxLongitude: 98 },
+];
+
+const SERVICE_AREA_LAT = { min: 6, max: 38 };
+const SERVICE_AREA_LNG = { min: 68, max: 98 };
+
+const isWithinServiceArea = (latitude, longitude) =>
+  Number.isFinite(latitude) &&
+  Number.isFinite(longitude) &&
+  SERVICE_AREA_BOUNDS.some(
+    (bounds) =>
+      latitude >= bounds.minLatitude &&
+      latitude <= bounds.maxLatitude &&
+      longitude >= bounds.minLongitude &&
+      longitude <= bounds.maxLongitude,
+  );
 
 const coordinateObject = (field, required = true) => {
   const chain = body(field);
@@ -14,14 +30,9 @@ const coordinateObject = (field, required = true) => {
       const latitude = Number(value?.latitude ?? value?.lat);
       const longitude = Number(value?.longitude ?? value?.lng);
       if (
-        !Number.isFinite(latitude) ||
-        !Number.isFinite(longitude) ||
-        latitude < INDIA_LAT.min ||
-        latitude > INDIA_LAT.max ||
-        longitude < INDIA_LNG.min ||
-        longitude > INDIA_LNG.max
+        !isWithinServiceArea(latitude, longitude)
       ) {
-        throw new Error(`${field} must contain valid Indian coordinates`);
+        throw new Error(`${field} must contain valid service-area coordinates`);
       }
       return true;
     });
@@ -47,8 +58,8 @@ const addressValidation = [
 const autocompleteValidation = [
   body("input").trim().isLength({ min: 3, max: 160 }),
   body("sessionToken").optional({ checkFalsy: true }).trim().isLength({ max: 100 }),
-  body("latitude").optional({ nullable: true }).isFloat(INDIA_LAT),
-  body("longitude").optional({ nullable: true }).isFloat(INDIA_LNG),
+  body("latitude").optional({ nullable: true }).isFloat(SERVICE_AREA_LAT),
+  body("longitude").optional({ nullable: true }).isFloat(SERVICE_AREA_LNG),
 ];
 
 const placeDetailsValidation = [
@@ -74,14 +85,9 @@ const routeMatrixValidation = [
       const latitude = Number(item?.latitude ?? item?.lat);
       const longitude = Number(item?.longitude ?? item?.lng);
       if (
-        !Number.isFinite(latitude) ||
-        !Number.isFinite(longitude) ||
-        latitude < INDIA_LAT.min ||
-        latitude > INDIA_LAT.max ||
-        longitude < INDIA_LNG.min ||
-        longitude > INDIA_LNG.max
+        !isWithinServiceArea(latitude, longitude)
       ) {
-        throw new Error("Every route matrix point must be within India");
+        throw new Error("Every route matrix point must be within the service area");
       }
     });
     return true;
@@ -92,8 +98,8 @@ const routeMatrixValidation = [
 const roadsValidation = [
   body("points").isArray({ min: 2, max: 100 }),
   body("interpolate").optional().isBoolean(),
-  body("points.*.latitude").isFloat(INDIA_LAT),
-  body("points.*.longitude").isFloat(INDIA_LNG),
+  body("points.*.latitude").isFloat(SERVICE_AREA_LAT),
+  body("points.*.longitude").isFloat(SERVICE_AREA_LNG),
 ];
 
 const bookingIdValidation = [
@@ -102,8 +108,8 @@ const bookingIdValidation = [
 
 const trackingPointValidation = [
   ...bookingIdValidation,
-  body("latitude").isFloat(INDIA_LAT),
-  body("longitude").isFloat(INDIA_LNG),
+  body("latitude").isFloat(SERVICE_AREA_LAT),
+  body("longitude").isFloat(SERVICE_AREA_LNG),
   body("heading").optional({ nullable: true }).isFloat({ min: 0, max: 360 }),
   body("speedKph").optional({ nullable: true }).isFloat({ min: 0, max: 300 }),
   body("accuracyM").optional({ nullable: true }).isFloat({ min: 0, max: 10000 }),

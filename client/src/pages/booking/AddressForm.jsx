@@ -141,7 +141,7 @@ export default function AddressForm() {
 
     if (!hasUsableIndiaCoordinates(coordinates)) {
       throw new Error(
-        "Select a suggestion or place the map pin on a valid Indian address.",
+        "Select a suggestion or place the map pin on a valid service-area address.",
       );
     }
 

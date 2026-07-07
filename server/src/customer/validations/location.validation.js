@@ -1,6 +1,11 @@
 const { body, param, query } = require("express-validator");
 
-const INDIA_COORDINATE_BOUNDS = {
+const SERVICE_AREA_BOUNDS = [
+  { minLatitude: 26, maxLatitude: 31, minLongitude: 80, maxLongitude: 89 },
+  { minLatitude: 6, maxLatitude: 38, minLongitude: 68, maxLongitude: 98 },
+];
+
+const SERVICE_AREA_COORDINATE_BOUNDS = {
   minLatitude: 6,
   maxLatitude: 38,
   minLongitude: 68,
@@ -10,7 +15,19 @@ const INDIA_COORDINATE_BOUNDS = {
 const hasBodyField = (bodyValue, key) =>
   Object.prototype.hasOwnProperty.call(bodyValue || {}, key);
 
-const validateIndiaCoordinatePair = (
+const isWithinServiceArea = (latitude, longitude) =>
+  Number.isFinite(latitude) &&
+  Number.isFinite(longitude) &&
+  !(latitude === 0 && longitude === 0) &&
+  SERVICE_AREA_BOUNDS.some(
+    (bounds) =>
+      latitude >= bounds.minLatitude &&
+      latitude <= bounds.maxLatitude &&
+      longitude >= bounds.minLongitude &&
+      longitude <= bounds.maxLongitude,
+  );
+
+const validateServiceAreaCoordinatePair = (
   bodyValue = {},
   { required = false } = {},
 ) => {
@@ -28,18 +45,11 @@ const validateIndiaCoordinatePair = (
   const latitude = Number(bodyValue.latitude);
   const longitude = Number(bodyValue.longitude);
 
-  const valid =
-    Number.isFinite(latitude) &&
-    Number.isFinite(longitude) &&
-    !(latitude === 0 && longitude === 0) &&
-    latitude >= INDIA_COORDINATE_BOUNDS.minLatitude &&
-    latitude <= INDIA_COORDINATE_BOUNDS.maxLatitude &&
-    longitude >= INDIA_COORDINATE_BOUNDS.minLongitude &&
-    longitude <= INDIA_COORDINATE_BOUNDS.maxLongitude;
+  const valid = isWithinServiceArea(latitude, longitude);
 
   if (!valid) {
     throw new Error(
-      "Invalid location coordinates. Please choose a location within India.",
+      "Invalid location coordinates. Please choose a location within the service area.",
     );
   }
 
@@ -79,19 +89,19 @@ const reverseGeocodeLocationValidation = [
     .withMessage("Latitude is required")
     .bail()
     .isFloat({
-      min: INDIA_COORDINATE_BOUNDS.minLatitude,
-      max: INDIA_COORDINATE_BOUNDS.maxLatitude,
+      min: SERVICE_AREA_COORDINATE_BOUNDS.minLatitude,
+      max: SERVICE_AREA_COORDINATE_BOUNDS.maxLatitude,
     })
-    .withMessage("Invalid latitude for an Indian location"),
+    .withMessage("Invalid latitude for a service-area location"),
   query("longitude")
     .notEmpty()
     .withMessage("Longitude is required")
     .bail()
     .isFloat({
-      min: INDIA_COORDINATE_BOUNDS.minLongitude,
-      max: INDIA_COORDINATE_BOUNDS.maxLongitude,
+      min: SERVICE_AREA_COORDINATE_BOUNDS.minLongitude,
+      max: SERVICE_AREA_COORDINATE_BOUNDS.maxLongitude,
     })
-    .withMessage("Invalid longitude for an Indian location"),
+    .withMessage("Invalid longitude for a service-area location"),
 ];
 
 const locationIdValidation = [
@@ -100,7 +110,7 @@ const locationIdValidation = [
 
 const createLocationValidation = [
   body().custom((bodyValue) =>
-    validateIndiaCoordinatePair(bodyValue, { required: true }),
+    validateServiceAreaCoordinatePair(bodyValue, { required: true }),
   ),
   body("address")
     .optional({ nullable: true, checkFalsy: true })
@@ -131,7 +141,7 @@ const createLocationValidation = [
 const updateLocationValidation = [
   param("id").isUUID().withMessage("Invalid location ID"),
   body().custom((bodyValue) =>
-    validateIndiaCoordinatePair(bodyValue, { required: false }),
+    validateServiceAreaCoordinatePair(bodyValue, { required: false }),
   ),
   body("address")
     .optional({ nullable: true, checkFalsy: true })

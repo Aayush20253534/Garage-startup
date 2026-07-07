@@ -335,7 +335,7 @@ export default function Profile() {
 
       if (!hasUsableIndiaCoordinates({ latitude, longitude })) {
         throw new Error(
-          "Could not find valid Indian coordinates for this address.",
+          "Could not find valid service-area coordinates for this address.",
         );
       }
 

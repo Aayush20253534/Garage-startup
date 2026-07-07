@@ -39,7 +39,6 @@ const geocodePrimary = async (
         city,
         area,
         pincode,
-        country: "India",
       },
     });
 
@@ -57,7 +56,7 @@ const geocodePrimary = async (
 
     if (!hasUsableIndiaCoordinates(result)) {
       throw new Error(
-        "Could not find a valid Indian location for this address. Please check the city, area and pincode.",
+        "Could not find a valid service-area location for this address. Please check the city, area and pincode.",
       );
     }
 

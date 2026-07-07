@@ -2,19 +2,19 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 
-const INDIA_COORDINATE_BOUNDS = {
-  minLatitude: 6,
-  maxLatitude: 38,
-  minLongitude: 68,
-  maxLongitude: 98,
-};
+const SERVICE_AREA_BOUNDS = [
+  { minLatitude: 26, maxLatitude: 31, minLongitude: 80, maxLongitude: 89 },
+  { minLatitude: 6, maxLatitude: 38, minLongitude: 68, maxLongitude: 98 },
+];
 
-const isWithinIndiaBounds = (latitude, longitude) => (
-  latitude >= INDIA_COORDINATE_BOUNDS.minLatitude
-  && latitude <= INDIA_COORDINATE_BOUNDS.maxLatitude
-  && longitude >= INDIA_COORDINATE_BOUNDS.minLongitude
-  && longitude <= INDIA_COORDINATE_BOUNDS.maxLongitude
-);
+const isWithinServiceArea = (latitude, longitude) =>
+  SERVICE_AREA_BOUNDS.some(
+    (bounds) =>
+      latitude >= bounds.minLatitude &&
+      latitude <= bounds.maxLatitude &&
+      longitude >= bounds.minLongitude &&
+      longitude <= bounds.maxLongitude,
+  );
 
 const normalizeAndValidateCoordinates = (data, fallback = {}) => {
   const latitude = Number(data.latitude !== undefined ? data.latitude : fallback.latitude);
@@ -28,8 +28,8 @@ const normalizeAndValidateCoordinates = (data, fallback = {}) => {
     throw new ApiError(400, "Invalid location coordinates. Please choose your location again.");
   }
 
-  if (!isWithinIndiaBounds(latitude, longitude)) {
-    throw new ApiError(400, "Rovauto is available only in India right now.");
+  if (!isWithinServiceArea(latitude, longitude)) {
+    throw new ApiError(400, "Rovauto is not available at this location yet.");
   }
 
   return { latitude, longitude };

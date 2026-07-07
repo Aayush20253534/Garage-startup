@@ -27,12 +27,12 @@ const submitGarageApplicationSchema = [
   body("latitude")
     .optional({ nullable: true, checkFalsy: true })
     .isFloat({ min: 6, max: 38 })
-    .withMessage("Latitude must be within India"),
+    .withMessage("Latitude must be within the service area"),
 
   body("longitude")
     .optional({ nullable: true, checkFalsy: true })
     .isFloat({ min: 68, max: 98 })
-    .withMessage("Longitude must be within India"),
+    .withMessage("Longitude must be within the service area"),
 
   body("placeId")
     .optional({ nullable: true, checkFalsy: true })

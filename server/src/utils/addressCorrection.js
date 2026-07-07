@@ -52,9 +52,9 @@ Rules:
 1. Correct common typos and spelling mistakes
 2. Expand abbreviations and informal names
 3. Include proper city and state names
-4. Keep the result in India and include pincode if it was provided
+4. Keep the result in the supported service area and include pincode if it was provided
 5. Return ONLY the corrected address, nothing else
-6. If you cannot determine a valid Indian location, respond with "UNABLE_TO_CORRECT"
+6. If you cannot determine a valid service-area location, respond with "UNABLE_TO_CORRECT"
 
 Corrected address:`,
           },
