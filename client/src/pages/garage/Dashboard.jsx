@@ -167,14 +167,6 @@ export default function GarageDashboard() {
         </div>
       )}
 
-      {garage?.isActive && (
-        <section className="rounded-2xl border border-line bg-white p-4 text-sm text-muted shadow-sm">
-          Requests are shown only when your wallet can cover that booking's
-          platform fee. The same fee is deducted from your wallet when you
-          accept the request.
-        </section>
-      )}
-
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
           <StatsCard key={stat.label} {...stat} />
