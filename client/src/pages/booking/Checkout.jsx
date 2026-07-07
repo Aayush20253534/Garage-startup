@@ -17,10 +17,7 @@ import {
   getServiceMaxPrice,
 } from "@/utils/priceRange";
 import { calculatePlatformFee } from "@/utils/platformFee";
-import {
-  isCityAvailable,
-  UNAVAILABLE_CITY_MESSAGE,
-} from "@/utils/cityAvailability";
+import { requireAvailableCityName } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 import {
   FiCheckCircle,
@@ -42,10 +39,13 @@ const getCheckoutAddressForm = ({ location, user }) => {
     getProfileAddress(user) ||
     "";
 
+  const parts = parseAddressParts(fullAddress);
+
   return {
-    ...parseAddressParts(fullAddress),
     ...source,
-    address: source.address || parseAddressParts(fullAddress).address,
+    ...parts,
+    address: source.address || parts.address,
+    city: parts.city || source.city || "",
     formattedAddress: fullAddress,
     fullAddress,
   };
@@ -107,16 +107,19 @@ export default function Checkout() {
     }
   }, [editingAddress, location, user]);
 
-  const buildLocationPayload = () => {
+  const buildLocationPayload = async () => {
     const defaultUserLocation = getDefaultUserLocation(user);
     const currentAddress =
       location?.fullAddress || buildFullAddress(location) || location?.address;
 
     if (hasUsableIndiaCoordinates(location) && currentAddress) {
+      const city = await requireAvailableCityName(location);
+
       return {
         latitude: Number(location.latitude),
         longitude: Number(location.longitude),
         address: currentAddress,
+        city,
         placeId: location.placeId || null,
       };
     }
@@ -125,10 +128,13 @@ export default function Checkout() {
       defaultUserLocation?.address &&
       hasUsableIndiaCoordinates(defaultUserLocation)
     ) {
+      const city = await requireAvailableCityName(defaultUserLocation);
+
       return {
         latitude: Number(defaultUserLocation.latitude),
         longitude: Number(defaultUserLocation.longitude),
         address: defaultUserLocation.formattedAddress || defaultUserLocation.address,
+        city,
         placeId: defaultUserLocation.placeId || null,
       };
     }
@@ -137,8 +143,12 @@ export default function Checkout() {
   };
 
   const saveAddress = async () => {
-    if (!(await isCityAvailable(addressForm.city))) {
-      setError(UNAVAILABLE_CITY_MESSAGE);
+    let city = "";
+
+    try {
+      city = await requireAvailableCityName(addressForm);
+    } catch (err) {
+      setError(err.message);
       return;
     }
 
@@ -147,12 +157,14 @@ export default function Checkout() {
       return;
     }
 
+    const canonicalAddressForm = { ...addressForm, city };
     const fullAddress =
-      addressForm.formattedAddress ||
-      addressForm.fullAddress ||
-      buildFullAddress(addressForm);
+      canonicalAddressForm.formattedAddress ||
+      canonicalAddressForm.fullAddress ||
+      buildFullAddress(canonicalAddressForm);
     const nextLocation = {
-      ...addressForm,
+      ...canonicalAddressForm,
+      city,
       fullAddress,
       formattedAddress: fullAddress,
       address: fullAddress,
@@ -168,6 +180,7 @@ export default function Checkout() {
         longitude: nextLocation.longitude,
         address: fullAddress,
         formattedAddress: fullAddress,
+        city,
         placeId: nextLocation.placeId || null,
         addressComponents: nextLocation.addressComponents || undefined,
         source: nextLocation.source === "GPS" ? "GPS" : "MANUAL",
@@ -178,7 +191,7 @@ export default function Checkout() {
       addRecentActivity({
         type: "LOCATION",
         title: "Changed service location",
-        detail: `${addressForm.city}${addressForm.area ? `, ${addressForm.area}` : ""}`,
+        detail: `${city}${canonicalAddressForm.area ? `, ${canonicalAddressForm.area}` : ""}`,
         path: "/checkout",
       });
     } catch (err) {
@@ -213,7 +226,15 @@ export default function Checkout() {
       return;
     }
 
-    const checkoutLocation = buildLocationPayload();
+    let checkoutLocation = null;
+
+    try {
+      checkoutLocation = await buildLocationPayload();
+    } catch (err) {
+      setError(err.message);
+      setEditingAddress(true);
+      return;
+    }
 
     if (!checkoutLocation) {
       setError("Please save a valid service location before checkout.");

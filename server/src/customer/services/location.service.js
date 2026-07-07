@@ -1,6 +1,7 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
+const cityService = require("../../services/city.service");
 
 const SERVICE_AREA_BOUNDS = [
   { minLatitude: 26, maxLatitude: 31, minLongitude: 80, maxLongitude: 89 },
@@ -35,6 +36,37 @@ const normalizeAndValidateCoordinates = (data, fallback = {}) => {
   return { latitude, longitude };
 };
 
+const normalizeLocationAddress = async (data = {}, fallback = {}) => {
+  const city = await cityService.requireActiveCityFromLocation({
+    ...fallback,
+    ...data,
+    addressComponents: data.addressComponents || fallback.addressComponents,
+    address:
+      data.address ||
+      data.formattedAddress ||
+      fallback.address ||
+      fallback.formattedAddress,
+    formattedAddress:
+      data.formattedAddress ||
+      data.address ||
+      fallback.formattedAddress ||
+      fallback.address,
+  });
+
+  const rawAddress =
+    data.formattedAddress ||
+    data.address ||
+    fallback.formattedAddress ||
+    fallback.address ||
+    city.name;
+  const address = cityService.ensureAddressContainsCity(rawAddress, city.name);
+
+  return {
+    cityName: city.name,
+    address,
+  };
+};
+
 const syncDefaultLocationToProfile = async (tx, userId, address) => {
   await tx.customerProfile.upsert({
     where: { userId },
@@ -45,6 +77,7 @@ const syncDefaultLocationToProfile = async (tx, userId, address) => {
 
 const createLocation = async (userId, data) => {
   const coordinates = normalizeAndValidateCoordinates(data);
+  const normalizedAddress = await normalizeLocationAddress(data);
 
   const locationCount = await prisma.customerLocation.count({
     where: { userId },
@@ -65,8 +98,8 @@ const createLocation = async (userId, data) => {
         userId,
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
-        address: data.address || null,
-        formattedAddress: data.formattedAddress || data.address || null,
+        address: normalizedAddress.address || null,
+        formattedAddress: normalizedAddress.address || null,
         placeId: data.placeId || null,
         addressComponents: data.addressComponents || undefined,
         source: data.source || "GPS",
@@ -128,6 +161,14 @@ const updateLocation = async (userId, locationId, data) => {
   const coordinates = data.latitude !== undefined || data.longitude !== undefined
     ? normalizeAndValidateCoordinates(data, existingLocation)
     : null;
+  const hasAddressUpdate =
+    data.address !== undefined ||
+    data.formattedAddress !== undefined ||
+    data.city !== undefined ||
+    data.addressComponents !== undefined;
+  const normalizedAddress = hasAddressUpdate
+    ? await normalizeLocationAddress(data, existingLocation)
+    : null;
 
   const result = await prisma.$transaction(async (tx) => {
     if (shouldBeDefault) {
@@ -142,11 +183,9 @@ const updateLocation = async (userId, locationId, data) => {
       data: {
         ...(coordinates && { latitude: coordinates.latitude }),
         ...(coordinates && { longitude: coordinates.longitude }),
-        ...(data.address !== undefined && {
-          address: data.address || null,
-        }),
-        ...(data.formattedAddress !== undefined && {
-          formattedAddress: data.formattedAddress || null,
+        ...(normalizedAddress && {
+          address: normalizedAddress.address || null,
+          formattedAddress: normalizedAddress.address || null,
         }),
         ...(data.placeId !== undefined && {
           placeId: data.placeId || null,
@@ -163,14 +202,14 @@ const updateLocation = async (userId, locationId, data) => {
       },
     });
 
-    if ((updatedLocation.isDefault || shouldBeDefault) && data.address !== undefined) {
+    if ((updatedLocation.isDefault || shouldBeDefault) && normalizedAddress) {
       await syncDefaultLocationToProfile(tx, userId, updatedLocation.address);
     }
 
     return updatedLocation;
   });
 
-  if ((result.isDefault || shouldBeDefault) && data.address !== undefined) {
+  if ((result.isDefault || shouldBeDefault) && normalizedAddress) {
     await invalidateCustomerCache(userId);
   }
 

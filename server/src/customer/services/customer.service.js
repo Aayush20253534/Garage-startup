@@ -4,6 +4,7 @@ const argon2 = require("argon2");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const { getCache, setCache, deleteCache } = require("../../utils/cache");
 const { normalizePhone } = require("../../utils/phone");
+const cityService = require("../../services/city.service");
 
 const PROFILE_CACHE_TTL = 5 * 60;
 
@@ -39,6 +40,12 @@ const completeOnboarding = async (userId, { vehicle, location }) => {
     throw new ApiError(403, "Please verify email before onboarding");
   }
 
+  const locationCity = await cityService.requireActiveCityFromLocation(location);
+  const locationAddress = cityService.ensureAddressContainsCity(
+    location.address || location.city || "",
+    locationCity.name,
+  );
+
   const result = await prisma.$transaction(async (tx) => {
     await tx.vehicle.updateMany({
       where: { userId },
@@ -67,7 +74,8 @@ const completeOnboarding = async (userId, { vehicle, location }) => {
         userId,
         latitude: Number(location.latitude),
         longitude: Number(location.longitude),
-        address: location.address || null,
+        address: locationAddress || null,
+        formattedAddress: locationAddress || null,
         source: "GPS",
         isDefault: true,
       },
@@ -76,11 +84,11 @@ const completeOnboarding = async (userId, { vehicle, location }) => {
     await tx.customerProfile.upsert({
       where: { userId },
       update: {
-        address: location.address || null,
+        address: locationAddress || null,
       },
       create: {
         userId,
-        address: location.address || null,
+        address: locationAddress || null,
       },
     });
 

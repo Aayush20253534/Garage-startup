@@ -8,6 +8,7 @@ import {
 } from "react-icons/fi";
 import { mapsApi } from "@/api/maps";
 import { reverseGeocodeCoordinates } from "@/utils/address";
+import { requireAvailableCityName } from "@/utils/cityAvailability";
 import MapPanel from "./MapPanel";
 
 const createSessionToken = () =>
@@ -46,6 +47,14 @@ export default function LocationPicker({
       ? { latitude, longitude }
       : null;
   }, [value.latitude, value.longitude, value.lat, value.lng]);
+
+  const attachAvailableCity = async (location) => {
+    const city = await requireAvailableCityName(location);
+    return {
+      ...location,
+      city,
+    };
+  };
 
   useEffect(() => {
     const next = getDisplayValue(value);
@@ -92,7 +101,7 @@ export default function LocationPicker({
         suggestion.placeId,
         sessionTokenRef.current,
       );
-      const next = {
+      const next = await attachAvailableCity({
         ...place.address,
         formattedAddress: place.formattedAddress,
         fullAddress: place.formattedAddress,
@@ -101,7 +110,7 @@ export default function LocationPicker({
         placeId: place.placeId,
         addressComponents: place.addressComponents,
         source: "MANUAL",
-      };
+      });
       selectedTextRef.current = place.formattedAddress;
       setQuery(place.formattedAddress);
       setSuggestions([]);
@@ -121,7 +130,7 @@ export default function LocationPicker({
     try {
       const parsed = await reverseGeocodeCoordinates(nextCoordinate);
       const formattedAddress = parsed.fullAddress || parsed.displayName || parsed.address || query;
-      const next = {
+      const next = await attachAvailableCity({
         ...value,
         ...parsed,
         formattedAddress,
@@ -129,8 +138,9 @@ export default function LocationPicker({
         latitude: nextCoordinate.latitude,
         longitude: nextCoordinate.longitude,
         placeId: parsed.placeId || value.placeId || null,
+        addressComponents: parsed.addressComponents || value.addressComponents || null,
         source: "MANUAL",
-      };
+      });
       selectedTextRef.current = formattedAddress;
       setQuery(formattedAddress);
       onChange?.(next);

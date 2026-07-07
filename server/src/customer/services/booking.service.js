@@ -11,6 +11,7 @@ const {
 const bookingLifecycleService = require("../../services/bookingLifecycle.service");
 const garageRequestService = require("../../services/garageRequest.service");
 const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
+const cityService = require("../../services/city.service");
 const { calculatePlatformFee } = require("../../utils/platformFee");
 
 const bookingInclude = {
@@ -63,17 +64,9 @@ const ALLOWED_BOOKING_STATUSES = [
   "EXPIRED",
 ];
 
-const getBookingCity = (location = {}) => {
-  if (location.city) return location.city;
-
-  const addressParts = String(location.address || "")
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  return addressParts.length >= 2
-    ? addressParts[addressParts.length - 2]
-    : null;
+const getBookingCity = async (location = {}) => {
+  const city = await cityService.requireActiveCityFromLocation(location);
+  return city.name;
 };
 
 const getBookingServiceRange = (service, priceRangeMap = new Map()) => {
@@ -214,9 +207,15 @@ const createBooking = async (userId, data) => {
     );
   }
 
+  const bookingCity = await getBookingCity(location);
+  const customerAddress = cityService.ensureAddressContainsCity(
+    location.address || location.city || "",
+    bookingCity,
+  );
+
   const priceRangeMap =
     await cityServicePriceRangeService.findBestPriceRangesForBooking({
-      city: getBookingCity(location),
+      city: bookingCity,
       services,
       vehicle,
     });
@@ -311,7 +310,7 @@ const createBooking = async (userId, data) => {
 
         customerLatitude: Number(location.latitude),
         customerLongitude: Number(location.longitude),
-        customerAddress: location.address || location.city || null,
+        customerAddress: customerAddress || null,
         customerPlaceId: location.placeId || null,
         customerNote: customerNote || null,
         handlingFee,

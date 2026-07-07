@@ -1,9 +1,11 @@
 import api from "@/api/axios";
 import {
+  buildFullAddress,
   getLocationAddress,
   hasUsableIndiaCoordinates,
   reverseGeocodeCoordinates,
 } from "@/utils/address";
+import { getAvailableCityName } from "@/utils/cityAvailability";
 
 const LOCATION_OPTIONS = {
   enableHighAccuracy: false,
@@ -40,6 +42,7 @@ export const requestSignupLocation = async () => {
   }
 
   let address = `Lat ${latitude}, Lng ${longitude}`;
+  let city = "";
 
   try {
     const geocoded = await reverseGeocodeCoordinates({
@@ -47,7 +50,13 @@ export const requestSignupLocation = async () => {
       longitude,
     });
 
-    address = geocoded.fullAddress || address;
+    city = await getAvailableCityName(geocoded);
+
+    if (!city) {
+      return null;
+    }
+
+    address = buildFullAddress({ ...geocoded, city }) || geocoded.fullAddress || address;
   } catch (error) {
     console.warn("Signup reverse geocoding failed:", error.message);
   }
@@ -56,6 +65,7 @@ export const requestSignupLocation = async () => {
     latitude,
     longitude,
     address,
+    city,
   };
 };
 
@@ -80,7 +90,17 @@ export const saveSignupLocationToProfile = async (signupLocation) => {
         longitude: signupLocation.longitude,
       });
 
-      resolvedAddress = geocoded.fullAddress || resolvedAddress;
+      const city = await getAvailableCityName(geocoded);
+
+      if (!city) {
+        return false;
+      }
+
+      resolvedAddress =
+        buildFullAddress({ ...geocoded, city }) ||
+        geocoded.fullAddress ||
+        resolvedAddress;
+      signupLocation.city = city;
     } catch (error) {
       console.warn("Signup reverse geocoding failed:", error.message);
     }
@@ -97,6 +117,8 @@ export const saveSignupLocationToProfile = async (signupLocation) => {
       latitude: Number(signupLocation.latitude),
       longitude: Number(signupLocation.longitude),
       address: resolvedAddress,
+      formattedAddress: resolvedAddress,
+      city: signupLocation.city,
       source: "GPS",
       isDefault: true,
     });

@@ -11,8 +11,8 @@ import {
 } from "@/utils/address";
 import { queueGeocodeRequest } from "@/utils/geocodeService";
 import {
-  isCityAvailable,
-  UNAVAILABLE_CITY_MESSAGE,
+  getAvailableCityName,
+  requireAvailableCityName,
 } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 import {
@@ -251,14 +251,16 @@ export default function Profile() {
       const { latitude, longitude } = await getCurrentCoordinates();
       const parsed = await reverseGeocodeCoordinates({ latitude, longitude });
 
-      if (!(await isCityAvailable(parsed.city))) {
-        throw new Error(UNAVAILABLE_CITY_MESSAGE);
+      const city = await getAvailableCityName(parsed);
+
+      if (!city) {
+        throw new Error("Sorry, the service isn't available in your region.");
       }
 
       setLocationDraft({
         address: parsed.address || "",
         area: parsed.area || "",
-        city: parsed.city || "",
+        city,
         pincode: parsed.pincode || "",
         latitude,
         longitude,
@@ -303,11 +305,9 @@ export default function Profile() {
     try {
       validateLocationDraft();
 
-      if (!(await isCityAvailable(locationDraft.city))) {
-        throw new Error(UNAVAILABLE_CITY_MESSAGE);
-      }
-
-      const fullAddress = buildFullAddress(locationDraft);
+      const city = await requireAvailableCityName(locationDraft.city);
+      const canonicalDraft = { ...locationDraft, city };
+      const fullAddress = buildFullAddress(canonicalDraft);
       const hasDraftCoordinates =
         hasCoordinateValue(locationDraft.latitude) &&
         hasCoordinateValue(locationDraft.longitude);
@@ -322,10 +322,10 @@ export default function Profile() {
 
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
         const result = await queueGeocodeRequest(
-          locationDraft.address,
-          locationDraft.city,
-          locationDraft.area,
-          locationDraft.pincode,
+          canonicalDraft.address,
+          canonicalDraft.city,
+          canonicalDraft.area,
+          canonicalDraft.pincode,
         );
 
         latitude = Number(result.latitude);
@@ -343,6 +343,8 @@ export default function Profile() {
         latitude,
         longitude,
         address: fullAddress,
+        formattedAddress: fullAddress,
+        city,
         source,
         isDefault: true,
       });
@@ -359,8 +361,9 @@ export default function Profile() {
       const profileUser = profileData?.user || profileData || {};
 
       const nextLocation = {
-        ...locationDraft,
+        ...canonicalDraft,
         ...savedLocation,
+        city,
         fullAddress,
         address: fullAddress,
         latitude,
@@ -398,8 +401,8 @@ export default function Profile() {
           source === "GPS"
             ? "Updated location from GPS"
             : "Updated location manually",
-        detail: `${locationDraft.city}${
-          locationDraft.area ? `, ${locationDraft.area}` : ""
+        detail: `${city}${
+          canonicalDraft.area ? `, ${canonicalDraft.area}` : ""
         }`,
         path: "/dashboard/profile",
       });

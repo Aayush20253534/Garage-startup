@@ -275,6 +275,7 @@ const mapGoogleResult = ({
       pincode: parsedAddress.pincode,
       country: parsedAddress.country || "",
     },
+    addressComponents: result.address_components || [],
     placeId: result.place_id || null,
     locationType: result.geometry?.location_type || null,
     partialMatch: Boolean(result.partial_match),

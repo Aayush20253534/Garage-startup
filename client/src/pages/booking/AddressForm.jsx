@@ -12,10 +12,7 @@ import {
   parseAddressParts,
 } from "@/utils/address";
 import { queueGeocodeRequest, clearGeocodeCache } from "@/utils/geocodeService";
-import {
-  isCityAvailable,
-  UNAVAILABLE_CITY_MESSAGE,
-} from "@/utils/cityAvailability";
+import { requireAvailableCityName } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 
 const hasText = (value) => Boolean(String(value || "").trim());
@@ -76,8 +73,13 @@ export default function AddressForm() {
           : value,
       ...(field !== "pincode" &&
         ["address", "area", "city"].includes(field) && {
+          latitude: null,
+          longitude: null,
+          formattedAddress: "",
+          fullAddress: "",
           placeId: null,
           addressComponents: null,
+          source: "MANUAL",
         }),
     }));
     setError("");
@@ -89,7 +91,7 @@ export default function AddressForm() {
       ...next,
       address: next.address || previous.address || "",
       area: next.area || previous.area || "",
-      city: next.city || previous.city || "",
+      city: next.city || "",
       state: next.state || previous.state || "",
       pincode: next.pincode || previous.pincode || "",
       formattedAddress:
@@ -99,6 +101,17 @@ export default function AddressForm() {
       source: next.source || "MANUAL",
     }));
     setError("");
+  };
+
+  const getValidatedCity = async () => {
+    const city = await requireAvailableCityName(form.city);
+
+    setForm((previous) => ({
+      ...previous,
+      city,
+    }));
+
+    return city;
   };
 
   const validate = async () => {
@@ -114,24 +127,22 @@ export default function AddressForm() {
     if (!/^\d{6}$/.test(String(form.pincode || ""))) {
       throw new Error("Enter a valid 6-digit pincode.");
     }
-    if (!(await isCityAvailable(form.city))) {
-      throw new Error(UNAVAILABLE_CITY_MESSAGE);
-    }
+    await getValidatedCity();
   };
 
-  const ensureCoordinates = async () => {
-    if (hasUsableIndiaCoordinates(form)) {
+  const ensureCoordinates = async (locationForm = form) => {
+    if (hasUsableIndiaCoordinates(locationForm)) {
       return {
-        latitude: Number(form.latitude),
-        longitude: Number(form.longitude),
+        latitude: Number(locationForm.latitude),
+        longitude: Number(locationForm.longitude),
       };
     }
 
     const geocode = await queueGeocodeRequest(
-      form.address.trim(),
-      form.city.trim(),
-      form.area.trim(),
-      form.pincode.trim(),
+      locationForm.address.trim(),
+      locationForm.city.trim(),
+      locationForm.area.trim(),
+      locationForm.pincode.trim(),
     );
 
     const coordinates = {
@@ -158,11 +169,13 @@ export default function AddressForm() {
 
     try {
       await validate();
-      const coordinates = await ensureCoordinates();
+      const city = await getValidatedCity();
+      const canonicalForm = { ...form, city };
+      const coordinates = await ensureCoordinates(canonicalForm);
       const fullAddress =
-        form.formattedAddress ||
-        form.fullAddress ||
-        buildFullAddress(form);
+        canonicalForm.formattedAddress ||
+        canonicalForm.fullAddress ||
+        buildFullAddress(canonicalForm);
       const source = form.source === "GPS" ? "GPS" : "MANUAL";
 
       const locationResponse = await api.post("/locations", {
@@ -170,6 +183,7 @@ export default function AddressForm() {
         longitude: coordinates.longitude,
         address: fullAddress,
         formattedAddress: fullAddress,
+        city,
         placeId: form.placeId || null,
         addressComponents: form.addressComponents || undefined,
         source,
@@ -187,7 +201,8 @@ export default function AddressForm() {
 
       const nextLocation = {
         ...savedLocation,
-        ...form,
+        ...canonicalForm,
+        city,
         address: fullAddress,
         formattedAddress: fullAddress,
         fullAddress,
@@ -224,7 +239,7 @@ export default function AddressForm() {
       addRecentActivity({
         type: "LOCATION",
         title: "Saved service location",
-        detail: `${form.city}${form.area ? `, ${form.area}` : ""}`,
+        detail: `${city}${canonicalForm.area ? `, ${canonicalForm.area}` : ""}`,
         path: "/dashboard/profile",
       });
 

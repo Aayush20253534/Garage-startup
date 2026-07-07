@@ -43,6 +43,18 @@ const onboardingValidation = [
   body("location.address")
     .optional({ nullable: true, checkFalsy: true })
     .trim(),
+
+  body("location.city")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim(),
+
+  body("location.formattedAddress")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim(),
+
+  body("location.addressComponents")
+    .optional({ nullable: true })
+    .isArray({ max: 30 }),
 ];
 const updateProfileValidation = [
   body("name")

@@ -7,7 +7,38 @@ const normalizeKey = (value) =>
   String(value || "")
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, " ");
+    .replace(/\b\d{5,6}\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const ADMIN_AREA_HINT_REGEX =
+  /\b(province|pradesh|state|district|zone|anchal|division|region)\b/i;
+
+const looksLikeStateOrRegion = (value = "") =>
+  ADMIN_AREA_HINT_REGEX.test(String(value || ""));
+
+const getAddressComponentText = (component = {}) =>
+  component.longText ||
+  component.long_name ||
+  component.shortText ||
+  component.short_name ||
+  component.text ||
+  "";
+
+const getStructuredCityFromComponents = (components = []) => {
+  if (!Array.isArray(components)) return "";
+
+  const cityComponent = components.find((component) =>
+    [
+      "locality",
+      "postal_town",
+      "administrative_area_level_3",
+      "administrative_area_level_2",
+    ].some((type) => component.types?.includes(type)),
+  );
+
+  return getAddressComponentText(cityComponent);
+};
 
 const uniqueParts = (parts = []) => {
   const seen = new Set();
@@ -83,16 +114,22 @@ export const parseAddressParts = (fullAddress = "") => {
     .filter(Boolean)
     .filter((part) => !["india", "bharat", "nepal"].includes(normalizeKey(part)));
 
-  const city = parts[parts.length - 1] || "";
-  const area = parts.length > 1 ? parts[parts.length - 2] : "";
+  const lastPart = parts[parts.length - 1] || "";
+  const secondLastPart = parts[parts.length - 2] || "";
+  const lastPartIsState = looksLikeStateOrRegion(lastPart);
+  const city = lastPartIsState ? secondLastPart : lastPart;
+  const state = lastPartIsState ? lastPart : "";
+  const areaIndex = lastPartIsState ? parts.length - 3 : parts.length - 2;
+  const area = areaIndex >= 0 ? parts[areaIndex] : "";
+  const addressEndIndex = Math.max(0, areaIndex);
   const addressParts =
-    parts.length > 2 ? parts.slice(0, -2) : parts.slice(0, 1);
+    parts.length > 2 ? parts.slice(0, addressEndIndex) : parts.slice(0, 1);
 
   return {
     address: addressParts.join(", ") || value,
     area,
     city,
-    state: "",
+    state,
     pincode,
   };
 };
@@ -129,7 +166,11 @@ export const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
   const normalized = {
     address: structuredAddress.address || fallback.address || "",
     area: structuredAddress.area || fallback.area || "",
-    city: structuredAddress.city || fallback.city || "",
+    city:
+      structuredAddress.city ||
+      getStructuredCityFromComponents(result.addressComponents) ||
+      fallback.city ||
+      "",
     state: structuredAddress.state || fallback.state || "",
     pincode: structuredAddress.pincode || fallback.pincode || "",
     country: structuredAddress.country || fallback.country || "",
@@ -141,6 +182,7 @@ export const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
     latitude: Number(result.latitude ?? numericLatitude),
     longitude: Number(result.longitude ?? numericLongitude),
     placeId: result.placeId || null,
+    addressComponents: result.addressComponents || [],
     locationType: result.locationType || null,
     provider: result.provider || "google",
     attribution: result.attribution || "Google Maps",
@@ -181,13 +223,18 @@ export const getLocationAddress = (location) => {
 
 export const getLocationStateFromAddress = (fullAddress = "", base = {}) => {
   const parsed = parseAddressParts(fullAddress);
+  const componentCity = getStructuredCityFromComponents(base?.addressComponents);
   const addressText = fullAddress || buildFullAddress(parsed);
 
   return {
     ...parsed,
+    city: componentCity || parsed.city,
     fullAddress: addressText,
     latitude: base?.latitude ?? null,
     longitude: base?.longitude ?? null,
+    placeId: base?.placeId || null,
+    addressComponents: base?.addressComponents || null,
+    source: base?.source || "MANUAL",
   };
 };
 
@@ -203,5 +250,9 @@ export const getLocationStateFromUser = (user, fallbackLocation = null) => {
   return getLocationStateFromAddress(addressText, {
     latitude: defaultLocation?.latitude ?? fallbackLocation?.latitude,
     longitude: defaultLocation?.longitude ?? fallbackLocation?.longitude,
+    placeId: defaultLocation?.placeId ?? fallbackLocation?.placeId,
+    addressComponents:
+      defaultLocation?.addressComponents ?? fallbackLocation?.addressComponents,
+    source: defaultLocation?.source ?? fallbackLocation?.source,
   });
 };

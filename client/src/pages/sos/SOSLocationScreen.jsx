@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { FiArrowRight, FiMapPin, FiShield } from "react-icons/fi";
 import LocationPicker from "@/components/maps/LocationPicker";
 import { hasUsableIndiaCoordinates } from "@/utils/address";
+import { requireAvailableCityName } from "@/utils/cityAvailability";
 
 const STORAGE_KEY = "rovauto_sos_location";
 
@@ -26,21 +27,27 @@ export default function SOSLocationScreen() {
     [problem],
   );
 
-  const proceed = () => {
+  const proceed = async () => {
     if (!hasUsableIndiaCoordinates(location)) {
       setError("Confirm your exact emergency location before continuing.");
       return;
     }
 
-    const next = {
-      ...location,
-      formattedAddress:
-        location.formattedAddress || location.fullAddress || location.address,
-    };
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    nav(`/sos/checkout?problem=${encodeURIComponent(problem)}`, {
-      state: { location: next },
-    });
+    try {
+      const city = await requireAvailableCityName(location);
+      const next = {
+        ...location,
+        city,
+        formattedAddress:
+          location.formattedAddress || location.fullAddress || location.address,
+      };
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      nav(`/sos/checkout?problem=${encodeURIComponent(problem)}`, {
+        state: { location: next },
+      });
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (

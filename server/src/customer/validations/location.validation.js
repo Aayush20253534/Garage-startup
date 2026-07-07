@@ -121,6 +121,10 @@ const createLocationValidation = [
     .optional({ nullable: true, checkFalsy: true })
     .trim()
     .isLength({ max: 500 }),
+  body("city")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 120 }),
   body("placeId")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
@@ -152,6 +156,10 @@ const updateLocationValidation = [
     .optional({ nullable: true, checkFalsy: true })
     .trim()
     .isLength({ max: 500 }),
+  body("city")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 120 }),
   body("placeId")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
