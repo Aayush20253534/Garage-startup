@@ -3,17 +3,24 @@
   "version": "1.0.0",
   "description": "Backend API for the Rovauto vehicle service platform",
   "main": "src/server.js",
+  "type": "commonjs",
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+
     "prisma:generate": "prisma generate",
+    "prisma:format": "prisma format",
+    "prisma:validate": "prisma validate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:status": "prisma migrate status",
     "prisma:studio": "prisma studio",
+
     "seed:admin": "node src/seed/seedAdmin.js",
     "seed:intern": "node src/seed/seedIntern.js",
-    "seed:all": "npm run seed:admin && npm run seed:intern",
+    "seed:staff": "npm run seed:admin && npm run seed:intern",
+    "seed:all": "npm run seed:staff",
+
     "db:delete-user": "node src/scripts/deleteUserData.js",
     "db:delete-active-bookings": "node src/scripts/deleteCustomerRecords.js --scope=active-bookings",
     "db:delete-payments": "node src/scripts/deleteCustomerRecords.js --scope=payments",
@@ -40,7 +47,6 @@
   ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/Aayush20253534/Garage-startup/issues"
   },
