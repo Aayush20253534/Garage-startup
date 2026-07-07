@@ -471,7 +471,7 @@ const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
   const result = selectBestResult(results, { reverse: true });
 
   if (!result) {
-    throw new ApiError(404, "No address found for these coordinates");
+    throw new ApiError(404, "Sorry The Service is not available int your location");
   }
 
   return mapGoogleResult({
