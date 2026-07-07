@@ -73,9 +73,12 @@ const sendPhoneOtp = asyncHandler(async (req, res) => {
 });
 
 const verifyPhoneOtp = asyncHandler(async (req, res) => {
+  const authenticatedUserId =
+    req.user?.accountType === "USER" ? req.user.id : null;
+
   const result = await authService.verifyPhoneNumberOtp(
     req.body,
-    req.user?.id,
+    authenticatedUserId,
   );
 
   return res
@@ -118,13 +121,22 @@ const logout = asyncHandler(async (req, res) => {
 });
 
 const me = asyncHandler(async (req, res) => {
-  const user = await authService.getMe(req.user.id);
+  const account = await authService.getMe(
+    req.user.id,
+    req.user.accountType,
+  );
 
   preventAuthResponseCaching(res);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "User fetched successfully", user));
+    .json(
+      new ApiResponse(
+        200,
+        "Account fetched successfully",
+        account,
+      ),
+    );
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {
@@ -152,6 +164,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 const changePassword = asyncHandler(async (req, res) => {
   const result = await authService.changePassword(
     req.user.id,
+    req.user.accountType,
     req.body,
   );
 

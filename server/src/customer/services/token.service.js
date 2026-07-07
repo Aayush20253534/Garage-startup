@@ -1,9 +1,20 @@
 const { generateToken } = require("../../utils/jwt");
 
-const createAuthToken = (user) => {
+const STAFF_ROLES = new Set(["ADMIN", "INTERN"]);
+
+const createAuthToken = (account) => {
+  if (!account?.id || !account?.role) {
+    throw new Error("Cannot create an auth token without an account ID and role");
+  }
+
+  const accountType =
+    account.accountType ||
+    (STAFF_ROLES.has(account.role) ? "STAFF" : "USER");
+
   return generateToken({
-    id: user.id,
-    role: user.role,
+    id: account.id,
+    role: account.role,
+    accountType,
   });
 };
 

@@ -14,7 +14,6 @@ const paymentRoutes = require("../customer/routes/payment.routes");
 const reviewRoutes = require("../customer/routes/review.routes");
 const complaintRoutes = require("../customer/routes/complaint.routes");
 const garageMediaRoutes = require("./garageMedia.routes");
-
 const walletRoutes = require("../customer/routes/wallet.routes");
 const garageWalletRoutes = require("./garageWallet.routes");
 const newGarageWalletRoutes = require("../garage/routes/wallet.routes");
@@ -39,12 +38,19 @@ const adminSystemIssueRoutes = require("../admin/routes/systemIssue.routes");
 const authController = require("../customer/controllers/auth.controller");
 const validate = require("../middlewares/validate.middleware");
 const rateLimit = require("../middlewares/rateLimit.middleware");
-const { otpSendRateLimits } = require("../middlewares/otpRateLimit.middleware");
+const {
+  protectUser,
+} = require("../middlewares/auth.middleware");
+const {
+  otpSendRateLimits,
+} = require("../middlewares/otpRateLimit.middleware");
 const {
   sendPhoneOtpValidation,
   verifyPhoneOtpValidation,
 } = require("../customer/validations/auth.validation");
+
 const router = express.Router();
+
 const publicOtpRateLimit = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -55,11 +61,44 @@ router.use("/auth", authRoutes);
 router.use("/public", publicRoutes);
 router.use("/system-issues", systemIssueReportRoutes);
 router.use("/cities", cityRoutes);
-router.post("/send-otp", sendPhoneOtpValidation, validate, otpSendRateLimits, publicOtpRateLimit, authController.sendPhoneOtp);
-router.post("/verify-otp", publicOtpRateLimit, verifyPhoneOtpValidation, validate, authController.verifyPhoneOtp);
-router.use("/customer", customerRoutes);
-router.use("/vehicles", vehicleRoutes);
-router.use("/locations", locationRoutes);
+
+router.post(
+  "/send-otp",
+  sendPhoneOtpValidation,
+  validate,
+  otpSendRateLimits,
+  publicOtpRateLimit,
+  authController.sendPhoneOtp,
+);
+
+router.post(
+  "/verify-otp",
+  publicOtpRateLimit,
+  verifyPhoneOtpValidation,
+  validate,
+  authController.verifyPhoneOtp,
+);
+
+/*
+ * These route groups belong only to records stored in User.
+ * Staff sessions are rejected before their controllers execute.
+ */
+router.use("/customer", protectUser, customerRoutes);
+router.use("/vehicles", protectUser, vehicleRoutes);
+router.use("/locations", protectUser, locationRoutes);
+router.use("/notifications", protectUser, notificationRoutes);
+router.use("/bookings", protectUser, bookingRoutes);
+router.use("/payments", protectUser, paymentRoutes);
+router.use("/complaints", protectUser, complaintRoutes);
+router.use("/dashboard", protectUser, dashboardRoutes);
+router.use("/chatbot", protectUser, chatbotRoutes);
+router.use("/activities", protectUser, activityRoutes);
+router.use("/wallet", protectUser, walletRoutes);
+router.use("/sos", protectUser, sosRoutes);
+
+/*
+ * Public or mixed route groups keep their own route-level authorization.
+ */
 router.use("/contact", contactRoutes);
 router.use("/whatsapp", whatsappRoutes);
 router.use("/webhooks/whatsapp", whatsappRoutes);
@@ -69,25 +108,27 @@ router.use("/vehicle-meta", vehicleMetaRoutes);
 router.use("/garages", garageRoutes);
 router.use("/garage/applications", garageApplicationRoutes);
 router.use("/garages", garageMediaRoutes);
-router.use("/notifications", notificationRoutes);
-router.use("/bookings", bookingRoutes);
-router.use("/payments", paymentRoutes);
 router.use("/reviews", reviewRoutes);
-router.use("/complaints", complaintRoutes);
-router.use("/dashboard", dashboardRoutes);
-router.use("/chatbot", chatbotRoutes);
-router.use("/activities", activityRoutes);
-router.use("/wallet", walletRoutes);
 router.use("/garage/wallet", newGarageWalletRoutes);
 router.use("/garage/wallet-legacy", garageWalletRoutes);
 router.use("/garage/requests", garageRequestRoutes);
-router.use("/admin/garage-applications", adminGarageApplicationRoutes);
-router.use("/admin/city-service-price-ranges", cityServicePriceRangeRoutes);
+
+/*
+ * Admin and intern route modules already use protect plus role authorization.
+ * protect now resolves staff accounts from StaffAccount.
+ */
+router.use(
+  "/admin/garage-applications",
+  adminGarageApplicationRoutes,
+);
+router.use(
+  "/admin/city-service-price-ranges",
+  cityServicePriceRangeRoutes,
+);
 router.use("/admin/cars", adminCarMetaRoutes);
 router.use("/admin/services", adminServiceRoutes);
 router.use("/admin/system-issues", adminSystemIssueRoutes);
 router.use("/admin/garages", adminGarageRoutes);
 router.use("/admin", adminOperationsRoutes);
-router.use("/sos", sosRoutes);
 
 module.exports = router;

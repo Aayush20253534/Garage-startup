@@ -5,6 +5,9 @@ const PASSWORD_MESSAGE =
 const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
+const USER_ROLES = ["CUSTOMER", "GARAGE_OWNER"];
+const AUTH_ROLES = [...USER_ROLES, "ADMIN", "INTERN"];
+
 const signupValidation = [
   body("name")
     .trim()
@@ -26,7 +29,9 @@ const signupValidation = [
     .notEmpty()
     .withMessage("Phone number is required")
     .matches(/^\+91[6-9]\d{9}$/)
-    .withMessage("Phone number must be a valid Indian mobile number, for example +919812345678"),
+    .withMessage(
+      "Phone number must be a valid Indian mobile number, for example +919812345678",
+    ),
 
   body("password")
     .notEmpty()
@@ -43,7 +48,7 @@ const signupValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(["CUSTOMER", "GARAGE_OWNER"])
+    .isIn(USER_ROLES)
     .withMessage("Role must be either CUSTOMER or GARAGE_OWNER"),
 ];
 
@@ -61,7 +66,9 @@ const verifyOtpValidation = [
     .notEmpty()
     .withMessage("Phone number is required")
     .matches(/^\+91[6-9]\d{9}$/)
-    .withMessage("Phone number must be a valid Indian mobile number, for example +919812345678"),
+    .withMessage(
+      "Phone number must be a valid Indian mobile number, for example +919812345678",
+    ),
 
   body("otp")
     .trim()
@@ -73,7 +80,7 @@ const verifyOtpValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(["CUSTOMER", "GARAGE_OWNER"])
+    .isIn(USER_ROLES)
     .withMessage("Role must be either CUSTOMER or GARAGE_OWNER"),
 ];
 
@@ -91,12 +98,14 @@ const resendOtpValidation = [
     .notEmpty()
     .withMessage("Phone number is required")
     .matches(/^\+91[6-9]\d{9}$/)
-    .withMessage("Phone number must be a valid Indian mobile number, for example +919812345678"),
+    .withMessage(
+      "Phone number must be a valid Indian mobile number, for example +919812345678",
+    ),
 
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(["CUSTOMER", "GARAGE_OWNER"])
+    .isIn(USER_ROLES)
     .withMessage("Role must be either CUSTOMER or GARAGE_OWNER"),
 ];
 
@@ -106,7 +115,9 @@ const sendPhoneOtpValidation = [
     .notEmpty()
     .withMessage("Phone number is required")
     .matches(/^\+91[6-9]\d{9}$/)
-    .withMessage("Phone number must be a valid Indian mobile number, for example +919812345678"),
+    .withMessage(
+      "Phone number must be a valid Indian mobile number, for example +919812345678",
+    ),
 ];
 
 const verifyPhoneOtpValidation = [
@@ -115,7 +126,9 @@ const verifyPhoneOtpValidation = [
     .notEmpty()
     .withMessage("Phone number is required")
     .matches(/^\+91[6-9]\d{9}$/)
-    .withMessage("Phone number must be a valid Indian mobile number, for example +919812345678"),
+    .withMessage(
+      "Phone number must be a valid Indian mobile number, for example +919812345678",
+    ),
 
   body("otp")
     .trim()
@@ -131,7 +144,7 @@ const loginValidation = [
   body("identifier")
     .trim()
     .notEmpty()
-    .withMessage("Email or phone is required"),
+    .withMessage("Email, phone, or staff login ID is required"),
 
   body("password")
     .notEmpty()
@@ -140,7 +153,7 @@ const loginValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"])
+    .isIn(AUTH_ROLES)
     .withMessage("Invalid account role"),
 ];
 
@@ -153,7 +166,7 @@ const googleAuthValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(["CUSTOMER", "GARAGE_OWNER"])
+    .isIn(USER_ROLES)
     .withMessage("Role must be either CUSTOMER or GARAGE_OWNER"),
 ];
 
@@ -169,8 +182,10 @@ const forgotPasswordValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"])
-    .withMessage("Invalid account role"),
+    .isIn(USER_ROLES)
+    .withMessage(
+      "Password recovery is available only for CUSTOMER or GARAGE_OWNER accounts",
+    ),
 ];
 
 const resetPasswordValidation = [
@@ -198,8 +213,10 @@ const resetPasswordValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"])
-    .withMessage("Invalid account role"),
+    .isIn(USER_ROLES)
+    .withMessage(
+      "Password recovery is available only for CUSTOMER or GARAGE_OWNER accounts",
+    ),
 ];
 
 const changePasswordValidation = [

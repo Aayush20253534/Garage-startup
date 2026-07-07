@@ -3,8 +3,8 @@ const express = require("express");
 const authController = require("../controllers/auth.controller");
 const validate = require("../../middlewares/validate.middleware");
 const {
-  optionalProtect,
   protect,
+  protectUser,
 } = require("../../middlewares/auth.middleware");
 
 const {
@@ -82,7 +82,7 @@ router.post(
 
 router.post(
   "/verify-phone-otp",
-  optionalProtect,
+  protectUser,
   otpVerifyRateLimit,
   verifyPhoneOtpValidation,
   validate,

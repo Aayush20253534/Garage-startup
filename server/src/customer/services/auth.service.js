@@ -20,9 +20,21 @@ const PASSWORD_REGEX =
 const PASSWORD_MESSAGE =
   "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol";
 
-const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
-const normalizeAuthRole = (role, allowedRoles = ["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"], fallback = "CUSTOMER") =>
-  allowedRoles.includes(role) ? role : fallback;
+const USER_ROLES = ["CUSTOMER", "GARAGE_OWNER"];
+const STAFF_ROLES = ["ADMIN", "INTERN"];
+const ALL_AUTH_ROLES = [...USER_ROLES, ...STAFF_ROLES];
+
+const normalizeEmail = (email) =>
+  String(email || "").trim().toLowerCase();
+
+const normalizeLoginId = (value) =>
+  String(value || "").trim().toLowerCase();
+
+const normalizeAuthRole = (
+  role,
+  allowedRoles = ALL_AUTH_ROLES,
+  fallback = "CUSTOMER",
+) => (allowedRoles.includes(role) ? role : fallback);
 
 const toSafeUser = (user) => ({
   id: user.id,
@@ -30,9 +42,25 @@ const toSafeUser = (user) => ({
   email: user.email,
   phone: user.phone,
   role: user.role,
+  accountType: "USER",
+  isActive: user.isActive,
   isEmailVerified: user.isEmailVerified,
   isPhoneVerified: user.isPhoneVerified,
   isOnboarded: user.isOnboarded,
+});
+
+const toSafeStaff = (staff) => ({
+  id: staff.id,
+  name: staff.name,
+  loginId: staff.loginId,
+  email: staff.email,
+  phone: staff.phone,
+  role: staff.role,
+  accountType: "STAFF",
+  isActive: staff.isActive,
+  lastLoginAt: staff.lastLoginAt,
+  passwordChangedAt: staff.passwordChangedAt,
+  createdAt: staff.createdAt,
 });
 
 const getAuthUserById = async (userId) => {
@@ -63,7 +91,37 @@ const getAuthUserById = async (userId) => {
     throw new ApiError(404, "User not found");
   }
 
-  return user;
+  return {
+    ...user,
+    accountType: "USER",
+  };
+};
+
+const getAuthStaffById = async (staffId) => {
+  const staff = await prisma.staffAccount.findUnique({
+    where: { id: staffId },
+    select: {
+      id: true,
+      name: true,
+      loginId: true,
+      email: true,
+      phone: true,
+      role: true,
+      isActive: true,
+      lastLoginAt: true,
+      passwordChangedAt: true,
+      createdAt: true,
+    },
+  });
+
+  if (!staff) {
+    throw new ApiError(404, "Staff account not found");
+  }
+
+  return {
+    ...staff,
+    accountType: "STAFF",
+  };
 };
 
 const signup = async ({
@@ -309,19 +367,76 @@ const verifyPhoneNumberOtp = async ({ phone, otp }, userId = null) => {
 };
 
 const login = async ({ identifier, password, role }) => {
-  const rawIdentifier = identifier?.trim();
-  const cleanIdentifier = rawIdentifier?.startsWith("+")
+  const rawIdentifier = String(identifier || "").trim();
+  const requestedRole = normalizeAuthRole(
+    role,
+    ALL_AUTH_ROLES,
+    "CUSTOMER",
+  );
+
+  if (!rawIdentifier || !password) {
+    throw new ApiError(
+      400,
+      "Email, phone, or staff login ID and password are required",
+    );
+  }
+
+  if (STAFF_ROLES.includes(requestedRole)) {
+    const normalizedIdentifier = normalizeLoginId(rawIdentifier);
+    const normalizedPhone = rawIdentifier.startsWith("+")
+      ? normalizePhone(rawIdentifier)
+      : normalizedIdentifier;
+
+    const staff = await prisma.staffAccount.findFirst({
+      where: {
+        role: requestedRole,
+        OR: [
+          { loginId: normalizedIdentifier },
+          { email: normalizedIdentifier },
+          { phone: normalizedPhone },
+        ],
+      },
+    });
+
+    if (!staff) {
+      throw new ApiError(401, "Invalid credentials");
+    }
+
+    if (!staff.isActive) {
+      throw new ApiError(403, "Account is disabled");
+    }
+
+    const isPasswordValid = await argon2.verify(
+      staff.password,
+      password,
+    );
+
+    if (!isPasswordValid) {
+      throw new ApiError(401, "Invalid credentials");
+    }
+
+    const updatedStaff = await prisma.staffAccount.update({
+      where: { id: staff.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const safeStaff = toSafeStaff(updatedStaff);
+    const token = createAuthToken(safeStaff);
+    const authStaff = await getAuthStaffById(updatedStaff.id);
+
+    return {
+      user: authStaff,
+      token,
+    };
+  }
+
+  const cleanIdentifier = rawIdentifier.startsWith("+")
     ? normalizePhone(rawIdentifier)
     : normalizeEmail(rawIdentifier);
-  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"], "CUSTOMER");
-
-  if (!cleanIdentifier || !password) {
-    throw new ApiError(400, "Email/phone and password are required");
-  }
 
   const user = await prisma.user.findFirst({
     where: {
-      role: userRole,
+      role: requestedRole,
       OR: [{ email: cleanIdentifier }, { phone: cleanIdentifier }],
     },
   });
@@ -334,7 +449,10 @@ const login = async ({ identifier, password, role }) => {
     throw new ApiError(403, "Account is disabled");
   }
 
-  const isPasswordValid = await argon2.verify(user.password, password);
+  const isPasswordValid = await argon2.verify(
+    user.password,
+    password,
+  );
 
   if (!isPasswordValid) {
     throw new ApiError(401, "Invalid credentials");
@@ -354,8 +472,16 @@ const login = async ({ identifier, password, role }) => {
   };
 };
 
-const getMe = async (userId) => {
-  return getAuthUserById(userId);
+const getMe = async (accountId, accountType) => {
+  if (accountType === "STAFF") {
+    return getAuthStaffById(accountId);
+  }
+
+  if (accountType === "USER") {
+    return getAuthUserById(accountId);
+  }
+
+  throw new ApiError(401, "Invalid account session");
 };
 
 const googleAuth = async ({ idToken, role = "CUSTOMER" }) => {
@@ -430,10 +556,9 @@ const forgotPassword = async ({
   role = "CUSTOMER",
 }) => {
   const cleanEmail = normalizeEmail(email);
-
   const userRole = normalizeAuthRole(
     role,
-    ["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"],
+    USER_ROLES,
     "CUSTOMER",
   );
 
@@ -445,16 +570,12 @@ const forgotPassword = async ({
   });
 
   if (!user) {
-    const accountType =
-      userRole === "GARAGE_OWNER"
-        ? "garage"
-        : userRole === "ADMIN"
-          ? "admin"
-          : "customer";
+    const accountLabel =
+      userRole === "GARAGE_OWNER" ? "garage" : "customer";
 
     throw new ApiError(
       404,
-      `No ${accountType} account is registered with this email`,
+      `No ${accountLabel} account is registered with this email`,
     );
   }
 
@@ -465,10 +586,7 @@ const forgotPassword = async ({
     );
   }
 
-  await createResetPasswordOtp(
-    user.id,
-    user.email,
-  );
+  await createResetPasswordOtp(user.id, user.email);
 
   return {
     email: user.email,
@@ -476,12 +594,28 @@ const forgotPassword = async ({
   };
 };
 
-const resetPassword = async ({ email, otp, newPassword, role = "CUSTOMER" }) => {
+const resetPassword = async ({
+  email,
+  otp,
+  newPassword,
+  role = "CUSTOMER",
+}) => {
   const cleanEmail = normalizeEmail(email);
-  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"], "CUSTOMER");
+  const userRole = normalizeAuthRole(
+    role,
+    USER_ROLES,
+    "CUSTOMER",
+  );
+
+  if (!PASSWORD_REGEX.test(newPassword)) {
+    throw new ApiError(400, PASSWORD_MESSAGE);
+  }
 
   const user = await prisma.user.findFirst({
-    where: { email: cleanEmail, role: userRole },
+    where: {
+      email: cleanEmail,
+      role: userRole,
+    },
   });
 
   if (!user) {
@@ -516,7 +650,6 @@ const resetPassword = async ({ email, otp, newPassword, role = "CUSTOMER" }) => 
       where: { id: validOtp.id },
       data: { usedAt: new Date() },
     }),
-
     prisma.user.update({
       where: { id: user.id },
       data: {
@@ -530,30 +663,68 @@ const resetPassword = async ({ email, otp, newPassword, role = "CUSTOMER" }) => 
   };
 };
 
-const changePassword = async (userId, { currentPassword, newPassword }) => {
+const changePassword = async (
+  accountId,
+  accountType,
+  { currentPassword, newPassword },
+) => {
   if (!currentPassword || !newPassword) {
-    throw new ApiError(400, "Current password and new password are required");
+    throw new ApiError(
+      400,
+      "Current password and new password are required",
+    );
   }
 
   if (!PASSWORD_REGEX.test(newPassword)) {
     throw new ApiError(400, PASSWORD_MESSAGE);
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) throw new ApiError(404, "User not found");
+  const account =
+    accountType === "STAFF"
+      ? await prisma.staffAccount.findUnique({
+          where: { id: accountId },
+        })
+      : accountType === "USER"
+        ? await prisma.user.findUnique({
+            where: { id: accountId },
+          })
+        : null;
 
-  const isCurrentPasswordValid = await argon2.verify(user.password, currentPassword);
+  if (!account) {
+    throw new ApiError(404, "Account not found");
+  }
+
+  const isCurrentPasswordValid = await argon2.verify(
+    account.password,
+    currentPassword,
+  );
+
   if (!isCurrentPasswordValid) {
     throw new ApiError(401, "Current password is incorrect");
   }
 
   const hashedPassword = await argon2.hash(newPassword);
-  await prisma.user.update({
-    where: { id: userId },
-    data: { password: hashedPassword },
-  });
 
-  return { message: "Password changed successfully" };
+  if (accountType === "STAFF") {
+    await prisma.staffAccount.update({
+      where: { id: accountId },
+      data: {
+        password: hashedPassword,
+        passwordChangedAt: new Date(),
+      },
+    });
+  } else {
+    await prisma.user.update({
+      where: { id: accountId },
+      data: {
+        password: hashedPassword,
+      },
+    });
+  }
+
+  return {
+    message: "Password changed successfully",
+  };
 };
 
 module.exports = {

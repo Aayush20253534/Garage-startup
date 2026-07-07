@@ -29,16 +29,46 @@ const SERVICE_HISTORY_CACHE_TTL = 5 * 60 * 1000;
 const PROFILE_CACHE_TTL = 5 * 60 * 1000;
 
 const SESSION_ROLE_KEY = "rov_session_role";
-const VALID_SESSION_ROLES = new Set(["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"]);
+const SESSION_ACCOUNT_TYPE_KEY = "rov_session_account_type";
 
-const setSessionRole = (role) => {
-  if (VALID_SESSION_ROLES.has(role)) {
-    localStorage.setItem(SESSION_ROLE_KEY, role);
+const VALID_SESSION_ROLES = new Set([
+  "CUSTOMER",
+  "GARAGE_OWNER",
+  "ADMIN",
+  "INTERN",
+]);
+
+const ROLE_ACCOUNT_TYPES = {
+  CUSTOMER: "USER",
+  GARAGE_OWNER: "USER",
+  ADMIN: "STAFF",
+  INTERN: "STAFF",
+};
+
+const isValidSessionIdentity = (account) =>
+  Boolean(
+    account &&
+      VALID_SESSION_ROLES.has(account.role) &&
+      ROLE_ACCOUNT_TYPES[account.role] === account.accountType,
+  );
+
+const setSessionRole = (role, accountType) => {
+  if (ROLE_ACCOUNT_TYPES[role] !== accountType) {
+    return false;
   }
+
+  localStorage.setItem(SESSION_ROLE_KEY, role);
+  localStorage.setItem(
+    SESSION_ACCOUNT_TYPE_KEY,
+    accountType,
+  );
+
+  return true;
 };
 
 const clearSessionRole = () => {
   localStorage.removeItem(SESSION_ROLE_KEY);
+  localStorage.removeItem(SESSION_ACCOUNT_TYPE_KEY);
 };
 
 const readJson = (key, fallback = null) => {
@@ -57,16 +87,20 @@ const readNumber = (key, fallback = null) => {
 
 const getStoredSessionRole = () => {
   const explicitRole = localStorage.getItem(SESSION_ROLE_KEY);
+  const explicitAccountType = localStorage.getItem(
+    SESSION_ACCOUNT_TYPE_KEY,
+  );
 
-  if (VALID_SESSION_ROLES.has(explicitRole)) {
+  if (
+    ROLE_ACCOUNT_TYPES[explicitRole] === explicitAccountType
+  ) {
     return explicitRole;
   }
 
-  // One-time migration support for users who logged in before the role hint
-  // existed. Prefer the current portal, then fall back to cached UI data.
   const pathname = window.location.pathname;
   const cachedUser =
-    readJson("rov_user", null) || readJson("user", null);
+    readJson("rov_user", null) ||
+    readJson("user", null);
   const cachedGarage = readJson("garage", null);
 
   if (pathname.startsWith("/garage") && cachedGarage) {
@@ -75,19 +109,21 @@ const getStoredSessionRole = () => {
 
   if (
     pathname.startsWith("/admin") &&
-    cachedUser?.role === "ADMIN"
+    isValidSessionIdentity(cachedUser) &&
+    cachedUser.role === "ADMIN"
   ) {
     return "ADMIN";
   }
 
   if (
     pathname.startsWith("/intern") &&
-    cachedUser?.role === "INTERN"
+    isValidSessionIdentity(cachedUser) &&
+    cachedUser.role === "INTERN"
   ) {
     return "INTERN";
   }
 
-  if (VALID_SESSION_ROLES.has(cachedUser?.role)) {
+  if (isValidSessionIdentity(cachedUser)) {
     return cachedUser.role;
   }
 
@@ -345,7 +381,7 @@ export function AppProvider({ children }) {
   const syncAuthenticatedUser = (me) => {
     if (!me) return null;
 
-    if (me.role === "CUSTOMER") {
+    if (me.accountType === "USER" && me.role === "CUSTOMER") {
       return syncUserData(me);
     }
 
@@ -367,7 +403,14 @@ export function AppProvider({ children }) {
     clearCustomerSession({ clearRole: false });
     clearGarageSession({ clearRole: false });
     localStorage.removeItem("token");
-    setSessionRole(userData.role);
+    if (!isValidSessionIdentity(userData)) {
+      throw new Error("Invalid authenticated account");
+    }
+
+    setSessionRole(
+      userData.role,
+      userData.accountType,
+    );
 
     syncAuthenticatedUser(userData);
 
@@ -387,7 +430,7 @@ export function AppProvider({ children }) {
     clearCustomerSession({ clearRole: false });
     localStorage.removeItem("garage_token");
     localStorage.setItem("garage", JSON.stringify(garageData));
-    setSessionRole("GARAGE_OWNER");
+    setSessionRole("GARAGE_OWNER", "USER");
     dispatch(setGarage(garageData));
   };
 
@@ -404,13 +447,22 @@ export function AppProvider({ children }) {
         });
         const me = response.data?.data;
 
-        if (!me || !VALID_SESSION_ROLES.has(me.role)) {
+        if (!isValidSessionIdentity(me)) {
           throw new Error("Invalid current-user response");
         }
 
-        setSessionRole(me.role);
+        setSessionRole(
+          me.role,
+          me.accountType,
+        );
 
-        if (sync && me.role !== "GARAGE_OWNER") {
+        if (
+          sync &&
+          !(
+            me.accountType === "USER" &&
+            me.role === "GARAGE_OWNER"
+          )
+        ) {
           syncAuthenticatedUser(me);
         }
 
@@ -447,7 +499,7 @@ export function AppProvider({ children }) {
         }
 
         localStorage.setItem("garage", JSON.stringify(garageData));
-        setSessionRole("GARAGE_OWNER");
+        setSessionRole("GARAGE_OWNER", "USER");
         dispatch(setGarage(garageData));
 
         return garageData;
@@ -720,7 +772,7 @@ export function AppProvider({ children }) {
         return;
       }
 
-      if (me.role === "GARAGE_OWNER") {
+      if (me.accountType === "USER" && me.role === "GARAGE_OWNER") {
         clearCustomerSession({ clearRole: false });
         await refreshGarage();
       } else {

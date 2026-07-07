@@ -15,9 +15,30 @@ import { reportSystemIssue } from "@/utils/errorReporter";
 import PrivatePageSeo from "@/components/seo/PrivatePageSeo";
 import Home from "@/pages/Home";
 
+const getAccountPortal = (user) => {
+  if (user?.accountType === "STAFF" && user.role === "ADMIN") {
+    return "/admin";
+  }
+
+  if (user?.accountType === "STAFF" && user.role === "INTERN") {
+    return "/intern";
+  }
+
+  if (user?.accountType === "USER" && user.role === "GARAGE_OWNER") {
+    return "/garage";
+  }
+
+  if (user?.accountType === "USER" && user.role === "CUSTOMER") {
+    return "/dashboard";
+  }
+
+  return "/login";
+};
+
 function ProtectedRoute({ children }) {
   const { user, garage, authLoading } = useApp();
   const location = useLocation();
+
   const isGarageRoute = location.pathname.startsWith("/garage");
   const isAdminRoute = location.pathname.startsWith("/admin");
   const isInternRoute = location.pathname.startsWith("/intern");
@@ -27,22 +48,59 @@ function ProtectedRoute({ children }) {
   }
 
   if (isAdminRoute) {
-    if (user?.role !== "ADMIN") {
-      return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    const isAdmin =
+      user?.accountType === "STAFF" &&
+      user?.role === "ADMIN";
+
+    if (!isAdmin) {
+      return (
+        <Navigate
+          to={user ? getAccountPortal(user) : "/admin/login"}
+          state={{ from: location }}
+          replace
+        />
+      );
     }
   } else if (isInternRoute) {
-    if (user?.role !== "INTERN") {
-      return <Navigate to="/intern/login" state={{ from: location }} replace />;
+    const isIntern =
+      user?.accountType === "STAFF" &&
+      user?.role === "INTERN";
+
+    if (!isIntern) {
+      return (
+        <Navigate
+          to={user ? getAccountPortal(user) : "/intern/login"}
+          state={{ from: location }}
+          replace
+        />
+      );
     }
   } else if (isGarageRoute) {
     if (!garage) {
-      return <Navigate to="/garage/login" state={{ from: location }} replace />;
+      return (
+        <Navigate
+          to="/garage/login"
+          state={{ from: location }}
+          replace
+        />
+      );
     }
   } else {
-    if (!user) {
-      return <Navigate to="/login" state={{ from: location }} replace />;
+    const isCustomer =
+      user?.accountType === "USER" &&
+      user?.role === "CUSTOMER";
+
+    if (!isCustomer) {
+      return (
+        <Navigate
+          to={getAccountPortal(user)}
+          state={{ from: location }}
+          replace
+        />
+      );
     }
   }
+
   return children;
 }
 
