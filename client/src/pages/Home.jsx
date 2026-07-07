@@ -143,13 +143,13 @@ export default function Home() {
   return (
     <>
       <Seo
-        title="Verified Vehicle Service and Garage Booking"
-        description="Book verified garages for vehicle repair, servicing, pickup, live tracking and service warranty with Rovauto."
+        title="Verified Vehicle Service and Garage Booking in Prayagraj"
+        description="Book verified garages in Prayagraj for vehicle repair, maintenance, pickup, live tracking and a 30-day service warranty with Rovauto."
         path="/"
         structuredData={HOME_STRUCTURED_DATA}
       />
 
-      <div className="overflow-x-hidden">
+      <main className="overflow-x-hidden">
       <section className="relative flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]">
         <div className="absolute inset-0 -z-10">
           <img
@@ -186,12 +186,11 @@ export default function Home() {
             </div>
 
             <h1 className="mt-4 text-4xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)] sm:text-5xl lg:text-7xl">
-              India&apos;s Trusted Vehicle Service Platform
+              Verified Vehicle Service and Garage Booking in Prayagraj
             </h1>
 
             <p className="mt-5 max-w-xl text-base leading-relaxed text-white/85 drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-lg">
-              Book trusted vehicle services from verified garages with
-              transparent pricing, live tracking, and a 30-day service warranty.
+              Book car and bike repair, maintenance, pickup and doorstep service from verified garages with transparent pricing, live tracking and a 30-day service warranty.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -260,11 +259,11 @@ export default function Home() {
         <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-3xl font-bold text-ink sm:text-4xl">
-              Vehicle services at your doorstep
+              Vehicle Repair and Maintenance Services
             </h2>
 
             <p className="mt-2 text-sm text-muted sm:text-base">
-              Verified mechanics · Transparent pricing · 30-day warranty
+              Explore trusted car and bike services from verified garages in Prayagraj.
             </p>
           </div>
 
@@ -422,7 +421,7 @@ export default function Home() {
             </span>
 
             <h2 className="mt-4 text-3xl font-bold text-ink sm:text-4xl">
-              From booking to warranty in 4 steps
+              How Rovauto Vehicle Service Booking Works
             </h2>
           </div>
 
@@ -459,7 +458,7 @@ export default function Home() {
       <section className="container-x py-16">
         <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-3xl font-bold text-ink sm:text-4xl">
-            Popular this week
+            Popular Vehicle Services
           </h2>
 
           <Link
@@ -486,7 +485,7 @@ export default function Home() {
 
               return (
                 <Link
-                  to={comingSoon ? "#" : "/booking/services"}
+                  to={comingSoon ? "#" : getServiceCategoryPath(service.category)}
                   onClick={(event) => {
                     if (comingSoon) event.preventDefault();
                   }}
@@ -575,6 +574,79 @@ export default function Home() {
         )}
       </section>
 
+      <section className="border-y border-line bg-white py-14">
+        <div className="container-x">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-3xl font-bold text-ink sm:text-4xl">
+              Explore Rovauto
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-muted sm:text-base">
+              Learn about our booking process, service warranty, garage
+              partnership program and customer support.
+            </p>
+          </div>
+
+          <nav
+            aria-label="Explore Rovauto"
+            className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {[
+              {
+                to: "/services",
+                title: "Browse Vehicle Services",
+                description:
+                  "Explore repair, maintenance, detailing and roadside services.",
+              },
+              {
+                to: "/how-it-works",
+                title: "How Rovauto Works",
+                description:
+                  "See how booking, garage matching, pickup and delivery work.",
+              },
+              {
+                to: "/warranty",
+                title: "Service Warranty",
+                description:
+                  "Understand the protection included with eligible services.",
+              },
+              {
+                to: "/about",
+                title: "About Rovauto",
+                description:
+                  "Learn why Rovauto was built and how verified garages are selected.",
+              },
+              {
+                to: "/partner",
+                title: "Partner Your Garage",
+                description:
+                  "Join Rovauto and receive nearby service requests.",
+              },
+              {
+                to: "/contact",
+                title: "Contact Support",
+                description:
+                  "Get help with bookings, payments, garages or service questions.",
+              },
+            ].map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="group rounded-2xl border border-line bg-bg-soft p-5 transition hover:-translate-y-1 hover:border-brand hover:shadow-md"
+              >
+                <h3 className="text-lg font-bold text-ink">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  {item.description}
+                </p>
+                <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-ink">
+                  Learn more
+                  <FiArrowRight className="transition group-hover:translate-x-1" />
+                </span>
+              </Link>
+            ))}
+          </nav>
+        </div>
+      </section>
+
       <section className="container-x pb-16">
         <div className="relative overflow-hidden rounded-3xl bg-ink p-6 text-white sm:p-10">
           <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-brand/20 blur-3xl" />
@@ -618,7 +690,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      </div>
+      </main>
     </>
   );
 }
