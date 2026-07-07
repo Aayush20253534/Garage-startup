@@ -27,4 +27,4 @@ module.exports = {
   ACCESS_TOKEN_COOKIE_NAME,
   accessTokenCookieOptions,
   accessTokenClearCookieOptions,
-};
+}; 
