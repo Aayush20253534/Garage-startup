@@ -40,7 +40,19 @@ const HOME_STRUCTURED_DATA = [
     url: SITE_URL,
     logo: `${SITE_URL}/favicon.png`,
     description:
-      "Rovauto connects vehicle owners with verified garages for repair, servicing, pickup, tracking and service warranty.",
+      "Rovauto connects vehicle owners with verified garages for repair, maintenance, pickup, tracking and service warranty.",
+    email: "rovauto.official@gmail.com",
+    telephone: "+918619955850",
+    areaServed: {
+      "@type": "City",
+      name: "Prayagraj",
+    },
+    sameAs: [
+      "https://instagram.com/rovauto.official",
+      "https://x.com/Rovauto_ON",
+      "https://www.youtube.com/@Rovauto",
+      "https://www.facebook.com/share/18AVZ22uvY/",
+    ],
   },
   {
     "@context": "https://schema.org",
@@ -70,8 +82,8 @@ export default function Home() {
   const [popularServices, setPopularServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [partnerStats, setPartnerStats] = useState({
-    garages: "8K+",
-    customers: "50K+",
+    garages: "Growing",
+    customers: "Growing",
   });
 
   useEffect(() => {
@@ -85,8 +97,8 @@ export default function Home() {
         const stats = response.data?.data || response.data || {};
 
         setPartnerStats({
-          garages: formatCount(stats.garages, "8K+"),
-          customers: formatCount(stats.customers, "50K+"),
+          garages: formatCount(stats.garages, "Growing"),
+          customers: formatCount(stats.customers, "Growing"),
         });
       })
       .catch(() => null);
@@ -247,7 +259,7 @@ export default function Home() {
                 </div>
 
                 <div className="text-xs text-white/70">
-                  Trusted by 50,000+ vehicle owners
+                  Built for vehicle owners and garage partners
                 </div>
               </div>
             </div>
