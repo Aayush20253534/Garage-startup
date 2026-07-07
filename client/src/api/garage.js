@@ -1,4 +1,5 @@
 import api from "@/api/axios";
+import { verifyCurrentSession } from "@/utils/authSession";
 
 const unwrap = (response) => response.data?.data ?? response.data;
 const GARAGE_MINIMUM_ACTIVATION_BALANCE = 1;
@@ -119,6 +120,8 @@ export const garageApi = {
         role: "GARAGE_OWNER",
       }),
     );
+
+    await verifyCurrentSession({ expectedRole: "GARAGE_OWNER" });
 
     if (!result?.user) {
       throw new Error("Invalid garage login response");

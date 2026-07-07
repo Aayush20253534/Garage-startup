@@ -1,4 +1,5 @@
 import api from "@/api/axios";
+import { verifyCurrentSession } from "@/utils/authSession";
 
 const unwrap = (response) => response.data?.data ?? response.data;
 
@@ -10,7 +11,9 @@ export const adminApi = {
     if (result.user?.role !== "ADMIN") {
       throw new Error("This account is not an admin account");
     }
-    return result;
+
+    const user = await verifyCurrentSession({ expectedRole: "ADMIN" });
+    return { ...result, user };
   },
 
   async getStats() {

@@ -2,19 +2,23 @@ import axios from "axios";
 import { reportApiFailure } from "@/utils/errorReporter";
 
 const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
-const apiBaseUrl = configuredBaseUrl?.replace(/\/+$/, "");
+
+// Production requests must stay on the frontend origin. Vercel proxies
+// /api/v1/* to Render, which makes the HttpOnly auth cookie first-party.
+const apiBaseUrl = (
+  import.meta.env.PROD
+    ? "/api/v1"
+    : configuredBaseUrl || "http://localhost:5000/api/v1"
+).replace(/\/+$/, "");
 
 const SESSION_ROLE_KEY = "rov_session_role";
+const SESSION_ACCOUNT_TYPE_KEY = "rov_session_account_type";
 const SESSION_EXPIRED_EVENT = "rovauto:session-expired";
 const SESSION_ERROR_PATTERN =
-  /authentication token missing|authentication required|invalid or expired token|session expired/i;
-
-if (!apiBaseUrl && import.meta.env.PROD) {
-  throw new Error("VITE_API_URL is required for production builds.");
-}
+  /authentication token missing|authentication required|invalid account session|account no longer exists|invalid or expired token|invalid or expired session|session expired/i;
 
 const api = axios.create({
-  baseURL: apiBaseUrl || "http://localhost:5000/api/v1",
+  baseURL: apiBaseUrl,
   withCredentials: true,
   timeout: 20000,
   headers: {
@@ -48,6 +52,7 @@ api.interceptors.response.use(
 
     if (isExpiredSession) {
       localStorage.removeItem(SESSION_ROLE_KEY);
+      localStorage.removeItem(SESSION_ACCOUNT_TYPE_KEY);
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(

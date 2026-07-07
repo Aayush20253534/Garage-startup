@@ -2,6 +2,15 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
     {
+      "source": "/api/v1/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store, no-cache, must-revalidate"
+        }
+      ]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [
         {
@@ -24,7 +33,7 @@
       ]
     },
     {
-      "source": "/((?!assets/).*)",
+      "source": "/((?!api/v1/|assets/).*)",
       "headers": [
         {
           "key": "Cross-Origin-Opener-Policy",
@@ -47,7 +56,11 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/|sw\\.js$|favicon\\.(?:ico|png)$|og-image\\.jpg$|robots\\.txt$|sitemap\\.xml$).*)",
+      "source": "/api/v1/:path*",
+      "destination": "https://rovauto.onrender.com/api/v1/:path*"
+    },
+    {
+      "source": "/((?!api/v1/|assets/|sw\\.js$|favicon\\.(?:ico|png)$|og-image\\.jpg$|robots\\.txt$|sitemap\\.xml$).*)",
       "destination": "/index.html"
     }
   ]

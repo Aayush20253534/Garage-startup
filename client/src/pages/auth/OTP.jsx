@@ -4,6 +4,7 @@ import Logo from "@/components/common/Logo";
 import api from "@/api/axios";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
+import { verifyCurrentSession } from "@/utils/authSession";
 import {
   hasSavedUserLocation,
   saveSignupLocationToProfile,
@@ -186,11 +187,15 @@ export default function OTP() {
       });
 
       const data = response.data?.data;
-      const freshUser = data?.user;
+      const responseUser = data?.user;
 
-      if (!freshUser) {
+      if (!responseUser) {
         throw new Error("Invalid OTP verification response");
       }
+
+      const freshUser = await verifyCurrentSession({
+        expectedRole: responseUser.role,
+      });
 
       if (freshUser.role === "GARAGE_OWNER") {
         sessionStorage.removeItem(PENDING_OTP_KEY);

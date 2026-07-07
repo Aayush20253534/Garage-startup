@@ -1,4 +1,5 @@
 import api from "@/api/axios";
+import { verifyCurrentSession } from "@/utils/authSession";
 
 const unwrap = (response) => response.data?.data ?? response.data;
 
@@ -12,6 +13,7 @@ export const internApi = {
       throw new Error("This account is not an intern account");
     }
 
-    return result;
+    const user = await verifyCurrentSession({ expectedRole: "INTERN" });
+    return { ...result, user };
   },
 };

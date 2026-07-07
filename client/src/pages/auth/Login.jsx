@@ -4,6 +4,7 @@ import api from "@/api/axios";
 import { FiArrowRight } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import completeGoogleAuth from "@/utils/googleAuth";
+import { verifyCurrentSession } from "@/utils/authSession";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { useApp } from "@/hooks/useApp";
 
@@ -43,14 +44,19 @@ export default function Login() {
         role: "CUSTOMER",
       });
 
-      const freshUser = response.data?.data?.user;
+      const loginUser = response.data?.data?.user;
 
-      if (!freshUser) {
+      if (!loginUser) {
         throw new Error("Invalid login response");
       }
 
-      // The backend stores the JWT in an HttpOnly cookie.
-      // The frontend stores only non-sensitive user state.
+      // Confirm that the HttpOnly cookie is usable before opening a protected
+      // route. A successful login response alone is not proof that the browser
+      // persisted the cookie.
+      const freshUser = await verifyCurrentSession({
+        expectedRole: "CUSTOMER",
+      });
+
       login(freshUser);
 
       const redirectPath = !hasSavedUserLocation(freshUser)
