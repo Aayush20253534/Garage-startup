@@ -10,6 +10,7 @@ import {
 } from "react-icons/fi";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
+import Seo from "@/components/seo/Seo";
 
 const FAQS = [
   [
@@ -133,7 +134,14 @@ export default function Contact() {
   ];
 
   return (
-    <div className="container-x py-10">
+    <>
+      <Seo
+        title="Contact Rovauto Support"
+        description="Contact Rovauto for vehicle service bookings, garage concerns, payments, tracking, warranty questions and customer support."
+        path="/contact"
+      />
+
+      <div className="container-x py-10">
       <div className="mx-auto max-w-6xl space-y-8 overflow-x-hidden">
         <section className="text-center">
           <span className="inline-flex rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-ink">
@@ -163,7 +171,7 @@ export default function Contact() {
                   <Icon />
                 </div>
 
-                <h3 className="mt-4 font-bold text-ink">{card.title}</h3>
+                <h2 className="mt-4 font-bold text-ink">{card.title}</h2>
 
                 <div className="mt-1 text-sm font-semibold text-ink">
                   {card.detail}
@@ -183,9 +191,9 @@ export default function Contact() {
                   <FiCheckCircle />
                 </div>
 
-                <h3 className="mt-4 text-xl font-bold text-ink">
+                <h2 className="mt-4 text-xl font-bold text-ink">
                   Thanks! We'll get back soon.
-                </h3>
+                </h2>
 
                 <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
                   Your message reached support. A rare win for forms.
@@ -205,9 +213,9 @@ export default function Contact() {
             ) : (
               <form onSubmit={submit} className="grid gap-4">
                 <div>
-                  <h3 className="text-xl font-bold text-ink">
+                  <h2 className="text-xl font-bold text-ink">
                     Send us a message
-                  </h3>
+                  </h2>
                   <p className="mt-1 text-sm text-muted">
                     Your name and email are filled from your profile.
                   </p>
@@ -221,7 +229,11 @@ export default function Contact() {
                 )}
 
                 <div className="grid gap-3 sm:grid-cols-2">
+                  <label htmlFor="contact-name" className="sr-only">
+                    Name
+                  </label>
                   <input
+                    id="contact-name"
                     required
                     name="name"
                     value={form.name}
@@ -232,7 +244,11 @@ export default function Contact() {
                     className={inputClass}
                   />
 
+                  <label htmlFor="contact-email" className="sr-only">
+                    Email
+                  </label>
                   <input
+                    id="contact-email"
                     required
                     name="email"
                     value={form.email}
@@ -243,7 +259,11 @@ export default function Contact() {
                   />
                 </div>
 
+                <label htmlFor="contact-message" className="sr-only">
+                  Message
+                </label>
                 <textarea
+                  id="contact-message"
                   required
                   name="message"
                   value={form.message}
@@ -255,6 +275,7 @@ export default function Contact() {
 
                 <div className="flex justify-end">
                   <button
+                    type="submit"
                     disabled={
                       loading || profileLoading || !form.name || !form.email
                     }
@@ -270,7 +291,7 @@ export default function Contact() {
 
           <div>
             <div className="mb-3">
-              <h3 className="text-xl font-bold text-ink">FAQs</h3>
+              <h2 className="text-xl font-bold text-ink">FAQs</h2>
               <p className="mt-1 text-sm text-muted">
                 Quick answers before humanity files another ticket.
               </p>
@@ -308,6 +329,7 @@ export default function Contact() {
           </div>
         </section>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

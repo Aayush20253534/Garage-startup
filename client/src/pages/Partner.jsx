@@ -1,11 +1,30 @@
 import { Link } from "react-router-dom";
 import { FiCheckCircle, FiArrowRight } from "react-icons/fi";
+import Seo, { SITE_URL } from "@/components/seo/Seo";
 
 const SUPPORT_PHONE_DISPLAY = "+91 98993 19913";
 
 export default function Partner() {
   return (
-    <div className="container-x py-8">
+    <>
+      <Seo
+        title="Partner Your Garage With Rovauto"
+        description="Join Rovauto as a verified garage partner and receive nearby vehicle service bookings based on your location and working radius."
+        path="/partner"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "Rovauto Garage Partner Network",
+          url: `${SITE_URL}/partner`,
+          parentOrganization: {
+            "@type": "Organization",
+            name: "Rovauto",
+            url: SITE_URL,
+          },
+        }}
+      />
+
+      <div className="container-x py-8">
       <div className="max-w-3xl">
         <span className="chip-brand">Partner With Us</span>
 
@@ -18,7 +37,11 @@ export default function Partner() {
           WhatsApp, manage jobs from a simple portal, and get paid faster.
         </p>
 
-        <ul className="mt-8 grid gap-3 text-sm">
+        <h2 className="mt-8 text-2xl font-bold text-ink">
+          Why garages partner with Rovauto
+        </h2>
+
+        <ul className="mt-4 grid gap-3 text-sm">
           {[
             "Verified, paid leads via WhatsApp magic links",
             "Zero app required to start",
@@ -51,6 +74,7 @@ export default function Partner() {
           </Link>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

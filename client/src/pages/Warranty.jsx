@@ -1,4 +1,5 @@
 import { FiShield, FiCheckCircle, FiDownload } from "react-icons/fi";
+import Seo from "@/components/seo/Seo";
 
 const CARDS = [
   {
@@ -21,7 +22,14 @@ const CARDS = [
 
 export default function Warranty() {
   return (
-    <div className="container-x py-12">
+    <>
+      <Seo
+        title="Rovauto Service Warranty"
+        description="Learn about Rovauto's 30-day vehicle service warranty and how eligible customers can view or claim warranty support."
+        path="/warranty"
+      />
+
+      <div className="container-x py-12">
       <div className="flex items-center gap-4 mb-2">
         <span className="grid place-items-center h-12 w-12 rounded-2xl bg-brand">
           <FiShield className="text-xl" />
@@ -35,7 +43,11 @@ export default function Warranty() {
         </div>
       </div>
 
-      <div className="mt-8 grid lg:grid-cols-2 gap-5">
+      <h2 className="mt-8 text-2xl font-bold text-ink">
+        Service warranty cards
+      </h2>
+
+      <div className="mt-5 grid lg:grid-cols-2 gap-5">
         {CARDS.map((w) => (
           <div
             key={w.id}
@@ -88,6 +100,7 @@ export default function Warranty() {
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

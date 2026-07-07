@@ -12,6 +12,7 @@ import { CATEGORY_UI } from "@/data/services";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import { getCategoryThumbnailUrl } from "@/utils/imageCache";
 import { reportSystemIssue } from "@/utils/errorReporter";
+import PrivatePageSeo from "@/components/seo/PrivatePageSeo";
 
 function ProtectedRoute({ children }) {
   const { user, garage, authLoading } = useApp();
@@ -453,7 +454,9 @@ const adminItems = [
 
 function AppRoutes() {
   return (
-    <Suspense fallback={<RouteFallback />}>
+    <>
+      <PrivatePageSeo />
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route
           path="/sos"
@@ -819,8 +822,9 @@ function AppRoutes() {
         </Route>
 
         <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </>
   );
 }
 

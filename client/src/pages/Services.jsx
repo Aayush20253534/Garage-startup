@@ -14,6 +14,8 @@ import {
   warmImageCache,
 } from "@/utils/imageCache";
 import { getServiceMinPrice } from "@/utils/priceRange";
+import Seo, { SITE_URL } from "@/components/seo/Seo";
+import { getServiceCategoryPath } from "@/utils/serviceSlug";
 
 const isCategoryComingSoon = (category) => {
   if (category?.isComingSoon === true) {
@@ -90,8 +92,43 @@ export default function Services() {
     0,
   );
 
+  const structuredData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      name: "Vehicle repair and maintenance booking",
+      description:
+        "Browse vehicle repair, maintenance, detailing and roadside service categories available through Rovauto.",
+      provider: {
+        "@type": "Organization",
+        name: "Rovauto",
+        url: SITE_URL,
+      },
+      areaServed: "India",
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: "Rovauto vehicle service categories",
+      itemListElement: categories.map((category, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: category.name,
+        url: `${SITE_URL}${getServiceCategoryPath(category)}`,
+      })),
+    },
+  ];
+
   return (
-    <div className="container-x py-10">
+    <>
+      <Seo
+        title="Vehicle Repair and Maintenance Services"
+        description="Explore verified vehicle repair, maintenance, detailing and roadside service options with transparent pricing on Rovauto."
+        path="/services"
+        structuredData={structuredData}
+      />
+
+      <div className="container-x py-10">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold sm:text-4xl">
@@ -117,6 +154,11 @@ export default function Services() {
         </div>
       </div>
 
+      <section aria-labelledby="service-categories-heading">
+        <h2 id="service-categories-heading" className="sr-only">
+          Vehicle service categories
+        </h2>
+
       {loading ? (
         <div className="card-soft p-8 text-muted">
           Loading services...
@@ -137,7 +179,7 @@ export default function Services() {
 
             const destination = ui.isSos
               ? "/sos"
-              : `/services/${category.id}`;
+              : getServiceCategoryPath(category);
 
             return (
               <Link
@@ -169,7 +211,11 @@ export default function Services() {
                   {image ? (
                     <img
                       src={image}
-                      alt={category.name}
+                      alt={`${category.name} vehicle service category`}
+                      width="640"
+                      height="360"
+                      loading="lazy"
+                      decoding="async"
                       className={`h-full w-full object-cover transition duration-300 ${
                         comingSoon
                           ? "scale-105 blur-sm grayscale"
@@ -203,6 +249,7 @@ export default function Services() {
           )}
         </div>
       )}
+      </section>
 
       {cartItems.length > 0 && (
         <div className="fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
@@ -216,6 +263,7 @@ export default function Services() {
           </Link>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

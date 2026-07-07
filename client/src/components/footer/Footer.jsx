@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Logo from "@/components/common/Logo";
 import { useApp } from "@/hooks/useApp";
+import { getServiceCategoryPath } from "@/utils/serviceSlug";
 import {
   FiInstagram,
   FiTwitter,
@@ -61,7 +62,7 @@ export default function Footer() {
         .map((alias) => categoriesByName.get(alias.toLowerCase()))
         .find(Boolean);
 
-      return [label, category?.id ? `/services/${category.id}` : "/services"];
+      return [label, category ? getServiceCategoryPath(category) : "/services"];
     });
   }, [serviceCategories]);
 
@@ -105,17 +106,28 @@ export default function Footer() {
             {[
               {
                 Icon: FiInstagram,
+                label: "Rovauto on Instagram",
                 href: "https://instagram.com/rovauto.official",
               },
-              { Icon: FiTwitter, href: "https://x.com/Rovauto_ON" },
-              { Icon: FiYoutube, href: "https://www.youtube.com/@Rovauto" },
+              {
+                Icon: FiTwitter,
+                label: "Rovauto on X",
+                href: "https://x.com/Rovauto_ON",
+              },
+              {
+                Icon: FiYoutube,
+                label: "Rovauto on YouTube",
+                href: "https://www.youtube.com/@Rovauto",
+              },
               {
                 Icon: FiFacebook,
+                label: "Rovauto on Facebook",
                 href: "https://www.facebook.com/share/18AVZ22uvY/",
               },
-            ].map(({ Icon, href }, i) => (
+            ].map(({ Icon, label, href }) => (
               <a
-                key={i}
+                key={label}
+                aria-label={label}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="grid place-items-center h-10 w-10 rounded-full bg-white/10 hover:bg-brand hover:text-ink transition"

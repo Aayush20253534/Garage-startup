@@ -14,6 +14,8 @@ import { CATEGORY_UI } from "@/data/services";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
+import Seo, { SITE_URL } from "@/components/seo/Seo";
+import { getServiceCategoryPath } from "@/utils/serviceSlug";
 import homepageHero from "@/assets/Rovauto_home.png";
 import {
   getCategoryThumbnailUrl,
@@ -28,6 +30,24 @@ const TRUST = [
   { icon: FiTool, label: "Transparent Pricing" },
   { icon: FiNavigation, label: "Live Tracking" },
   { icon: FiClock, label: "Fast Booking" },
+];
+
+const HOME_STRUCTURED_DATA = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Rovauto",
+    url: SITE_URL,
+    logo: `${SITE_URL}/favicon.png`,
+    description:
+      "Rovauto connects vehicle owners with verified garages for repair, servicing, pickup, tracking and service warranty.",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Rovauto",
+    url: SITE_URL,
+  },
 ];
 
 const toBoolean = (value) =>
@@ -121,12 +141,24 @@ export default function Home() {
   }, [user, vehicle?.id, location?.city]);
 
   return (
-    <div className="overflow-x-hidden">
+    <>
+      <Seo
+        title="Verified Vehicle Service and Garage Booking"
+        description="Book verified garages for vehicle repair, servicing, pickup, live tracking and service warranty with Rovauto."
+        path="/"
+        structuredData={HOME_STRUCTURED_DATA}
+      />
+
+      <div className="overflow-x-hidden">
       <section className="relative flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]">
         <div className="absolute inset-0 -z-10">
           <img
-            alt="Rovauto workshop"
+            alt="Rovauto verified vehicle service workshop"
             src={homepageHero}
+            width="1774"
+            height="887"
+            fetchPriority="high"
+            decoding="async"
             className="h-full w-full object-cover object-center"
           />
 
@@ -282,7 +314,7 @@ export default function Home() {
                         ? "#"
                         : isSos
                           ? "/sos"
-                          : `/services/${category.id}`
+                          : getServiceCategoryPath(category)
                     }
                     onClick={(event) => {
                       if (categoryComingSoon) {
@@ -300,7 +332,10 @@ export default function Home() {
                       <img
                         src={image}
                         alt={category.name}
+                        width="640"
+                        height="512"
                         loading="lazy"
+                        decoding="async"
                         className={`absolute inset-0 h-full w-full object-cover transition duration-500 ease-out ${
                           categoryComingSoon
                             ? "scale-105 blur-sm grayscale"
@@ -467,7 +502,11 @@ export default function Home() {
                     <div className="relative mb-4 h-40 w-full overflow-hidden rounded-xl bg-bg-soft">
                       <img
                         src={image}
-                        alt={service.name}
+                        alt={`${service.name} vehicle service`}
+                        width="640"
+                        height="360"
+                        loading="lazy"
+                        decoding="async"
                         className={`h-full w-full object-cover transition-transform ${
                           comingSoon
                             ? "scale-105 blur-sm grayscale"
@@ -579,6 +618,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }

@@ -5,6 +5,11 @@ import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import api from "@/api/axios";
 import { FiStar, FiArrowLeft, FiX, FiTool } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
+import Seo, { SITE_URL } from "@/components/seo/Seo";
+import {
+  getServiceCategoryPath,
+  matchesServiceCategoryRoute,
+} from "@/utils/serviceSlug";
 import {
   formatServicePriceRange,
   getServiceMinPrice,
@@ -58,7 +63,9 @@ export default function CategoryDetail() {
         });
         const categories = res.data.data || [];
 
-        const found = categories.find((item) => item.id === categoryId);
+        const found = categories.find((item) =>
+          matchesServiceCategoryRoute(item, categoryId),
+        );
 
         setCategory(found || null);
         setPackages(found?.services || []);
@@ -92,6 +99,47 @@ export default function CategoryDetail() {
   const selectedPackageComingSoon =
     selectedPackage &&
     (categoryComingSoon || toBoolean(selectedPackage.isComingSoon));
+  const categoryPath = getServiceCategoryPath(category);
+  const categoryDescription = `Book verified ${category.name.toLowerCase()} services with transparent pricing, garage assignment, live tracking and Rovauto service warranty.`;
+  const structuredData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      name: `${category.name} services`,
+      description: categoryDescription,
+      url: `${SITE_URL}${categoryPath}`,
+      provider: {
+        "@type": "Organization",
+        name: "Rovauto",
+        url: SITE_URL,
+      },
+      areaServed: "India",
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: SITE_URL,
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "Services",
+          item: `${SITE_URL}/services`,
+        },
+        {
+          "@type": "ListItem",
+          position: 3,
+          name: category.name,
+          item: `${SITE_URL}${categoryPath}`,
+        },
+      ],
+    },
+  ];
 
   const handleBook = (service) => {
     if (categoryComingSoon || toBoolean(service.isComingSoon)) {
@@ -123,7 +171,15 @@ export default function CategoryDetail() {
   };
 
   return (
-    <div className="container-x max-w-6xl py-8">
+    <>
+      <Seo
+        title={`${category.name} Services`}
+        description={categoryDescription}
+        path={categoryPath}
+        structuredData={structuredData}
+      />
+
+      <div className="container-x max-w-6xl py-8">
       <Link
         to="/services"
         className="mb-5 flex items-center gap-2 text-ink hover:opacity-80"
@@ -162,7 +218,11 @@ export default function CategoryDetail() {
                   {serviceImage ? (
                     <img
                       src={serviceImage}
-                      alt={pkg.name}
+                      alt={`${pkg.name} vehicle service`}
+                      width="640"
+                      height="420"
+                      loading="lazy"
+                      decoding="async"
                       className={`h-full w-full object-cover transition ${
                         comingSoon ? "scale-105 blur-sm grayscale" : ""
                       }`}
@@ -296,7 +356,11 @@ export default function CategoryDetail() {
                 {getServiceThumbnailUrl(selectedPackage) ? (
                   <img
                     src={getServiceThumbnailUrl(selectedPackage)}
-                    alt={selectedPackage.name}
+                    alt={`${selectedPackage.name} service details`}
+                    width="960"
+                    height="540"
+                    loading="lazy"
+                    decoding="async"
                     className={`h-full w-full object-cover transition ${
                       selectedPackageComingSoon
                         ? "scale-105 blur-sm grayscale"
@@ -403,6 +467,7 @@ export default function CategoryDetail() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

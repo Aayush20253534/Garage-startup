@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+Disallow: /dashboard/
+Disallow: /garage/
+Disallow: /admin/
+Disallow: /booking/
+Disallow: /checkout
+Disallow: /tracking
+Disallow: /otp
+Disallow: /forgot
+Disallow: /reset-password
+Disallow: /sos/
+
+Sitemap: https://www.rovauto.com/sitemap.xml

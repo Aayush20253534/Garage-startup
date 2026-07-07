@@ -1,9 +1,25 @@
 import { LOGO_URL } from "@/data/vehicles";
 import { FiTarget, FiHeart, FiZap } from "react-icons/fi";
+import Seo, { SITE_URL } from "@/components/seo/Seo";
 
 export default function About() {
   return (
-    <div className="container-x py-16">
+    <>
+      <Seo
+        title="About Rovauto"
+        description="Learn how Rovauto brings trust, transparent pricing and technology to vehicle servicing by connecting car owners with verified garages."
+        path="/about"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "AboutPage",
+          name: "About Rovauto",
+          url: `${SITE_URL}/about`,
+          description:
+            "Rovauto connects car owners with verified garages through a transparent vehicle service platform.",
+        }}
+      />
+
+      <div className="container-x py-16">
       <div className="grid lg:grid-cols-2 gap-12 items-center">
         <div>
           <span className="chip-brand">About Rovauto</span>
@@ -17,7 +33,15 @@ export default function About() {
           </p>
         </div>
         <div className="aspect-square rounded-3xl bg-bg-soft grid place-items-center">
-          <img src={LOGO_URL} alt="Rovauto" className="w-2/3" />
+          <img
+            src={LOGO_URL}
+            alt="Rovauto vehicle service platform logo"
+            width="500"
+            height="500"
+            loading="lazy"
+            decoding="async"
+            className="w-2/3"
+          />
         </div>
       </div>
 
@@ -43,7 +67,7 @@ export default function About() {
             <div className="h-12 w-12 grid place-items-center rounded-2xl bg-ink text-brand">
               <c.icon />
             </div>
-            <h3 className="mt-4 font-semibold text-lg">{c.t}</h3>
+            <h2 className="mt-4 font-semibold text-lg">{c.t}</h2>
             <p className="text-muted mt-1">{c.d}</p>
           </div>
         ))}
@@ -62,6 +86,7 @@ export default function About() {
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

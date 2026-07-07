@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import Seo from "@/components/seo/Seo";
 import {
   FiCheckCircle,
   FiMapPin,
@@ -44,7 +45,14 @@ const STEPS = [
 
 export default function HowItWorks() {
   return (
-    <div className="container-x py-10 sm:py-14">
+    <>
+      <Seo
+        title="How Rovauto Vehicle Service Booking Works"
+        description="See how Rovauto handles vehicle selection, service booking, verified garage assignment, live tracking and service warranty in six simple steps."
+        path="/how-it-works"
+      />
+
+      <div className="container-x py-10 sm:py-14">
       <section className="mx-auto max-w-6xl space-y-8 overflow-x-hidden">
         <div className="mx-auto max-w-2xl text-center">
           <span className="inline-flex rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-ink">
@@ -114,6 +122,7 @@ export default function HowItWorks() {
           </Link>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }
