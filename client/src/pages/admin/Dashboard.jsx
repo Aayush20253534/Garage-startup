@@ -20,6 +20,9 @@ const formatDate = (date) => {
   }).format(new Date(date));
 };
 
+const formatCurrency = (amount) =>
+  `\u20b9${Number(amount || 0).toLocaleString("en-IN")}`;
+
 export default function AdminDashboard() {
   const { pathname } = useLocation();
   const portalRoot = pathname.startsWith("/intern") ? "/intern" : "/admin";
@@ -30,6 +33,8 @@ export default function AdminDashboard() {
     priceRanges: 0,
     customers: 0,
     bookings: 0,
+    totalRevenue: 0,
+    platformFeeRevenue: 0,
     openSystemIssues: 0,
     criticalSystemIssues: 0,
   });
@@ -78,6 +83,18 @@ export default function AdminDashboard() {
       number: stats.bookings,
       label: "Bookings",
       caption: "Total bookings",
+    },
+    {
+      icon: FiDollarSign,
+      number: formatCurrency(stats.totalRevenue),
+      label: "Total Revenue",
+      caption: "Completed service value",
+    },
+    {
+      icon: FiDollarSign,
+      number: formatCurrency(stats.platformFeeRevenue),
+      label: "Platform Fee Only",
+      caption: "Garage wallet deductions",
     },
     {
       icon: FiUsers,

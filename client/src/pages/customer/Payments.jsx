@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import api from "@/api/axios";
-import { useApp } from "@/hooks/useApp";
-import { isPaymentAuthError, payForBooking } from "@/utils/bookingPayment";
-import { addRecentActivity } from "@/utils/activityLog";
-import { FiCreditCard } from "react-icons/fi";
 
 const formatDate = (date) => {
   if (!date) return "-";
@@ -25,21 +20,9 @@ const getServiceText = (payment) => {
   );
 };
 
-const canPay = (payment) => {
-  return (
-    payment.status === "CREATED" &&
-    payment.booking?.status === "PENDING_PAYMENT"
-  );
-};
-
 export default function Payments() {
-  const { user, clearBookingCaches } = useApp();
-  const nav = useNavigate();
-  const location = useLocation();
-
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [payingId, setPayingId] = useState(null);
   const [error, setError] = useState("");
 
   const loadPayments = async () => {
@@ -59,51 +42,6 @@ export default function Payments() {
   useEffect(() => {
     loadPayments();
   }, []);
-
-  const payPayment = async (payment) => {
-    try {
-      setPayingId(payment.id);
-      setError("");
-
-      const verifiedBooking = await payForBooking({
-        booking: payment.booking,
-        user,
-      });
-      addRecentActivity({
-        type: "PAYMENT",
-        title: "Completed payment",
-        detail: `${verifiedBooking.bookingCode || payment.booking?.bookingCode || "Booking"} · \u20b9${payment.amount}`,
-        path: "/dashboard/payments",
-      });
-
-      clearBookingCaches?.();
-      await loadPayments();
-      nav("/tracking", {
-        state: {
-          bookingId: verifiedBooking.id,
-          bookingCode: verifiedBooking.bookingCode,
-        },
-      });
-    } catch (err) {
-      if (isPaymentAuthError(err)) {
-        nav("/login", {
-          state: {
-            from: location,
-            message: "Please login to continue payment.",
-          },
-        });
-        return;
-      }
-
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Could not complete payment. Please try again.",
-      );
-    } finally {
-      setPayingId(null);
-    }
-  };
 
   if (loading) {
     return (
@@ -135,7 +73,6 @@ export default function Payments() {
                 "Method",
                 "Status",
                 "Amount",
-                "Action",
               ].map((heading) => (
                 <th key={heading} className="px-4 py-3 font-semibold">
                   {heading}
@@ -170,31 +107,17 @@ export default function Payments() {
                 </td>
 
                 <td className="px-4 py-3 font-semibold">
-                  ₹{payment.amount}
+                  â‚¹{payment.amount}
                 </td>
 
-                <td className="px-4 py-3">
-                  {canPay(payment) ? (
-                    <button
-                      type="button"
-                      onClick={() => payPayment(payment)}
-                      disabled={payingId === payment.id}
-                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-brand px-3 text-xs font-bold text-black shadow-sm shadow-brand/20 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      <FiCreditCard />
-                      {payingId === payment.id ? "Processing..." : "Pay Now"}
-                    </button>
-                  ) : (
-                    <span className="text-xs text-muted">-</span>
-                  )}
-                </td>
               </tr>
             ))}
 
             {items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted">
-                  No payments yet.
+                <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                  No online payments yet. Service costs are paid directly to
+                  the garage.
                 </td>
               </tr>
             )}

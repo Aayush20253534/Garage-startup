@@ -7,6 +7,7 @@ import {
   FiMapPin,
   FiClock,
   FiCheckCircle,
+  FiDollarSign,
 } from "react-icons/fi";
 import ImageUpload from "@/components/garage/ImageUpload";
 import InspectionGallery from "@/components/booking/InspectionGallery";
@@ -42,6 +43,7 @@ export default function GarageBookingDetail() {
   const { bookings } = useSelector((state) => state.garage);
   const [preServiceImages, setPreServiceImages] = useState([]);
   const [postServiceImages, setPostServiceImages] = useState([]);
+  const [finalAmount, setFinalAmount] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -106,7 +108,7 @@ export default function GarageBookingDetail() {
   };
 
   const markDelivered = async () => {
-    if (postServiceImages.length !== 5) return;
+    if (postServiceImages.length !== 5 || Number(finalAmount) <= 0) return;
 
     setLoading(true);
     setError("");
@@ -117,15 +119,21 @@ export default function GarageBookingDetail() {
         garageToken,
         booking.requestId || booking.id,
         postServiceImages,
+        finalAmount,
       );
 
       updateLocalBooking({
         status: "DELIVERED",
         deliveredAt: result?.booking?.deliveredAt || new Date().toISOString(),
+        totalServiceAmount:
+          result?.booking?.totalServiceAmount || Number(finalAmount),
+        totalServiceMaxAmount:
+          result?.booking?.totalServiceMaxAmount || Number(finalAmount),
         inspectionImages:
           result?.booking?.inspectionImages || booking.inspectionImages || [],
       });
       setPostServiceImages([]);
+      setFinalAmount("");
       setSuccess(
         "Vehicle marked delivered. The customer must now inspect and accept delivery.",
       );
@@ -188,10 +196,10 @@ export default function GarageBookingDetail() {
               </span>
             </div>
 
-            <div className="mb-6 grid gap-6 md:grid-cols-2">
-              <div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl bg-bg-soft p-4">
                 <h3 className="mb-3 font-bold">Vehicle Details</h3>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-2 text-sm leading-6">
                   <p>
                     <span className="text-muted">Make & Model:</span>{" "}
                     {booking.vehicle.brand} {booking.vehicle.model}
@@ -207,21 +215,21 @@ export default function GarageBookingDetail() {
                 </div>
               </div>
 
-              <div>
+              <div className="rounded-2xl bg-bg-soft p-4">
                 <h3 className="mb-3 font-bold">Services</h3>
-                <div className="space-y-1 text-sm">
+                <div className="space-y-2 text-sm">
                   {booking.services.map((service, index) => (
                     <div
                       key={service.id || index}
-                      className="flex justify-between gap-4"
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4"
                     >
-                      <span>{service.name}</span>
+                      <span className="min-w-0">{service.name}</span>
                       <span className="font-semibold">
                         ₹{Number(service.price || 0).toLocaleString()}
                       </span>
                     </div>
                   ))}
-                  <div className="mt-2 border-t border-line pt-2">
+                  <div className="mt-3 border-t border-line pt-3">
                     <div className="flex justify-between font-bold">
                       <span>Estimated Total</span>
                       <span>
@@ -229,8 +237,8 @@ export default function GarageBookingDetail() {
                       </span>
                     </div>
                     {Number(booking.acceptFee || 0) > 0 && (
-                      <div className="mt-2 flex justify-between text-xs text-muted">
-                        <span>Wallet fee deducted on accept</span>
+                      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-3 text-xs text-muted">
+                        <span>Platform fee deducted from garage wallet</span>
                         <span className="font-semibold text-ink">
                           ₹{Number(booking.acceptFee || 0).toLocaleString()}
                         </span>
@@ -286,8 +294,26 @@ export default function GarageBookingDetail() {
               <h3 className="mb-2 text-xl font-bold">Complete Service</h3>
               <p className="mb-4 text-muted">
                 Upload exactly five post-service photos, each 1 MB or less,
-                before marking the vehicle delivered.
+                and record the final cash amount before marking the vehicle
+                delivered.
               </p>
+              <label className="mb-4 block">
+                <span className="mb-1.5 flex items-center gap-2 text-sm font-semibold">
+                  <FiDollarSign className="text-brand-dark" />
+                  Final amount paid to garage
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  inputMode="numeric"
+                  value={finalAmount}
+                  onChange={(event) =>
+                    setFinalAmount(event.target.value.replace(/\D/g, ""))
+                  }
+                  placeholder="Enter final service amount"
+                  className="w-full rounded-xl border border-line px-4 py-3 text-sm font-semibold outline-none transition focus:border-ink"
+                />
+              </label>
               <ImageUpload
                 min={5}
                 max={5}
@@ -296,10 +322,14 @@ export default function GarageBookingDetail() {
               />
               <button
                 onClick={markDelivered}
-                disabled={loading || postServiceImages.length !== 5}
+                disabled={
+                  loading ||
+                  postServiceImages.length !== 5 ||
+                  Number(finalAmount) <= 0
+                }
                 className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Completing..." : "Mark Delivered"}
+                {loading ? "Completing..." : "Save Amount & Mark Delivered"}
               </button>
             </div>
           ) : null}
@@ -400,7 +430,7 @@ export default function GarageBookingDetail() {
                   booking.customer.phone &&
                   window.open(`tel:${booking.customer.phone}`, "_blank")
                 }
-                className="btn-ghost flex-col gap-2 py-3"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
               >
                 <FiPhone className="h-5 w-5" />
                 <span className="text-xs font-semibold">Call</span>
@@ -413,14 +443,14 @@ export default function GarageBookingDetail() {
                     "_blank",
                   )
                 }
-                className="btn-ghost flex-col gap-2 py-3"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
               >
                 <FiMessageSquare className="h-5 w-5" />
                 <span className="text-xs font-semibold">WhatsApp</span>
               </button>
               <button
                 onClick={openGoogleMaps}
-                className="btn-primary flex-col gap-2 py-3"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark"
               >
                 <FiMapPin className="h-5 w-5" />
                 <span className="text-xs font-semibold">Navigate</span>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FiDownload, FiEdit3, FiStar } from "react-icons/fi";
+import { FiEdit3, FiStar } from "react-icons/fi";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
 
@@ -23,13 +23,7 @@ const getServicesText = (booking) => {
 };
 
 const getAmount = (booking) => {
-  return (
-    booking.totalServiceAmount ||
-    booking.payment?.amount ||
-    booking.payableAmount ||
-    booking.handlingFee ||
-    0
-  );
+  return Number(booking.totalServiceAmount || 0);
 };
 
 function RatingDisplay({ review }) {
@@ -187,7 +181,9 @@ export default function ServiceHistory() {
                   </td>
 
                   <td className="px-4 py-3 font-semibold">
-                    ₹{Number(getAmount(booking)).toLocaleString("en-IN")}
+                    {getAmount(booking) > 0
+                      ? `\u20b9${getAmount(booking).toLocaleString("en-IN")}`
+                      : "Not recorded"}
                   </td>
 
                   <td className="px-4 py-3">
@@ -208,13 +204,6 @@ export default function ServiceHistory() {
                         {booking.review ? "Edit Review" : "Rate Garage"}
                       </button>
 
-                      <button
-                        type="button"
-                        className="btn-ghost !px-3 !py-1.5 text-xs"
-                        onClick={() => window.print()}
-                      >
-                        <FiDownload /> Receipt
-                      </button>
                     </div>
                   </td>
                 </tr>

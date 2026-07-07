@@ -127,7 +127,6 @@ export default function ActiveBookings() {
 
       <div className="grid gap-4">
         {bookings.map((booking) => {
-          const isPendingPayment = booking.status === "PENDING_PAYMENT";
           const isAwaitingDeliveryAcceptance = Boolean(
             booking.deliveredAt && !booking.customerAcceptedAt,
           );
@@ -153,7 +152,7 @@ export default function ActiveBookings() {
                 </div>
 
                 <div className="text-right font-bold sm:text-left">
-                  ₹{getAmount(booking)}
+                  {getAmount(booking)}
                 </div>
               </div>
 
@@ -161,28 +160,7 @@ export default function ActiveBookings() {
                 {formatStatus(booking.status)}
               </span>
 
-              {isPendingPayment ? (
-                <div className="grid grid-cols-2 gap-2.5 sm:flex sm:items-center">
-                  <button
-                    type="button"
-                    onClick={() => payBooking(booking)}
-                    disabled={payingId === booking.id}
-                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
-                  >
-                    <FiCreditCard />
-                    {payingId === booking.id ? "Processing..." : "Pay Now"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-line bg-bg-soft px-3.5 text-sm font-semibold text-muted opacity-70 sm:w-auto"
-                    title="Complete payment to enable tracking"
-                  >
-                    <FiNavigation />
-                    Track
-                  </button>
-                </div>
-              ) : isAwaitingDeliveryAcceptance ? (
+              {isAwaitingDeliveryAcceptance ? (
                 <button
                   type="button"
                   onClick={() => acceptDelivery(booking)}

@@ -13,14 +13,8 @@ import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
 import {
-  isPaymentAuthError,
-  payForBooking,
-} from "@/utils/bookingPayment";
-import { addRecentActivity } from "@/utils/activityLog";
-import {
   FiCheck,
   FiClock,
-  FiDownload,
   FiMapPin,
   FiMessageCircle,
   FiNavigation,
@@ -62,8 +56,14 @@ const TRACKING_STEPS = [
 
 const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
 
-const getServicesTotal = (booking) =>
-  booking?.services?.reduce((sum, item) => {
+const getServicesTotal = (booking) => {
+  const total = Number(booking?.totalServiceAmount || 0);
+  const maxTotal = Number(booking?.totalServiceMaxAmount || 0);
+
+  if (total > 0 && total === maxTotal) return total;
+
+  return (
+    booking?.services?.reduce((sum, item) => {
     return (
       sum +
       Number(
@@ -73,7 +73,9 @@ const getServicesTotal = (booking) =>
           0,
       )
     );
-  }, 0) || Number(booking?.totalServiceMaxAmount || 0);
+    }, 0) || maxTotal
+  );
+};
 
 const getCurrentStep = (booking) => {
   if (!booking) return 0;
@@ -96,6 +98,14 @@ const getHeaderCopy = (booking, remainingSeconds) => {
     return {
       title: "Booking Cancelled",
       description: "Garage matching has stopped for this booking.",
+    };
+  }
+
+  if (booking.status === "PENDING_PAYMENT") {
+    return {
+      title: "Preparing Garage Search",
+      description:
+        "This booking is being moved into the normal garage search flow.",
     };
   }
 
@@ -245,13 +255,12 @@ function Row({ label, value, bold = false }) {
 export default function Tracking() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, clearBookingCaches } = useApp();
+  const { clearBookingCaches } = useApp();
   const bookingId = useMemo(() => getBookingId(location), [location]);
 
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(Boolean(bookingId));
   const [refreshing, setRefreshing] = useState(false);
-  const [paying, setPaying] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [error, setError] = useState("");
@@ -339,58 +348,13 @@ export default function Tracking() {
     return () => window.clearInterval(interval);
   }, [booking?.status, booking?.searchExpiresAt]);
 
-  const payBooking = async () => {
-    try {
-      setPaying(true);
-      setError("");
-
-      const verifiedBooking = await payForBooking({ booking, user });
-
-      addRecentActivity({
-        type: "PAYMENT",
-        title: "Completed booking payment",
-        detail: `${verifiedBooking.bookingCode || booking.bookingCode || "Booking"} · ₹${booking.payableAmount}`,
-        path: "/dashboard/payments",
-      });
-
-      clearBookingCaches?.();
-      setBooking(verifiedBooking);
-      sessionStorage.setItem("rovautoTrackingBookingId", verifiedBooking.id);
-
-      navigate(`/tracking?bookingId=${verifiedBooking.id}`, {
-        replace: true,
-        state: {
-          bookingId: verifiedBooking.id,
-          bookingCode: verifiedBooking.bookingCode,
-        },
-      });
-    } catch (err) {
-      if (isPaymentAuthError(err)) {
-        navigate("/login", {
-          state: {
-            from: location,
-            message: "Please login to continue payment.",
-          },
-        });
-        return;
-      }
-
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Could not complete payment. Please try again.",
-      );
-    } finally {
-      setPaying(false);
-    }
-  };
-
   const cancelBooking = async () => {
     if (!bookingId) return;
 
     try {
       setActionLoading("cancel");
       setError("");
+
       const response = await api.patch(`/bookings/${bookingId}/cancel`);
       setBooking(response.data.data);
       clearBookingCaches?.();
@@ -499,39 +463,6 @@ export default function Tracking() {
     );
   }
 
-  if (booking.status === "PENDING_PAYMENT") {
-    return (
-      <div className="container-x max-w-3xl py-12">
-        <div className="card-soft p-8">
-          <span className="chip-brand">Booking #{booking.bookingCode}</span>
-          <h1 className="mt-3 text-3xl font-bold">Payment required</h1>
-          <p className="mt-2 text-muted">
-            Complete payment before nearby garages receive the booking.
-          </p>
-
-          {error && (
-            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={payBooking}
-              disabled={paying}
-              className="btn-primary disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {paying ? "Processing..." : `Pay ₹${booking.payableAmount}`}
-            </button>
-            <Link to="/dashboard/bookings" className="btn-ghost">
-              Back to Active Bookings
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const currentStep = getCurrentStep(booking);
   const header = getHeaderCopy(booking, remainingSeconds);
@@ -540,9 +471,6 @@ export default function Tracking() {
   const currentRoundRequests =
     booking.broadcasts?.filter((request) => request.status === "SENT") || [];
   const servicesTotal = getServicesTotal(booking);
-  const platformFee = Number(
-    booking.handlingFee || booking.payment?.amount || 0,
-  );
   const bookingCode =
     booking.bookingCode || location.state?.bookingCode || "Booking";
   const inspectionImages = booking.inspectionImages || [];
@@ -734,28 +662,18 @@ export default function Tracking() {
         {booking.status === "COMPLETED" && (
           <>
             <div className="card-soft mt-6 p-6">
-              <h3 className="mb-3 font-semibold">Invoice summary</h3>
-              <div className="grid gap-2 text-sm">
-                <Row label="Service estimate" value={`₹${servicesTotal}`} />
-                <Row label="Platform fee" value={`₹${platformFee}`} />
-                <Row
-                  label="Total"
-                  value={`₹${servicesTotal + platformFee}`}
-                  bold
-                />
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" className="btn-dark">
-                  <FiDownload /> Download Receipt
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReviewOpen(true)}
-                  className="btn-primary"
-                >
-                  <FiStar /> {booking.review ? "Edit Review" : "Rate Garage"}
-                </button>
-              </div>
+              <h3 className="mb-2 text-xl font-bold">Service completed</h3>
+              <p className="text-sm text-muted">
+                The garage has recorded the final amount and the booking is now
+                in your service history.
+              </p>
+              <button
+                type="button"
+                onClick={() => setReviewOpen(true)}
+                className="btn-primary mt-5"
+              >
+                <FiStar /> {booking.review ? "Edit Review" : "Rate Garage"}
+              </button>
 
               {booking.review && (
                 <div className="mt-5 rounded-2xl bg-bg-soft p-4">
@@ -970,7 +888,7 @@ export default function Tracking() {
                 .join(", ") || "Selected services"
             }
           />
-          <Row label="Estimated service" value={`₹${servicesTotal}`} />
+          <Row label="Estimated service" value={`â‚¹${servicesTotal}`} />
         </div>
       </aside>
 
