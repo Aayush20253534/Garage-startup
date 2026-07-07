@@ -6,6 +6,7 @@ const { authorizeRoles } = require("../../middlewares/role.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const {
   bookingQuerySchema,
+  clearBookingsSchema,
   customerQuerySchema,
   sendUserEmailSchema,
   sendNotificationSchema,
@@ -25,6 +26,13 @@ router.get(
   controller.listCustomers,
 );
 router.get("/bookings", bookingQuerySchema, validate, controller.listBookings);
+router.delete(
+  "/bookings/all",
+  authorizeRoles("ADMIN"),
+  clearBookingsSchema,
+  validate,
+  controller.clearAllBookings,
+);
 router.get(
   "/email-users",
   userEmailSearchSchema,

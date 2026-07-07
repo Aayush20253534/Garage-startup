@@ -22,6 +22,17 @@ const bookingStatuses = [
 
 const userRoles = ["CUSTOMER", "GARAGE_OWNER"];
 
+
+const CLEAR_BOOKINGS_CONFIRMATION = "CLEAR ALL BOOKINGS";
+
+const clearBookingsSchema = [
+  body("confirmation")
+    .isString()
+    .withMessage("Confirmation is required")
+    .custom((value) => value === CLEAR_BOOKINGS_CONFIRMATION)
+    .withMessage(`Type ${CLEAR_BOOKINGS_CONFIRMATION} to continue`),
+];
+
 const customerQuerySchema = [
   query("search")
     .optional({ nullable: true, checkFalsy: true })
@@ -126,6 +137,7 @@ const sendUserEmailSchema = [
 
 module.exports = {
   bookingQuerySchema,
+  clearBookingsSchema,
   customerQuerySchema,
   sendUserEmailSchema,
   sendNotificationSchema,

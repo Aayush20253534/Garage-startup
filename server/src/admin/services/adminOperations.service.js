@@ -1,6 +1,7 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { deletePattern } = require("../../utils/cache");
+const { deleteFromCloudinary } = require("../../utils/cloudinaryUpload");
 const { Resend } = require("resend");
 
 let resend;
@@ -347,7 +348,154 @@ const sendNotification = async ({
   throw new ApiError(400, "Audience must be ALL, CITY, or USER");
 };
 
+
+const CLEAR_BOOKINGS_CONFIRMATION = "CLEAR ALL BOOKINGS";
+const CLOUDINARY_DELETE_BATCH_SIZE = 10;
+
+const deleteInspectionImagesFromCloudinary = async (publicIds = []) => {
+  const uniquePublicIds = [...new Set(publicIds.filter(Boolean))];
+
+  let deleted = 0;
+  let failed = 0;
+
+  for (
+    let index = 0;
+    index < uniquePublicIds.length;
+    index += CLOUDINARY_DELETE_BATCH_SIZE
+  ) {
+    const batch = uniquePublicIds.slice(
+      index,
+      index + CLOUDINARY_DELETE_BATCH_SIZE,
+    );
+
+    const results = await Promise.allSettled(
+      batch.map((publicId) =>
+        deleteFromCloudinary(publicId, "image"),
+      ),
+    );
+
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        deleted += 1;
+      } else {
+        failed += 1;
+      }
+    });
+  }
+
+  return {
+    requested: uniquePublicIds.length,
+    deleted,
+    failed,
+  };
+};
+
+const clearAllBookings = async ({
+  confirmation,
+  requestedById = null,
+} = {}) => {
+  if (confirmation !== CLEAR_BOOKINGS_CONFIRMATION) {
+    throw new ApiError(
+      400,
+      `Type ${CLEAR_BOOKINGS_CONFIRMATION} to continue`,
+    );
+  }
+
+  const [
+    bookingCount,
+    payments,
+    bookingServices,
+    broadcasts,
+    inspectionImageRecords,
+    reviews,
+  ] = await Promise.all([
+    prisma.booking.count(),
+    prisma.payment.count(),
+    prisma.bookingService.count(),
+    prisma.garageBroadcastRequest.count(),
+    prisma.bookingInspectionImage.findMany({
+      select: {
+        publicId: true,
+      },
+    }),
+    prisma.review.count(),
+  ]);
+
+  if (bookingCount === 0) {
+    return {
+      deletedBookings: 0,
+      complaintsDetached: 0,
+      deletedRelatedRecords: {
+        payments: 0,
+        bookingServices: 0,
+        broadcasts: 0,
+        inspectionImages: 0,
+        reviews: 0,
+      },
+      cloudinaryInspectionImages: {
+        requested: 0,
+        deleted: 0,
+        failed: 0,
+      },
+    };
+  }
+
+  const deletionResult = await prisma.$transaction(
+    async (tx) => {
+      const detachedComplaints =
+        await tx.complaint.updateMany({
+          where: {
+            bookingId: {
+              not: null,
+            },
+          },
+          data: {
+            bookingId: null,
+          },
+        });
+
+      const deletedBookings =
+        await tx.booking.deleteMany();
+
+      return {
+        deletedBookings: deletedBookings.count,
+        complaintsDetached: detachedComplaints.count,
+      };
+    },
+    {
+      timeout: 60000,
+    },
+  );
+
+  await Promise.allSettled([
+    deletePattern("customer:*"),
+  ]);
+
+  const cloudinaryInspectionImages =
+    await deleteInspectionImagesFromCloudinary(
+      inspectionImageRecords.map((image) => image.publicId),
+    );
+
+  console.info("[admin] All bookings cleared", {
+    requestedById,
+    ...deletionResult,
+  });
+
+  return {
+    ...deletionResult,
+    deletedRelatedRecords: {
+      payments,
+      bookingServices,
+      broadcasts,
+      inspectionImages: inspectionImageRecords.length,
+      reviews,
+    },
+    cloudinaryInspectionImages,
+  };
+};
+
 module.exports = {
+  clearAllBookings,
   getDashboardStats,
   listBookings,
   listCustomers,

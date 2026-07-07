@@ -102,6 +102,15 @@ export const adminApi = {
     return unwrap(await api.get("/admin/bookings", { params }));
   },
 
+
+  async clearAllBookings(confirmation) {
+    return unwrap(
+      await api.delete("/admin/bookings/all", {
+        data: { confirmation },
+      }),
+    );
+  },
+
   async sendNotification(payload) {
     return unwrap(await api.post("/admin/notifications", payload));
   },
