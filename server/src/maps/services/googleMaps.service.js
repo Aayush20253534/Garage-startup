@@ -17,15 +17,8 @@ const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const ROUTE_OPTIMIZATION_SCOPE =
   "https://www.googleapis.com/auth/cloud-platform";
 
-const DEFAULT_REGION_CODES = ["np", "in"];
+const DEFAULT_REGION_CODES = ["in"];
 const SUPPORTED_BOUNDS = [
-  {
-    code: "np",
-    minLatitude: 26,
-    maxLatitude: 31,
-    minLongitude: 80,
-    maxLongitude: 89,
-  },
   {
     code: "in",
     minLatitude: 6,
@@ -51,7 +44,7 @@ const getRegionCodes = () => {
   return unique.length ? unique : DEFAULT_REGION_CODES;
 };
 
-const getPrimaryRegionCode = () => getRegionCodes()[0] || "np";
+const getPrimaryRegionCode = () => getRegionCodes()[0] ;
 
 const getApiKey = () => {
   const key = normalizeText(

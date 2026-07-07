@@ -5,15 +5,8 @@ const { correctAddress } = require("../../utils/addressCorrection");
 const GOOGLE_GEOCODING_URL =
   "https://maps.googleapis.com/maps/api/geocode/json";
 
-const DEFAULT_REGION_CODES = ["np", "in"];
+const DEFAULT_REGION_CODES = ["in"];
 const SERVICE_AREA_BOUNDS = [
-  {
-    code: "np",
-    minLatitude: 26,
-    maxLatitude: 31,
-    minLongitude: 80,
-    maxLongitude: 89,
-  },
   {
     code: "in",
     minLatitude: 6,
@@ -38,7 +31,7 @@ const getRegionCodes = () => {
   return unique.length ? unique : DEFAULT_REGION_CODES;
 };
 
-const getPrimaryRegionCode = () => getRegionCodes()[0] || "np";
+const getPrimaryRegionCode = () => getRegionCodes()[0];
 
 const getCountryComponentFilter = () => {
   const regionCodes = getRegionCodes();
