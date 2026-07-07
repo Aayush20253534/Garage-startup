@@ -1,4 +1,8 @@
-import { getRedirectResult, signInWithRedirect } from "firebase/auth";
+import {
+  getRedirectResult,
+  signInWithPopup,
+  signInWithRedirect,
+} from "firebase/auth";
 import api from "@/api/axios";
 import { auth, googleProvider } from "@/config/firebase";
 import { verifyCurrentSession } from "@/utils/authSession";
@@ -35,11 +39,33 @@ const finishGoogleCredential = async (credential, role = "CUSTOMER") => {
 };
 
 export const startGoogleAuth = async (role = "CUSTOMER") => {
-  sessionStorage.setItem(GOOGLE_AUTH_PENDING_ROLE_KEY, role);
-  await signInWithRedirect(auth, googleProvider);
+  try {
+    const credential = await signInWithPopup(auth, googleProvider);
+    return await finishGoogleCredential(credential, role);
+  } catch (error) {
+    const code = String(error?.code || "");
+    const shouldUseRedirect = [
+      "auth/popup-blocked",
+      "auth/popup-closed-by-user",
+      "auth/cancelled-popup-request",
+      "auth/operation-not-supported-in-this-environment",
+    ].includes(code);
+
+    if (!shouldUseRedirect) {
+      throw error;
+    }
+
+    sessionStorage.setItem(GOOGLE_AUTH_PENDING_ROLE_KEY, role);
+    await signInWithRedirect(auth, googleProvider);
+    return null;
+  }
 };
 
 export const completeGoogleRedirectAuth = async () => {
+  if (!sessionStorage.getItem(GOOGLE_AUTH_PENDING_ROLE_KEY)) {
+    return null;
+  }
+
   const role =
     sessionStorage.getItem(GOOGLE_AUTH_PENDING_ROLE_KEY) || "CUSTOMER";
   const credential = await getRedirectResult(auth);

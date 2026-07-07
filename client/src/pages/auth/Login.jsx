@@ -119,7 +119,16 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await startGoogleAuth("CUSTOMER");
+      const data = await startGoogleAuth("CUSTOMER");
+      if (!data) return;
+
+      const freshUser = data?.user;
+
+      if (!freshUser) {
+        throw new Error("Invalid Google login response");
+      }
+
+      completeLogin(freshUser);
     } catch (err) {
       setError(
         err.response?.data?.message ||

@@ -179,7 +179,16 @@ export default function Register() {
     setLoadingAction("GOOGLE");
 
     try {
-      await startGoogleAuth("CUSTOMER");
+      const data = await startGoogleAuth("CUSTOMER");
+      if (!data) return;
+
+      const freshUser = data?.user;
+
+      if (!freshUser) {
+        throw new Error("Invalid Google signup response");
+      }
+
+      completeGoogleLogin(freshUser);
     } catch (err) {
       setError(
         err.response?.data?.message ||
