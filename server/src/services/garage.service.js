@@ -95,7 +95,6 @@ const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
   if (uniqueServiceIds.length === 0) return {};
 
   const vehicleBrand = String(vehicle?.brand || "").trim();
-  const vehicleModel = String(vehicle?.model || "").trim();
 
   return {
     AND: uniqueServiceIds.map((serviceId) => ({
@@ -105,9 +104,8 @@ const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
           isActive: true,
           ...(vehicleBrand && {
             OR: [
-              { vehicleBrand: "ALL", vehicleModel: "ALL" },
-              { vehicleBrand, vehicleModel: "ALL" },
-              ...(vehicleModel ? [{ vehicleBrand, vehicleModel }] : []),
+              { vehicleBrand: "ALL" },
+              { vehicleBrand },
             ],
           }),
         },
