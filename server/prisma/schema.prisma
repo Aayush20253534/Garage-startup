@@ -272,7 +272,7 @@ model ServiceCategory {
   thumbnailUrl      String?
   thumbnailPublicId String?
   isActive          Boolean   @default(true)
-  isComingSoon     Boolean   @default(false)
+  isComingSoon      Boolean   @default(false)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   services          Service[]
@@ -281,18 +281,18 @@ model ServiceCategory {
 }
 
 model Service {
-  id            String   @id @default(uuid())
-  categoryId    String
-  name          String
-  description   String?
-  isActive      Boolean  @default(true)
-  isComingSoon  Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  basePrice     Int?
-  maxPrice      Int?
-  minPrice      Int?
-  durationMin   Int?
+  id           String   @id @default(uuid())
+  categoryId   String
+  name         String
+  description  String?
+  isActive     Boolean  @default(true)
+  isComingSoon Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  basePrice    Int?
+  maxPrice     Int?
+  minPrice     Int?
+  durationMin  Int?
 
   bookingItems    BookingService[]
   cityPriceRanges CityServicePriceRange[]
@@ -699,7 +699,6 @@ model GarageApplicationImage {
   @@index([isThumbnail])
 }
 
-
 model SystemIssue {
   id              String               @id @default(uuid())
   fingerprint     String               @unique
@@ -707,9 +706,9 @@ model SystemIssue {
   message         String
   stack           String?
   source          SystemIssueSource
-  severity        SystemIssueSeverity   @default(ERROR)
-  status          SystemIssueStatus     @default(OPEN)
-  actorType       SystemIssueActorType  @default(PUBLIC)
+  severity        SystemIssueSeverity  @default(ERROR)
+  status          SystemIssueStatus    @default(OPEN)
+  actorType       SystemIssueActorType @default(PUBLIC)
   userId          String?
   garageId        String?
   route           String?
@@ -737,7 +736,6 @@ model SystemIssue {
   @@index([actorType, lastSeenAt])
   @@index([source, lastSeenAt])
 }
-
 
 enum SystemIssueSource {
   FRONTEND
