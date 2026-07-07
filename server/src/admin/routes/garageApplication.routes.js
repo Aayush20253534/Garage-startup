@@ -13,7 +13,7 @@ const {
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "INTERN"));
 
 router.get("/", applicationQuerySchema, validate, applicationController.listApplications);
 router.delete("/", applicationController.deleteApplications);

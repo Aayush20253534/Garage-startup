@@ -79,7 +79,7 @@ const getActorContext = async (req, payload = {}) => {
   if (user) {
     userId = user.id;
 
-    if (user.role === "ADMIN") {
+    if (["ADMIN", "INTERN"].includes(user.role)) {
       actorType = "ADMIN";
     } else if (user.role === "GARAGE_OWNER") {
       actorType = "GARAGE";

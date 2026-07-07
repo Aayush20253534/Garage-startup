@@ -140,7 +140,7 @@ const loginValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN"])
+    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"])
     .withMessage("Invalid account role"),
 ];
 
@@ -169,7 +169,7 @@ const forgotPasswordValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN"])
+    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"])
     .withMessage("Invalid account role"),
 ];
 
@@ -198,7 +198,7 @@ const resetPasswordValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN"])
+    .isIn(["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"])
     .withMessage("Invalid account role"),
 ];
 

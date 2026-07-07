@@ -20,6 +20,7 @@ function ProtectedRoute({ children }) {
   const location = useLocation();
   const isGarageRoute = location.pathname.startsWith("/garage");
   const isAdminRoute = location.pathname.startsWith("/admin");
+  const isInternRoute = location.pathname.startsWith("/intern");
 
   if (authLoading) {
     return <RouteFallback />;
@@ -28,6 +29,10 @@ function ProtectedRoute({ children }) {
   if (isAdminRoute) {
     if (user?.role !== "ADMIN") {
       return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    }
+  } else if (isInternRoute) {
+    if (user?.role !== "INTERN") {
+      return <Navigate to="/intern/login" state={{ from: location }} replace />;
     }
   } else if (isGarageRoute) {
     if (!garage) {
@@ -281,6 +286,7 @@ const AdminEmail = lazy(() => import("@/pages/admin/Email"));
 const AdminCars = lazy(() => import("@/pages/admin/Cars"));
 const AdminServices = lazy(() => import("@/pages/admin/Services"));
 const AdminSystemIssues = lazy(() => import("@/pages/admin/SystemIssues"));
+const InternLogin = lazy(() => import("@/pages/intern/Login"));
 
 import {
   FiArrowLeft,
@@ -451,6 +457,18 @@ const adminItems = [
   { to: "/admin/email", label: "Email", icon: FiMail },
 ];
 
+const internItems = [
+  { to: "/intern", label: "Dashboard", icon: FiGrid },
+  { to: "/intern/services", label: "Services", icon: FiBriefcase },
+  { to: "/intern/garages", label: "Garages", icon: FiHome },
+  { to: "/intern/revenue", label: "Price Ranges", icon: FiDollarSign },
+  { to: "/intern/customers", label: "Customers", icon: FiUsers },
+  { to: "/intern/bookings", label: "Bookings", icon: FiCalendar },
+  { to: "/intern/system-issues", label: "System Issues", icon: FiAlertTriangle },
+  { to: "/intern/notifications", label: "Notifications", icon: FiBell },
+  { to: "/intern/email", label: "Email", icon: FiMail },
+];
+
 function AppRoutes() {
   return (
     <>
@@ -508,6 +526,7 @@ function AppRoutes() {
             element={<Navigate to="/forgot" replace />}
           />
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/intern/login" element={<InternLogin />} />
 
           <Route path="/garage/login" element={<GarageLogin />} />
           <Route path="/garage/otp-login" element={<GarageOtpLogin />} />
@@ -812,6 +831,83 @@ function AppRoutes() {
           />
           <Route
             path="/admin/email"
+            element={
+              <ProtectedRoute>
+                <AdminEmail />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
+
+        <Route
+          element={<DashboardLayout items={internItems} title="Intern Console" />}
+        >
+          <Route
+            path="/intern"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/customers"
+            element={
+              <ProtectedRoute>
+                <AdminCustomers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/services"
+            element={
+              <ProtectedRoute>
+                <AdminServices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/garages"
+            element={
+              <ProtectedRoute>
+                <AdminGarages />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/bookings"
+            element={
+              <ProtectedRoute>
+                <AdminBookings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/revenue"
+            element={
+              <ProtectedRoute>
+                <AdminRevenue />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/system-issues"
+            element={
+              <ProtectedRoute>
+                <AdminSystemIssues />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/notifications"
+            element={
+              <ProtectedRoute>
+                <AdminNotifications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/email"
             element={
               <ProtectedRoute>
                 <AdminEmail />

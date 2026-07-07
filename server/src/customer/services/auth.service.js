@@ -21,7 +21,7 @@ const PASSWORD_MESSAGE =
   "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol";
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
-const normalizeAuthRole = (role, allowedRoles = ["CUSTOMER", "GARAGE_OWNER", "ADMIN"], fallback = "CUSTOMER") =>
+const normalizeAuthRole = (role, allowedRoles = ["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"], fallback = "CUSTOMER") =>
   allowedRoles.includes(role) ? role : fallback;
 
 const toSafeUser = (user) => ({
@@ -313,7 +313,7 @@ const login = async ({ identifier, password, role }) => {
   const cleanIdentifier = rawIdentifier?.startsWith("+")
     ? normalizePhone(rawIdentifier)
     : normalizeEmail(rawIdentifier);
-  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER", "ADMIN"], "CUSTOMER");
+  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"], "CUSTOMER");
 
   if (!cleanIdentifier || !password) {
     throw new ApiError(400, "Email/phone and password are required");
@@ -433,7 +433,7 @@ const forgotPassword = async ({
 
   const userRole = normalizeAuthRole(
     role,
-    ["CUSTOMER", "GARAGE_OWNER", "ADMIN"],
+    ["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"],
     "CUSTOMER",
   );
 
@@ -478,7 +478,7 @@ const forgotPassword = async ({
 
 const resetPassword = async ({ email, otp, newPassword, role = "CUSTOMER" }) => {
   const cleanEmail = normalizeEmail(email);
-  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER", "ADMIN"], "CUSTOMER");
+  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"], "CUSTOMER");
 
   const user = await prisma.user.findFirst({
     where: { email: cleanEmail, role: userRole },

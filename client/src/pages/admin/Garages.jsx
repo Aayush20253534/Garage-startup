@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { useApp } from "@/hooks/useApp";
 import CitySelect from "@/components/common/CitySelect";
 import {
   FiAlertCircle,
@@ -104,6 +105,8 @@ function ReviewInspectionPhotos({ images = [], phase, label }) {
 }
 
 export default function Garages() {
+  const { user } = useApp();
+  const isIntern = user?.role === "INTERN";
   const [tab, setTab] = useState("applications");
   const [applications, setApplications] = useState([]);
   const [applicationStatus, setApplicationStatus] = useState("PENDING");
@@ -680,7 +683,7 @@ export default function Garages() {
                 </button>
               </div>
 
-              {garages.length > 0 && (
+              {!isIntern && garages.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <label className="inline-flex h-8 items-center gap-2 rounded-full bg-bg-soft px-3 text-xs font-semibold text-muted">
                     <input
@@ -720,12 +723,14 @@ export default function Garages() {
                         : "hover:bg-bg-soft",
                     ].join(" ")}
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedGarageIds.includes(garage.id)}
-                      onChange={() => toggleGarageSelection(garage.id)}
-                      className="mt-1"
-                    />
+                    {!isIntern && (
+                      <input
+                        type="checkbox"
+                        checked={selectedGarageIds.includes(garage.id)}
+                        onChange={() => toggleGarageSelection(garage.id)}
+                        className="mt-1"
+                      />
+                    )}
 
                     <button
                       type="button"

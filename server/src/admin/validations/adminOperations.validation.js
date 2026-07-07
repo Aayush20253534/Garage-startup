@@ -11,7 +11,7 @@ const bookingStatuses = [
   "GARAGE_ASSIGNED",
   "EXPIRED",
 ];
-const userRoles = ["CUSTOMER", "GARAGE_OWNER", "ADMIN"];
+const userRoles = ["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"];
 
 const customerQuerySchema = [
   query("search").optional({ nullable: true, checkFalsy: true }).trim(),

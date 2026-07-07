@@ -777,6 +777,7 @@ enum Role {
   CUSTOMER
   GARAGE_OWNER
   ADMIN
+  INTERN
 }
 
 enum ChatbotMessageRole {

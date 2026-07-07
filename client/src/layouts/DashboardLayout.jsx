@@ -12,16 +12,19 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const { pathname } = useLocation();
   const { user, garage, logout, logoutGarage } = useApp();
   const { unreadCount } = useUnreadNotifications();
+  const isAdminPortal = pathname.startsWith("/admin");
+  const isInternPortal = pathname.startsWith("/intern");
+  const isStaffPortal = isAdminPortal || isInternPortal;
+
   const { openIssueCount } = useOpenSystemIssueCount({
-    enabled: pathname.startsWith("/admin"),
+    enabled: isStaffPortal,
   });
   const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
 
   const isGaragePortal = pathname.startsWith("/garage");
-  const isAdminPortal = pathname.startsWith("/admin");
-  const showCustomerAssistant = !isGaragePortal && !isAdminPortal;
+  const showCustomerAssistant = !isGaragePortal && !isStaffPortal;
 
   const account = isGaragePortal ? garage : user;
 
@@ -33,7 +36,9 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     ? "GARAGE OWNER"
     : isAdminPortal
       ? "ADMIN"
-      : account?.role || "CUSTOMER";
+      : isInternPortal
+        ? "INTERN"
+        : account?.role || "CUSTOMER";
 
   const accountInitial = accountName?.charAt(0)?.toUpperCase() || "R";
 
@@ -44,6 +49,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
       "/dashboard/customer",
       "/garage",
       "/admin",
+      "/intern",
     ].includes(to);
 
   const visibleItems = useMemo(() => {
@@ -89,7 +95,18 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     }
 
     await logout();
-    navigate(isAdminPortal ? "/admin/login" : "/", { replace: true });
+
+    if (isAdminPortal) {
+      navigate("/admin/login", { replace: true });
+      return;
+    }
+
+    if (isInternPortal) {
+      navigate("/intern/login", { replace: true });
+      return;
+    }
+
+    navigate("/", { replace: true });
   };
 
   return (
@@ -154,7 +171,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
                       </span>
                     )}
 
-                  {item.to === "/admin/system-issues" &&
+                  {item.to.endsWith("/system-issues") &&
                     openIssueCount > 0 && (
                       <span className="ml-auto rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
                         {openIssueCount > 99 ? "99+" : openIssueCount}

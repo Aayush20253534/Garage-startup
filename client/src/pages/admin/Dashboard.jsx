@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   FiAlertCircle,
@@ -21,6 +21,8 @@ const formatDate = (date) => {
 };
 
 export default function AdminDashboard() {
+  const { pathname } = useLocation();
+  const portalRoot = pathname.startsWith("/intern") ? "/intern" : "/admin";
   const [stats, setStats] = useState({
     garages: 0,
     activeGarages: 0,
@@ -50,7 +52,7 @@ export default function AdminDashboard() {
         setRecentApplications(dashboard.recentApplications || []);
       } catch (err) {
         setError(
-          err.response?.data?.message || "Unable to load admin dashboard"
+          err.response?.data?.message || "Unable to load staff dashboard"
         );
       }
     };
@@ -100,7 +102,7 @@ export default function AdminDashboard() {
       number: stats.openSystemIssues,
       label: "System Issues",
       caption: `${stats.criticalSystemIssues || 0} critical`,
-      to: "/admin/system-issues",
+      to: `${portalRoot}/system-issues`,
     },
   ];
 

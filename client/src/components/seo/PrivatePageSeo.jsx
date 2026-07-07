@@ -15,6 +15,7 @@ const PRIVATE_PATH_PREFIXES = [
   "/dashboard",
   "/garage",
   "/admin",
+  "/intern",
   "/booking",
   "/sos",
 ];

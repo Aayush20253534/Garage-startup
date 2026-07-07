@@ -14,6 +14,7 @@ const roles = [
   { value: "CUSTOMER", label: "Customers" },
   { value: "GARAGE_OWNER", label: "Garage owners" },
   { value: "ADMIN", label: "Admins" },
+  { value: "INTERN", label: "Interns" },
 ];
 
 export default function AdminEmail() {

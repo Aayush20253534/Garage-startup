@@ -19,12 +19,18 @@ const router = express.Router();
 const thumbnailUpload = upload.single("thumbnail");
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "INTERN"));
 
 router.get("/categories", categoryQuerySchema, validate, controller.listCategories);
 router.post("/categories", createCategorySchema, validate, controller.createCategory);
 router.patch("/categories/:categoryId", updateCategorySchema, validate, controller.updateCategory);
-router.delete("/categories/:categoryId", categoryIdSchema, validate, controller.deactivateCategory);
+router.delete(
+  "/categories/:categoryId",
+  authorizeRoles("ADMIN"),
+  categoryIdSchema,
+  validate,
+  controller.deactivateCategory,
+);
 router.post(
   "/categories/:categoryId/thumbnail",
   thumbnailUpload,
@@ -34,7 +40,13 @@ router.post(
 );
 router.post("/", createServiceSchema, validate, controller.createService);
 router.patch("/:serviceId", updateServiceSchema, validate, controller.updateService);
-router.delete("/:serviceId", serviceIdSchema, validate, controller.deactivateService);
+router.delete(
+  "/:serviceId",
+  authorizeRoles("ADMIN"),
+  serviceIdSchema,
+  validate,
+  controller.deactivateService,
+);
 router.post("/:serviceId/thumbnail", thumbnailUpload, serviceIdSchema, validate, controller.uploadThumbnail);
 
 module.exports = router;

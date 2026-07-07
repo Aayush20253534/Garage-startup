@@ -15,7 +15,7 @@ const {
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "INTERN"));
 
 router.get("/stats", controller.getDashboardStats);
 router.get(

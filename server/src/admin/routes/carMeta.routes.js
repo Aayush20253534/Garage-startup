@@ -19,15 +19,15 @@ const router = express.Router();
 const logoUpload = upload.single("logo");
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "INTERN"));
 
 router.get("/brands", brandQuerySchema, validate, controller.listBrands);
-router.post("/brands", logoUpload, createBrandSchema, validate, controller.createBrand);
+router.post("/brands", authorizeRoles("ADMIN"), logoUpload, createBrandSchema, validate, controller.createBrand);
 router.get("/brands/:brandId", brandIdSchema, validate, controller.getBrand);
-router.patch("/brands/:brandId", logoUpload, updateBrandSchema, validate, controller.updateBrand);
-router.delete("/brands/:brandId", brandIdSchema, validate, controller.deactivateBrand);
-router.post("/brands/:brandId/models", createModelSchema, validate, controller.createModel);
-router.patch("/models/:modelId", updateModelSchema, validate, controller.updateModel);
-router.delete("/models/:modelId", modelIdSchema, validate, controller.deactivateModel);
+router.patch("/brands/:brandId", authorizeRoles("ADMIN"), logoUpload, updateBrandSchema, validate, controller.updateBrand);
+router.delete("/brands/:brandId", authorizeRoles("ADMIN"), brandIdSchema, validate, controller.deactivateBrand);
+router.post("/brands/:brandId/models", authorizeRoles("ADMIN"), createModelSchema, validate, controller.createModel);
+router.patch("/models/:modelId", authorizeRoles("ADMIN"), updateModelSchema, validate, controller.updateModel);
+router.delete("/models/:modelId", authorizeRoles("ADMIN"), modelIdSchema, validate, controller.deactivateModel);
 
 module.exports = router;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { useApp } from "@/hooks/useApp";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import {
   FiAlertCircle,
@@ -80,6 +81,8 @@ const isCategoryComingSoon = (category) =>
   toBoolean(category?.isComingSoon);
 
 export default function AdminServices() {
+  const { user } = useApp();
+  const isIntern = user?.role === "INTERN";
   const [categories, setCategories] = useState([]);
   const [categoryForm, setCategoryForm] = useState(emptyCategoryForm);
   const [serviceForm, setServiceForm] = useState(emptyServiceForm);
@@ -881,31 +884,33 @@ export default function AdminServices() {
                     <FiEdit3 />
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => toggleCategoryActive(category)}
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${
-                      toBoolean(category.isActive)
-                        ? "bg-red-50 text-red-700 hover:bg-red-100"
-                        : "bg-lime-100 text-ink hover:bg-lime-200"
-                    }`}
-                    aria-label={
-                      toBoolean(category.isActive)
-                        ? "Deactivate category"
-                        : "Reactivate category"
-                    }
-                    title={
-                      toBoolean(category.isActive)
-                        ? "Deactivate category"
-                        : "Reactivate category"
-                    }
-                  >
-                    {toBoolean(category.isActive) ? (
-                      <FiTrash2 />
-                    ) : (
-                      <FiCheckCircle />
-                    )}
-                  </button>
+                  {(!isIntern || !toBoolean(category.isActive)) && (
+                    <button
+                      type="button"
+                      onClick={() => toggleCategoryActive(category)}
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${
+                        toBoolean(category.isActive)
+                          ? "bg-red-50 text-red-700 hover:bg-red-100"
+                          : "bg-lime-100 text-ink hover:bg-lime-200"
+                      }`}
+                      aria-label={
+                        toBoolean(category.isActive)
+                          ? "Deactivate category"
+                          : "Reactivate category"
+                      }
+                      title={
+                        toBoolean(category.isActive)
+                          ? "Deactivate category"
+                          : "Reactivate category"
+                      }
+                    >
+                      {toBoolean(category.isActive) ? (
+                        <FiTrash2 />
+                      ) : (
+                        <FiCheckCircle />
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1019,31 +1024,33 @@ export default function AdminServices() {
                             <FiEdit3 />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => toggleServiceActive(service)}
-                            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${
-                              serviceActive
-                                ? "bg-red-50 text-red-700 hover:bg-red-100"
-                                : "bg-lime-100 text-ink hover:bg-lime-200"
-                            }`}
-                            aria-label={
-                              serviceActive
-                                ? "Deactivate service"
-                                : "Reactivate service"
-                            }
-                            title={
-                              serviceActive
-                                ? "Deactivate service"
-                                : "Reactivate service"
-                            }
-                          >
-                            {serviceActive ? (
-                              <FiTrash2 />
-                            ) : (
-                              <FiCheckCircle />
-                            )}
-                          </button>
+                          {(!isIntern || !serviceActive) && (
+                            <button
+                              type="button"
+                              onClick={() => toggleServiceActive(service)}
+                              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${
+                                serviceActive
+                                  ? "bg-red-50 text-red-700 hover:bg-red-100"
+                                  : "bg-lime-100 text-ink hover:bg-lime-200"
+                              }`}
+                              aria-label={
+                                serviceActive
+                                  ? "Deactivate service"
+                                  : "Reactivate service"
+                              }
+                              title={
+                                serviceActive
+                                  ? "Deactivate service"
+                                  : "Reactivate service"
+                              }
+                            >
+                              {serviceActive ? (
+                                <FiTrash2 />
+                              ) : (
+                                <FiCheckCircle />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     );

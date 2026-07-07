@@ -16,10 +16,16 @@ const {
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "INTERN"));
 
 router.get("/", garageQuerySchema, validate, controller.listGarages);
-router.delete("/", deleteGaragesSchema, validate, controller.deleteGarages);
+router.delete(
+  "/",
+  authorizeRoles("ADMIN"),
+  deleteGaragesSchema,
+  validate,
+  controller.deleteGarages,
+);
 router.get("/services", assignableServiceQuerySchema, validate, controller.listAssignableServices);
 router.get("/:garageId", garageIdSchema, validate, controller.getGarage);
 router.post("/:garageId/services", upsertGarageServiceSchema, validate, controller.upsertGarageService);

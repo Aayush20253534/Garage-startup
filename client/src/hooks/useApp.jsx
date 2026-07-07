@@ -29,7 +29,7 @@ const SERVICE_HISTORY_CACHE_TTL = 5 * 60 * 1000;
 const PROFILE_CACHE_TTL = 5 * 60 * 1000;
 
 const SESSION_ROLE_KEY = "rov_session_role";
-const VALID_SESSION_ROLES = new Set(["CUSTOMER", "GARAGE_OWNER", "ADMIN"]);
+const VALID_SESSION_ROLES = new Set(["CUSTOMER", "GARAGE_OWNER", "ADMIN", "INTERN"]);
 
 const setSessionRole = (role) => {
   if (VALID_SESSION_ROLES.has(role)) {
@@ -78,6 +78,13 @@ const getStoredSessionRole = () => {
     cachedUser?.role === "ADMIN"
   ) {
     return "ADMIN";
+  }
+
+  if (
+    pathname.startsWith("/intern") &&
+    cachedUser?.role === "INTERN"
+  ) {
+    return "INTERN";
   }
 
   if (VALID_SESSION_ROLES.has(cachedUser?.role)) {
@@ -342,7 +349,7 @@ export function AppProvider({ children }) {
       return syncUserData(me);
     }
 
-    // Admin accounts use the same top-level user state, but should not be
+    // Staff accounts use the same top-level user state, but should not be
     // treated as customer profile/vehicle data.
     dispatch(setCustomerUser(me));
     localStorage.setItem("user", JSON.stringify(me));

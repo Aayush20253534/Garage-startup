@@ -14,12 +14,18 @@ const {
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "INTERN"));
 
 router.get("/", priceRangeQuerySchema, validate, controller.listPriceRanges);
 router.post("/", createPriceRangeSchema, validate, controller.createPriceRange);
 router.get("/:id", priceRangeIdSchema, validate, controller.getPriceRange);
 router.patch("/:id", updatePriceRangeSchema, validate, controller.updatePriceRange);
-router.delete("/:id", priceRangeIdSchema, validate, controller.deletePriceRange);
+router.delete(
+  "/:id",
+  authorizeRoles("ADMIN"),
+  priceRangeIdSchema,
+  validate,
+  controller.deletePriceRange,
+);
 
 module.exports = router;

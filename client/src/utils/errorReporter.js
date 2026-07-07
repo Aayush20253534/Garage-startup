@@ -23,7 +23,14 @@ const getPortal = () => {
   const path = window.location.pathname;
   const sessionRole = window.localStorage.getItem("rov_session_role");
 
-  if (path.startsWith("/admin") || sessionRole === "ADMIN") return "ADMIN";
+  if (
+    path.startsWith("/admin") ||
+    path.startsWith("/intern") ||
+    sessionRole === "ADMIN" ||
+    sessionRole === "INTERN"
+  ) {
+    return "ADMIN";
+  }
   if (path.startsWith("/garage") || sessionRole === "GARAGE_OWNER") {
     return "GARAGE";
   }

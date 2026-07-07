@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { useApp } from "@/hooks/useApp";
 import CitySelect from "@/components/common/CitySelect";
 import {
   FiCheckCircle,
@@ -47,6 +48,8 @@ const formatServiceLabel = (service = {}) =>
   "Unknown service";
 
 export default function Revenue() {
+  const { user } = useApp();
+  const isIntern = user?.role === "INTERN";
   const [ranges, setRanges] = useState([]);
   const [services, setServices] = useState([]);
   const [vehicleBrands, setVehicleBrands] = useState([]);
@@ -452,14 +455,16 @@ export default function Revenue() {
                             <FiEdit3 />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => deleteRange(range)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
-                            aria-label="Delete price range"
-                          >
-                            <FiTrash2 />
-                          </button>
+                          {!isIntern && (
+                            <button
+                              type="button"
+                              onClick={() => deleteRange(range)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
+                              aria-label="Delete price range"
+                            >
+                              <FiTrash2 />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
