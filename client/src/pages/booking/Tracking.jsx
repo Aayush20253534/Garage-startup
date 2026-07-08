@@ -253,7 +253,7 @@ function Row({ label, value, bold = false }) {
   );
 }
 
-export default function Tracking() {
+function Tracking() {
   const location = useLocation();
   const navigate = useNavigate();
   const { clearBookingCaches } = useApp();
@@ -903,3 +903,6 @@ export default function Tracking() {
     </div>
   );
 }
+
+export { Tracking };
+export default Tracking;

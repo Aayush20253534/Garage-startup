@@ -307,11 +307,13 @@ const lazyPage = (loader, moduleName) =>
   lazy(() =>
     loader()
       .then((module) => {
-        if (!module?.default) {
+        const Page = module?.default || module?.[moduleName];
+
+        if (!Page) {
           throw createMissingLazyDefaultError(moduleName);
         }
 
-        return module;
+        return { default: Page };
       })
       .catch((error) => {
         if (reloadForLatestBuild(error)) {

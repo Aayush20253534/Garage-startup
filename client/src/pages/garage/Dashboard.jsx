@@ -21,13 +21,13 @@ export default function GarageDashboard() {
   const navigate = useNavigate();
 
   const { garage, bookings, wallet } = useSelector((state) => state.garage);
-  const { garageToken, isGarageAuthenticated, authLoading, refreshGarage } = useApp();
+  const { garageToken, refreshGarage, authLoading } = useApp();
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   const loadDashboard = async () => {
-    if (!isGarageAuthenticated && !garageToken) {
+    if (!garageToken) {
       if (!authLoading) setLoading(false);
       return;
     }
@@ -64,7 +64,7 @@ export default function GarageDashboard() {
 
   useEffect(() => {
     loadDashboard();
-  }, [garageToken, isGarageAuthenticated, authLoading]);
+  }, [garageToken, authLoading]);
 
   const safeBookings = Array.isArray(bookings) ? bookings : [];
 

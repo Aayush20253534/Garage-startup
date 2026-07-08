@@ -1034,10 +1034,8 @@ export function AppProvider({ children }) {
   const value = {
     user,
     garage: garageUser,
-    // Garage auth now uses the shared HttpOnly cookie. Older garage pages still
-    // check garageToken before loading, so keep a truthy compatibility value
-    // whenever a garage session exists.
-    garageToken: garageUser ? "cookie-session" : null,
+    token: user ? "cookie-session" : "",
+    garageToken: garageUser ? "cookie-session" : "",
     vehicle,
     vehicles,
     location,

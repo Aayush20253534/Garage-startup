@@ -186,7 +186,13 @@ const updateProfile = async (userId, data) => {
 
   if (nextPhone && nextPhone !== existingUser.phone) {
     const phoneExists = await prisma.user.findUnique({
-      where: { phone: nextPhone },
+      where: {
+        phone_role: {
+          phone: nextPhone,
+          role: existingUser.role,
+        },
+      },
+      select: { id: true },
     });
 
     if (phoneExists && phoneExists.id !== userId) {
