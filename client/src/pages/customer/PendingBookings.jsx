@@ -267,13 +267,6 @@ export default function PendingBookings() {
                     {isPaying ? "Opening payment..." : "Pay & Activate"}
                   </button>
 
-                  <Link
-                    to="/tracking"
-                    state={{ bookingId: booking.id }}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
-                  >
-                    View Status <FiArrowRight />
-                  </Link>
                 </div>
               </div>
             </article>
