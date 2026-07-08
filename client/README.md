@@ -134,15 +134,15 @@ http://127.0.0.1:8080
 
 ## Environment Variables
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `VITE_API_URL` | Production: yes | Base API URL. Production builds throw when it is missing. Local fallback is `http://localhost:5000/api/v1`. |
-| `VITE_FIREBASE_API_KEY` | For Google auth | Firebase web API key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | For Google auth | Firebase auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | For Google auth | Firebase project ID |
-| `VITE_FIREBASE_APP_ID` | For Google auth | Firebase application ID |
-| `VITE_ERROR_REPORTING_ENABLED` | No | Set to `false` to disable browser issue reports |
-| `VITE_APP_VERSION` | No | Release label attached to system-issue reports |
+| Variable                         | Required        | Purpose                                                                                                      |
+| -------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------ |
+| `VITE_API_URL`                 | Production: yes | Base API URL. Production builds throw when it is missing. Local fallback is`http://localhost:5000/api/v1`. |
+| `VITE_FIREBASE_API_KEY`        | For Google auth | Firebase web API key                                                                                         |
+| `VITE_FIREBASE_AUTH_DOMAIN`    | For Google auth | Firebase auth domain                                                                                         |
+| `VITE_FIREBASE_PROJECT_ID`     | For Google auth | Firebase project ID                                                                                          |
+| `VITE_FIREBASE_APP_ID`         | For Google auth | Firebase application ID                                                                                      |
+| `VITE_ERROR_REPORTING_ENABLED` | No              | Set to`false` to disable browser issue reports                                                             |
+| `VITE_APP_VERSION`             | No              | Release label attached to system-issue reports                                                               |
 
 Vite injects these values at build time. They are public configuration values and must never contain private server credentials.
 
@@ -183,11 +183,11 @@ The local-storage key `rov_session_role` is only a UI/session hint. Backend auth
 
 `src/App.jsx` defines three important guards:
 
-| Guard | Behavior |
-| --- | --- |
-| `ProtectedRoute` | Requires a customer, garage, or admin session according to the URL prefix |
-| `AddressCheck` | Redirects customers without a usable saved India location to `/booking/address` |
-| `VehicleCheck` | Redirects customers without a vehicle to `/booking/vehicle` |
+| Guard              | Behavior                                                                         |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `ProtectedRoute` | Requires a customer, garage, or admin session according to the URL prefix        |
+| `AddressCheck`   | Redirects customers without a usable saved India location to`/booking/address` |
+| `VehicleCheck`   | Redirects customers without a vehicle to`/booking/vehicle`                     |
 
 The SOS routes use `SOSAvailabilityGuard`, which reads the service catalog and blocks the flow when roadside assistance is marked as coming soon.
 
