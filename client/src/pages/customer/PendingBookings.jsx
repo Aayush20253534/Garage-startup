@@ -124,10 +124,35 @@ export default function PendingBookings() {
 
   if (loading) {
     return (
-      <div>
-        <h2 className="mb-6 text-2xl font-bold">Pending Bookings</h2>
-        <div className="card-soft p-6 text-muted">
-          Loading pending bookings...
+      <div className="mx-auto max-w-6xl space-y-5">
+        <section className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-dark">
+                Customer Pending Payments
+              </p>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink">
+                Pending Bookings
+              </h2>
+            </div>
+            <div className="h-10 w-28 rounded-xl bg-bg-soft" />
+          </div>
+        </section>
+
+        <div className="card-soft rounded-2xl border border-line bg-white p-5 shadow-sm">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 w-36 rounded bg-bg-soft" />
+            <div className="h-6 w-3/4 rounded bg-bg-soft" />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="h-16 rounded-xl bg-bg-soft" />
+              <div className="h-16 rounded-xl bg-bg-soft" />
+              <div className="h-16 rounded-xl bg-bg-soft" />
+              <div className="h-16 rounded-xl bg-bg-soft" />
+            </div>
+          </div>
+          <p className="mt-5 text-sm font-medium text-muted">
+            Loading pending bookings...
+          </p>
         </div>
       </div>
     );
@@ -135,15 +160,22 @@ export default function PendingBookings() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
-      <section className="overflow-hidden rounded-3xl border border-line bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <section className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-dark">
-              Customer Pending Payments
-            </p>
-            <h2 className="mt-2 text-2xl font-bold text-ink sm:text-3xl">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-dark">
+                Customer Pending Payments
+              </p>
+              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                {pendingCount} pending
+              </span>
+            </div>
+
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink sm:text-3xl">
               Pending Bookings
             </h2>
+
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
               These bookings are saved under your account but have not entered
               garage search yet. Complete the online payment to convert one into
@@ -151,38 +183,29 @@ export default function PendingBookings() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:flex sm:items-center">
-            <div className="rounded-2xl border border-line bg-bg-soft px-4 py-3 text-sm">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Pending
-              </div>
-              <div className="mt-1 text-2xl font-bold text-ink">
-                {pendingCount}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => loadPendingBookings({ force: true })}
-              disabled={refreshing}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <FiRefreshCw className={refreshing ? "animate-spin" : ""} />
-              {refreshing ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => loadPendingBookings({ force: true })}
+            disabled={refreshing}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/20 hover:bg-bg-soft active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto"
+          >
+            <FiRefreshCw className={refreshing ? "animate-spin" : ""} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
       </section>
 
       {notice && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {notice}
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800 shadow-sm">
+          <FiAlertCircle className="mt-1 shrink-0" />
+          <span>{notice}</span>
         </div>
       )}
 
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700 shadow-sm">
+          <FiAlertCircle className="mt-1 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
@@ -193,102 +216,131 @@ export default function PendingBookings() {
           return (
             <article
               key={booking.id}
-              className="card-soft overflow-hidden rounded-2xl border border-line bg-white shadow-sm transition hover:shadow-md"
+              className="card-soft overflow-hidden rounded-2xl border border-line bg-white shadow-sm transition hover:border-ink/10 hover:shadow-md"
             >
-              <div className="grid gap-5 p-5 lg:grid-cols-[1fr_auto] lg:items-start">
-                <div className="min-w-0 space-y-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="grid gap-0 lg:grid-cols-[1fr_260px]">
+                <div className="min-w-0 p-5 sm:p-6">
+                  <div className="flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-                        #{booking.bookingCode || booking.id}
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                          #{booking.bookingCode || booking.id}
+                        </span>
                       </div>
-                      <h3 className="mt-1 line-clamp-2 text-lg font-bold text-ink">
+
+                      <h3 className="mt-2 line-clamp-2 text-lg font-bold leading-7 text-ink sm:text-xl">
                         {getServicesText(booking)}
                       </h3>
                     </div>
 
-                    <span className="inline-flex w-fit items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                      <FiClock /> Pending Payment
+                    <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                      <FiClock className="text-sm" />
+                      Pending Payment
                     </span>
                   </div>
 
-                  <div className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl bg-bg-soft p-3">
+                  <div className="grid gap-4 py-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                        <FiTruck /> Vehicle
+                        <FiTruck className="shrink-0" />
+                        Vehicle
                       </div>
-                      <div className="mt-1 truncate font-semibold text-ink">
+                      <div className="mt-1 truncate text-sm font-semibold text-ink">
                         {getVehicleText(booking)}
                       </div>
                     </div>
 
-                    <div className="rounded-2xl bg-bg-soft p-3">
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                        <FiCalendar /> Created
+                        <FiCalendar className="shrink-0" />
+                        Created
                       </div>
-                      <div className="mt-1 truncate font-semibold text-ink">
+                      <div className="mt-1 truncate text-sm font-semibold text-ink">
                         {getCreatedText(booking)}
                       </div>
                     </div>
 
-                    <div className="rounded-2xl bg-bg-soft p-3">
+                    <div className="min-w-0 rounded-xl border border-line bg-bg-soft px-3 py-2.5 sm:bg-white">
                       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                        <FiCreditCard /> Online due
+                        <FiCreditCard className="shrink-0" />
+                        Online due
                       </div>
-                      <div className="mt-1 truncate font-semibold text-ink">
+                      <div className="mt-1 truncate text-base font-bold text-ink">
                         {getOnlineAmountText(booking)}
                       </div>
                     </div>
 
-                    <div className="rounded-2xl bg-bg-soft p-3">
+                    <div className="min-w-0 rounded-xl border border-line bg-bg-soft px-3 py-2.5 sm:bg-white">
                       <div className="text-xs font-semibold uppercase tracking-wide text-muted">
                         Service estimate
                       </div>
-                      <div className="mt-1 truncate font-semibold text-ink">
+                      <div className="mt-1 truncate text-base font-bold text-ink">
                         {getServiceRangeText(booking)}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-2 rounded-2xl border border-line bg-white px-3 py-3 text-sm text-muted">
-                    <FiMapPin className="mt-0.5 shrink-0" />
-                    <span className="line-clamp-2">{getAddressText(booking)}</span>
+                  <div className="border-t border-line pt-4">
+                    <div className="flex min-w-0 items-start gap-2 text-sm leading-6 text-muted">
+                      <FiMapPin className="mt-1 shrink-0" />
+                      <span className="line-clamp-2 break-words">
+                        {getAddressText(booking)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid gap-3 lg:w-56">
-                  <button
-                    type="button"
-                    onClick={() => handlePayNow(booking)}
-                    disabled={isPaying || Boolean(payingId)}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <FiCreditCard />
-                    {isPaying ? "Opening payment..." : "Pay & Activate"}
-                  </button>
+                <aside className="border-t border-line bg-bg-soft p-5 sm:p-6 lg:border-l lg:border-t-0">
+                  <div className="flex h-full flex-col justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                        Next step
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-ink">
+                        Complete the online payment to activate garage search for
+                        this booking.
+                      </p>
+                    </div>
 
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => handlePayNow(booking)}
+                      disabled={isPaying || Boolean(payingId)}
+                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/20 transition hover:bg-brand-dark hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-sm"
+                    >
+                      <FiCreditCard className="shrink-0" />
+                      {isPaying ? "Opening payment..." : "Pay & Activate"}
+                      {!isPaying && <FiArrowRight className="shrink-0" />}
+                    </button>
+                  </div>
+                </aside>
               </div>
             </article>
           );
         })}
 
         {bookings.length === 0 && (
-          <div className="rounded-3xl border border-dashed border-line bg-white p-8 text-center shadow-sm">
-            <FiAlertCircle className="mx-auto text-3xl text-muted" />
-            <h3 className="mt-3 text-lg font-bold text-ink">
+          <div className="rounded-2xl border border-dashed border-line bg-white px-5 py-10 text-center shadow-sm sm:px-8">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-line bg-bg-soft">
+              <FiAlertCircle className="text-2xl text-muted" />
+            </div>
+
+            <h3 className="mt-4 text-lg font-bold text-ink">
               No pending bookings
             </h3>
+
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
               Bookings that are waiting for payment will appear here, so you can
               return later and complete payment without creating a duplicate
               booking.
             </p>
+
             <Link
               to="/booking/vehicle"
-              className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-ink px-5 text-sm font-semibold text-white transition hover:bg-ink-2"
+              className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-ink-2 active:scale-[0.99] sm:w-auto"
             >
               Book a service
+              <FiArrowRight />
             </Link>
           </div>
         )}
