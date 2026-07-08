@@ -243,9 +243,16 @@ export default function AddressForm() {
         path: "/dashboard/profile",
       });
 
-      nav(routeLocation.state?.from?.pathname || "/booking/vehicle", {
+      const fromLocation = routeLocation.state?.from;
+      const returnPath = fromLocation?.pathname
+        ? `${fromLocation.pathname}${fromLocation.search || ""}${
+            fromLocation.hash || ""
+          }`
+        : "/booking/vehicle";
+
+      nav(returnPath, {
         replace: true,
-        state: routeLocation.state?.from?.state,
+        state: fromLocation?.state,
       });
     } catch (err) {
       setError(

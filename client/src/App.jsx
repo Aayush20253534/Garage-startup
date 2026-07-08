@@ -63,7 +63,8 @@ function ProtectedRoute({ children }) {
   const { user, garage, authLoading } = useApp();
   const location = useLocation();
 
-  const isGarageRoute = location.pathname.startsWith("/garage");
+  const isGarageRoute =
+    location.pathname === "/garage" || location.pathname.startsWith("/garage/");
   const isAdminRoute = location.pathname.startsWith("/admin");
   const isInternRoute = location.pathname.startsWith("/intern");
 
@@ -753,7 +754,14 @@ function AppRoutes() {
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/services" element={<Services />} />
-          <Route path="/garages" element={<Garages />} />
+          <Route
+            path="/garages"
+            element={
+              <ProtectedRoute>
+                <Garages />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/services/:categoryId" element={<CategoryDetail />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/about" element={<About />} />

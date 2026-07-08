@@ -88,9 +88,14 @@ export default function Home() {
     customers: "Growing",
   });
   const cityName = String(location?.city || "").trim();
-  const garagesPath = cityName
-    ? `/garages?city=${encodeURIComponent(cityName)}`
-    : "/garages";
+  const garageSearch = cityName
+    ? `?city=${encodeURIComponent(cityName)}`
+    : "";
+  const garagesPath = `${"/garages"}${garageSearch}`;
+  const garagesReturnLocation = {
+    pathname: "/garages",
+    search: garageSearch,
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -229,7 +234,15 @@ export default function Home() {
                 </Link>
 
                 <Link
-                  to={garagesPath}
+                  to={user ? garagesPath : "/login"}
+                  state={
+                    user
+                      ? undefined
+                      : {
+                          from: garagesReturnLocation,
+                          message: "Login to view verified garages.",
+                        }
+                  }
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-bold text-white transition hover:border-white hover:bg-white/15"
                 >
                   <FiHome /> Garages

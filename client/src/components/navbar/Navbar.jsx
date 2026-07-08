@@ -64,6 +64,9 @@ export default function Navbar() {
   const { pathname } = useLocation();
 
   const safeCart = Array.isArray(cart) ? cart : [];
+  const visibleNav = user
+    ? NAV
+    : NAV.filter((item) => item.to !== "/garages");
 
   const closeMobileMenu = () => {
     document.body.style.overflow = "";
@@ -221,7 +224,7 @@ export default function Navbar() {
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
-          {NAV.map((item) => (
+          {visibleNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -820,7 +823,7 @@ export default function Navbar() {
               )}
 
               <nav className="mb-6 grid gap-1">
-                {NAV.map((item) => (
+                {visibleNav.map((item) => (
                   <Link
                     key={item.to}
                     to={item.to}

@@ -8,9 +8,18 @@ import { verifyCurrentSession } from "@/utils/authSession";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { useApp } from "@/hooks/useApp";
 
+const buildReturnPath = (fromLocation) => {
+  if (!fromLocation?.pathname) return null;
+
+  return `${fromLocation.pathname}${fromLocation.search || ""}${
+    fromLocation.hash || ""
+  }`;
+};
+
 export default function Login() {
   const { state } = useLocation();
-  const from = state?.from?.pathname || null;
+  const fromLocation = state?.from || null;
+  const from = buildReturnPath(fromLocation);
   const notice = state?.message || "";
 
   const nav = useNavigate();
@@ -27,11 +36,15 @@ export default function Login() {
   const completeLogin = (freshUser) => {
     login(freshUser);
 
-    const redirectPath = !hasSavedUserLocation(freshUser)
-      ? "/booking/address"
-      : from || "/dashboard";
+    if (!hasSavedUserLocation(freshUser)) {
+      nav("/booking/address", {
+        replace: true,
+        state: fromLocation ? { from: fromLocation } : undefined,
+      });
+      return;
+    }
 
-    nav(redirectPath, { replace: true });
+    nav(from || "/dashboard", { replace: true });
   };
 
   useEffect(() => {
