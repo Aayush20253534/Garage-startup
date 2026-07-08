@@ -33,12 +33,12 @@ const applicationStatusMeta = {
 };
 
 const adminButtonBase =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:cursor-not-allowed disabled:opacity-50";
 
 const money = (value) => `₹${Number(value || 0).toLocaleString()}`;
 
 const fieldClass =
-  "h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink disabled:bg-bg-soft";
+  "h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/5 disabled:bg-bg-soft";
 
 const getGarageBrands = (garage) => {
   const value = garage?.supportedBrands;
@@ -410,7 +410,7 @@ export default function Garages() {
           </p>
         </div>
 
-        <div className="flex rounded-2xl border border-line bg-white p-1 shadow-sm">
+        <div className="flex rounded-xl border border-line bg-white p-1 shadow-sm">
           {[
             ["applications", "Applications"],
             ["services", "Garages"],
@@ -420,7 +420,7 @@ export default function Garages() {
               type="button"
               onClick={() => setTab(id)}
               className={[
-                "rounded-xl px-4 py-2 text-sm font-bold transition",
+                "rounded-lg px-4 py-2 text-sm font-semibold transition",
                 tab === id
                   ? "bg-ink text-white shadow-sm"
                   : "text-muted hover:bg-bg-soft hover:text-ink",
@@ -448,7 +448,7 @@ export default function Garages() {
 
       {tab === "applications" ? (
         <div className="space-y-4">
-          <section className="card-soft rounded-2xl p-4 shadow-sm">
+          <section className="card-soft rounded-xl p-4 shadow-sm">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-wrap items-center gap-2">
                 {applicationStatuses.map((status) => {
@@ -460,10 +460,10 @@ export default function Garages() {
                       type="button"
                       onClick={() => setApplicationStatus(status)}
                       className={[
-                        "rounded-xl border px-4 py-2 text-xs font-black uppercase tracking-wide transition sm:text-sm",
+                        "rounded-lg border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition sm:text-sm",
                         applicationStatus === status
                           ? "border-ink bg-ink text-white shadow-sm"
-                          : `${meta.tone} hover:-translate-y-0.5 hover:shadow-sm`,
+                          : `${meta.tone} hover:border-ink/20`,
                       ].join(" ")}
                     >
                       {meta.label}
@@ -485,7 +485,7 @@ export default function Garages() {
 
                 {canDeleteApplications && applications.length > 0 && (
                   <>
-                    <label className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-muted transition hover:bg-bg-soft">
+                    <label className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-muted transition hover:border-ink/20 hover:bg-bg-soft">
                       <input
                         type="checkbox"
                         checked={
@@ -533,7 +533,7 @@ export default function Garages() {
               applications.map((application) => (
                 <section
                   key={application.id}
-                  className="card-soft rounded-2xl p-4 shadow-sm"
+                  className="card-soft rounded-xl p-4 shadow-sm"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 space-y-2">
@@ -588,7 +588,7 @@ export default function Garages() {
                               href={getGarageImageUrl(image)}
                               target="_blank"
                               rel="noreferrer"
-                              className="block overflow-hidden rounded-xl border border-line bg-bg-soft"
+                              className="block overflow-hidden rounded-lg border border-line bg-bg-soft"
                             >
                               <img
                                 src={getGarageImageUrl(image)}
@@ -634,7 +634,7 @@ export default function Garages() {
                             onClick={() =>
                               runApplicationAction(application, "approve")
                             }
-                            className={`${adminButtonBase} bg-lime-400 text-black shadow-sm hover:-translate-y-0.5 hover:bg-lime-500`}
+                            className={`${adminButtonBase} bg-lime-400 text-black shadow-sm hover:bg-lime-500`}
                           >
                             <FiCheck />
                             Approve
@@ -645,7 +645,7 @@ export default function Garages() {
                             onClick={() =>
                               runApplicationAction(application, "changes")
                             }
-                            className={`${adminButtonBase} border border-line bg-white text-ink hover:-translate-y-0.5 hover:border-ink hover:bg-bg-soft`}
+                            className={`${adminButtonBase} border border-line bg-white text-ink hover:border-ink/30 hover:bg-bg-soft`}
                           >
                             <FiEdit3 />
                             Changes
@@ -656,7 +656,7 @@ export default function Garages() {
                             onClick={() =>
                               runApplicationAction(application, "deny")
                             }
-                            className={`${adminButtonBase} bg-red-700 text-white hover:-translate-y-0.5 hover:bg-red-800`}
+                            className={`${adminButtonBase} bg-red-700 text-white hover:bg-red-800`}
                           >
                             <FiX />
                             Deny
@@ -674,8 +674,8 @@ export default function Garages() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="card-soft overflow-hidden rounded-2xl shadow-sm">
+        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+          <aside className="card-soft overflow-hidden rounded-xl shadow-sm">
             <div className="border-b border-line p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -689,7 +689,7 @@ export default function Garages() {
                   type="button"
                   onClick={loadGaragesAndServices}
                   disabled={loading}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-white text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-white text-ink transition hover:border-ink/30 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <FiRefreshCw className={loading ? "animate-spin" : ""} />
                 </button>
@@ -715,7 +715,7 @@ export default function Garages() {
 
               {!isIntern && garages.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:bg-bg-soft">
+                  <label className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:border-ink/20 hover:bg-bg-soft">
                     <input
                       type="checkbox"
                       checked={selectedGarageIds.length === garages.length}
@@ -732,7 +732,7 @@ export default function Garages() {
                     type="button"
                     onClick={() => deleteGarages(selectedGarageIds)}
                     disabled={!selectedGarageIds.length}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-red-50 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <FiTrash2 />
                     Delete
@@ -749,8 +749,8 @@ export default function Garages() {
                     className={[
                       "flex items-start gap-3 border-b border-line p-3 transition",
                       selectedGarageId === garage.id
-                        ? "bg-ink text-white"
-                        : "hover:bg-bg-soft",
+                        ? "border-l-4 border-lime-400 bg-lime-50 text-ink"
+                        : "border-l-4 border-transparent hover:bg-bg-soft",
                     ].join(" ")}
                   >
                     {!isIntern && (
@@ -778,7 +778,7 @@ export default function Garages() {
                         className={[
                           "mt-1 text-xs",
                           selectedGarageId === garage.id
-                            ? "text-white/70"
+                            ? "text-muted"
                             : "text-muted",
                         ].join(" ")}
                       >
@@ -795,7 +795,7 @@ export default function Garages() {
           </aside>
 
           <main className="min-w-0 space-y-4">
-            <section className="card-soft rounded-2xl p-4 shadow-sm">
+            <section className="card-soft rounded-xl p-4 shadow-sm">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
                   <h3 className="break-words text-xl font-bold text-ink">
@@ -812,11 +812,11 @@ export default function Garages() {
 
                 {selectedGarage && (
                   <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-lime-100 px-3 py-1 text-xs font-bold text-ink">
+                    <span className="rounded-md border border-lime-200 bg-lime-50 px-3 py-1 text-xs font-semibold text-ink">
                       {selectedGarage.isVerified ? "Verified" : "Unverified"}
                     </span>
 
-                    <span className="rounded-full bg-lime-100 px-3 py-1 text-xs font-bold text-ink">
+                    <span className="rounded-md border border-lime-200 bg-lime-50 px-3 py-1 text-xs font-semibold text-ink">
                       {selectedGarage.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
@@ -834,7 +834,7 @@ export default function Garages() {
             </section>
 
             {selectedGarage && (
-              <section className="card-soft space-y-4 rounded-2xl p-4 shadow-sm">
+              <section className="card-soft space-y-4 rounded-xl p-4 shadow-sm">
                 <div>
                   <h4 className="font-bold text-ink">Garage Details</h4>
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted">
@@ -936,7 +936,7 @@ export default function Garages() {
                         href={getGarageImageUrl(image)}
                         target="_blank"
                         rel="noreferrer"
-                        className="block overflow-hidden rounded-xl border border-line bg-bg-soft"
+                        className="block overflow-hidden rounded-lg border border-line bg-bg-soft"
                       >
                         <img
                           src={getGarageImageUrl(image)}
@@ -950,7 +950,7 @@ export default function Garages() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-xl bg-bg-soft p-4 text-sm text-muted">
+                  <div className="rounded-lg bg-bg-soft p-4 text-sm text-muted">
                     No garage photos were submitted during onboarding.
                   </div>
                 )}
@@ -964,7 +964,7 @@ export default function Garages() {
                         inspection evidence.
                       </p>
                     </div>
-                    <div className="rounded-full bg-bg-soft px-3 py-1.5 text-sm font-semibold text-ink">
+                    <div className="rounded-md border border-line bg-bg-soft px-3 py-1.5 text-sm font-semibold text-ink">
                       {Number(selectedGarage.ratingAvg || 0).toFixed(1)} average ·{" "}
                       {selectedGarage.ratingCount || 0} reviews
                     </div>
@@ -985,7 +985,7 @@ export default function Garages() {
                         return (
                           <article
                             key={review.id}
-                            className="rounded-2xl border border-line bg-white p-4"
+                            className="rounded-xl border border-line bg-white p-4"
                           >
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                               <div>
@@ -1009,7 +1009,7 @@ export default function Garages() {
                               </div>
                             </div>
 
-                            <p className="mt-4 whitespace-pre-wrap rounded-xl bg-bg-soft p-3 text-sm text-ink">
+                            <p className="mt-4 whitespace-pre-wrap rounded-lg bg-bg-soft p-3 text-sm text-ink">
                               {review.comment || "No written comment submitted."}
                             </p>
 
@@ -1049,7 +1049,7 @@ export default function Garages() {
                       })}
                     </div>
                   ) : (
-                    <div className="mt-4 rounded-xl bg-bg-soft p-4 text-sm text-muted">
+                    <div className="mt-4 rounded-lg bg-bg-soft p-4 text-sm text-muted">
                       No customer reviews have been submitted for this garage.
                     </div>
                   )}
@@ -1059,7 +1059,7 @@ export default function Garages() {
 
             <form
               onSubmit={saveGarageService}
-              className="card-soft grid gap-3 rounded-2xl p-4 shadow-sm xl:grid-cols-[1fr_1.2fr_0.9fr_0.9fr_auto]"
+              className="card-soft grid gap-3 rounded-xl p-4 shadow-sm xl:grid-cols-[1fr_1.2fr_0.9fr_0.9fr_auto]"
             >
               <select
                 required
@@ -1148,7 +1148,7 @@ export default function Garages() {
               </button>
             </form>
 
-            <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
+            <section className="card-soft overflow-hidden rounded-xl shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[620px] text-sm">
                   <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
@@ -1196,7 +1196,7 @@ export default function Garages() {
                               <button
                                 type="button"
                                 onClick={() => editGarageService(item)}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-white text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-white text-ink transition hover:border-ink/30 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 <FiEdit3 />
                               </button>
