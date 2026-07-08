@@ -130,6 +130,86 @@ const invalidateBookingCaches = async (userId) => {
   ]);
 };
 
+
+const getPaidBookingRefundAmount = (booking) => {
+  if (!booking?.payment || booking.payment.status !== "PAID") {
+    return 0;
+  }
+
+  const upiAmountPaid = Number(
+    booking.payment.upiAmountPaid ?? booking.payment.amount ?? 0,
+  );
+  const walletAmountUsed = Number(
+    booking.payment.walletAmountUsed ?? booking.walletAmountUsed ?? 0,
+  );
+  const fallbackPaidAmount = Number(
+    booking.payment.amount ?? booking.payableAmount ?? booking.handlingFee ?? 0,
+  );
+
+  const refundAmount =
+    (Number.isFinite(upiAmountPaid) ? upiAmountPaid : 0) +
+    (Number.isFinite(walletAmountUsed) ? walletAmountUsed : 0);
+
+  const normalizedAmount = refundAmount > 0 ? refundAmount : fallbackPaidAmount;
+
+  return Number.isInteger(normalizedAmount) && normalizedAmount > 0
+    ? normalizedAmount
+    : Math.max(0, Math.round(normalizedAmount || 0));
+};
+
+const refundPaidBookingToWallet = async ({ tx, booking, refundAmount }) => {
+  if (!refundAmount || refundAmount <= 0 || !booking?.payment) {
+    return null;
+  }
+
+  let wallet = await tx.wallet.findUnique({
+    where: { userId: booking.userId },
+  });
+
+  if (!wallet) {
+    wallet = await tx.wallet.create({
+      data: {
+        userId: booking.userId,
+        type: "CUSTOMER",
+        balance: 0,
+      },
+    });
+  }
+
+  const balanceAfter = wallet.balance + refundAmount;
+
+  const updatedWallet = await tx.wallet.update({
+    where: { id: wallet.id },
+    data: { balance: balanceAfter },
+  });
+
+  const transaction = await tx.walletTransaction.create({
+    data: {
+      walletId: wallet.id,
+      userId: booking.userId,
+      type: "BOOKING_REFUND",
+      status: "SUCCESS",
+      amount: refundAmount,
+      balanceAfter,
+      cashfreeOrderId: booking.payment.cashfreeOrderId || null,
+      cashfreePaymentId: booking.payment.cashfreePaymentId || null,
+      description: `Refund for cancelled booking ${booking.bookingCode}`,
+    },
+  });
+
+  const payment = await tx.payment.update({
+    where: { bookingId: booking.id },
+    data: { status: "REFUNDED" },
+  });
+
+  return {
+    amount: refundAmount,
+    wallet: updatedWallet,
+    transaction,
+    payment,
+  };
+};
+
 const createBooking = async (userId, data) => {
   const {
     vehicleId,
@@ -461,7 +541,37 @@ const cancelBooking = async (userId, bookingId) => {
     throw new ApiError(400, "This booking cannot be cancelled");
   }
 
-  const cancelledBooking = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
+    const freshBooking = await tx.booking.findFirst({
+      where: {
+        id: bookingId,
+        userId,
+      },
+      include: { payment: true },
+    });
+
+    if (!freshBooking) {
+      throw new ApiError(404, "Booking not found");
+    }
+
+    if (
+      ![
+        "PENDING_PAYMENT",
+        "SEARCHING_GARAGE",
+        "GARAGE_ASSIGNED",
+        "CONFIRMED",
+      ].includes(freshBooking.status)
+    ) {
+      throw new ApiError(400, "This booking cannot be cancelled");
+    }
+
+    const refundAmount = getPaidBookingRefundAmount(freshBooking);
+    const refund = await refundPaidBookingToWallet({
+      tx,
+      booking: freshBooking,
+      refundAmount,
+    });
+
     await tx.garageBroadcastRequest.updateMany({
       where: {
         bookingId,
@@ -473,18 +583,35 @@ const cancelBooking = async (userId, bookingId) => {
       },
     });
 
-    return tx.booking.update({
+    const cancelledBooking = await tx.booking.update({
       where: { id: bookingId },
       data: {
         status: "CANCELLED",
         searchExpiresAt: null,
+        expiredAt: null,
+        trackingEndedAt: new Date(),
       },
       include: bookingInclude,
     });
+
+    return {
+      booking: cancelledBooking,
+      refund,
+    };
   });
 
   await invalidateBookingCaches(userId);
-  return cancelledBooking;
+
+  return {
+    ...result.booking,
+    refund: result.refund
+      ? {
+          amount: result.refund.amount,
+          walletBalance: result.refund.wallet.balance,
+          transactionId: result.refund.transaction.id,
+        }
+      : null,
+  };
 };
 
 module.exports = {

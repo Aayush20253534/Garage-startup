@@ -21,25 +21,28 @@ export default function GarageDashboard() {
   const navigate = useNavigate();
 
   const { garage, bookings, wallet } = useSelector((state) => state.garage);
-  const { garageToken, refreshGarage } = useApp();
+  const { garageToken, isGarageAuthenticated, authLoading, refreshGarage } = useApp();
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   const loadDashboard = async () => {
-    if (!garageToken) return;
+    if (!isGarageAuthenticated && !garageToken) {
+      if (!authLoading) setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError("");
 
     try {
       const [requestsResult, walletData] = await Promise.all([
-        garageApi.getRequests(garageToken, "").catch((err) => {
+        garageApi.getRequests("").catch((err) => {
           if (err.response?.status === 404) return [];
           throw err;
         }),
-        garageApi.getWallet(garageToken),
-        refreshGarage(garageToken),
+        garageApi.getWallet(),
+        refreshGarage(),
       ]);
 
       dispatch(setBookings(requestsResult || []));
@@ -48,7 +51,7 @@ export default function GarageDashboard() {
         setWallet({
           ...(walletData.wallet || {}),
           balance: walletData.wallet?.balance || 0,
-          transactions: wallet.transactions || [],
+          transactions: walletData.transactions || wallet.transactions || [],
           activation: walletData.activation,
         })
       );
@@ -61,7 +64,7 @@ export default function GarageDashboard() {
 
   useEffect(() => {
     loadDashboard();
-  }, [garageToken]);
+  }, [garageToken, isGarageAuthenticated, authLoading]);
 
   const safeBookings = Array.isArray(bookings) ? bookings : [];
 
