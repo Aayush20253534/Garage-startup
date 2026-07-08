@@ -268,4 +268,20 @@ export const adminApi = {
       }),
     );
   },
+
+  async getDangerousCommands() {
+    return unwrap(
+      await api.get("/admin/dangerous/commands", {
+        skipErrorReporting: true,
+      }),
+    );
+  },
+
+  async runDangerousCommand(command, payload = {}) {
+    return unwrap(
+      await api.post(`/admin/dangerous/commands/${command}/run`, payload, {
+        skipErrorReporting: true,
+      }),
+    );
+  },
 };

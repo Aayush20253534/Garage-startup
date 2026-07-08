@@ -516,11 +516,16 @@ const AdminSystemIssues = lazyPage(
   () => import("@/pages/admin/SystemIssues"),
   "AdminSystemIssues",
 );
+const AdminDangerous = lazyPage(
+  () => import("@/pages/admin/Dangerous"),
+  "AdminDangerous",
+);
 const InternLogin = lazyPage(() => import("@/pages/intern/Login"), "InternLogin");
 
 import {
   FiArrowLeft,
   FiAlertTriangle,
+  FiAlertOctagon,
   FiGrid,
   FiTruck,
   FiPlusCircle,
@@ -678,6 +683,7 @@ const adminItems = [
   { to: "/admin/customers", label: "Customers", icon: FiUsers },
   { to: "/admin/bookings", label: "Bookings", icon: FiCalendar },
   { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
+  { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon },
   { to: "/admin/notifications", label: "Notifications", icon: FiBell },
   { to: "/admin/email", label: "Email", icon: FiMail },
 ];
@@ -1051,6 +1057,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminSystemIssues />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/dangerous"
+            element={
+              <ProtectedRoute>
+                <AdminDangerous />
               </ProtectedRoute>
             }
           />

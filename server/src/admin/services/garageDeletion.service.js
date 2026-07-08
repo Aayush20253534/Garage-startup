@@ -101,13 +101,19 @@ const deleteGaragesDeep = async ({ garageIds = [], email = "", deleteAllApplicat
   const applicationWhere = buildApplicationWhere(garages, deleteAllApplications);
   const ownerIds = unique(garages.map((garage) => garage.ownerId));
 
-  const media = await Promise.all([
-    prisma.garageImage.findMany({ where: { garageId: { in: ids } }, select: { publicId: true } }),
-    prisma.garageVideo.findMany({ where: { garageId: { in: ids } }, select: { publicId: true } }),
-    prisma.bookingInspectionImage.findMany({ where: { garageId: { in: ids } }, select: { publicId: true } }),
-    prisma.garageApplicationImage.findMany({ where: { application: { is: applicationWhere } }, select: { publicId: true } }),
-  ]);
-  const publicIds = unique(media.flat().map((item) => item.publicId));
+  const [garageImages, garageVideos, inspectionImages, applicationImages] =
+    await Promise.all([
+      prisma.garageImage.findMany({ where: { garageId: { in: ids } }, select: { publicId: true } }),
+      prisma.garageVideo.findMany({ where: { garageId: { in: ids } }, select: { publicId: true } }),
+      prisma.bookingInspectionImage.findMany({ where: { garageId: { in: ids } }, select: { publicId: true } }),
+      prisma.garageApplicationImage.findMany({ where: { application: { is: applicationWhere } }, select: { publicId: true } }),
+    ]);
+  const mediaAssets = [
+    ...garageImages.map((item) => ({ publicId: item.publicId, resourceType: "image" })),
+    ...garageVideos.map((item) => ({ publicId: item.publicId, resourceType: "video" })),
+    ...inspectionImages.map((item) => ({ publicId: item.publicId, resourceType: "image" })),
+    ...applicationImages.map((item) => ({ publicId: item.publicId, resourceType: "image" })),
+  ].filter((item) => item.publicId);
 
   const result = await prisma.$transaction(async (tx) => {
     const bookings = await tx.booking.findMany({
@@ -149,7 +155,11 @@ const deleteGaragesDeep = async ({ garageIds = [], email = "", deleteAllApplicat
     };
   });
 
-  await Promise.all(publicIds.map((publicId) => deleteFromCloudinary(publicId).catch(() => null)));
+  await Promise.all(
+    mediaAssets.map((asset) =>
+      deleteFromCloudinary(asset.publicId, asset.resourceType).catch(() => null),
+    ),
+  );
 
   return result;
 };
