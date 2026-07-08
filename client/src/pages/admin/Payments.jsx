@@ -121,8 +121,11 @@ const getSecondaryReference = (record) => {
   return record.cashfreePaymentId || "-";
 };
 
+const controlClass =
+  "h-11 w-full rounded-lg border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-ink";
+
 const StatCard = ({ icon: Icon, label, value, caption }) => (
-  <div className="rounded-xl border border-line bg-white p-4 shadow-sm">
+  <div className="min-w-0 rounded-xl border border-line bg-white p-4 shadow-sm">
     <div className="flex items-start justify-between gap-3">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -260,7 +263,7 @@ export default function Payments() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 overflow-x-hidden">
+    <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-ink">Payments</h2>
@@ -330,21 +333,21 @@ export default function Payments() {
         onSubmit={submitFilters}
         className="rounded-xl border border-line bg-white p-4 shadow-sm"
       >
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_220px_180px_150px_150px_auto]">
-          <label className="relative min-w-0">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-12">
+          <label className="relative min-w-0 sm:col-span-2 xl:col-span-4">
             <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               value={filters.search}
               onChange={(event) => updateFilter("search", event.target.value)}
               placeholder="Search customer, garage, booking, order ID"
-              className="h-11 w-full rounded-lg border border-line bg-white pl-10 pr-3 text-sm outline-none transition focus:border-ink"
+              className={`${controlClass} pl-10`}
             />
           </label>
 
           <select
             value={filters.type}
             onChange={(event) => updateFilter("type", event.target.value)}
-            className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+            className={`${controlClass} min-w-0 xl:col-span-2`}
           >
             {paymentTypes.map((type) => (
               <option key={type.value} value={type.value}>
@@ -356,7 +359,7 @@ export default function Payments() {
           <select
             value={filters.status}
             onChange={(event) => updateFilter("status", event.target.value)}
-            className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+            className={`${controlClass} min-w-0 xl:col-span-2`}
           >
             {statuses.map((status) => (
               <option key={status.value} value={status.value}>
@@ -369,21 +372,21 @@ export default function Payments() {
             type="date"
             value={filters.from}
             onChange={(event) => updateFilter("from", event.target.value)}
-            className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+            className={`${controlClass} min-w-0 xl:col-span-2`}
           />
 
           <input
             type="date"
             value={filters.to}
             onChange={(event) => updateFilter("to", event.target.value)}
-            className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+            className={`${controlClass} min-w-0 xl:col-span-2`}
           />
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2 sm:col-span-2 xl:col-span-12">
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-11 min-w-[118px] items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FiSearch />
               Search
@@ -392,7 +395,7 @@ export default function Payments() {
               type="button"
               onClick={resetFilters}
               disabled={loading}
-              className="inline-flex h-11 items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-11 min-w-[96px] items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
             >
               Clear
             </button>
@@ -402,16 +405,16 @@ export default function Payments() {
 
       <section className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] text-left text-sm">
+          <table className="w-full min-w-[1040px] table-fixed text-left text-sm">
             <thead className="border-b border-line bg-bg-soft text-xs uppercase tracking-wide text-muted">
               <tr>
-                <th className="px-4 py-3 font-semibold">Date</th>
-                <th className="px-4 py-3 font-semibold">Payment Type</th>
-                <th className="px-4 py-3 font-semibold">Party</th>
-                <th className="px-4 py-3 font-semibold">Reference</th>
-                <th className="px-4 py-3 font-semibold">Method</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 text-right font-semibold">Amount</th>
+                <th className="w-[165px] px-4 py-3 font-semibold">Date</th>
+                <th className="w-[190px] px-4 py-3 font-semibold">Payment Type</th>
+                <th className="w-[230px] px-4 py-3 font-semibold">Party</th>
+                <th className="w-[240px] px-4 py-3 font-semibold">Reference</th>
+                <th className="w-[110px] px-4 py-3 font-semibold">Method</th>
+                <th className="w-[115px] px-4 py-3 font-semibold">Status</th>
+                <th className="w-[120px] px-4 py-3 text-right font-semibold">Amount</th>
               </tr>
             </thead>
 
@@ -428,28 +431,28 @@ export default function Payments() {
                       {formatDateTime(record.createdAt)}
                     </td>
                     <td className="px-4 py-4">
-                      <p className="font-semibold text-ink">
+                      <p className="truncate font-semibold text-ink">
                         {typeLabels[record.type] || record.type || "Payment"}
                       </p>
-                      <p className="mt-1 text-xs text-muted">
+                      <p className="mt-1 truncate text-xs text-muted">
                         {record.title || "Platform payment"}
                       </p>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="font-semibold text-ink">{party.name}</p>
-                      <p className="mt-1 max-w-[260px] truncate text-xs text-muted">
+                      <p className="truncate font-semibold text-ink">{party.name}</p>
+                      <p className="mt-1 truncate text-xs text-muted">
                         {party.meta || "-"}
                       </p>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="font-mono text-xs font-semibold text-ink">
+                      <p className="truncate font-mono text-xs font-semibold text-ink">
                         {getReference(record)}
                       </p>
-                      <p className="mt-1 max-w-[260px] truncate text-xs text-muted">
+                      <p className="mt-1 truncate text-xs text-muted">
                         {getSecondaryReference(record)}
                       </p>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-4 text-muted">
+                    <td className="truncate px-4 py-4 text-muted">
                       {record.method || "-"}
                     </td>
                     <td className="px-4 py-4">
