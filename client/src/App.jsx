@@ -417,6 +417,10 @@ const ActiveBookings = lazyPage(
   () => import("@/pages/customer/ActiveBookings"),
   "ActiveBookings",
 );
+const CustomerPendingBookings = lazyPage(
+  () => import("@/pages/customer/PendingBookings"),
+  "PendingBookings",
+);
 const ServiceHistory = lazyPage(
   () => import("@/pages/customer/ServiceHistory"),
   "ServiceHistory",
@@ -661,6 +665,7 @@ const customerItems = [
   { to: "/dashboard/vehicles", label: "My Vehicles", icon: FiTruck },
   { to: "/booking/vehicle", label: "Book Service", icon: FiPlusCircle },
   { to: "/dashboard/bookings", label: "Active Bookings", icon: FiCalendar },
+  { to: "/dashboard/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/dashboard/history", label: "Service History", icon: FiClock },
   { to: "/warranty", label: "Warranty Center", icon: FiShield },
   { to: "/dashboard/payments", label: "Payments", icon: FiCreditCard },
@@ -879,6 +884,14 @@ function AppRoutes() {
                     <ActiveBookings />
                   </VehicleCheck>
                 </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/pending-bookings"
+            element={
+              <ProtectedRoute>
+                <CustomerPendingBookings />
               </ProtectedRoute>
             }
           />

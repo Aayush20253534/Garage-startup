@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
 import {
@@ -55,6 +56,8 @@ function Dashboard() {
       0
   );
 
+  const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
+
   const [wallet, setWallet] = useState(() => dashboardCache?.wallet || null);
 
   const [completedCount, setCompletedCount] = useState(
@@ -93,12 +96,17 @@ function Dashboard() {
         setLoading(true);
       }
 
-      const [dashboard, vehicleList] = await Promise.all([
+      const [dashboard, vehicleList, pendingBookings] = await Promise.all([
         fetchDashboard({ force }),
         fetchVehicles ? fetchVehicles({ force }) : Promise.resolve([]),
+        api
+          .get("/bookings/pending-payment")
+          .then((response) => response.data?.data || [])
+          .catch(() => []),
       ]);
 
       setBookings(dashboard?.activeBookings || []);
+      setPendingBookingsCount(pendingBookings.length || 0);
       setActiveBookingsCount(
         dashboard?.activeBookingsCount ??
           dashboard?.activeBookings?.length ??
@@ -156,6 +164,12 @@ function Dashboard() {
       label: "Active Bookings",
       number: activeBookingsCount,
       sub: "Current service requests",
+    },
+    {
+      icon: FiClock,
+      label: "Pending Payments",
+      number: pendingBookingsCount,
+      sub: "Saved bookings to pay",
     },
     {
       icon: FiClock,
@@ -240,6 +254,15 @@ function Dashboard() {
           >
             SOS
           </Link>
+
+          {pendingBookingsCount > 0 && (
+            <Link
+              to="/dashboard/pending-bookings"
+              className="inline-flex h-11 items-center justify-center rounded-xl bg-white/10 px-5 text-sm font-bold text-white transition hover:bg-white/15"
+            >
+              Pay pending booking
+            </Link>
+          )}
 
           <Link
             to="/dashboard/payments"

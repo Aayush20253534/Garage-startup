@@ -18,6 +18,18 @@ const getMyBookings = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Bookings fetched successfully", bookings));
 });
 
+const getPendingPaymentBookings = asyncHandler(async (req, res) => {
+  const bookings = await bookingService.getPendingPaymentBookings(req.user.id);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      "Pending payment bookings fetched successfully",
+      bookings,
+    ),
+  );
+});
+
 const getBookingById = asyncHandler(async (req, res) => {
   const booking = await bookingService.getBookingById(req.user.id, req.params.id);
 
@@ -75,6 +87,7 @@ const cancelBooking = asyncHandler(async (req, res) => {
 module.exports = {
   createBooking,
   getMyBookings,
+  getPendingPaymentBookings,
   getBookingById,
   getBookingSuccess,
   acceptDelivery,

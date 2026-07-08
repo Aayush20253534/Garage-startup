@@ -331,6 +331,17 @@ const getMyBookings = async (userId, query = {}) => {
   return bookings;
 };
 
+const getPendingPaymentBookings = async (userId) => {
+  return prisma.booking.findMany({
+    where: {
+      userId,
+      status: "PENDING_PAYMENT",
+    },
+    include: bookingInclude,
+    orderBy: { createdAt: "desc" },
+  });
+};
+
 const getBookingById = async (userId, bookingId) => {
   const ownedBooking = await prisma.booking.findFirst({
     where: {
@@ -554,6 +565,7 @@ const cancelBooking = async (userId, bookingId) => {
 module.exports = {
   createBooking,
   getMyBookings,
+  getPendingPaymentBookings,
   getBookingById,
   getBookingSuccess,
   acceptDelivery,

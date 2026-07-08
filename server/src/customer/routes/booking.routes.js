@@ -36,6 +36,15 @@ router.get("/service-history", bookingController.getServiceHistory);
 router.get("/", bookingController.getMyBookings);
 
 /**
+ * GET /api/bookings/pending-payment
+ * Get logged-in customer's retryable pending payment bookings.
+ */
+router.get(
+  "/pending-payment",
+  bookingController.getPendingPaymentBookings,
+);
+
+/**
  * GET /api/bookings/:id/success
  * Show success only after garage is assigned/confirmed.
  */
