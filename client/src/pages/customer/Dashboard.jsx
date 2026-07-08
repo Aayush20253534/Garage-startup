@@ -31,7 +31,7 @@ const getProgress = (status) => {
   return "100%";
 };
 
-export default function Dashboard() {
+function Dashboard() {
   const {
     user,
     vehicle,
@@ -419,3 +419,6 @@ export default function Dashboard() {
     </div>
   );
 }
+
+export { Dashboard, Dashboard as CustomerDashboard };
+export default Dashboard;

@@ -303,11 +303,40 @@ function SOSAvailabilityGuard({ children }) {
   );
 }
 
+const pickLazyPage = (module, moduleName) => {
+  const explicitPage = module?.default || module?.[moduleName];
+
+  if (explicitPage) {
+    return explicitPage;
+  }
+
+  const compatibleNames = {
+    CustomerDashboard: ["Dashboard"],
+    GarageDashboard: ["Dashboard"],
+    AdminDashboard: ["Dashboard"],
+    AdminPayments: ["Payments"],
+  }[moduleName] || [];
+
+  for (const exportName of compatibleNames) {
+    if (module?.[exportName]) {
+      return module[exportName];
+    }
+  }
+
+  const exportedComponents = Object.values(module || {}).filter(
+    (value) =>
+      typeof value === "function" ||
+      (value && typeof value === "object" && "$$typeof" in value),
+  );
+
+  return exportedComponents.length === 1 ? exportedComponents[0] : null;
+};
+
 const lazyPage = (loader, moduleName) =>
   lazy(() =>
     loader()
       .then((module) => {
-        const Page = module?.default || module?.[moduleName];
+        const Page = pickLazyPage(module, moduleName);
 
         if (!Page) {
           throw createMissingLazyDefaultError(moduleName);

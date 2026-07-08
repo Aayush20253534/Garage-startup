@@ -1,10 +1,6 @@
-const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
-const apiBaseUrl = (
-  import.meta.env.PROD
-    ? "/api/v1"
-    : configuredBaseUrl || "http://localhost:5000/api/v1"
-).replace(/\/+$/, "");
-const reportUrl = `${apiBaseUrl}/system-issues/report`;
+import { getSystemIssueReportUrl } from "@/api/baseUrl";
+
+const reportUrl = getSystemIssueReportUrl();
 const recentReports = new Map();
 const REPORT_COOLDOWN_MS = 60 * 1000;
 

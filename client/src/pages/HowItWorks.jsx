@@ -43,7 +43,7 @@ const STEPS = [
   },
 ];
 
-export default function HowItWorks() {
+function HowItWorks() {
   return (
     <>
       <Seo
@@ -126,3 +126,6 @@ export default function HowItWorks() {
     </>
   );
 }
+
+export { HowItWorks };
+export default HowItWorks;
