@@ -33,8 +33,9 @@ export default function AdminDashboard() {
     priceRanges: 0,
     customers: 0,
     bookings: 0,
-    totalRevenue: 0,
-    platformFeeRevenue: 0,
+    totalServiceCost: 0,
+    customerPlatformFeeRevenue: 0,
+    garagePlatformFeeRevenue: 0,
     openSystemIssues: 0,
     criticalSystemIssues: 0,
   });
@@ -86,15 +87,21 @@ export default function AdminDashboard() {
     },
     {
       icon: FiDollarSign,
-      number: formatCurrency(stats.totalRevenue),
-      label: "Total Revenue",
-      caption: "Completed service value",
+      number: formatCurrency(stats.customerPlatformFeeRevenue),
+      label: "Customer Platform Fee",
+      caption: "Paid checkout fees",
     },
     {
       icon: FiDollarSign,
-      number: formatCurrency(stats.platformFeeRevenue),
-      label: "Platform Fee Only",
+      number: formatCurrency(stats.garagePlatformFeeRevenue),
+      label: "Garage Platform Fee",
       caption: "Garage wallet deductions",
+    },
+    {
+      icon: FiDollarSign,
+      number: formatCurrency(stats.totalServiceCost),
+      label: "Total Cost of Services Provided",
+      caption: "Excludes platform fees",
     },
     {
       icon: FiUsers,

@@ -6,7 +6,6 @@ import CitySelect from "@/components/common/CitySelect";
 import { resetCityAvailabilityCache } from "@/utils/cityAvailability";
 import {
   FiCheckCircle,
-  FiDollarSign,
   FiEdit3,
   FiPlus,
   FiRefreshCw,
@@ -50,18 +49,11 @@ const formatServiceLabel = (service = {}) =>
   service.id ||
   "Unknown service";
 
-const formatCurrency = (amount) =>
-  `\u20b9${Number(amount || 0).toLocaleString("en-IN")}`;
-
 export default function Revenue() {
   const { user } = useApp();
   const isIntern = user?.role === "INTERN";
   const [ranges, setRanges] = useState([]);
   const [services, setServices] = useState([]);
-  const [revenueStats, setRevenueStats] = useState({
-    totalRevenue: 0,
-    platformFeeRevenue: 0,
-  });
   const [cities, setCities] = useState([]);
   const [vehicleBrands, setVehicleBrands] = useState([]);
   const [form, setForm] = useState(emptyForm);
@@ -88,18 +80,13 @@ export default function Revenue() {
     setError("");
 
     try {
-      const [rangeList, serviceList, dashboard] = await Promise.all([
+      const [rangeList, serviceList] = await Promise.all([
         adminApi.getPriceRanges(filterCity ? { city: filterCity.trim() } : {}),
         adminApi.getAssignableServices(),
-        adminApi.getStats(),
       ]);
 
       setRanges(rangeList || []);
       setServices(serviceList || []);
-      setRevenueStats({
-        totalRevenue: dashboard?.stats?.totalRevenue || 0,
-        platformFeeRevenue: dashboard?.stats?.platformFeeRevenue || 0,
-      });
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load price ranges");
     } finally {
@@ -272,7 +259,7 @@ export default function Revenue() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-ink">
-            Revenue & Price Ranges
+            Price Ranges
           </h2>
           <p className="mt-1 text-sm text-muted">
             Manage city and vehicle-specific service estimate ranges.
@@ -303,39 +290,6 @@ export default function Revenue() {
           <span>{success}</span>
         </div>
       )}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {[
-          {
-            label: "Total Revenue",
-            value: formatCurrency(revenueStats.totalRevenue),
-            caption: "Final service amounts from completed bookings",
-          },
-          {
-            label: "Platform Fee Only",
-            value: formatCurrency(revenueStats.platformFeeRevenue),
-            caption: "Acceptance fees deducted from garage wallets",
-          },
-        ].map((item) => (
-          <div key={item.label} className="card-soft rounded-2xl p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-xl bg-lime-100 text-lg text-ink">
-                <FiDollarSign />
-              </div>
-              <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-semibold text-muted">
-                Revenue
-              </span>
-            </div>
-            <div className="mt-4 text-3xl font-bold text-ink">
-              {item.value}
-            </div>
-            <div className="mt-1 text-sm font-semibold text-ink">
-              {item.label}
-            </div>
-            <p className="mt-1 text-sm text-muted">{item.caption}</p>
-          </div>
-        ))}
-      </div>
 
       <form
         onSubmit={submit}
