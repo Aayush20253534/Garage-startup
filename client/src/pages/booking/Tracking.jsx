@@ -12,6 +12,7 @@ import InspectionGallery from "@/components/booking/InspectionGallery";
 import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
+import { formatRupees } from "@/utils/priceRange";
 import {
   FiCheck,
   FiClock,
@@ -888,7 +889,7 @@ export default function Tracking() {
                 .join(", ") || "Selected services"
             }
           />
-          <Row label="Estimated service" value={`â‚¹${servicesTotal}`} />
+          <Row label="Estimated service" value={formatRupees(servicesTotal)} />
         </div>
       </aside>
 

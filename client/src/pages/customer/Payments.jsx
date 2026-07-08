@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/api/axios";
+import { formatRupees } from "@/utils/priceRange";
 
 const formatDate = (date) => {
   if (!date) return "-";
@@ -107,7 +108,7 @@ export default function Payments() {
                 </td>
 
                 <td className="px-4 py-3 font-semibold">
-                  â‚¹{payment.amount}
+                  {formatRupees(payment.amount)}
                 </td>
 
               </tr>

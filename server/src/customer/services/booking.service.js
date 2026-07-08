@@ -1,5 +1,4 @@
 const prisma = require("../../config/prisma");
-const systemIssueReporter = require("../../services/systemIssueReporter.service");
 const ApiError = require("../../utils/apiError");
 const generateBookingCode = require("../../utils/bookingCode");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
@@ -131,54 +130,6 @@ const invalidateBookingCaches = async (userId) => {
   ]);
 };
 
-const activateCashBookingSearch = async (booking) => {
-  if (!booking || booking.status !== "PENDING_PAYMENT") {
-    return booking;
-  }
-
-  const updatedBooking = await prisma.$transaction(async (tx) => {
-    await tx.payment.deleteMany({
-      where: {
-        bookingId: booking.id,
-        status: { in: ["CREATED", "FAILED"] },
-      },
-    });
-
-    return tx.booking.update({
-      where: { id: booking.id },
-      data: {
-        status: "SEARCHING_GARAGE",
-        payableAmount: 0,
-        searchExpiresAt: null,
-        expiredAt: null,
-      },
-      include: bookingInclude,
-    });
-  });
-
-  try {
-    await garageRequestService.ensureBookingSearchActive(updatedBooking.id);
-  } catch (error) {
-    console.error(
-      `[booking-search] unable to activate cash booking ${updatedBooking.id}:`,
-      error.message,
-    );
-    void systemIssueReporter.captureBackgroundError(error, {
-      title: "Unable to start garage search for cash booking",
-      component: "Booking service",
-      metadata: { bookingId: updatedBooking.id, userId: updatedBooking.userId },
-    });
-  }
-
-  return prisma.booking.findUnique({
-    where: { id: updatedBooking.id },
-    include: bookingInclude,
-  });
-};
-
-const normalizeCashBookings = async (bookings = []) =>
-  Promise.all(bookings.map((booking) => activateCashBookingSearch(booking)));
-
 const createBooking = async (userId, data) => {
   const {
     vehicleId,
@@ -281,7 +232,7 @@ const createBooking = async (userId, data) => {
   const handlingFee = calculatePlatformFee(serviceUpperLimit);
 
   const walletAmountUsed = 0;
-  const payableAmount = 0;
+  const payableAmount = handlingFee;
   const bookingCode = await generateBookingCode();
 
   const booking = await prisma.$transaction(async (tx) => {
@@ -297,9 +248,9 @@ const createBooking = async (userId, data) => {
         startTime: startTime || null,
         endTime: endTime || null,
         requestType: "NORMAL",
-        status: "SEARCHING_GARAGE",
+        status: "PENDING_PAYMENT",
 
-        // The garage request service claims the first two-minute round.
+        // Payment verification starts the first two-minute garage search round.
         searchExpiresAt: null,
 
         customerLatitude: Number(location.latitude),
@@ -332,25 +283,6 @@ const createBooking = async (userId, data) => {
       include: bookingInclude,
     });
   });
-
-  if (booking.status === "SEARCHING_GARAGE") {
-    try {
-      await garageRequestService.broadcastBookingToNearbyGarages(
-        booking.id,
-      );
-    } catch (error) {
-      // Keep the booking searchable. Tracking polling retries this safely.
-      console.error(
-        `[booking-search] unable to start first round for ${booking.id}:`,
-        error.message,
-      );
-      void systemIssueReporter.captureBackgroundError(error, {
-        title: "Unable to start garage search after booking",
-        component: "Booking service",
-        metadata: { bookingId: booking.id, userId },
-      });
-    }
-  }
 
   await invalidateBookingCaches(userId);
 
@@ -396,7 +328,7 @@ const getMyBookings = async (userId, query = {}) => {
     orderBy: { createdAt: "desc" },
   });
 
-  return normalizeCashBookings(bookings);
+  return bookings;
 };
 
 const getBookingById = async (userId, bookingId) => {
@@ -435,7 +367,7 @@ const getBookingById = async (userId, bookingId) => {
     throw new ApiError(404, "Booking not found");
   }
 
-  return activateCashBookingSearch(booking);
+  return booking;
 };
 
 const getBookingSuccess = async (userId, bookingId) => {

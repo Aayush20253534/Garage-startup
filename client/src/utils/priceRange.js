@@ -5,6 +5,18 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(number) ? number : fallback;
 };
 
+export const formatRupees = (value = 0) =>
+  `\u20b9${toNumber(value, 0).toLocaleString("en-IN")}`;
+
+export const formatRupeeRange = (minValue = 0, maxValue = minValue) => {
+  const min = toNumber(minValue, 0);
+  const max = toNumber(maxValue, min);
+
+  return min === max
+    ? formatRupees(max)
+    : `${formatRupees(min)} - ${formatRupees(max)}`;
+};
+
 export const getServiceMinPrice = (service = {}) =>
   toNumber(
     service.priceRange?.min ??
@@ -31,10 +43,10 @@ export const getServicePriceRange = (service = {}) => {
   const min = getServiceMinPrice(service);
   const max = getServiceMaxPrice(service);
 
-  return { min, max, label: `₹${min} - ₹${max}` };
+  return { min, max, label: formatRupeeRange(min, max) };
 };
 
 export const formatServicePriceRange = (service = {}) => {
   const { min, max } = getServicePriceRange(service);
-  return min === max ? `₹${min}` : `₹${min} - ₹${max}`;
+  return formatRupeeRange(min, max);
 };

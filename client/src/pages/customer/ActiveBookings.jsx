@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
+import { payForBooking } from "@/utils/bookingPayment";
+import { formatRupees } from "@/utils/priceRange";
 import {
   FiCheckCircle,
+  FiCreditCard,
   FiNavigation,
   FiRefreshCw,
 } from "react-icons/fi";
@@ -42,13 +45,14 @@ const formatStatus = (status) => {
 };
 
 export default function ActiveBookings() {
-  const { fetchActiveBookings, clearBookingCaches } = useApp();
+  const { fetchActiveBookings, clearBookingCaches, user } = useApp();
   const nav = useNavigate();
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [acceptingId, setAcceptingId] = useState(null);
+  const [payingId, setPayingId] = useState(null);
   const [error, setError] = useState("");
 
   const loadBookings = async ({ force = false } = {}) => {
@@ -87,6 +91,41 @@ export default function ActiveBookings() {
       );
     } finally {
       setAcceptingId(null);
+    }
+  };
+
+  const payPendingBooking = async (booking) => {
+    const digits = String(user?.phone || "").replace(/\D/g, "");
+    const mobile = digits.length > 10 && digits.startsWith("91")
+      ? digits.slice(2)
+      : digits.slice(-10);
+
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      setError("Please add a valid mobile number in your profile before payment.");
+      nav("/dashboard/profile");
+      return;
+    }
+
+    try {
+      setPayingId(booking.id);
+      setError("");
+      const paidBooking = await payForBooking({ booking });
+      clearBookingCaches?.();
+      await loadBookings({ force: true });
+      nav("/tracking", {
+        state: {
+          bookingId: paidBooking?.id || booking.id,
+          bookingCode: paidBooking?.bookingCode || booking.bookingCode,
+        },
+      });
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Could not open payment. Please try again.",
+      );
+    } finally {
+      setPayingId(null);
     }
   };
 
@@ -171,6 +210,18 @@ export default function ActiveBookings() {
                   {acceptingId === booking.id
                     ? "Accepting..."
                     : "Accept Delivery"}
+                </button>
+              ) : booking.status === "PENDING_PAYMENT" ? (
+                <button
+                  type="button"
+                  onClick={() => payPendingBooking(booking)}
+                  disabled={payingId === booking.id}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                >
+                  <FiCreditCard />
+                  {payingId === booking.id
+                    ? "Opening..."
+                    : `Pay ${formatRupees(booking.payableAmount || booking.handlingFee || 0)}`}
                 </button>
               ) : (
                 <Link

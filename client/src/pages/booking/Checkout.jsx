@@ -12,13 +12,19 @@ import {
 } from "@/utils/address";
 import {
   formatServicePriceRange,
+  formatRupeeRange,
+  formatRupees,
   getServiceMinPrice,
   getServiceMaxPrice,
 } from "@/utils/priceRange";
+import { calculatePlatformFee } from "@/utils/platformFee";
+import { payForBooking } from "@/utils/bookingPayment";
 import { requireAvailableCityName } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 import {
   FiCheckCircle,
+  FiCreditCard,
+  FiPhone,
   FiTrash2,
   FiTruck,
   FiEdit,
@@ -59,6 +65,19 @@ const isCartItemComingSoon = (item) =>
   toBoolean(item?.categoryComingSoon) ||
   toBoolean(item?.category?.isComingSoon);
 
+const INDIA_PHONE_REGEX = /^\+91[6-9]\d{9}$/;
+
+const normalizeIndianPhone = (value = "") => {
+  let digits = String(value).replace(/\D/g, "");
+
+  if (digits.length > 10 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  }
+
+  digits = digits.slice(0, 10);
+  return digits ? `+91${digits}` : "";
+};
+
 export default function Checkout() {
   const {
     cart,
@@ -66,6 +85,7 @@ export default function Checkout() {
     location,
     setLocation,
     user,
+    setUser,
     clearCart,
     clearBookingCaches,
     clearProfileCache,
@@ -74,6 +94,9 @@ export default function Checkout() {
   const nav = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [phoneDraft, setPhoneDraft] = useState(user?.phone || "");
+  const [pendingBooking, setPendingBooking] = useState(null);
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressForm, setAddressForm] = useState(() =>
     getCheckoutAddressForm({ location, user }),
@@ -89,14 +112,60 @@ export default function Checkout() {
   );
   const payAtGarageMin = subTotalMin;
   const payAtGarageMax = subTotalMax;
+  const payNowAmount = calculatePlatformFee(payAtGarageMax);
+  const savedPhone = normalizeIndianPhone(user?.phone || "");
+  const phoneToSave = normalizeIndianPhone(phoneDraft);
+  const hasSavedPhone = INDIA_PHONE_REGEX.test(savedPhone);
+  const canSavePhone = INDIA_PHONE_REGEX.test(phoneToSave);
   const comingSoonItems = cart.filter(isCartItemComingSoon);
   const hasComingSoonItems = comingSoonItems.length > 0;
+
+  useEffect(() => {
+    setPhoneDraft(user?.phone || "");
+  }, [user?.phone]);
 
   useEffect(() => {
     if (!editingAddress) {
       setAddressForm(getCheckoutAddressForm({ location, user }));
     }
   }, [editingAddress, location, user]);
+
+  const savePhoneNumber = async () => {
+    if (!canSavePhone) {
+      setError("Enter a valid 10-digit Indian mobile number before payment.");
+      return false;
+    }
+
+    try {
+      setSavingPhone(true);
+      setError("");
+
+      const response = await api.patch("/customer/profile", {
+        phone: phoneToSave,
+      });
+      const responseData = response.data?.data;
+      const responseUser = responseData?.user || responseData || {};
+      const nextUser = {
+        ...(user || {}),
+        ...responseUser,
+        phone: responseUser.phone || phoneToSave,
+      };
+
+      setUser?.(nextUser);
+      clearProfileCache?.();
+      await fetchProfile?.({ force: true });
+      return true;
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Could not save phone number. Please try again.",
+      );
+      return false;
+    } finally {
+      setSavingPhone(false);
+    }
+  };
 
   const buildLocationPayload = async () => {
     const defaultUserLocation = getDefaultUserLocation(user);
@@ -217,6 +286,11 @@ export default function Checkout() {
       return;
     }
 
+    if (!hasSavedPhone) {
+      setError("Save a valid mobile number before opening payment.");
+      return;
+    }
+
     let checkoutLocation = null;
 
     try {
@@ -237,30 +311,45 @@ export default function Checkout() {
       setLoading(true);
       setError("");
 
-      const bookingRes = await api.post("/bookings/checkout", {
-        vehicleId: vehicle.id,
-        serviceIds: cart.map((item) => item.id),
-        location: checkoutLocation,
-      });
+      let booking = pendingBooking;
 
-      const booking = bookingRes.data.data;
+      if (!booking?.id) {
+        const bookingRes = await api.post("/bookings/checkout", {
+          vehicleId: vehicle.id,
+          serviceIds: cart.map((item) => item.id),
+          location: checkoutLocation,
+        });
+
+        booking = bookingRes.data.data;
+        setPendingBooking(booking);
+      }
+
+      const paidBooking = await payForBooking({ booking });
+
       addRecentActivity({
         type: "BOOKING",
-        title: "Created booking",
-        detail: booking.bookingCode || cart.map((item) => item.name).join(", "),
+        title: "Paid booking fee",
+        detail:
+          paidBooking?.bookingCode ||
+          booking.bookingCode ||
+          cart.map((item) => item.name).join(", "),
         path: "/dashboard/bookings",
       });
 
       clearCart();
       clearBookingCaches?.();
+      setPendingBooking(null);
       nav("/tracking", {
-        state: { bookingId: booking.id, bookingCode: booking.bookingCode },
+        state: {
+          bookingId: paidBooking?.id || booking.id,
+          bookingCode: paidBooking?.bookingCode || booking.bookingCode,
+        },
       });
     } catch (err) {
       setError(
         err.response?.data?.message ||
           err.message ||
-          "Could not create booking. Please try again.",
+          "Could not complete booking payment. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -272,8 +361,9 @@ export default function Checkout() {
       <div>
         <h1 className="text-3xl font-bold sm:text-4xl">Checkout</h1>
         <p className="mt-1 text-muted">
-          Confirm the request now. Pay the final service amount directly to the
-          garage in cash after the work is complete.
+          Pay the platform fee now to start garage search. The final service
+          amount is paid directly to the garage in cash after the work is
+          complete.
         </p>
 
         {error && (
@@ -288,6 +378,48 @@ export default function Checkout() {
             {comingSoonItems.map((item) => item.name).join(", ")}. Remove
             {comingSoonItems.length === 1 ? " this service" : " these services"}{" "}
             before booking.
+          </div>
+        )}
+
+        {!hasSavedPhone && (
+          <div className="card-soft mt-5 grid gap-4 border border-amber-200 bg-amber-50 p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-amber-700">
+                <FiPhone />
+              </span>
+              <div>
+                <h3 className="font-semibold text-amber-900">
+                  Mobile number required
+                </h3>
+                <p className="mt-1 text-sm text-amber-800">
+                  Save your phone number first. Cashfree needs it to open the
+                  payment window.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <input
+                value={phoneDraft}
+                onChange={(event) => {
+                  setPhoneDraft(event.target.value.replace(/[^\d+]/g, ""));
+                  setError("");
+                }}
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="10-digit mobile number"
+                className="h-11 rounded-xl border border-amber-200 bg-white px-4 text-sm outline-none focus:border-amber-500"
+              />
+              <button
+                type="button"
+                onClick={savePhoneNumber}
+                disabled={savingPhone || !canSavePhone}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white shadow-sm transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FiCheckCircle />
+                {savingPhone ? "Saving..." : "Save phone"}
+              </button>
+            </div>
           </div>
         )}
 
@@ -395,7 +527,9 @@ export default function Checkout() {
           {cart.length === 0 ? (
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-muted">
               <span className="min-w-0 truncate">No services selected</span>
-              <span className="whitespace-nowrap text-right">â‚¹0</span>
+              <span className="whitespace-nowrap text-right">
+                {formatRupees(0)}
+              </span>
             </div>
           ) : (
             cart.map((item) => (
@@ -416,17 +550,15 @@ export default function Checkout() {
 
         <div className="grid gap-2 text-sm">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-            <span className="text-muted">Service estimate</span>
+            <span className="text-muted">Cash at service</span>
             <span className="whitespace-nowrap text-right font-semibold">
-              â‚¹{payAtGarageMin} - â‚¹{payAtGarageMax}
+              {formatRupeeRange(payAtGarageMin, payAtGarageMax)}
             </span>
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-base">
-            <span className="font-semibold">Cash at garage</span>
+            <span className="font-semibold">Pay now</span>
             <span className="whitespace-nowrap text-right text-xl font-bold">
-              {payAtGarageMin === payAtGarageMax
-                ? `\u20b9${payAtGarageMax}`
-                : `\u20b9${payAtGarageMin} - \u20b9${payAtGarageMax}`}
+              {formatRupees(payNowAmount)}
             </span>
           </div>
         </div>
@@ -434,18 +566,28 @@ export default function Checkout() {
         <button
           type="button"
           onClick={bookService}
-          disabled={loading || hasComingSoonItems}
+          disabled={
+            loading ||
+            cart.length === 0 ||
+            hasComingSoonItems ||
+            !hasSavedPhone
+          }
           className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <FiCheckCircle />{" "}
+          <FiCreditCard />{" "}
           {loading
-            ? "Booking..."
+            ? "Opening payment..."
             : hasComingSoonItems
               ? "Remove Coming Soon Services"
-              : "Confirm Booking"}
+              : cart.length === 0
+                ? "Add services to continue"
+              : !hasSavedPhone
+                ? "Save phone to pay"
+                : `Pay ${formatRupees(payNowAmount)} Now`}
         </button>
         <div className="mt-3 text-center text-xs text-muted">
-          The garage records the final amount before delivery.
+          Pay only the platform fee now. The service amount is paid in cash at
+          the garage after work is complete.
         </div>
       </aside>
     </div>

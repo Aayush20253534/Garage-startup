@@ -55,12 +55,16 @@ const invalidatePaymentBookingCaches = async (userId) => {
 
 const getCashfreeCustomerPhone = (phone) => {
   const digits = String(phone || "").replace(/\D/g, "");
+  const localDigits = digits.length > 10 && digits.startsWith("91")
+    ? digits.slice(2)
+    : digits;
+  const mobile = localDigits.slice(-10);
 
-  if (digits.length >= 10) {
-    return digits.slice(-10);
+  if (/^[6-9]\d{9}$/.test(mobile)) {
+    return mobile;
   }
 
-  return "9999999999";
+  return null;
 };
 
 const getCashfreeErrorMessage = (error, fallback) => {
@@ -165,13 +169,6 @@ const createPaymentOrder = async (userId, { bookingId }) => {
     throw new ApiError(404, "Booking not found");
   }
 
-  if (booking.requestType === "NORMAL") {
-    throw new ApiError(
-      400,
-      "Customer booking payments are collected directly by the garage",
-    );
-  }
-
   if (booking.status !== "PENDING_PAYMENT") {
     throw new ApiError(400, "Booking is not pending payment");
   }
@@ -187,6 +184,34 @@ const createPaymentOrder = async (userId, { bookingId }) => {
       400,
       "No online payment required for this booking",
     );
+  }
+
+  const customerPhone = getCashfreeCustomerPhone(booking.user?.phone);
+
+  if (!customerPhone) {
+    throw new ApiError(
+      400,
+      "Please add a valid Indian mobile number before payment.",
+    );
+  }
+
+  if (
+    booking.payment?.status === "CREATED" &&
+    booking.payment.amount === amount &&
+    booking.payment.cashfreeOrderId &&
+    booking.payment.cashfreePaymentSessionId
+  ) {
+    return {
+      payment: booking.payment,
+      cashfreeOrder: {
+        id: booking.payment.cashfreeOrderId,
+        cfOrderId: booking.payment.cashfreePaymentId,
+        amount: booking.payment.amount,
+        currency: booking.payment.currency,
+        paymentSessionId: booking.payment.cashfreePaymentSessionId,
+      },
+      mode: getCashfreeMode(),
+    };
   }
 
   const cashfreeOrderId = `cf_${booking.bookingCode}_${Date.now()}`;
@@ -206,9 +231,7 @@ const createPaymentOrder = async (userId, { bookingId }) => {
           customer_name:
             booking.user?.name || "Rovauto Customer",
           customer_email: booking.user?.email || undefined,
-          customer_phone: getCashfreeCustomerPhone(
-            booking.user?.phone,
-          ),
+          customer_phone: customerPhone,
         },
         order_meta: {
           return_url: `${frontendUrl}/dashboard/payments?cashfree_order_id={order_id}`,
