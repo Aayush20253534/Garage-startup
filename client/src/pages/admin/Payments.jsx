@@ -142,7 +142,7 @@ const StatCard = ({ icon: Icon, label, value, caption }) => (
   </div>
 );
 
-export default function Payments() {
+function Payments() {
   const [filters, setFilters] = useState(initialFilters);
   const [records, setRecords] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -485,3 +485,6 @@ export default function Payments() {
     </div>
   );
 }
+
+export { Payments };
+export default Payments;

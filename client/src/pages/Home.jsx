@@ -14,7 +14,7 @@ import { CATEGORY_UI } from "@/data/services";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
-import Seo, { SITE_URL } from "@/components/seo/Seo";
+import Seo, { SITE_ICON, SITE_URL } from "@/components/seo/Seo";
 import { getServiceCategoryPath } from "@/utils/serviceSlug";
 import homepageHero from "@/assets/Rovauto_home.png";
 import {
@@ -38,7 +38,7 @@ const HOME_STRUCTURED_DATA = [
     "@type": "Organization",
     name: "Rovauto",
     url: SITE_URL,
-    logo: `${SITE_URL}/favicon.png`,
+    logo: SITE_ICON,
     description:
       "Rovauto connects vehicle owners with verified garages for repair, maintenance, pickup, tracking and service warranty.",
     email: "rovauto.official@gmail.com",

@@ -471,7 +471,7 @@ const AdminRevenue = lazyPage(
 );
 const AdminPayments = lazyPage(
   () => import("@/pages/admin/Payments"),
-  "AdminPayments",
+  "Payments",
 );
 const AdminNotifications = lazyPage(
   () => import("@/pages/admin/Notifications"),

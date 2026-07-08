@@ -7,6 +7,7 @@ export const DEFAULT_TITLE =
 export const DEFAULT_DESCRIPTION =
   "Book verified garages for vehicle repair, maintenance, pickup, live tracking and service warranty with Rovauto.";
 export const DEFAULT_IMAGE = `${SITE_URL}/og-image.jpg`;
+export const SITE_ICON = `${SITE_URL}/icon-512.png`;
 
 const normalizePath = (value = "/") => {
   const path = String(value || "/").trim();
@@ -73,6 +74,10 @@ export default function Seo({
       <meta name="googlebot" content={robots} />
 
       <link rel="canonical" href={canonical} />
+      <link rel="icon" href="/favicon.ico" sizes="any" />
+      <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+      <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
       <meta property="og:site_name" content={SITE_NAME} />
       <meta property="og:locale" content="en_IN" />
