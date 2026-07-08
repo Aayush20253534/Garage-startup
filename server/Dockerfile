@@ -2,7 +2,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache postgresql-client
+RUN apk add --no-cache postgresql-client sqlite
 
 COPY package*.json ./
 

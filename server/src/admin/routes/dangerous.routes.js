@@ -18,7 +18,7 @@ router.post(
   "/commands/:command/download",
   runDangerousCommandSchema,
   validate,
-  controller.downloadSqlBackup,
+  controller.downloadDbBackup,
 );
 router.post(
   "/commands/:command/run",

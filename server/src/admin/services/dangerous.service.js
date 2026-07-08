@@ -1,4 +1,8 @@
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const { spawn } = require("child_process");
+const { Client } = require("pg");
 
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
@@ -31,10 +35,10 @@ const COMMANDS = [
     fields: [],
   },
   {
-    command: "download-sql-backup",
-    label: "Download readable SQL database backup",
+    command: "download-db-backup",
+    label: "Download current database as .db",
     description:
-      "Exports the current PostgreSQL database as a readable .sql restore script. The file is not a clickable .db database; import it into PostgreSQL or open it in a text SQL viewer.",
+      "Exports the current PostgreSQL database into a SQLite .db snapshot that can be opened in DB Browser for SQLite and most .db viewers. This does not delete or modify data, but the downloaded file contains sensitive production data.",
     tone: "warning",
     fields: [],
     action: "download",
@@ -240,11 +244,90 @@ const listCommands = () =>
     confirmation: getExpectedConfirmation(item.command),
   }));
 
-const buildPgDumpEnv = () => {
+const quoteSqliteIdentifier = (identifier) =>
+  `"${String(identifier).replace(/"/g, '""')}"`;
+
+const quotePgIdentifier = (identifier) =>
+  `"${String(identifier).replace(/"/g, '""')}"`;
+
+const getSqliteTableName = ({ schema, tableName }) =>
+  schema === "public" ? tableName : `${schema}__${tableName}`;
+
+const mapPostgresTypeToSqlite = (column) => {
+  const type = String(column.data_type || column.udt_name || "").toLowerCase();
+  const udt = String(column.udt_name || "").toLowerCase();
+
+  if (["smallint", "integer", "bigint", "smallserial", "serial", "bigserial"].includes(type)) {
+    return "INTEGER";
+  }
+
+  if (["int2", "int4", "int8"].includes(udt)) {
+    return "INTEGER";
+  }
+
+  if (["real", "double precision", "numeric", "decimal"].includes(type)) {
+    return "REAL";
+  }
+
+  if (["float4", "float8", "numeric"].includes(udt)) {
+    return "REAL";
+  }
+
+  if (type === "boolean" || udt === "bool") {
+    return "INTEGER";
+  }
+
+  if (type === "bytea") {
+    return "BLOB";
+  }
+
+  return "TEXT";
+};
+
+const serializeSqliteValue = (value) => {
+  if (value === null || value === undefined) return "NULL";
+
+  if (Buffer.isBuffer(value)) {
+    return `X'${value.toString("hex")}'`;
+  }
+
+  if (value instanceof Date) {
+    return `'${value.toISOString().replace(/'/g, "''")}'`;
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "1" : "0";
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? String(value) : "NULL";
+  }
+
+  const stringValue =
+    typeof value === "object" ? JSON.stringify(value) : String(value);
+
+  return `'${stringValue.replace(/'/g, "''")}'`;
+};
+
+const writeSql = (stream, chunk) =>
+  new Promise((resolve, reject) => {
+    stream.write(chunk, "utf8", (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+
+const endSqlStream = (stream) =>
+  new Promise((resolve, reject) => {
+    stream.once("error", reject);
+    stream.end(resolve);
+  });
+
+const buildPgClient = () => {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
-    throw new ApiError(500, "DATABASE_URL is missing, so a SQL backup cannot be created");
+    throw new ApiError(500, "DATABASE_URL is missing, so a .db backup cannot be created");
   }
 
   let parsed;
@@ -254,30 +337,134 @@ const buildPgDumpEnv = () => {
     throw new ApiError(500, "DATABASE_URL is not a valid PostgreSQL connection URL");
   }
 
-  const database = decodeURIComponent(parsed.pathname || "").replace(/^\//, "");
-
-  if (!database) {
-    throw new ApiError(500, "DATABASE_URL does not include a database name");
-  }
-
-  const env = {
-    ...process.env,
-    PGHOST: parsed.hostname,
-    PGPORT: parsed.port || "5432",
-    PGUSER: decodeURIComponent(parsed.username || ""),
-    PGPASSWORD: decodeURIComponent(parsed.password || ""),
-    PGDATABASE: database,
-  };
-
   const sslMode = parsed.searchParams.get("sslmode");
-  if (sslMode) {
-    env.PGSSLMODE = sslMode;
+  const config = { connectionString: databaseUrl };
+
+  if (sslMode && sslMode !== "disable") {
+    config.ssl = {
+      rejectUnauthorized: sslMode === "verify-ca" || sslMode === "verify-full",
+    };
   }
 
-  return env;
+  return new Client(config);
 };
 
-const createSqlBackupProcess = ({ command, confirmation } = {}) => {
+const fetchBackupTables = async (client) => {
+  const { rows } = await client.query(`
+    SELECT table_schema AS schema, table_name AS "tableName"
+    FROM information_schema.tables
+    WHERE table_type = 'BASE TABLE'
+      AND table_schema NOT IN ('pg_catalog', 'information_schema')
+    ORDER BY table_schema, table_name
+  `);
+
+  return rows;
+};
+
+const fetchTableColumns = async (client, { schema, tableName }) => {
+  const { rows } = await client.query(
+    `
+      SELECT column_name, data_type, udt_name, is_nullable, ordinal_position
+      FROM information_schema.columns
+      WHERE table_schema = $1 AND table_name = $2
+      ORDER BY ordinal_position
+    `,
+    [schema, tableName],
+  );
+
+  return rows;
+};
+
+const fetchPrimaryKeyColumns = async (client, { schema, tableName }) => {
+  const { rows } = await client.query(
+    `
+      SELECT kcu.column_name
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+       AND tc.table_schema = kcu.table_schema
+       AND tc.table_name = kcu.table_name
+      WHERE tc.constraint_type = 'PRIMARY KEY'
+        AND tc.table_schema = $1
+        AND tc.table_name = $2
+      ORDER BY kcu.ordinal_position
+    `,
+    [schema, tableName],
+  );
+
+  return rows.map((row) => row.column_name);
+};
+
+const runSqliteImport = ({ sqliteBin, dbPath, sqlPath }) =>
+  new Promise((resolve, reject) => {
+    const child = spawn(sqliteBin, [dbPath], {
+      cwd: process.cwd(),
+      shell: process.platform === "win32",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      fail(new ApiError(500, "SQLite .db export timed out"));
+    }, Number(process.env.SQLITE_BACKUP_TIMEOUT_MS || 300000));
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      fail(
+        new ApiError(
+          500,
+          `${sqliteBin} could not be started. Install sqlite3 or set SQLITE3_BIN. ${error.message}`,
+        ),
+      );
+    });
+
+    child.once("close", (code) => {
+      clearTimeout(timer);
+
+      if (settled) return;
+      settled = true;
+
+      if (code !== 0) {
+        reject(
+          new ApiError(
+            500,
+            stderr.trim() || stdout.trim() || `SQLite export exited with ${code}`,
+          ),
+        );
+        return;
+      }
+
+      resolve({ stdout, stderr });
+    });
+
+    const input = fs.createReadStream(sqlPath);
+    input.once("error", (error) => {
+      child.kill("SIGTERM");
+      clearTimeout(timer);
+      fail(error);
+    });
+    input.pipe(child.stdin);
+  });
+
+const createSqliteBackupFile = async ({ command, confirmation } = {}) => {
   const metadata = assertCommand(command);
 
   if (metadata.action !== "download") {
@@ -286,33 +473,94 @@ const createSqlBackupProcess = ({ command, confirmation } = {}) => {
 
   assertConfirmation({ command, confirmation });
 
-  const pgDumpBin = process.env.PG_DUMP_BIN || (process.platform === "win32" ? "pg_dump.exe" : "pg_dump");
   const fileStamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const filename = `rovauto-db-backup-${fileStamp}.sql`;
-  const child = spawn(
-    pgDumpBin,
-    [
-      "--format=plain",
-      "--no-owner",
-      "--no-privileges",
-      "--clean",
-      "--if-exists",
-      "--encoding=UTF8",
-      "--column-inserts",
-      "--quote-all-identifiers",
-    ],
-    {
-      cwd: process.cwd(),
-      env: buildPgDumpEnv(),
-      shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
+  const baseName = `rovauto-db-backup-${fileStamp}`;
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "rovauto-db-"));
+  const sqlPath = path.join(tempDir, `${baseName}.sqlite-import.sql`);
+  const dbPath = path.join(tempDir, `${baseName}.db`);
+  const sqliteBin = process.env.SQLITE3_BIN || (process.platform === "win32" ? "sqlite3.exe" : "sqlite3");
+  const client = buildPgClient();
+  const sqlStream = fs.createWriteStream(sqlPath, { encoding: "utf8" });
 
-  return {
-    child,
-    filename,
-  };
+  try {
+    await client.connect();
+    const tables = await fetchBackupTables(client);
+
+    await writeSql(sqlStream, "PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\n\n");
+
+    for (const table of tables) {
+      const sqliteTableName = getSqliteTableName(table);
+      const columns = await fetchTableColumns(client, table);
+      const primaryKeys = await fetchPrimaryKeyColumns(client, table);
+
+      if (!columns.length) continue;
+
+      const columnDefinitions = columns.map((column) => {
+        const nullable = column.is_nullable === "NO" ? " NOT NULL" : "";
+        return `${quoteSqliteIdentifier(column.column_name)} ${mapPostgresTypeToSqlite(column)}${nullable}`;
+      });
+
+      if (primaryKeys.length) {
+        columnDefinitions.push(
+          `PRIMARY KEY (${primaryKeys.map(quoteSqliteIdentifier).join(", ")})`,
+        );
+      }
+
+      await writeSql(
+        sqlStream,
+        `DROP TABLE IF EXISTS ${quoteSqliteIdentifier(sqliteTableName)};\n` +
+          `CREATE TABLE ${quoteSqliteIdentifier(sqliteTableName)} (\n  ${columnDefinitions.join(",\n  ")}\n);\n`,
+      );
+
+      const pgTableName = `${quotePgIdentifier(table.schema)}.${quotePgIdentifier(table.tableName)}`;
+      const pgColumnNames = columns.map((column) => quotePgIdentifier(column.column_name)).join(", ");
+      const sqliteColumnNames = columns.map((column) => quoteSqliteIdentifier(column.column_name)).join(", ");
+      const pageSize = Number(process.env.SQLITE_BACKUP_PAGE_SIZE || 500);
+      let offset = 0;
+
+      while (true) {
+        const { rows } = await client.query(
+          `SELECT ${pgColumnNames} FROM ${pgTableName} LIMIT $1 OFFSET $2`,
+          [pageSize, offset],
+        );
+
+        if (!rows.length) break;
+
+        for (const row of rows) {
+          const values = columns
+            .map((column) => serializeSqliteValue(row[column.column_name]))
+            .join(", ");
+          await writeSql(
+            sqlStream,
+            `INSERT INTO ${quoteSqliteIdentifier(sqliteTableName)} (${sqliteColumnNames}) VALUES (${values});\n`,
+          );
+        }
+
+        offset += rows.length;
+      }
+
+      await writeSql(sqlStream, "\n");
+    }
+
+    await writeSql(sqlStream, "COMMIT;\nPRAGMA foreign_keys=ON;\nVACUUM;\n");
+    await endSqlStream(sqlStream);
+
+    await runSqliteImport({ sqliteBin, dbPath, sqlPath });
+
+    await fs.promises.unlink(sqlPath).catch(() => {});
+
+    return {
+      filePath: dbPath,
+      filename: `${baseName}.db`,
+      cleanupPaths: [dbPath, tempDir],
+    };
+  } catch (error) {
+    sqlStream.destroy();
+    await fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    throw error;
+  } finally {
+    await client.end().catch(() => {});
+  }
 };
 
 const runFixedProcess = (bin, args, { timeoutMs = 120000 } = {}) =>
@@ -1266,7 +1514,7 @@ const runCommand = async ({ command, confirmation, payload = {}, requestedById =
 };
 
 module.exports = {
-  createSqlBackupProcess,
+  createSqliteBackupFile,
   getExpectedConfirmation,
   listCommands,
   runCommand,

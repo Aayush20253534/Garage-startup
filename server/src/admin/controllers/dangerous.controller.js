@@ -1,36 +1,15 @@
-const { Transform } = require("stream");
+const fs = require("fs");
 
 const asyncHandler = require("../../utils/asyncHandler");
 const ApiResponse = require("../../utils/apiResponse");
 const service = require("../services/dangerous.service");
 
-const createPgDumpViewerFilter = () => {
-  let carry = "";
-
-  return new Transform({
-    transform(chunk, encoding, callback) {
-      const input = carry + chunk.toString("utf8");
-      const lines = input.split(/\r?\n/);
-      carry = lines.pop() || "";
-
-      const filtered = lines
-        .filter((line) => !/^\\(?:restrict|unrestrict)(?:\s|$)/i.test(line.trim()))
-        .join("\n");
-
-      if (filtered) {
-        this.push(`${filtered}\n`);
-      }
-
-      callback();
-    },
-    flush(callback) {
-      if (carry && !/^\\(?:restrict|unrestrict)(?:\s|$)/i.test(carry.trim())) {
-        this.push(carry);
-      }
-
-      callback();
-    },
-  });
+const cleanupBackup = async (paths = []) => {
+  await Promise.allSettled(
+    paths.map((targetPath) =>
+      fs.promises.rm(targetPath, { recursive: true, force: true }),
+    ),
+  );
 };
 
 const listDangerousCommands = asyncHandler(async (req, res) => {
@@ -58,62 +37,33 @@ const runDangerousCommand = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Dangerous command executed", result));
 });
 
-const downloadSqlBackup = asyncHandler(async (req, res, next) => {
-  const { child, filename } = service.createSqlBackupProcess({
+const downloadDbBackup = asyncHandler(async (req, res, next) => {
+  const { filePath, filename, cleanupPaths } = await service.createSqliteBackupFile({
     command: req.params.command,
     confirmation: req.body.confirmation,
   });
 
-  let stderr = "";
-  let started = false;
+  res.status(200);
+  res.setHeader("Content-Type", "application/vnd.sqlite3");
+  res.setHeader("Content-Disposition", `attachment; filename=\"${filename}\"`);
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("X-Content-Type-Options", "nosniff");
 
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk.toString();
-  });
+  return res.sendFile(filePath, async (error) => {
+    await cleanupBackup(cleanupPaths);
 
-  child.once("spawn", () => {
-    started = true;
-
-    res.status(200);
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename=\"${filename}\"`);
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-
-    child.stdout.pipe(createPgDumpViewerFilter()).pipe(res);
-  });
-
-  child.once("error", (error) => {
-    if (!res.headersSent) {
-      return next(error);
+    if (error) {
+      if (!res.headersSent) return next(error);
+      return res.destroy(error);
     }
 
-    return res.destroy(error);
-  });
-
-  child.once("close", (code) => {
-    if (code === 0) return;
-
-    const message =
-      stderr.trim() ||
-      (started
-        ? "pg_dump failed while creating the SQL backup"
-        : "pg_dump could not be started. Install PostgreSQL client tools or set PG_DUMP_BIN.");
-
-    const error = new Error(message);
-    error.statusCode = 500;
-
-    if (!res.headersSent) {
-      return next(error);
-    }
-
-    return res.destroy(error);
+    return undefined;
   });
 });
 
 module.exports = {
-  downloadSqlBackup,
+  downloadDbBackup,
   listDangerousCommands,
   runDangerousCommand,
 };
