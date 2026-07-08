@@ -16,6 +16,9 @@ import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import Seo from "@/components/seo/Seo";
 import { formatServicePriceRange } from "@/utils/priceRange";
+import { hasUsableIndiaCoordinates } from "@/utils/address";
+
+const NEARBY_RADIUS_KM = 10;
 
 const getGarageImage = (garage) =>
   garage?.thumbnail?.imageUrl || garage?.images?.[0]?.imageUrl || "";
@@ -69,6 +72,15 @@ const formatDistance = (garage) => {
 
   if (!Number.isFinite(distance) || distance <= 0) return null;
   return `${distance.toFixed(distance >= 10 ? 0 : 1)} km away`;
+};
+
+const getUsableCoordinates = (value) => {
+  if (!hasUsableIndiaCoordinates(value)) return null;
+
+  return {
+    latitude: Number(value.latitude),
+    longitude: Number(value.longitude),
+  };
 };
 
 const buildSearchParams = ({ city, search, openNow }) => {
@@ -148,7 +160,7 @@ function GarageCard({ garage, fallbackCity }) {
 
             <div className="rounded-lg border border-line bg-bg-soft p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">Distance</p>
-              <p className="mt-1 font-bold text-ink">{distance || "Available after booking"}</p>
+              <p className="mt-1 font-bold text-ink">{distance || "Use location to see distance"}</p>
             </div>
           </div>
 
@@ -237,6 +249,9 @@ export default function Garages() {
   const [garages, setGarages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [browserLocation, setBrowserLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationMessage, setLocationMessage] = useState("");
 
   useEffect(() => {
     if (queryCity || city || !savedCity) return;
@@ -247,14 +262,33 @@ export default function Garages() {
     setSearchParams(buildSearchParams(nextFilters), { replace: true });
   }, [city, queryCity, savedCity, setSearchParams]);
 
+  const activeLocation = useMemo(
+    () => getUsableCoordinates(browserLocation) || getUsableCoordinates(location),
+    [
+      browserLocation?.latitude,
+      browserLocation?.longitude,
+      location?.latitude,
+      location?.longitude,
+    ],
+  );
+
   const requestParams = useMemo(
     () => ({
       verified: "true",
       ...(appliedFilters.city.trim() && { city: appliedFilters.city.trim() }),
       ...(appliedFilters.search.trim() && { search: appliedFilters.search.trim() }),
       ...(appliedFilters.openNow && { openNow: "true" }),
+      ...(activeLocation && {
+        latitude: activeLocation.latitude,
+        longitude: activeLocation.longitude,
+        radiusKm: NEARBY_RADIUS_KM,
+      }),
     }),
-    [appliedFilters],
+    [
+      appliedFilters,
+      activeLocation?.latitude,
+      activeLocation?.longitude,
+    ],
   );
 
   useEffect(() => {
@@ -306,6 +340,32 @@ export default function Garages() {
     setOpenNow(nextFilters.openNow);
     setAppliedFilters(nextFilters);
     setSearchParams(buildSearchParams(nextFilters), { replace: true });
+  };
+
+  const requestCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationMessage("Location is not supported by this browser.");
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationMessage("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setBrowserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationMessage(`Showing garages within ${NEARBY_RADIUS_KM} km of your current location.`);
+        setLocationLoading(false);
+      },
+      () => {
+        setLocationMessage("Allow location access to see nearby garages and distance.");
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
   };
 
   return (
@@ -388,19 +448,36 @@ export default function Garages() {
                 {loading ? "Loading garages" : `${garages.length} verified garage${garages.length === 1 ? "" : "s"}`}
               </p>
               <p className="mt-1 text-sm text-muted">
-                {appliedFilters.city.trim()
-                  ? `Showing garages for ${appliedFilters.city.trim()}`
-                  : "Showing all available verified garage partners"}
+                {activeLocation
+                  ? `Showing garages within ${NEARBY_RADIUS_KM} km${appliedFilters.city.trim() ? ` in ${appliedFilters.city.trim()}` : ""}`
+                  : appliedFilters.city.trim()
+                    ? `Showing garages for ${appliedFilters.city.trim()}`
+                    : "Showing all available verified garage partners"}
               </p>
+              {locationMessage && (
+                <p className="mt-1 text-xs font-semibold text-muted">{locationMessage}</p>
+              )}
             </div>
 
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink"
-            >
-              <FiRefreshCw /> Reset filters
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={requestCurrentLocation}
+                disabled={locationLoading}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FiNavigation className={locationLoading ? "animate-pulse" : ""} />
+                {locationLoading ? "Detecting" : "Use my location"}
+              </button>
+
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink"
+              >
+                <FiRefreshCw /> Reset filters
+              </button>
+            </div>
           </div>
 
           {error && (
