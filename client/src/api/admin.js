@@ -105,6 +105,9 @@ export const adminApi = {
     return unwrap(await api.get("/admin/bookings", { params }));
   },
 
+  async getPayments(params = {}) {
+    return unwrap(await api.get("/admin/payments", { params }));
+  },
 
   async clearAllBookings(confirmation) {
     return unwrap(

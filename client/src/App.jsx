@@ -469,6 +469,10 @@ const AdminRevenue = lazyPage(
   () => import("@/pages/admin/Revenue"),
   "AdminRevenue",
 );
+const AdminPayments = lazyPage(
+  () => import("@/pages/admin/Payments"),
+  "AdminPayments",
+);
 const AdminNotifications = lazyPage(
   () => import("@/pages/admin/Notifications"),
   "AdminNotifications",
@@ -641,6 +645,7 @@ const adminItems = [
   { to: "/admin/services", label: "Services", icon: FiBriefcase },
   { to: "/admin/garages", label: "Garages", icon: FiHome },
   { to: "/admin/revenue", label: "Price Ranges", icon: FiDollarSign },
+  { to: "/admin/payments", label: "Payments", icon: FiCreditCard },
   { to: "/admin/customers", label: "Customers", icon: FiUsers },
   { to: "/admin/bookings", label: "Bookings", icon: FiCalendar },
   { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
@@ -1001,6 +1006,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminRevenue />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/payments"
+            element={
+              <ProtectedRoute>
+                <AdminPayments />
               </ProtectedRoute>
             }
           />

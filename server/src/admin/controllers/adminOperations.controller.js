@@ -16,6 +16,18 @@ const listBookings = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Bookings fetched successfully", bookings));
 });
 
+const listPayments = asyncHandler(async (req, res) => {
+  const payments = await service.listPayments(req.query);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Payment records fetched successfully",
+        payments,
+      ),
+    );
+});
 
 const clearAllBookings = asyncHandler(async (req, res) => {
   const result = await service.clearAllBookings({
@@ -73,6 +85,7 @@ module.exports = {
   getDashboardStats,
   listBookings,
   listCustomers,
+  listPayments,
   searchEmailUsers,
   sendUserEmail,
   sendNotification,

@@ -7,6 +7,7 @@ const validate = require("../../middlewares/validate.middleware");
 const {
   bookingQuerySchema,
   clearBookingsSchema,
+  paymentQuerySchema,
   customerQuerySchema,
   sendUserEmailSchema,
   sendNotificationSchema,
@@ -26,6 +27,13 @@ router.get(
   controller.listCustomers,
 );
 router.get("/bookings", bookingQuerySchema, validate, controller.listBookings);
+router.get(
+  "/payments",
+  authorizeRoles("ADMIN"),
+  paymentQuerySchema,
+  validate,
+  controller.listPayments,
+);
 router.delete(
   "/bookings/all",
   authorizeRoles("ADMIN"),

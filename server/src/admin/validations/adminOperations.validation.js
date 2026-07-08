@@ -20,6 +20,24 @@ const bookingStatuses = [
   "EXPIRED",
 ];
 
+const paymentRecordTypes = [
+  "CUSTOMER_PLATFORM_FEE",
+  "CUSTOMER_WALLET_RECHARGE",
+  "CUSTOMER_WALLET_PAYMENT",
+  "CUSTOMER_SOS_CHARGE",
+  "GARAGE_WALLET_RECHARGE",
+  "GARAGE_PLATFORM_FEE",
+];
+
+const paymentRecordStatuses = [
+  "CREATED",
+  "PAID",
+  "FAILED",
+  "REFUNDED",
+  "PENDING",
+  "SUCCESS",
+];
+
 const userRoles = ["CUSTOMER", "GARAGE_OWNER"];
 
 
@@ -63,6 +81,36 @@ const bookingQuerySchema = [
   query("userId")
     .optional({ nullable: true, checkFalsy: true })
     .isUUID(),
+];
+
+const paymentQuerySchema = [
+  query("search")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 140 }),
+
+  query("type")
+    .optional({ nullable: true, checkFalsy: true })
+    .isIn(paymentRecordTypes),
+
+  query("status")
+    .optional({ nullable: true, checkFalsy: true })
+    .isIn(paymentRecordStatuses),
+
+  query("from")
+    .optional({ nullable: true, checkFalsy: true })
+    .isISO8601()
+    .withMessage("From date must be a valid date"),
+
+  query("to")
+    .optional({ nullable: true, checkFalsy: true })
+    .isISO8601()
+    .withMessage("To date must be a valid date"),
+
+  query("limit")
+    .optional({ nullable: true, checkFalsy: true })
+    .isInt({ min: 1, max: 500 })
+    .withMessage("Limit must be between 1 and 500"),
 ];
 
 const sendNotificationSchema = [
@@ -138,6 +186,7 @@ const sendUserEmailSchema = [
 module.exports = {
   bookingQuerySchema,
   clearBookingsSchema,
+  paymentQuerySchema,
   customerQuerySchema,
   sendUserEmailSchema,
   sendNotificationSchema,
