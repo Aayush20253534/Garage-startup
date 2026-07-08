@@ -1,6 +1,6 @@
 export const SERVICE_TIME_ZONE = "Asia/Kolkata";
-export const SERVICE_OPEN_MINUTES = 24 * 60;
-export const SERVICE_CLOSE_MINUTES = 2 * 60;
+export const SERVICE_OPEN_MINUTES = 10 * 60;
+export const SERVICE_CLOSE_MINUTES = 22 * 60;
 
 export const SERVICE_HOURS_MESSAGE =
   "Rovauto services are available daily from 10:00 AM to 10:00 PM (IST). Please try again during service hours.";
