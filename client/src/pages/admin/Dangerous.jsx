@@ -5,6 +5,7 @@ import {
   FiAlertTriangle,
   FiCheckCircle,
   FiDatabase,
+  FiDownload,
   FiRefreshCw,
   FiShield,
   FiTrash2,
@@ -58,6 +59,57 @@ const getDefaultPayload = (command) => {
 
 const formatJson = (value) => JSON.stringify(value, null, 2);
 
+const getFilenameFromDisposition = (disposition = "") => {
+  const match = disposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+  const raw = match?.[1] || match?.[2];
+
+  if (!raw) return "rovauto-db-backup.sql";
+
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+};
+
+const saveBlobResponse = (response) => {
+  const disposition = response.headers?.["content-disposition"] || "";
+  const filename = getFilenameFromDisposition(disposition);
+  const blob = new Blob([response.data], {
+    type: response.headers?.["content-type"] || "application/sql",
+  });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+
+  return {
+    downloaded: true,
+    filename,
+    sizeBytes: blob.size,
+  };
+};
+
+const getDangerousErrorMessage = async (err, fallback = "Command failed") => {
+  const data = err.response?.data;
+
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const json = JSON.parse(text);
+      return json.message || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  return err.response?.data?.message || err.message || fallback;
+};
+
 function DangerousCommandCard({ command, onRun, running, result }) {
   const [confirmation, setConfirmation] = useState("");
   const [payload, setPayload] = useState(() => getDefaultPayload(command));
@@ -66,6 +118,7 @@ function DangerousCommandCard({ command, onRun, running, result }) {
   const requiresCustomerEmail = command.fields?.includes("customerEmail");
   const expected = command.confirmation;
   const canRun = confirmation === expected && !running;
+  const isDownloadAction = command.action === "download";
 
   const updatePayload = (key, value) => {
     setPayload((current) => ({ ...current, [key]: value }));
@@ -165,8 +218,20 @@ function DangerousCommandCard({ command, onRun, running, result }) {
           onClick={() => onRun(command, { confirmation, payload })}
           className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-5 text-sm font-bold transition disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 ${classes.button}`}
         >
-          {running ? <FiRefreshCw className="animate-spin" /> : <FiZap />}
-          {running ? "Running..." : "Run command"}
+          {running ? (
+            <FiRefreshCw className="animate-spin" />
+          ) : isDownloadAction ? (
+            <FiDownload />
+          ) : (
+            <FiZap />
+          )}
+          {running
+            ? isDownloadAction
+              ? "Preparing..."
+              : "Running..."
+            : isDownloadAction
+              ? "Download SQL"
+              : "Run command"}
         </button>
       </div>
 
@@ -226,10 +291,15 @@ export default function Dangerous() {
     setError("");
 
     try {
-      const result = await adminApi.runDangerousCommand(command.command, body);
+      const result =
+        command.action === "download"
+          ? saveBlobResponse(
+              await adminApi.downloadDangerousCommandFile(command.command, body),
+            )
+          : await adminApi.runDangerousCommand(command.command, body);
       setResults((current) => ({ ...current, [command.command]: result }));
     } catch (err) {
-      setError(err.response?.data?.message || "Command failed");
+      setError(await getDangerousErrorMessage(err));
     } finally {
       setRunningCommand("");
     }

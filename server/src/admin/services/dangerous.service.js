@@ -31,6 +31,15 @@ const COMMANDS = [
     fields: [],
   },
   {
+    command: "download-sql-backup",
+    label: "Download current SQL database backup",
+    description:
+      "Exports the current PostgreSQL database as a plain .sql file using pg_dump. This does not delete or modify data, but the downloaded file contains sensitive production data.",
+    tone: "warning",
+    fields: [],
+    action: "download",
+  },
+  {
     command: "delete-user-data",
     label: "Delete one user and every linked record",
     description:
@@ -230,6 +239,79 @@ const listCommands = () =>
     ...item,
     confirmation: getExpectedConfirmation(item.command),
   }));
+
+const buildPgDumpEnv = () => {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new ApiError(500, "DATABASE_URL is missing, so a SQL backup cannot be created");
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(databaseUrl);
+  } catch {
+    throw new ApiError(500, "DATABASE_URL is not a valid PostgreSQL connection URL");
+  }
+
+  const database = decodeURIComponent(parsed.pathname || "").replace(/^\//, "");
+
+  if (!database) {
+    throw new ApiError(500, "DATABASE_URL does not include a database name");
+  }
+
+  const env = {
+    ...process.env,
+    PGHOST: parsed.hostname,
+    PGPORT: parsed.port || "5432",
+    PGUSER: decodeURIComponent(parsed.username || ""),
+    PGPASSWORD: decodeURIComponent(parsed.password || ""),
+    PGDATABASE: database,
+  };
+
+  const sslMode = parsed.searchParams.get("sslmode");
+  if (sslMode) {
+    env.PGSSLMODE = sslMode;
+  }
+
+  return env;
+};
+
+const createSqlBackupProcess = ({ command, confirmation } = {}) => {
+  const metadata = assertCommand(command);
+
+  if (metadata.action !== "download") {
+    throw new ApiError(400, "This command does not support file downloads");
+  }
+
+  assertConfirmation({ command, confirmation });
+
+  const pgDumpBin = process.env.PG_DUMP_BIN || (process.platform === "win32" ? "pg_dump.exe" : "pg_dump");
+  const fileStamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `rovauto-db-backup-${fileStamp}.sql`;
+  const child = spawn(
+    pgDumpBin,
+    [
+      "--format=plain",
+      "--no-owner",
+      "--no-privileges",
+      "--clean",
+      "--if-exists",
+      "--encoding=UTF8",
+    ],
+    {
+      cwd: process.cwd(),
+      env: buildPgDumpEnv(),
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+
+  return {
+    child,
+    filename,
+  };
+};
 
 const runFixedProcess = (bin, args, { timeoutMs = 120000 } = {}) =>
   new Promise((resolve, reject) => {
@@ -1121,7 +1203,12 @@ const nukePlatform = async () => {
 };
 
 const runCommand = async ({ command, confirmation, payload = {}, requestedById = null } = {}) => {
-  assertCommand(command);
+  const metadata = assertCommand(command);
+
+  if (metadata.action === "download") {
+    throw new ApiError(400, "Use the download endpoint for this command");
+  }
+
   assertConfirmation({ command, confirmation });
 
   let result;
@@ -1177,6 +1264,7 @@ const runCommand = async ({ command, confirmation, payload = {}, requestedById =
 };
 
 module.exports = {
+  createSqlBackupProcess,
   getExpectedConfirmation,
   listCommands,
   runCommand,

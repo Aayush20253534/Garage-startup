@@ -15,6 +15,12 @@ router.use(authorizeRoles("ADMIN"));
 
 router.get("/commands", controller.listDangerousCommands);
 router.post(
+  "/commands/:command/download",
+  runDangerousCommandSchema,
+  validate,
+  controller.downloadSqlBackup,
+);
+router.post(
   "/commands/:command/run",
   runDangerousCommandSchema,
   validate,

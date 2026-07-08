@@ -284,4 +284,11 @@ export const adminApi = {
       }),
     );
   },
+
+  async downloadDangerousCommandFile(command, payload = {}) {
+    return api.post(`/admin/dangerous/commands/${command}/download`, payload, {
+      responseType: "blob",
+      skipErrorReporting: true,
+    });
+  },
 };

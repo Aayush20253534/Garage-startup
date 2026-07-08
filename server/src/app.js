@@ -122,7 +122,7 @@ const corsOptions = {
     "Origin",
   ],
 
-  exposedHeaders: ["Content-Length", "Content-Type"],
+  exposedHeaders: ["Content-Disposition", "Content-Length", "Content-Type"],
 
   optionsSuccessStatus: 204,
 };
