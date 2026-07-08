@@ -19,6 +19,7 @@ import api from "@/api/axios";
 const NAV = [
   { to: "/", label: "Home" },
   { to: "/services", label: "Services" },
+  { to: "/garages", label: "Garages" },
   { to: "/how-it-works", label: "How It Works" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },

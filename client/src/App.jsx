@@ -354,6 +354,7 @@ const lazyPage = (loader, moduleName) =>
   );
 
 const Services = lazyPage(() => import("@/pages/Services"), "Services");
+const Garages = lazyPage(() => import("@/pages/Garages"), "Garages");
 const CategoryDetail = lazyPage(
   () => import("@/pages/CategoryDetail"),
   "CategoryDetail",
@@ -752,6 +753,7 @@ function AppRoutes() {
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/services" element={<Services />} />
+          <Route path="/garages" element={<Garages />} />
           <Route path="/services/:categoryId" element={<CategoryDetail />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/about" element={<About />} />
