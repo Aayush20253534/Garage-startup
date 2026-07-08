@@ -177,12 +177,12 @@ function Dashboard() {
       number: completedCount,
       sub: "Completed services",
     },
-    {
-      icon: FiShield,
-      label: "Wallet Coins",
-      number: wallet?.balance || 0,
-      sub: "RovAuto wallet balance",
-    },
+    // {
+    //   icon: FiShield,
+    //   label: "Wallet Coins",
+    //   number: wallet?.balance || 0,
+    //   sub: "RovAuto wallet balance",
+    // },
     {
       icon: FiTruck,
       label: "Vehicles",
