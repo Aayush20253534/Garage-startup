@@ -75,6 +75,7 @@ const formatDistance = (garage) => {
 };
 
 const getUsableCoordinates = (value) => {
+  if (!value || typeof value !== "object") return null;
   if (!hasUsableIndiaCoordinates(value)) return null;
 
   return {
@@ -263,13 +264,8 @@ export default function Garages() {
   }, [city, queryCity, savedCity, setSearchParams]);
 
   const activeLocation = useMemo(
-    () => getUsableCoordinates(browserLocation) || getUsableCoordinates(location),
-    [
-      browserLocation?.latitude,
-      browserLocation?.longitude,
-      location?.latitude,
-      location?.longitude,
-    ],
+    () => getUsableCoordinates(browserLocation),
+    [browserLocation?.latitude, browserLocation?.longitude],
   );
 
   const requestParams = useMemo(
@@ -449,7 +445,7 @@ export default function Garages() {
               </p>
               <p className="mt-1 text-sm text-muted">
                 {activeLocation
-                  ? `Showing garages within ${NEARBY_RADIUS_KM} km${appliedFilters.city.trim() ? ` in ${appliedFilters.city.trim()}` : ""}`
+                  ? `Showing garages within ${NEARBY_RADIUS_KM} km of your current location${appliedFilters.city.trim() ? ` in ${appliedFilters.city.trim()}` : ""}`
                   : appliedFilters.city.trim()
                     ? `Showing garages for ${appliedFilters.city.trim()}`
                     : "Showing all available verified garage partners"}

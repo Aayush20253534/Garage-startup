@@ -64,6 +64,8 @@ export const SERVICE_AREA_COORDINATE_BOUNDS = [
 export const INDIA_COORDINATE_BOUNDS = SERVICE_AREA_COORDINATE_BOUNDS[0];
 
 export const hasUsableIndiaCoordinates = (location = {}) => {
+  if (!location || typeof location !== "object") return false;
+
   const latitude = Number(location.latitude);
   const longitude = Number(location.longitude);
 
