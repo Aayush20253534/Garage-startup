@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -16,6 +16,7 @@ import EmbedMap from "@/components/maps/EmbedMap";
 import { setBookings } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
+import { formatRupees } from "@/utils/priceRange";
 
 const timelineSteps = [
   { status: "NEW", label: "Request Sent" },
@@ -56,10 +57,60 @@ export default function GarageBookingDetail() {
   const [finalAmount, setFinalAmount] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [remoteBooking, setRemoteBooking] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const booking = bookings.find((item) => item.id === id);
+  const cachedBooking = bookings.find(
+    (item) => item.id === id || item.requestId === id || item.bookingId === id,
+  );
+  const booking = cachedBooking || remoteBooking;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadBookingDetail = async () => {
+      if (cachedBooking || !garageToken || !id) return;
+
+      setDetailLoading(true);
+      setError("");
+
+      try {
+        const fetchedBooking = await garageApi.getRequest(id);
+
+        if (!mounted) return;
+
+        setRemoteBooking(fetchedBooking);
+        dispatch(
+          setBookings([
+            fetchedBooking,
+            ...bookings.filter(
+              (item) =>
+                item.id !== fetchedBooking.id &&
+                item.requestId !== fetchedBooking.requestId &&
+                item.bookingId !== fetchedBooking.bookingId,
+            ),
+          ]),
+        );
+      } catch (err) {
+        if (mounted) {
+          setError(
+            err.response?.data?.message ||
+              "Unable to load this booking. It may no longer belong to your garage.",
+          );
+        }
+      } finally {
+        if (mounted) setDetailLoading(false);
+      }
+    };
+
+    loadBookingDetail();
+
+    return () => {
+      mounted = false;
+    };
+  }, [cachedBooking, dispatch, garageToken, id]);
 
   if (!booking) {
     return (
@@ -71,18 +122,26 @@ export default function GarageBookingDetail() {
           Back to Bookings
         </button>
         <div className="card-soft p-6 text-muted">
-          Booking not found. Open it from the bookings list after refreshing.
+          {detailLoading
+            ? "Loading booking details..."
+            : error ||
+              "Booking not found. Open it from the bookings list after refreshing."}
         </div>
       </div>
     );
   }
 
   const updateLocalBooking = (patch) => {
+    const updatedBooking = { ...booking, ...patch };
+
+    setRemoteBooking(updatedBooking);
     dispatch(
       setBookings(
-        bookings.map((item) =>
-          item.id === booking.id ? { ...item, ...patch } : item,
-        ),
+        bookings.some((item) => item.id === booking.id)
+          ? bookings.map((item) =>
+              item.id === booking.id ? updatedBooking : item,
+            )
+          : [updatedBooking, ...bookings],
       ),
     );
   };
@@ -235,7 +294,7 @@ export default function GarageBookingDetail() {
                     >
                       <span className="min-w-0">{service.name}</span>
                       <span className="font-semibold">
-                        ₹{Number(service.price || 0).toLocaleString()}
+                        {formatRupees(service.price || 0)}
                       </span>
                     </div>
                   ))}
@@ -243,17 +302,9 @@ export default function GarageBookingDetail() {
                     <div className="flex justify-between font-bold">
                       <span>Estimated Total</span>
                       <span>
-                        ₹{Number(booking.estimatedBill || 0).toLocaleString()}
+                        {formatRupees(booking.estimatedBill || 0)}
                       </span>
                     </div>
-                    {Number(booking.acceptFee || 0) > 0 && (
-                      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-3 text-xs text-muted">
-                        <span>Platform fee deducted from garage wallet</span>
-                        <span className="font-semibold text-ink">
-                          ₹{Number(booking.acceptFee || 0).toLocaleString()}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

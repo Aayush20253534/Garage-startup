@@ -346,11 +346,6 @@ export default function Checkout() {
         },
       });
     } catch (err) {
-      if (err.code === "PAYMENT_CANCELLED") {
-        setPendingBooking(null);
-        clearBookingCaches?.();
-      }
-
       setError(
         err.response?.data?.message ||
           err.message ||

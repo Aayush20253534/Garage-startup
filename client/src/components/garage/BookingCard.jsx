@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { FiCheck, FiX } from "react-icons/fi";
+import { formatRupees } from "@/utils/priceRange";
 
 const statusColors = {
   NEW: "bg-yellow-100 text-yellow-700",
@@ -71,17 +72,9 @@ export default function BookingCard({ booking, onAccept, onDecline }) {
               {Number(booking.distance || 0).toFixed(1)} km away
             </span>
             <span className="font-bold text-ink">
-              ₹{Number(booking.estimatedBill || 0).toLocaleString()}
+              {formatRupees(booking.estimatedBill || 0)}
             </span>
           </div>
-          {Number(booking.acceptFee || 0) > 0 && (
-            <div className="flex items-center justify-between rounded-lg bg-bg-soft px-3 py-2 text-xs">
-              <span className="text-muted">Deducted on accept</span>
-              <span className="font-bold text-ink">
-                ₹{Number(booking.acceptFee || 0).toLocaleString()}
-              </span>
-            </div>
-          )}
         </div>
       </div>
 

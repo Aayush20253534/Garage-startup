@@ -300,6 +300,13 @@ export const garageApi = {
       : [];
   },
 
+  async getRequest(...args) {
+    // New: getRequest(requestIdOrBookingId)
+    const requestId = args.at(-1);
+    const request = unwrap(await api.get(`/garage/requests/${requestId}`));
+    return mapGarageRequestToBooking(request);
+  },
+
   async acceptRequest(...args) {
     // New: acceptRequest(requestId, note)
     // Compatibility: acceptRequest(token, requestId, note)

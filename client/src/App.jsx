@@ -494,6 +494,10 @@ const AdminBookings = lazyPage(
   () => import("@/pages/admin/Bookings"),
   "AdminBookings",
 );
+const AdminPendingBookings = lazyPage(
+  () => import("@/pages/admin/PendingBookings"),
+  "PendingBookings",
+);
 const AdminRevenue = lazyPage(
   () => import("@/pages/admin/Revenue"),
   "AdminRevenue",
@@ -682,6 +686,7 @@ const adminItems = [
   { to: "/admin/payments", label: "Payments", icon: FiCreditCard },
   { to: "/admin/customers", label: "Customers", icon: FiUsers },
   { to: "/admin/bookings", label: "Bookings", icon: FiCalendar },
+  { to: "/admin/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
   { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon },
   { to: "/admin/notifications", label: "Notifications", icon: FiBell },
@@ -695,6 +700,7 @@ const internItems = [
   { to: "/intern/revenue", label: "Price Ranges", icon: FiDollarSign },
   { to: "/intern/customers", label: "Customers", icon: FiUsers },
   { to: "/intern/bookings", label: "Bookings", icon: FiCalendar },
+  { to: "/intern/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/intern/system-issues", label: "System Issues", icon: FiAlertTriangle },
   { to: "/intern/notifications", label: "Notifications", icon: FiBell },
   { to: "/intern/email", label: "Email", icon: FiMail },
@@ -1037,6 +1043,14 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/admin/pending-bookings"
+            element={
+              <ProtectedRoute>
+                <AdminPendingBookings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/revenue"
             element={
               <ProtectedRoute>
@@ -1126,6 +1140,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminBookings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/pending-bookings"
+            element={
+              <ProtectedRoute>
+                <AdminPendingBookings />
               </ProtectedRoute>
             }
           />

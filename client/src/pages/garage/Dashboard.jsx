@@ -19,6 +19,7 @@ import StatsCard from "@/components/garage/StatsCard";
 import BookingCard from "@/components/garage/BookingCard";
 import { setBookings, setWallet } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
+import { formatRupees } from "@/utils/priceRange";
 import { useApp } from "@/hooks/useApp";
 
 const formatDashboardDate = (value) => {
@@ -183,7 +184,7 @@ export default function GarageDashboard() {
     },
     {
       label: "Wallet Balance",
-      value: `₹${balance.toLocaleString()}`,
+      value: formatRupees(balance),
       icon: FiCreditCard,
       color: "orange",
     },
@@ -240,13 +241,13 @@ export default function GarageDashboard() {
               <h2 className="font-bold text-yellow-900">Activation pending</h2>
 
               <p className="mt-1 text-sm text-yellow-800">
-                Recharge at least ₹{activation.minimumBalance || 100} once to
+                Recharge at least {formatRupees(activation.minimumBalance || 100)} once to
                 activate customer visibility. After activation, your balance may
                 go below this amount.
               </p>
 
               <div className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-sm font-semibold text-yellow-900">
-                Wallet: ₹{balance.toLocaleString()}
+                Wallet: {formatRupees(balance)}
               </div>
             </div>
           </div>

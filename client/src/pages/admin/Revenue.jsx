@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { formatRupeeRange } from "@/utils/priceRange";
 import { cityApi } from "@/api/cities";
 import { useApp } from "@/hooks/useApp";
 import CitySelect from "@/components/common/CitySelect";
@@ -559,8 +560,7 @@ export default function Revenue() {
                       </td>
 
                       <td className="whitespace-nowrap px-4 py-3 font-semibold">
-                        ₹{Number(range.minPrice).toLocaleString()} - ₹
-                        {Number(range.maxPrice).toLocaleString()}
+                        {formatRupeeRange(range.minPrice, range.maxPrice)}
                       </td>
 
                       <td className="whitespace-nowrap px-4 py-3">

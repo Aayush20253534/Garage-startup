@@ -461,6 +461,163 @@ const getPaymentSummary = (records = []) =>
     },
   );
 
+const emptyPaymentSummary = () => ({
+  totalRecords: 0,
+  successfulAmount: 0,
+  customerPlatformFee: 0,
+  garagePlatformFee: 0,
+  walletRecharges: 0,
+});
+
+const getAggregateSum = (result) => Number(result?._sum?.amount || 0);
+
+const getFullPaymentSummary = async ({
+  type,
+  status,
+  search,
+  dateRangeFilter,
+  canFetchPaymentStatus,
+  canFetchWalletStatus,
+}) => {
+  const summary = emptyPaymentSummary();
+  const paymentWhere = {
+    ...dateRangeFilter,
+    ...(status && PAYMENT_STATUSES.includes(status) ? { status } : {}),
+    ...buildPaymentSearchWhere(search),
+  };
+  const customerWalletWhere = {
+    ...dateRangeFilter,
+    ...getCustomerWalletTypeFilter(type),
+    ...(status && WALLET_STATUSES.includes(status) ? { status } : {}),
+    ...buildCustomerWalletSearchWhere(search),
+  };
+  const garageWalletWhere = {
+    ...dateRangeFilter,
+    ...getGarageWalletTypeFilter(type),
+    ...(status && WALLET_STATUSES.includes(status) ? { status } : {}),
+    ...buildGarageWalletSearchWhere(search),
+  };
+
+  const countPromises = [];
+
+  if (shouldFetchPaymentRows(type) && canFetchPaymentStatus) {
+    countPromises.push(prisma.payment.count({ where: paymentWhere }));
+  }
+
+  if (shouldFetchCustomerWalletRows(type) && canFetchWalletStatus) {
+    countPromises.push(prisma.walletTransaction.count({ where: customerWalletWhere }));
+  }
+
+  if (shouldFetchGarageWalletRows(type) && canFetchWalletStatus) {
+    countPromises.push(prisma.garageWalletTransaction.count({ where: garageWalletWhere }));
+  }
+
+  const counts = await Promise.all(countPromises);
+  summary.totalRecords = counts.reduce((sum, count) => sum + Number(count || 0), 0);
+
+  const sumPromises = [];
+  const addSumPromise = (key, promise) => {
+    sumPromises.push(
+      promise.then((result) => ({ key, amount: getAggregateSum(result) })),
+    );
+  };
+
+  if (shouldFetchPaymentRows(type) && (!status || status === "PAID")) {
+    addSumPromise(
+      "customerPlatformFee",
+      prisma.payment.aggregate({
+        where: { ...paymentWhere, status: "PAID" },
+        _sum: { amount: true },
+      }),
+    );
+  }
+
+  if (shouldFetchCustomerWalletRows(type) && (!status || status === "SUCCESS")) {
+    addSumPromise(
+      "customerWalletSuccessful",
+      prisma.walletTransaction.aggregate({
+        where: { ...customerWalletWhere, status: "SUCCESS" },
+        _sum: { amount: true },
+      }),
+    );
+
+    if (
+      !type ||
+      type === PAYMENT_RECORD_TYPES.CUSTOMER_WALLET_RECHARGE
+    ) {
+      addSumPromise(
+        "walletRecharges",
+        prisma.walletTransaction.aggregate({
+          where: {
+            ...dateRangeFilter,
+            type: "RECHARGE",
+            status: "SUCCESS",
+            ...buildCustomerWalletSearchWhere(search),
+          },
+          _sum: { amount: true },
+        }),
+      );
+    }
+  }
+
+  if (shouldFetchGarageWalletRows(type) && (!status || status === "SUCCESS")) {
+    addSumPromise(
+      "garageWalletSuccessful",
+      prisma.garageWalletTransaction.aggregate({
+        where: { ...garageWalletWhere, status: "SUCCESS" },
+        _sum: { amount: true },
+      }),
+    );
+
+    if (!type || type === PAYMENT_RECORD_TYPES.GARAGE_PLATFORM_FEE) {
+      addSumPromise(
+        "garagePlatformFee",
+        prisma.garageWalletTransaction.aggregate({
+          where: {
+            ...dateRangeFilter,
+            type: "GARAGE_ACCEPT_FEE",
+            status: "SUCCESS",
+            ...buildGarageWalletSearchWhere(search),
+          },
+          _sum: { amount: true },
+        }),
+      );
+    }
+
+    if (!type || type === PAYMENT_RECORD_TYPES.GARAGE_WALLET_RECHARGE) {
+      addSumPromise(
+        "walletRecharges",
+        prisma.garageWalletTransaction.aggregate({
+          where: {
+            ...dateRangeFilter,
+            type: "RECHARGE",
+            status: "SUCCESS",
+            ...buildGarageWalletSearchWhere(search),
+          },
+          _sum: { amount: true },
+        }),
+      );
+    }
+  }
+
+  const sums = await Promise.all(sumPromises);
+
+  sums.forEach(({ key, amount }) => {
+    if (key === "customerPlatformFee") {
+      summary.customerPlatformFee += amount;
+      summary.successfulAmount += amount;
+    } else if (key === "garagePlatformFee") {
+      summary.garagePlatformFee += amount;
+    } else if (key === "walletRecharges") {
+      summary.walletRecharges += amount;
+    } else {
+      summary.successfulAmount += amount;
+    }
+  });
+
+  return summary;
+};
+
 const listPayments = async (query = {}) => {
   const limit = Math.min(Math.max(Number(query.limit || 250), 1), 500);
   const type = String(query.type || "").trim();
@@ -554,7 +711,14 @@ const listPayments = async (query = {}) => {
 
   return {
     records,
-    summary: getPaymentSummary(records),
+    summary: await getFullPaymentSummary({
+      type,
+      status,
+      search,
+      dateRangeFilter,
+      canFetchPaymentStatus,
+      canFetchWalletStatus,
+    }),
   };
 };
 

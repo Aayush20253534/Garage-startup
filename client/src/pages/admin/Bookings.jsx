@@ -3,6 +3,7 @@ import { adminApi } from "@/api/admin";
 import { mapsApi } from "@/api/maps";
 import StaticMapPreview from "@/components/maps/StaticMapPreview";
 import { useApp } from "@/hooks/useApp";
+import { formatRupees } from "@/utils/priceRange";
 import {
   FiAlertCircle,
   FiCalendar,
@@ -16,9 +17,8 @@ import {
 
 const CLEAR_CONFIRMATION = "CLEAR ALL BOOKINGS";
 
-const statuses = [
+const activeStatuses = [
   "",
-  "PENDING_PAYMENT",
   "SEARCHING_GARAGE",
   "GARAGE_ASSIGNED",
   "CONFIRMED",
@@ -28,14 +28,11 @@ const statuses = [
   "EXPIRED",
 ];
 
+
 const formatStatus = (status) => status?.replaceAll("_", " ") || "-";
 
-const formatAmount = (booking) =>
-  Number(
-    booking.payableAmount ||
-      booking.payment?.amount ||
-      0,
-  ).toLocaleString();
+const getBookingAmount = (booking) =>
+  Number(booking.payableAmount || booking.payment?.amount || 0);
 
 const formatVehicle = (vehicle) => {
   if (!vehicle) return "-";
@@ -62,7 +59,13 @@ const getStatusClass = (status) => {
   return "bg-bg-soft text-muted";
 };
 
-export default function Bookings() {
+export default function Bookings({
+  fixedStatus = "",
+  title = "Bookings",
+  description = "Inspect bookings across customers and garages.",
+  showStatusFilter = true,
+  showBulkActions = true,
+} = {}) {
   const { user } = useApp();
 
   const [bookings, setBookings] = useState([]);
@@ -91,9 +94,10 @@ export default function Bookings() {
 
     try {
       const params = Object.fromEntries(
-        Object.entries(filters).filter(
-          ([, value]) => value,
-        ),
+        Object.entries({
+          ...filters,
+          ...(fixedStatus && { status: fixedStatus }),
+        }).filter(([, value]) => value),
       );
 
       const data = await adminApi.getBookings(params);
@@ -214,15 +218,15 @@ export default function Bookings() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <h2 className="text-2xl font-bold text-ink">
-            Bookings
+            {title}
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Inspect bookings across customers and garages.
+            {description}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {isAdmin && (
+          {showBulkActions && isAdmin && (
             <button
               type="button"
               onClick={optimizeActiveRoutes}
@@ -234,7 +238,7 @@ export default function Bookings() {
             </button>
           )}
 
-          {isAdmin && (
+          {showBulkActions && isAdmin && (
             <button
               type="button"
               onClick={openClearDialog}
@@ -274,7 +278,13 @@ export default function Bookings() {
       )}
 
       <section className="card-soft rounded-2xl p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_240px_auto]">
+        <div
+          className={
+            showStatusFilter
+              ? "grid gap-3 md:grid-cols-[minmax(0,1fr)_240px_auto]"
+              : "grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]"
+          }
+        >
           <label className="relative min-w-0">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
@@ -290,27 +300,29 @@ export default function Bookings() {
             />
           </label>
 
-          <select
-            value={filters.status}
-            onChange={(event) =>
-              setFilters({
-                ...filters,
-                status: event.target.value,
-              })
-            }
-            className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
-          >
-            {statuses.map((status) => (
-              <option
-                key={status || "all"}
-                value={status}
-              >
-                {status
-                  ? formatStatus(status)
-                  : "All statuses"}
-              </option>
-            ))}
-          </select>
+          {showStatusFilter && (
+            <select
+              value={filters.status}
+              onChange={(event) =>
+                setFilters({
+                  ...filters,
+                  status: event.target.value,
+                })
+              }
+              className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+            >
+              {activeStatuses.map((status) => (
+                <option
+                  key={status || "all"}
+                  value={status}
+                >
+                  {status
+                    ? formatStatus(status)
+                    : "All active statuses"}
+                </option>
+              ))}
+            </select>
+          )}
 
           <button
             type="button"
@@ -402,7 +414,7 @@ export default function Bookings() {
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-3 font-semibold">
-                      ₹{formatAmount(booking)}
+                      {formatRupees(getBookingAmount(booking))}
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-3 text-muted">
@@ -429,7 +441,7 @@ export default function Bookings() {
         </div>
       </section>
 
-      {showOptimization && isAdmin && optimization && (
+      {showBulkActions && showOptimization && isAdmin && optimization && (
         <div
           className="fixed inset-0 z-[100] overflow-y-auto bg-black/65 px-4 py-8"
           role="presentation"
@@ -548,7 +560,7 @@ export default function Bookings() {
         </div>
       )}
 
-      {showClearDialog && isAdmin && (
+      {showBulkActions && showClearDialog && isAdmin && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 py-8"
           role="presentation"

@@ -1,3 +1,5 @@
+import { formatRupees } from "@/utils/priceRange";
+
 export default function Earnings() {
   const monthly = [
     { m: "Jan", v: 32 },
@@ -12,9 +14,9 @@ export default function Earnings() {
     <div className="grid gap-6">
       <div className="grid sm:grid-cols-3 gap-4">
         {[
-          ["₹48,200", "This month"],
-          ["₹2.84L", "This quarter"],
-          ["₹5.62L", "YTD"],
+          [formatRupees(48200), "This month"],
+          [formatRupees(284000), "This quarter"],
+          [formatRupees(562000), "YTD"],
         ].map(([n, l]) => (
           <div key={l} className="card-soft p-5">
             <div className="text-3xl font-bold">{n}</div>
@@ -23,7 +25,7 @@ export default function Earnings() {
         ))}
       </div>
       <div className="card-soft p-6">
-        <h3 className="font-semibold mb-4">Monthly earnings (₹K)</h3>
+        <h3 className="font-semibold mb-4">Monthly earnings (in thousands)</h3>
         <div className="flex items-end gap-3 h-56">
           {monthly.map((d) => (
             <div key={d.m} className="flex-1 flex flex-col items-center gap-2">

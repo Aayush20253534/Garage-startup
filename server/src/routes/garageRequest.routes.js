@@ -19,6 +19,7 @@ router.use(protect);
 router.use(authorizeRoles("GARAGE_OWNER", "ADMIN"));
 
 router.get("/", garageRequestController.getGarageRequests);
+router.get("/:requestId", garageRequestController.getGarageRequestById);
 
 router.post(
   "/:requestId/accept",

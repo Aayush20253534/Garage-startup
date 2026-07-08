@@ -13,7 +13,7 @@ import {
   getServiceImageUrls,
   warmImageCache,
 } from "@/utils/imageCache";
-import { getServiceMinPrice } from "@/utils/priceRange";
+import { formatRupees, getServiceMinPrice } from "@/utils/priceRange";
 import Seo, { SITE_URL } from "@/components/seo/Seo";
 import { getServiceCategoryPath } from "@/utils/serviceSlug";
 
@@ -258,8 +258,8 @@ export default function Services() {
             className="btn-dark px-6 py-3.5 shadow-2xl"
           >
             {cartItems.length} service
-            {cartItems.length > 1 ? "s" : ""} · ₹{" "}
-            {cartTotal} · Continue <FiArrowRight />
+            {cartItems.length > 1 ? "s" : ""} · {formatRupees(cartTotal)} ·
+            Continue <FiArrowRight />
           </Link>
         </div>
       )}

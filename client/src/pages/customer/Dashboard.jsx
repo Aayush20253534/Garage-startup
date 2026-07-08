@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useApp } from "@/hooks/useApp";
+import { formatRupees } from "@/utils/priceRange";
 import {
   fetchRecentActivities,
   getRecentActivities,
@@ -244,7 +245,7 @@ function Dashboard() {
             to="/dashboard/payments"
             className="inline-flex h-11 items-center justify-center rounded-xl bg-white/10 px-5 text-sm font-bold text-white transition hover:bg-white/15"
           >
-            Wallet: ₹{wallet?.balance || 0}
+            Wallet: {formatRupees(wallet?.balance || 0)}
           </Link>
         </div>
       </section>

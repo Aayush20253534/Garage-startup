@@ -482,31 +482,25 @@ const cancelPaymentOrder = async (userId, { bookingId }) => {
 
   ensurePendingPaymentBooking(booking);
 
-  const cancelledBooking = await prisma.$transaction(async (tx) => {
-    if (booking.payment) {
-      await tx.payment.update({
+  const payment = booking.payment
+    ? await prisma.payment.update({
         where: { bookingId },
         data: { status: "FAILED" },
-      });
-    }
+      })
+    : null;
 
-    return tx.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: "CANCELLED",
-        searchExpiresAt: null,
-        expiredAt: new Date(),
-      },
-      include: bookingInclude,
-    });
+  const payableBooking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: bookingInclude,
   });
 
   await invalidatePaymentBookingCaches(userId);
 
   return {
-    booking: cancelledBooking,
-    payment: cancelledBooking.payment,
-    message: "Payment was cancelled and the booking was removed from active bookings.",
+    booking: payableBooking,
+    payment,
+    message:
+      "Payment attempt was cancelled. The booking is still pending payment and can be retried.",
   };
 };
 

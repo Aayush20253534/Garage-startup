@@ -11,6 +11,7 @@ import {
 } from "react-icons/fi";
 import { setWallet } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
+import { formatRupees } from "@/utils/priceRange";
 import { useApp } from "@/hooks/useApp";
 
 const MINIMUM_RECHARGE_AMOUNT = 100;
@@ -90,7 +91,7 @@ export default function GarageWallet() {
       const rechargeAmount = Number(amount);
 
       if (Number.isNaN(rechargeAmount) || rechargeAmount < MINIMUM_RECHARGE_AMOUNT) {
-        setError(`Minimum recharge amount is ₹${MINIMUM_RECHARGE_AMOUNT}.`);
+        setError(`Minimum recharge amount is ${formatRupees(MINIMUM_RECHARGE_AMOUNT)}.`);
         return;
       }
 
@@ -203,13 +204,13 @@ export default function GarageWallet() {
             </p>
 
             <h2 className="mt-2 text-4xl font-bold text-ink sm:text-5xl">
-              ₹{balance.toLocaleString()}
+              {formatRupees(balance)}
             </h2>
 
             <p className="mt-3 text-sm text-muted">
-              ₹{minimumActivationAmount} is required only for first activation.
-              After activation, keep enough balance to cover the platform fee of
-              a booking request; that fee is deducted when you accept it.
+              {formatRupees(minimumActivationAmount)} is required only for first activation.
+              After activation, keep enough wallet balance to accept booking
+              requests smoothly.
             </p>
           </div>
 
@@ -283,8 +284,8 @@ export default function GarageWallet() {
                       isCredit ? "text-green-700" : "text-red-700",
                     ].join(" ")}
                   >
-                    {isCredit ? "+" : "-"}₹
-                    {Math.abs(Number(txn.amount || 0)).toLocaleString()}
+                    {isCredit ? "+" : "-"}
+                    {formatRupees(Math.abs(Number(txn.amount || 0)))}
                   </p>
                 </div>
               );
@@ -308,8 +309,8 @@ export default function GarageWallet() {
                 </h3>
                 <p className="mt-1 text-sm text-muted">
                   Create a Cashfree recharge order. The first activation needs at
-                  least ₹{minimumActivationAmount}; after activation, there is no
-                  ₹{minimumActivationAmount} wallet-balance cap.
+                  least {formatRupees(minimumActivationAmount)}; after activation, there is no
+                  {formatRupees(minimumActivationAmount)} wallet-balance cap.
                 </p>
               </div>
 
@@ -362,8 +363,8 @@ export default function GarageWallet() {
                   </p>
 
                   <p>
-                    <span className="text-muted">Amount:</span> ₹
-                    {Number(pendingOrder.amount || amount).toLocaleString()}
+                    <span className="text-muted">Amount:</span>{" "}
+                    {formatRupees(pendingOrder.amount || amount)}
                   </p>
 
                   {pendingOrder.paymentSessionId && (

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
 import { useApp } from "@/hooks/useApp";
 import CitySelect from "@/components/common/CitySelect";
+import { formatRupees } from "@/utils/priceRange";
 import {
   FiAlertCircle,
   FiCheck,
@@ -35,7 +36,7 @@ const applicationStatusMeta = {
 const adminButtonBase =
   "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:cursor-not-allowed disabled:opacity-50";
 
-const money = (value) => `₹${Number(value || 0).toLocaleString()}`;
+const money = (value) => formatRupees(value);
 
 const fieldClass =
   "h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/5 disabled:bg-bg-soft";

@@ -1,3 +1,4 @@
+const axios = require("axios");
 const prisma = require("../config/prisma");
 const systemIssueReporter = require("./systemIssueReporter.service");
 
@@ -45,6 +46,84 @@ const formatMinutes = (durationMs) => {
   return `${minutes} minute${minutes === 1 ? "" : "s"}`;
 };
 
+const getProbeBaseUrl = () =>
+  String(
+    process.env.SYSTEM_ISSUE_PROBE_BASE_URL ||
+      process.env.API_BASE_URL ||
+      process.env.BACKEND_URL ||
+      `http://127.0.0.1:${process.env.PORT || 5000}/api/v1`,
+  ).replace(/\/+$/, "");
+
+const isSafeProbeMethod = (method) =>
+  ["GET", "HEAD"].includes(String(method || "GET").toUpperCase());
+
+const toProbeUrl = (issue) => {
+  const metadataProbeUrl =
+    typeof issue.metadata?.autoResolveProbeUrl === "string"
+      ? issue.metadata.autoResolveProbeUrl.trim()
+      : "";
+  const endpoint = metadataProbeUrl || String(issue.endpoint || "").trim();
+
+  if (!endpoint || /system-issues\/report/i.test(endpoint)) {
+    return null;
+  }
+
+  if (!metadataProbeUrl && !isSafeProbeMethod(issue.method)) {
+    return null;
+  }
+
+  try {
+    if (/^https?:\/\//i.test(endpoint)) {
+      return endpoint;
+    }
+
+    const normalizedEndpoint = endpoint.startsWith("/")
+      ? endpoint
+      : `/${endpoint}`;
+    const baseUrl = getProbeBaseUrl();
+
+    if (normalizedEndpoint.startsWith("/api/v1/")) {
+      return `${baseUrl.replace(/\/api\/v1$/, "")}${normalizedEndpoint}`;
+    }
+
+    return `${baseUrl}${normalizedEndpoint}`;
+  } catch {
+    return null;
+  }
+};
+
+const verifyIssueResolved = async (issue) => {
+  const probeUrl = toProbeUrl(issue);
+
+  if (!probeUrl) {
+    return { verified: false, reason: "no_safe_probe" };
+  }
+
+  try {
+    const response = await axios.request({
+      method: isSafeProbeMethod(issue.method) ? issue.method || "GET" : "GET",
+      url: probeUrl,
+      timeout: Number(process.env.SYSTEM_ISSUE_PROBE_TIMEOUT_MS || 8000),
+      validateStatus: (status) => status < 500,
+      headers: {
+        "X-Rovauto-System-Probe": "system-issue-auto-resolver",
+      },
+    });
+
+    if (response.status >= 200 && response.status < 400) {
+      return { verified: true, status: response.status, probeUrl };
+    }
+
+    return { verified: false, status: response.status, probeUrl };
+  } catch (error) {
+    return {
+      verified: false,
+      reason: error.code || error.message || "probe_failed",
+      probeUrl,
+    };
+  }
+};
+
 const runSystemIssueAutoResolverOnce = async () => {
   if (!isAutoResolveEnabled()) {
     return { skipped: true, reason: "disabled" };
@@ -59,23 +138,53 @@ const runSystemIssueAutoResolverOnce = async () => {
   try {
     const quietPeriodMs = getQuietPeriodMs();
     const cutoff = new Date(Date.now() - quietPeriodMs);
-    const result = await prisma.systemIssue.updateMany({
+    const candidates = await prisma.systemIssue.findMany({
       where: {
         status: { in: ["OPEN", "INVESTIGATING"] },
         lastSeenAt: { lte: cutoff },
       },
-      data: {
-        status: "RESOLVED",
-        resolvedAt: new Date(),
-        resolvedById: null,
-        resolutionNote:
-          `Auto-resolved after no new occurrences for ${formatMinutes(quietPeriodMs)}. ` +
-          "The issue will reopen automatically if it happens again.",
-      },
+      orderBy: { lastSeenAt: "asc" },
+      take: Math.min(
+        Math.max(Number(process.env.SYSTEM_ISSUE_AUTO_RESOLVE_BATCH || 25), 1),
+        100,
+      ),
     });
 
+    let resolvedCount = 0;
+    let skippedCount = 0;
+
+    for (const issue of candidates) {
+      const verification = await verifyIssueResolved(issue);
+
+      if (!verification.verified) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const result = await prisma.systemIssue.updateMany({
+        where: {
+          id: issue.id,
+          status: { in: ["OPEN", "INVESTIGATING"] },
+          lastSeenAt: { lte: cutoff },
+        },
+        data: {
+          status: "RESOLVED",
+          resolvedAt: new Date(),
+          resolvedById: null,
+          resolutionNote:
+            `Auto-resolved after no new occurrences for ${formatMinutes(quietPeriodMs)} ` +
+            `and a successful verification probe (${verification.status}). ` +
+            "The issue will reopen automatically if it happens again.",
+        },
+      });
+
+      resolvedCount += result.count;
+    }
+
     return {
-      resolvedCount: result.count,
+      resolvedCount,
+      skippedCount,
+      checkedCount: candidates.length,
       cutoff,
       quietPeriodMs,
     };

@@ -5,6 +5,8 @@ import {
   FiArrowRight,
   FiCheckCircle,
   FiClock,
+  FiHome,
+  FiMapPin,
   FiNavigation,
   FiShield,
   FiStar,
@@ -16,6 +18,7 @@ import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import Seo, { SITE_ICON, SITE_URL } from "@/components/seo/Seo";
 import { getServiceCategoryPath } from "@/utils/serviceSlug";
+import { formatRupees } from "@/utils/priceRange";
 import homepageHero from "@/assets/Rovauto_home.png";
 import {
   getCategoryThumbnailUrl,
@@ -75,6 +78,12 @@ const formatCount = (value, fallback) => {
   return String(number);
 };
 
+const getGarageImage = (garage) =>
+  garage?.thumbnail?.imageUrl || garage?.images?.[0]?.imageUrl || "";
+
+const getGarageServiceCount = (garage) =>
+  Array.isArray(garage?.services) ? garage.services.length : 0;
+
 export default function Home() {
   const { user, vehicle, location } = useApp();
 
@@ -85,6 +94,12 @@ export default function Home() {
     garages: "Growing",
     customers: "Growing",
   });
+  const [cityGarages, setCityGarages] = useState([]);
+  const [cityGaragesLoading, setCityGaragesLoading] = useState(false);
+  const [showCityGarages, setShowCityGarages] = useState(false);
+
+  const cityName = String(location?.city || "").trim();
+  const canShowCityGarages = Boolean(user && cityName);
 
   useEffect(() => {
     let mounted = true;
@@ -107,6 +122,40 @@ export default function Home() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!canShowCityGarages) {
+      setCityGarages([]);
+      setShowCityGarages(false);
+      return undefined;
+    }
+
+    let mounted = true;
+    setCityGaragesLoading(true);
+
+    api
+      .get("/garages", {
+        params: {
+          city: cityName,
+          verified: "true",
+        },
+      })
+      .then((response) => {
+        if (!mounted) return;
+        const garages = response.data?.data || response.data || [];
+        setCityGarages(Array.isArray(garages) ? garages : []);
+      })
+      .catch(() => {
+        if (mounted) setCityGarages([]);
+      })
+      .finally(() => {
+        if (mounted) setCityGaragesLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [canShowCityGarages, cityName]);
 
   useEffect(() => {
     let mounted = true;
@@ -221,7 +270,117 @@ export default function Home() {
                 >
                   Become a Partner
                 </Link>
+
+                {canShowCityGarages && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCityGarages((value) => !value)}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-bold text-white transition hover:border-white hover:bg-white/15"
+                  >
+                    <FiHome /> Garages
+                  </button>
+                )}
               </div>
+
+              {canShowCityGarages && showCityGarages && (
+                <div className="mt-5 max-w-full overflow-hidden rounded-2xl border border-white/15 bg-white/95 text-ink shadow-2xl backdrop-blur">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-wide text-muted">
+                        Operating in your city
+                      </p>
+                      <h2 className="truncate text-lg font-bold">
+                        Garages in {cityName}
+                      </h2>
+                    </div>
+
+                    <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-bold text-muted">
+                      {cityGaragesLoading
+                        ? "Loading"
+                        : `${cityGarages.length} listed`}
+                    </span>
+                  </div>
+
+                  <div className="max-h-[360px] overflow-y-auto p-3">
+                    {cityGaragesLoading ? (
+                      <div className="rounded-xl bg-bg-soft p-4 text-sm text-muted">
+                        Loading garages near your saved city...
+                      </div>
+                    ) : cityGarages.length ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {cityGarages.map((garage) => {
+                          const image = getGarageImage(garage);
+                          const serviceCount = getGarageServiceCount(garage);
+
+                          return (
+                            <article
+                              key={garage.id}
+                              className="grid grid-cols-[72px_minmax(0,1fr)] gap-3 rounded-xl border border-line bg-white p-3 shadow-sm"
+                            >
+                              <div className="h-[72px] overflow-hidden rounded-xl bg-bg-soft">
+                                {image ? (
+                                  <img
+                                    src={image}
+                                    alt={garage.name}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="grid h-full place-items-center text-2xl text-muted">
+                                    <FiTool />
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <h3 className="truncate text-sm font-bold text-ink">
+                                      {garage.name}
+                                    </h3>
+
+                                    <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted">
+                                      <FiMapPin className="shrink-0" />
+                                      {[garage.area, garage.city]
+                                        .filter(Boolean)
+                                        .join(", ") || cityName}
+                                    </p>
+                                  </div>
+
+                                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">
+                                    <FiStar fill="currentColor" />
+                                    {Number(garage.ratingAvg || 0).toFixed(1)}
+                                  </span>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-muted">
+                                  {garage.isVerified && (
+                                    <span className="rounded-full bg-green-50 px-2 py-1 text-green-700">
+                                      Verified
+                                    </span>
+                                  )}
+
+                                  <span className="rounded-full bg-bg-soft px-2 py-1">
+                                    {serviceCount || "Multiple"} services
+                                  </span>
+
+                                  <span className="rounded-full bg-bg-soft px-2 py-1">
+                                    Radius {garage.workingRadiusKm || 15} km
+                                  </span>
+                                </div>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl bg-bg-soft p-4 text-sm text-muted">
+                        No verified garages are listed for {cityName} yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-7 flex flex-wrap gap-x-5 gap-y-3">
                 {TRUST.map((item) => {
@@ -423,6 +582,7 @@ export default function Home() {
               <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white text-xl text-muted shadow-sm">
                 <FiTool />
               </div>
+
               <p className="mt-3 text-sm font-semibold text-ink">
                 No service categories are available right now.
               </p>
@@ -565,7 +725,7 @@ export default function Home() {
                           <div className="hidden shrink-0 text-right sm:block">
                             <div className="text-xs text-muted">From</div>
                             <div className="text-xl font-bold text-ink">
-                              ₹{price}
+                              {formatRupees(price)}
                             </div>
                           </div>
                         )}
@@ -576,8 +736,9 @@ export default function Home() {
                           <span className="text-xs font-semibold uppercase tracking-wide text-muted">
                             From
                           </span>
+
                           <span className="text-lg font-extrabold text-ink">
-                            ₹{price}
+                            {formatRupees(price)}
                           </span>
                         </div>
                       )}
@@ -618,6 +779,7 @@ export default function Home() {
               <h2 className="text-3xl font-bold text-ink sm:text-4xl">
                 Explore Rovauto
               </h2>
+
               <p className="mt-3 text-sm leading-6 text-muted sm:text-base">
                 Learn about our booking process, service warranty, garage
                 partnership program and customer support.
@@ -672,9 +834,11 @@ export default function Home() {
                   className="group rounded-2xl border border-line bg-bg-soft p-5 transition hover:-translate-y-1 hover:border-brand hover:shadow-md"
                 >
                   <h3 className="text-lg font-bold text-ink">{item.title}</h3>
+
                   <p className="mt-2 text-sm leading-6 text-muted">
                     {item.description}
                   </p>
+
                   <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-ink">
                     Learn more
                     <FiArrowRight className="transition group-hover:translate-x-1" />
@@ -723,6 +887,7 @@ export default function Home() {
                     <div className="text-3xl font-bold text-brand">
                       {number}
                     </div>
+
                     <div className="mt-1 text-xs text-white/70">{label}</div>
                   </div>
                 ))}

@@ -35,6 +35,19 @@ const getGarageRequests = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Garage requests fetched successfully", requests));
 });
 
+const getGarageRequestById = asyncHandler(async (req, res) => {
+  const garageId = await getGarageIdForOwner(req.user.id);
+
+  const request = await garageRequestService.getGarageRequestById(
+    garageId,
+    req.params.requestId,
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Garage request fetched successfully", request));
+});
+
 const acceptGarageRequest = asyncHandler(async (req, res) => {
   const garageId = await getGarageIdForOwner(req.user.id);
 
@@ -93,6 +106,7 @@ const rejectGarageRequest = asyncHandler(async (req, res) => {
 
 module.exports = {
   getGarageRequests,
+  getGarageRequestById,
   acceptGarageRequest,
   verifyHandoverOtp,
   markDelivered,

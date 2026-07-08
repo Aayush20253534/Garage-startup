@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { FiCheck, FiX, FiMapPin } from "react-icons/fi";
+import { formatRupees } from "@/utils/priceRange";
 
 const LEADS = [
   {
@@ -40,14 +41,14 @@ export default function Leads() {
                 </div>
                 <div className="mt-2 font-semibold">{l.vehicle}</div>
                 <div className="text-sm text-muted">
-                  {l.svc} · Est. ₹{l.bill}
+                  {l.svc} · Est. {formatRupees(l.bill)}
                 </div>
                 <div className="text-xs text-muted mt-1 flex items-center gap-1">
                   <FiMapPin /> {l.dist} away · Indirapuram
                 </div>
               </div>
               <Link to={`/garage/magic/${l.id}`} className="btn-primary">
-                <FiCheck /> Accept (₹40)
+                <FiCheck /> Accept
               </Link>
               <button className="btn-ghost">
                 <FiX /> Reject

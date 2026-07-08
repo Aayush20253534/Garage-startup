@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { formatRupees } from "@/utils/priceRange";
 import {
   FiAlertCircle,
   FiCreditCard,
@@ -43,8 +44,7 @@ const initialFilters = {
   to: "",
 };
 
-const formatCurrency = (value) =>
-  `₹${Number(value || 0).toLocaleString("en-IN")}`;
+const formatCurrency = (value) => formatRupees(value);
 
 const formatDateTime = (value) => {
   if (!value) return "-";

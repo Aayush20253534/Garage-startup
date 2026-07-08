@@ -260,6 +260,22 @@ const getCurrentRoundRequests = async (bookingId) => {
   });
 };
 
+const getGarageRequestById = async (garageId, requestId) => {
+  const request = await prisma.garageBroadcastRequest.findFirst({
+    where: {
+      garageId,
+      OR: [{ id: requestId }, { bookingId: requestId }],
+    },
+    include: requestInclude,
+  });
+
+  if (!request) {
+    throw new ApiError(404, "Garage booking request not found");
+  }
+
+  return serializeGarageRequest(request);
+};
+
 const sendGarageRequestAlerts = async ({ requests, booking }) => {
   const alerts = [];
 
@@ -796,6 +812,7 @@ module.exports = {
   broadcastBookingToNearbyGarages,
   ensureBookingSearchActive,
   startNextGarageSearchCycle,
+  getGarageRequestById,
   getGarageRequests,
   acceptGarageRequest,
   rejectGarageRequest,

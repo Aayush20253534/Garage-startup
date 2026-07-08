@@ -6,6 +6,7 @@ import RouteMapCard from "@/components/maps/RouteMapCard";
 import { useApp } from "@/hooks/useApp";
 import { addRecentActivity } from "@/utils/activityLog";
 import { hasUsableIndiaCoordinates } from "@/utils/address";
+import { formatRupees } from "@/utils/priceRange";
 
 const STORAGE_KEY = "rovauto_sos_location";
 
@@ -169,7 +170,7 @@ export default function SOSCheckoutScreen() {
           <div className="mt-5 rounded-2xl bg-gray-950 p-4 text-sm">
             <div className="flex justify-between gap-4 border-b border-gray-800 pb-3">
               <span className="text-gray-400">SOS wallet charge</span>
-              <span className="font-bold text-yellow-300">₹50</span>
+              <span className="font-bold text-yellow-300">{formatRupees(50)}</span>
             </div>
             <div className="flex items-start gap-2 pt-3 text-xs leading-5 text-gray-500">
               <FiMapPin className="mt-0.5 shrink-0" />

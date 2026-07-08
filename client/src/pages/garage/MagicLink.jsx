@@ -11,6 +11,7 @@ import {
 import Logo from "@/components/common/Logo";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
+import { formatRupees } from "@/utils/priceRange";
 
 const isUnlockedStatus = (status) =>
   ["ACCEPTED", "CONFIRMED", "IN_PROGRESS", "DELIVERED", "COMPLETED"].includes(
@@ -219,7 +220,7 @@ export default function MagicLink() {
                   <div className="card-soft p-4 text-center">
                     <p className="text-sm text-muted">Est. Bill</p>
                     <p className="text-xl font-bold">
-                      Rs. {Number(booking.estimatedBill || 0).toLocaleString()}
+                      {formatRupees(booking.estimatedBill || 0)}
                     </p>
                   </div>
                   <div className="card-soft p-4 text-center">
@@ -234,15 +235,6 @@ export default function MagicLink() {
                     )}
                   </div>
                 </div>
-
-                {Number(booking.acceptFee || 0) > 0 && (
-                  <div className="rounded-xl border border-line bg-white p-4 text-center text-sm">
-                    <span className="text-muted">Wallet fee deducted when accepting: </span>
-                    <span className="font-bold text-ink">
-                      Rs. {Number(booking.acceptFee || 0).toLocaleString()}
-                    </span>
-                  </div>
-                )}
 
                 {accepted && (
                   <motion.div
