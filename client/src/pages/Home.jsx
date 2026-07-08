@@ -178,7 +178,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
         </div>
 
-        <div className="container-x relative z-10 py-10 sm:py-14 lg:py-16">
+        <div className="container-x relative z-10 py-10 sm:py-14 lg:py-12">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}

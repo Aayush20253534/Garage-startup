@@ -12,6 +12,11 @@ import { CATEGORY_UI } from "@/data/services";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import { getCategoryThumbnailUrl } from "@/utils/imageCache";
 import { reportSystemIssue } from "@/utils/errorReporter";
+import {
+  createMissingLazyDefaultError,
+  isChunkLoadError,
+  reloadForLatestBuild,
+} from "@/utils/chunkRecovery";
 import PrivatePageSeo from "@/components/seo/PrivatePageSeo";
 import Home from "@/pages/Home";
 
@@ -298,66 +303,185 @@ function SOSAvailabilityGuard({ children }) {
   );
 }
 
-const Services = lazy(() => import("@/pages/Services"));
-const CategoryDetail = lazy(() => import("@/pages/CategoryDetail"));
-const HowItWorks = lazy(() => import("@/pages/HowItWorks"));
-const About = lazy(() => import("@/pages/About"));
-const Partner = lazy(() => import("@/pages/Partner"));
-const Contact = lazy(() => import("@/pages/Contact"));
-const Warranty = lazy(() => import("@/pages/Warranty"));
-const NotFound = lazy(() => import("@/pages/NotFound"));
-const SOSPanicScreen = lazy(() => import("@/pages/sos/SOSPanicScreen"));
-const SOSLocationScreen = lazy(() => import("@/pages/sos/SOSLocationScreen"));
-const SOSCheckoutScreen = lazy(() => import("@/pages/sos/SOSCheckoutScreen"));
-const SOSSuccessScreen = lazy(() => import("@/pages/sos/SOSSuccessScreen"));
+const lazyPage = (loader, moduleName) =>
+  lazy(() =>
+    loader()
+      .then((module) => {
+        if (!module?.default) {
+          throw createMissingLazyDefaultError(moduleName);
+        }
 
-const Login = lazy(() => import("@/pages/auth/Login"));
-const Register = lazy(() => import("@/pages/auth/Register"));
-const OTP = lazy(() => import("@/pages/auth/OTP"));
-const Forgot = lazy(() => import("@/pages/auth/Forgot"));
+        return module;
+      })
+      .catch((error) => {
+        if (reloadForLatestBuild(error)) {
+          return new Promise(() => {});
+        }
 
-const VehicleSelect = lazy(() => import("@/pages/booking/VehicleSelect"));
-const AddressForm = lazy(() => import("@/pages/booking/AddressForm"));
-const ServiceSelect = lazy(() => import("@/pages/booking/ServiceSelect"));
-const GarageSelect = lazy(() => import("@/pages/booking/GarageSelect"));
-const Checkout = lazy(() => import("@/pages/booking/Checkout"));
-const Tracking = lazy(() => import("@/pages/booking/Tracking"));
+        throw error;
+      }),
+  );
 
-const CustomerDashboard = lazy(() => import("@/pages/customer/Dashboard"));
-const MyVehicles = lazy(() => import("@/pages/customer/MyVehicles"));
-const ActiveBookings = lazy(() => import("@/pages/customer/ActiveBookings"));
-const ServiceHistory = lazy(() => import("@/pages/customer/ServiceHistory"));
-const Profile = lazy(() => import("@/pages/customer/Profile"));
-const Payments = lazy(() => import("@/pages/customer/Payments"));
-const Notifications = lazy(() => import("@/pages/customer/Notifications"));
-
-const GarageDashboard = lazy(() => import("@/pages/garage/Dashboard"));
-const GarageLogin = lazy(() => import("@/pages/garage/auth/Login"));
-const GarageOtpLogin = lazy(() => import("@/pages/garage/auth/OtpLogin"));
-const GarageForgotPassword = lazy(
-  () => import("@/pages/garage/auth/ForgotPassword"),
+const Services = lazyPage(() => import("@/pages/Services"), "Services");
+const CategoryDetail = lazyPage(
+  () => import("@/pages/CategoryDetail"),
+  "CategoryDetail",
 );
-const GarageOnboarding = lazy(() => import("@/pages/garage/Onboarding"));
-const GarageServices = lazy(() => import("@/pages/garage/Services"));
-const GarageBookings = lazy(() => import("@/pages/garage/Bookings"));
-const GarageBookingDetail = lazy(() => import("@/pages/garage/BookingDetail"));
-const GarageProfile = lazy(() => import("@/pages/garage/Profile"));
-const GarageSettings = lazy(() => import("@/pages/garage/Settings"));
-const GarageWallet = lazy(() => import("@/pages/garage/Wallet"));
-const MagicLink = lazy(() => import("@/pages/garage/MagicLink"));
+const HowItWorks = lazyPage(() => import("@/pages/HowItWorks"), "HowItWorks");
+const About = lazyPage(() => import("@/pages/About"), "About");
+const Partner = lazyPage(() => import("@/pages/Partner"), "Partner");
+const Contact = lazyPage(() => import("@/pages/Contact"), "Contact");
+const Warranty = lazyPage(() => import("@/pages/Warranty"), "Warranty");
+const NotFound = lazyPage(() => import("@/pages/NotFound"), "NotFound");
+const SOSPanicScreen = lazyPage(
+  () => import("@/pages/sos/SOSPanicScreen"),
+  "SOSPanicScreen",
+);
+const SOSLocationScreen = lazyPage(
+  () => import("@/pages/sos/SOSLocationScreen"),
+  "SOSLocationScreen",
+);
+const SOSCheckoutScreen = lazyPage(
+  () => import("@/pages/sos/SOSCheckoutScreen"),
+  "SOSCheckoutScreen",
+);
+const SOSSuccessScreen = lazyPage(
+  () => import("@/pages/sos/SOSSuccessScreen"),
+  "SOSSuccessScreen",
+);
 
-const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
-const AdminLogin = lazy(() => import("@/pages/admin/Login"));
-const AdminCustomers = lazy(() => import("@/pages/admin/Customers"));
-const AdminGarages = lazy(() => import("@/pages/admin/Garages"));
-const AdminBookings = lazy(() => import("@/pages/admin/Bookings"));
-const AdminRevenue = lazy(() => import("@/pages/admin/Revenue"));
-const AdminNotifications = lazy(() => import("@/pages/admin/Notifications"));
-const AdminEmail = lazy(() => import("@/pages/admin/Email"));
-const AdminCars = lazy(() => import("@/pages/admin/Cars"));
-const AdminServices = lazy(() => import("@/pages/admin/Services"));
-const AdminSystemIssues = lazy(() => import("@/pages/admin/SystemIssues"));
-const InternLogin = lazy(() => import("@/pages/intern/Login"));
+const Login = lazyPage(() => import("@/pages/auth/Login"), "Login");
+const Register = lazyPage(() => import("@/pages/auth/Register"), "Register");
+const OTP = lazyPage(() => import("@/pages/auth/OTP"), "OTP");
+const Forgot = lazyPage(() => import("@/pages/auth/Forgot"), "Forgot");
+
+const VehicleSelect = lazyPage(
+  () => import("@/pages/booking/VehicleSelect"),
+  "VehicleSelect",
+);
+const AddressForm = lazyPage(
+  () => import("@/pages/booking/AddressForm"),
+  "AddressForm",
+);
+const ServiceSelect = lazyPage(
+  () => import("@/pages/booking/ServiceSelect"),
+  "ServiceSelect",
+);
+const GarageSelect = lazyPage(
+  () => import("@/pages/booking/GarageSelect"),
+  "GarageSelect",
+);
+const Checkout = lazyPage(() => import("@/pages/booking/Checkout"), "Checkout");
+const Tracking = lazyPage(() => import("@/pages/booking/Tracking"), "Tracking");
+
+const CustomerDashboard = lazyPage(
+  () => import("@/pages/customer/Dashboard"),
+  "CustomerDashboard",
+);
+const MyVehicles = lazyPage(
+  () => import("@/pages/customer/MyVehicles"),
+  "MyVehicles",
+);
+const ActiveBookings = lazyPage(
+  () => import("@/pages/customer/ActiveBookings"),
+  "ActiveBookings",
+);
+const ServiceHistory = lazyPage(
+  () => import("@/pages/customer/ServiceHistory"),
+  "ServiceHistory",
+);
+const Profile = lazyPage(() => import("@/pages/customer/Profile"), "Profile");
+const Payments = lazyPage(
+  () => import("@/pages/customer/Payments"),
+  "Payments",
+);
+const Notifications = lazyPage(
+  () => import("@/pages/customer/Notifications"),
+  "Notifications",
+);
+
+const GarageDashboard = lazyPage(
+  () => import("@/pages/garage/Dashboard"),
+  "GarageDashboard",
+);
+const GarageLogin = lazyPage(
+  () => import("@/pages/garage/auth/Login"),
+  "GarageLogin",
+);
+const GarageOtpLogin = lazyPage(
+  () => import("@/pages/garage/auth/OtpLogin"),
+  "GarageOtpLogin",
+);
+const GarageForgotPassword = lazyPage(
+  () => import("@/pages/garage/auth/ForgotPassword"),
+  "GarageForgotPassword",
+);
+const GarageOnboarding = lazyPage(
+  () => import("@/pages/garage/Onboarding"),
+  "GarageOnboarding",
+);
+const GarageServices = lazyPage(
+  () => import("@/pages/garage/Services"),
+  "GarageServices",
+);
+const GarageBookings = lazyPage(
+  () => import("@/pages/garage/Bookings"),
+  "GarageBookings",
+);
+const GarageBookingDetail = lazyPage(
+  () => import("@/pages/garage/BookingDetail"),
+  "GarageBookingDetail",
+);
+const GarageProfile = lazyPage(
+  () => import("@/pages/garage/Profile"),
+  "GarageProfile",
+);
+const GarageSettings = lazyPage(
+  () => import("@/pages/garage/Settings"),
+  "GarageSettings",
+);
+const GarageWallet = lazyPage(
+  () => import("@/pages/garage/Wallet"),
+  "GarageWallet",
+);
+const MagicLink = lazyPage(() => import("@/pages/garage/MagicLink"), "MagicLink");
+
+const AdminDashboard = lazyPage(
+  () => import("@/pages/admin/Dashboard"),
+  "AdminDashboard",
+);
+const AdminLogin = lazyPage(() => import("@/pages/admin/Login"), "AdminLogin");
+const AdminCustomers = lazyPage(
+  () => import("@/pages/admin/Customers"),
+  "AdminCustomers",
+);
+const AdminGarages = lazyPage(
+  () => import("@/pages/admin/Garages"),
+  "AdminGarages",
+);
+const AdminBookings = lazyPage(
+  () => import("@/pages/admin/Bookings"),
+  "AdminBookings",
+);
+const AdminRevenue = lazyPage(
+  () => import("@/pages/admin/Revenue"),
+  "AdminRevenue",
+);
+const AdminNotifications = lazyPage(
+  () => import("@/pages/admin/Notifications"),
+  "AdminNotifications",
+);
+const AdminEmail = lazyPage(() => import("@/pages/admin/Email"), "AdminEmail");
+const AdminCars = lazyPage(() => import("@/pages/admin/Cars"), "AdminCars");
+const AdminServices = lazyPage(
+  () => import("@/pages/admin/Services"),
+  "AdminServices",
+);
+const AdminSystemIssues = lazyPage(
+  () => import("@/pages/admin/SystemIssues"),
+  "AdminSystemIssues",
+);
+const InternLogin = lazyPage(() => import("@/pages/intern/Login"), "InternLogin");
 
 import {
   FiArrowLeft,
@@ -380,13 +504,6 @@ import {
   FiHome,
   FiMail,
 } from "react-icons/fi";
-
-const isChunkLoadError = (error) => {
-  const message = String(error?.message || error || "");
-  return /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError/i.test(
-    message,
-  );
-};
 
 class AppErrorBoundary extends Component {
   constructor(props) {
@@ -433,7 +550,8 @@ class AppErrorBoundary extends Component {
       .filter(
         (key) =>
           key.startsWith("rov_route_reload_attempted:") ||
-          key.startsWith("rov_chunk_reload_attempted:"),
+          key.startsWith("rov_chunk_reload_attempted:") ||
+          key === "rovauto:stale-chunk-reload",
       )
       .forEach((key) => sessionStorage.removeItem(key));
 

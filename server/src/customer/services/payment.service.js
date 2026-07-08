@@ -90,7 +90,7 @@ const getPaymentReturnBaseUrl = () => {
   const url =
     process.env.FRONTEND_URL ||
     process.env.CLIENT_URL ||
-    "https://rovauto.vercel.app";
+    "https://www.rovauto.com";
 
   const normalizedUrl = url.replace(/\/+$/, "");
 

@@ -54,12 +54,6 @@ const uniqueParts = (parts = []) => {
 
 export const SERVICE_AREA_COORDINATE_BOUNDS = [
   {
-    minLatitude: 26,
-    maxLatitude: 31,
-    minLongitude: 80,
-    maxLongitude: 89,
-  },
-  {
     minLatitude: 6,
     maxLatitude: 38,
     minLongitude: 68,
@@ -67,7 +61,7 @@ export const SERVICE_AREA_COORDINATE_BOUNDS = [
   },
 ];
 
-export const INDIA_COORDINATE_BOUNDS = SERVICE_AREA_COORDINATE_BOUNDS[1];
+export const INDIA_COORDINATE_BOUNDS = SERVICE_AREA_COORDINATE_BOUNDS[0];
 
 export const hasUsableIndiaCoordinates = (location = {}) => {
   const latitude = Number(location.latitude);
@@ -112,7 +106,7 @@ export const parseAddressParts = (fullAddress = "") => {
   const parts = compactParts(value.split(","))
     .map((part) => (pincode ? part.replace(pincode, "").trim() : part))
     .filter(Boolean)
-    .filter((part) => !["india", "bharat", "nepal"].includes(normalizeKey(part)));
+    .filter((part) => !["india", "bharat"].includes(normalizeKey(part)));
 
   const lastPart = parts[parts.length - 1] || "";
   const secondLastPart = parts[parts.length - 2] || "";

@@ -31,7 +31,7 @@ const getWhatsappProviderUrl = () => {
 const isMetaCloudApiUrl = (url) => /graph\.facebook\.com\/.+\/messages/i.test(String(url || ""));
 const isWhatsappConfigured = () => Boolean(getWhatsappProviderUrl() && getWhatsappAccessToken());
 
-const getFrontendBaseUrl = () => (process.env.FRONTEND_URL || process.env.CLIENT_URL || "https://rovauto.vercel.app").replace(/\/+$/, "");
+const getFrontendBaseUrl = () => (process.env.FRONTEND_URL || process.env.CLIENT_URL || "https://www.rovauto.com").replace(/\/+$/, "");
 
 const getGarageAcceptUrl = (requestId) => {
   const acceptPath = process.env.GARAGE_REQUEST_ACCEPT_PATH || "/garage/magic";

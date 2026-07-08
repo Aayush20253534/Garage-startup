@@ -32,7 +32,7 @@ const splitAddressTokens = (value = "") =>
     .filter(Boolean)
     .filter(
       (part) =>
-        !["india", "bharat", "nepal"].includes(normalizeKey(part)),
+        !["india", "bharat"].includes(normalizeKey(part)),
     );
 
 const getLocationCityCandidates = (locationOrCity = {}) => {

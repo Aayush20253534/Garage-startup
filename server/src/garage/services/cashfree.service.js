@@ -25,7 +25,7 @@ const getCashfreeApiError = (error, fallback) => {
 };
 
 const getReturnBaseUrl = () => {
-  const url = process.env.FRONTEND_URL || process.env.CLIENT_URL || "https://rovauto.vercel.app";
+  const url = process.env.FRONTEND_URL || process.env.CLIENT_URL || "https://www.rovauto.com";
   const normalizedUrl = url.replace(/\/+$/, "");
 
   if (!normalizedUrl.startsWith("https://")) {
