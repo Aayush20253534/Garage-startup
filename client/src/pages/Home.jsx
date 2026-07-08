@@ -34,6 +34,9 @@ const TRUST = [
   { icon: FiClock, label: "Fast Booking" },
 ];
 
+const HOMEPAGE_HERO_DESKTOP = "/images/Rovauto_home-desktop.webp";
+const HOMEPAGE_HERO_MOBILE = "/images/Rovauto_home-mobile.webp";
+
 const HOME_STRUCTURED_DATA = [
   {
     "@context": "https://schema.org",
@@ -63,6 +66,20 @@ const HOME_STRUCTURED_DATA = [
     url: SITE_URL,
   },
 ];
+
+const runWhenBrowserIsIdle = (callback) => {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  if ("requestIdleCallback" in window) {
+    const idleId = window.requestIdleCallback(callback, { timeout: 1400 });
+    return () => window.cancelIdleCallback?.(idleId);
+  }
+
+  const timeoutId = window.setTimeout(callback, 450);
+  return () => window.clearTimeout(timeoutId);
+};
 
 const toBoolean = (value) =>
   value === true ||
@@ -100,66 +117,73 @@ export default function Home() {
   useEffect(() => {
     let mounted = true;
 
-    api
-      .get("/public/stats")
-      .then((response) => {
-        if (!mounted) return;
+    const cancelIdleTask = runWhenBrowserIsIdle(() => {
+      api
+        .get("/public/stats")
+        .then((response) => {
+          if (!mounted) return;
 
-        const stats = response.data?.data || response.data || {};
+          const stats = response.data?.data || response.data || {};
 
-        setPartnerStats({
-          garages: formatCount(stats.garages, "Growing"),
-          customers: formatCount(stats.customers, "Growing"),
-        });
-      })
-      .catch(() => null);
+          setPartnerStats({
+            garages: formatCount(stats.garages, "Growing"),
+            customers: formatCount(stats.customers, "Growing"),
+          });
+        })
+        .catch(() => null);
+    });
 
     return () => {
       mounted = false;
+      cancelIdleTask();
     };
   }, []);
 
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
 
-    api
-      .get("/services/categories", {
-        params: user
-          ? {
-              ...(vehicle?.id && { vehicleId: vehicle.id }),
-              ...(location?.city && { city: location.city }),
-            }
-          : {},
-      })
-      .then((response) => {
-        if (!mounted) return;
+    const cancelIdleTask = runWhenBrowserIsIdle(() => {
+      api
+        .get("/services/categories", {
+          params: user
+            ? {
+                ...(vehicle?.id && { vehicleId: vehicle.id }),
+                ...(location?.city && { city: location.city }),
+              }
+            : {},
+        })
+        .then((response) => {
+          if (!mounted) return;
 
-        const serviceCategories = response.data?.data || [];
+          const serviceCategories = response.data?.data || [];
 
-        const services = serviceCategories
-          .flatMap((category) =>
-            (category.services || []).map((service) => ({
-              ...service,
-              category,
-            }))
-          )
-          .slice(0, 6);
+          const services = serviceCategories
+            .flatMap((category) =>
+              (category.services || []).map((service) => ({
+                ...service,
+                category,
+              }))
+            )
+            .slice(0, 6);
 
-        setCategories(serviceCategories);
-        setPopularServices(services);
-        warmImageCache(getServiceImageUrls(serviceCategories));
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setCategories([]);
-        setPopularServices([]);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+          setCategories(serviceCategories);
+          setPopularServices(services);
+          warmImageCache(getServiceImageUrls(serviceCategories));
+        })
+        .catch(() => {
+          if (!mounted) return;
+          setCategories([]);
+          setPopularServices([]);
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    });
 
     return () => {
       mounted = false;
+      cancelIdleTask();
     };
   }, [user, vehicle?.id, location?.city]);
 
@@ -175,15 +199,24 @@ export default function Home() {
       <main className="overflow-x-hidden">
         <section className="relative flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]">
           <div className="absolute inset-0 -z-10">
-            <img
-              alt="Rovauto verified vehicle service workshop"
-              src={homepageHero}
-              width="1774"
-              height="887"
-              fetchPriority="high"
-              decoding="async"
-              className="h-full w-full object-cover object-center"
-            />
+            <picture className="block h-full w-full">
+              <source
+                media="(max-width: 640px)"
+                srcSet={HOMEPAGE_HERO_MOBILE}
+                type="image/webp"
+              />
+              <source srcSet={HOMEPAGE_HERO_DESKTOP} type="image/webp" />
+              <img
+                alt="Rovauto verified vehicle service workshop"
+                src={homepageHero}
+                width="1280"
+                height="640"
+                fetchPriority="high"
+                loading="eager"
+                decoding="async"
+                className="h-full w-full object-cover object-center"
+              />
+            </picture>
 
             <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/20" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />

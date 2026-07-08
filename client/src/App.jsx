@@ -1,7 +1,5 @@
 import { Component, lazy, Suspense, useEffect, useState } from "react";
 import { Link, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/react";
 import { AppProvider, useApp } from "@/hooks/useApp";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { hasUsableIndiaCoordinates } from "@/utils/address";
@@ -19,6 +17,60 @@ import {
 } from "@/utils/chunkRecovery";
 import PrivatePageSeo from "@/components/seo/PrivatePageSeo";
 import Home from "@/pages/Home";
+
+
+const runAfterInitialPaint = (callback) => {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  if ("requestIdleCallback" in window) {
+    const idleId = window.requestIdleCallback(callback, { timeout: 2500 });
+    return () => window.cancelIdleCallback?.(idleId);
+  }
+
+  const timeoutId = window.setTimeout(callback, 1600);
+  return () => window.clearTimeout(timeoutId);
+};
+
+function DeferredVercelInsights() {
+  const [analyticsComponents, setAnalyticsComponents] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const cancelIdleTask = runAfterInitialPaint(async () => {
+      try {
+        const [{ Analytics }, { SpeedInsights }] = await Promise.all([
+          import("@vercel/analytics/react"),
+          import("@vercel/speed-insights/react"),
+        ]);
+
+        if (mounted) {
+          setAnalyticsComponents({ Analytics, SpeedInsights });
+        }
+      } catch (error) {
+        console.warn("Unable to load analytics widgets", error);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      cancelIdleTask();
+    };
+  }, []);
+
+  if (!analyticsComponents) return null;
+
+  const { Analytics, SpeedInsights } = analyticsComponents;
+
+  return (
+    <>
+      <Analytics />
+      <SpeedInsights />
+    </>
+  );
+}
 
 const getEffectiveAccountType = (user) => {
   if (user?.accountType) {
@@ -1228,8 +1280,7 @@ export default function App() {
     <AppProvider>
       <AppErrorBoundary>
         <AppRoutes />
-        <Analytics />
-        <SpeedInsights />
+        <DeferredVercelInsights />
       </AppErrorBoundary>
     </AppProvider>
   );
