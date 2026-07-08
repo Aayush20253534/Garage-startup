@@ -5,7 +5,12 @@ const prisma = require("./config/prisma");
 const systemIssueReporter = require("./services/systemIssueReporter.service");
 const {
   startGarageSearchWorker,
+  stopGarageSearchWorker,
 } = require("./services/garageSearchWorker.service");
+const {
+  startSystemIssueAutoResolver,
+  stopSystemIssueAutoResolver,
+} = require("./services/systemIssueAutoResolver.service");
 
 const PORT = process.env.PORT || 5000;
 
@@ -44,10 +49,16 @@ const startServer = async () => {
      * Start it only after the database connection succeeds.
      */
     startGarageSearchWorker();
+    const systemIssueAutoResolver = startSystemIssueAutoResolver();
 
     const server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log("Garage search worker started");
+      console.log(
+        systemIssueAutoResolver
+          ? "System issue auto resolver started"
+          : "System issue auto resolver disabled",
+      );
     });
 
     /*
@@ -57,6 +68,8 @@ const startServer = async () => {
      */
     const shutdown = async (signal) => {
       console.log(`${signal} received. Shutting down gracefully...`);
+      stopGarageSearchWorker();
+      stopSystemIssueAutoResolver();
 
       server.close(async () => {
         try {
