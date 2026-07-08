@@ -228,6 +228,18 @@ const requestInclude = {
     include: {
       ...bookingForWhatsappInclude,
       payment: true,
+      review: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+      },
       inspectionImages: {
         orderBy: [{ phase: "asc" }, { order: "asc" }],
       },

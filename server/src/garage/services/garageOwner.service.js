@@ -37,11 +37,59 @@ const getGarageOwnerProfile = async (userId) => {
       images: {
         orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
       },
+      reviews: {
+        take: 8,
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          booking: {
+            select: {
+              id: true,
+              bookingCode: true,
+              customerAcceptedAt: true,
+              createdAt: true,
+              vehicle: {
+                select: {
+                  brand: true,
+                  model: true,
+                  registrationNumber: true,
+                },
+              },
+              services: {
+                include: {
+                  service: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          bookings: true,
+          services: true,
+          reviews: true,
+        },
+      },
     },
   });
 
   return {
     ...garage,
+    reviewCount: garage.ratingCount || garage._count?.reviews || 0,
+    recentReviews: garage.reviews || [],
     activation: {
       minimumBalance: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
       minimumActivationAmount: GARAGE_MINIMUM_ACTIVATION_RECHARGE,

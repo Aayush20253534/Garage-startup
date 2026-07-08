@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
 import { cityApi } from "@/api/cities";
 import CitySelect from "@/components/common/CitySelect";
@@ -12,16 +12,103 @@ import {
   FiXCircle,
 } from "react-icons/fi";
 
-const getCity = (customer) => {
-  const address =
-    customer.locations?.[0]?.address || customer.customerProfile?.address || "";
+const normalizeCityToken = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\d{5,6}\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  const parts = address
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
+const compact = (values = []) =>
+  values.map((value) => String(value || "").trim()).filter(Boolean);
 
-  return parts.length > 1 ? parts[parts.length - 2] : address || "-";
+const getComponentText = (component = {}) =>
+  component.longText ||
+  component.long_name ||
+  component.shortText ||
+  component.short_name ||
+  component.text ||
+  "";
+
+const hasComponentType = (component = {}, types = []) =>
+  Array.isArray(component.types) &&
+  types.some((type) => component.types.includes(type));
+
+const splitAddressTokens = (address = "") =>
+  compact(String(address || "").split(","))
+    .map((part) => part.replace(/\b\d{5,6}\b/g, "").trim())
+    .filter(Boolean)
+    .filter((part) => !["india", "bharat"].includes(normalizeCityToken(part)));
+
+const getPrimaryLocation = (customer) =>
+  customer.locations?.find((location) => location.isDefault) ||
+  customer.locations?.[0] ||
+  null;
+
+const getCustomerAddress = (customer) => {
+  const location = getPrimaryLocation(customer);
+  return (
+    location?.formattedAddress ||
+    location?.address ||
+    customer.customerProfile?.address ||
+    ""
+  );
+};
+
+const getCustomerCity = (customer, cities = []) => {
+  const location = getPrimaryLocation(customer);
+  const address = getCustomerAddress(customer);
+  const components = Array.isArray(location?.addressComponents)
+    ? location.addressComponents
+    : [];
+
+  const componentCandidates = components
+    .filter((component) =>
+      hasComponentType(component, [
+        "locality",
+        "postal_town",
+        "administrative_area_level_3",
+        "administrative_area_level_2",
+      ])
+    )
+    .map(getComponentText);
+
+  const candidates = compact([
+    ...componentCandidates,
+    location?.city,
+    location?.locality,
+    location?.town,
+    location?.district,
+    ...splitAddressTokens(address),
+  ]);
+
+  const cityByKey = new Map(
+    cities.map((city) => [normalizeCityToken(city.name), city])
+  );
+
+  for (const candidate of candidates) {
+    const candidateKey = normalizeCityToken(candidate);
+    const exactMatch = cityByKey.get(candidateKey);
+    if (exactMatch) return exactMatch.name;
+
+    const partialMatch = cities.find((city) => {
+      const cityKey = normalizeCityToken(city.name);
+      return (
+        cityKey &&
+        candidateKey &&
+        (candidateKey.includes(cityKey) || cityKey.includes(candidateKey))
+      );
+    });
+
+    if (partialMatch) return partialMatch.name;
+  }
+
+  const fallbackTokens = splitAddressTokens(address).filter(
+    (part) => !/\b\d{5,6}\b/.test(part)
+  );
+
+  return fallbackTokens.length ? fallbackTokens.at(-2) || fallbackTokens.at(-1) : "-";
 };
 
 export default function Customers() {
@@ -33,6 +120,16 @@ export default function Customers() {
   const [citySaving, setCitySaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const customerRows = useMemo(
+    () =>
+      customers.map((customer) => ({
+        ...customer,
+        displayCity: getCustomerCity(customer, cities),
+        displayAddress: getCustomerAddress(customer),
+      })),
+    [customers, cities]
+  );
 
   const loadCities = async () => {
     try {
@@ -267,8 +364,8 @@ export default function Customers() {
                     Loading customers...
                   </td>
                 </tr>
-              ) : customers.length ? (
-                customers.map((customer) => (
+              ) : customerRows.length ? (
+                customerRows.map((customer) => (
                   <tr
                     key={customer.id}
                     className="border-t border-line transition hover:bg-bg-soft/70"
@@ -286,7 +383,9 @@ export default function Customers() {
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-3 text-muted">
-                      {getCity(customer)}
+                      <span title={customer.displayAddress || undefined}>
+                        {customer.displayCity || "-"}
+                      </span>
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-3 font-semibold">

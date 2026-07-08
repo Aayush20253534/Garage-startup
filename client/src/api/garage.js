@@ -12,11 +12,26 @@ export const normalizeGarage = (garage) => {
   const owner = garage.owner || {};
   const images = Array.isArray(garage.images) ? garage.images : [];
 
+  const reviews = Array.isArray(garage.reviews)
+    ? garage.reviews
+    : Array.isArray(garage.recentReviews)
+      ? garage.recentReviews
+      : [];
   const walletBalance = Number(wallet.balance ?? activation.walletBalance ?? 0);
   const minimumActivationAmount = Number(
     activation.minimumActivationAmount ??
       activation.minimumBalance ??
       GARAGE_MINIMUM_ACTIVATION_BALANCE
+  );
+  const ratingAvg = Number(
+    garage.ratingAvg ?? garage.averageRating ?? garage.rating ?? 0
+  );
+  const ratingCount = Number(
+    garage.ratingCount ??
+      garage.reviewCount ??
+      garage.reviewSummary?.count ??
+      reviews.length ??
+      0
   );
   const isActive = activation.isActive ?? garage.isActive;
   const hasActivationBalance =
@@ -33,6 +48,12 @@ export const normalizeGarage = (garage) => {
     imageCount: images.length || activation.photoCount || 0,
     minimumBalance: minimumActivationAmount,
     minimumActivationAmount,
+    rating: ratingAvg,
+    ratingAvg,
+    reviewCount: ratingCount,
+    ratingCount,
+    reviews,
+    recentReviews: reviews,
     isOnboardingComplete: Boolean(garage.isVerified),
     activation: {
       minimumBalance: minimumActivationAmount,
@@ -77,6 +98,7 @@ export const mapGarageRequestToBooking = (request) => {
       booking.totalServiceMaxAmount || booking.totalServiceAmount || 0,
     acceptFee: request.acceptFee || booking.handlingFee || 0,
     raw: request,
+    review: booking.review || null,
     customerLocationLink: request.customerLocationLink,
     handoverOtpExpiresAt: booking.handoverOtpExpiresAt,
     deliveredAt: booking.deliveredAt,

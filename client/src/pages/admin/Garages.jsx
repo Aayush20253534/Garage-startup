@@ -22,6 +22,19 @@ const applicationStatuses = [
   "DENIED",
 ];
 
+const applicationStatusMeta = {
+  PENDING: { label: "Pending", tone: "bg-amber-50 text-amber-700 border-amber-200" },
+  CHANGES_REQUESTED: {
+    label: "Changes requested",
+    tone: "bg-blue-50 text-blue-700 border-blue-200",
+  },
+  APPROVED: { label: "Approved", tone: "bg-lime-100 text-ink border-lime-200" },
+  DENIED: { label: "Denied", tone: "bg-red-50 text-red-700 border-red-200" },
+};
+
+const adminButtonBase =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:cursor-not-allowed disabled:opacity-50";
+
 const money = (value) => `₹${Number(value || 0).toLocaleString()}`;
 
 const fieldClass =
@@ -397,7 +410,7 @@ export default function Garages() {
           </p>
         </div>
 
-        <div className="flex rounded-xl bg-bg-soft p-1">
+        <div className="flex rounded-2xl border border-line bg-white p-1 shadow-sm">
           {[
             ["applications", "Applications"],
             ["services", "Garages"],
@@ -407,8 +420,10 @@ export default function Garages() {
               type="button"
               onClick={() => setTab(id)}
               className={[
-                "rounded-lg px-4 py-2 text-sm font-semibold transition",
-                tab === id ? "bg-ink text-white" : "text-muted hover:text-ink",
+                "rounded-xl px-4 py-2 text-sm font-bold transition",
+                tab === id
+                  ? "bg-ink text-white shadow-sm"
+                  : "text-muted hover:bg-bg-soft hover:text-ink",
               ].join(" ")}
             >
               {label}
@@ -434,70 +449,78 @@ export default function Garages() {
       {tab === "applications" ? (
         <div className="space-y-4">
           <section className="card-soft rounded-2xl p-4 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              {applicationStatuses.map((status) => (
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                {applicationStatuses.map((status) => {
+                  const meta = applicationStatusMeta[status];
+
+                  return (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setApplicationStatus(status)}
+                      className={[
+                        "rounded-xl border px-4 py-2 text-xs font-black uppercase tracking-wide transition sm:text-sm",
+                        applicationStatus === status
+                          ? "border-ink bg-ink text-white shadow-sm"
+                          : `${meta.tone} hover:-translate-y-0.5 hover:shadow-sm`,
+                      ].join(" ")}
+                    >
+                      {meta.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  key={status}
                   type="button"
-                  onClick={() => setApplicationStatus(status)}
-                  className={[
-                    "rounded-full px-3 py-1.5 text-xs font-bold transition sm:text-sm",
-                    applicationStatus === status
-                      ? "bg-ink text-white"
-                      : "bg-bg-soft text-muted hover:text-ink",
-                  ].join(" ")}
+                  onClick={loadApplications}
+                  disabled={loading}
+                  className={`${adminButtonBase} border border-line bg-white text-ink hover:border-ink hover:bg-bg-soft`}
                 >
-                  {status.replaceAll("_", " ")}
+                  <FiRefreshCw className={loading ? "animate-spin" : ""} />
+                  Refresh
                 </button>
-              ))}
 
-              <button
-                type="button"
-                onClick={loadApplications}
-                disabled={loading}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-line px-3 text-xs font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:opacity-60 sm:text-sm"
-              >
-                <FiRefreshCw className={loading ? "animate-spin" : ""} />
-                Refresh
-              </button>
+                {canDeleteApplications && applications.length > 0 && (
+                  <>
+                    <label className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-muted transition hover:bg-bg-soft">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedApplicationIds.length === applications.length
+                        }
+                        onChange={(event) =>
+                          setSelectedApplicationIds(
+                            event.target.checked ? allApplicationIds : []
+                          )
+                        }
+                      />
+                      Select all
+                    </label>
 
-              {canDeleteApplications && applications.length > 0 && (
-                <>
-                  <label className="inline-flex h-9 items-center gap-2 rounded-full bg-bg-soft px-3 text-xs font-semibold text-muted sm:text-sm">
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedApplicationIds.length === applications.length
-                      }
-                      onChange={(event) =>
-                        setSelectedApplicationIds(
-                          event.target.checked ? allApplicationIds : []
-                        )
-                      }
-                    />
-                    Select all
-                  </label>
+                    <button
+                      type="button"
+                      onClick={() => deleteApplications(selectedApplicationIds)}
+                      disabled={!selectedApplicationIds.length}
+                      className={`${adminButtonBase} bg-red-50 text-red-700 hover:bg-red-100`}
+                    >
+                      <FiTrash2 />
+                      Delete selected
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => deleteApplications(selectedApplicationIds)}
-                    disabled={!selectedApplicationIds.length}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-red-50 px-3 text-xs font-semibold text-red-700 disabled:opacity-50 sm:text-sm"
-                  >
-                    <FiTrash2 />
-                    Delete selected
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => deleteApplications(allApplicationIds)}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-red-700 px-3 text-xs font-semibold text-white sm:text-sm"
-                  >
-                    <FiTrash2 />
-                    Delete all
-                  </button>
-                </>
-              )}
+                    <button
+                      type="button"
+                      onClick={() => deleteApplications(allApplicationIds)}
+                      className={`${adminButtonBase} bg-red-700 text-white hover:bg-red-800`}
+                    >
+                      <FiTrash2 />
+                      Delete all
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </section>
 
@@ -578,8 +601,15 @@ export default function Garages() {
                       )}
                     </div>
 
-                    <span className="rounded-full bg-lime-100 px-3 py-1 text-xs font-bold text-ink">
-                      {application.status}
+                    <span
+                      className={[
+                        "rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide",
+                        applicationStatusMeta[application.status]?.tone ||
+                          "border-line bg-bg-soft text-muted",
+                      ].join(" ")}
+                    >
+                      {applicationStatusMeta[application.status]?.label ||
+                        application.status}
                     </span>
                   </div>
 
@@ -604,7 +634,7 @@ export default function Garages() {
                             onClick={() =>
                               runApplicationAction(application, "approve")
                             }
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-lime-400 px-4 text-sm font-bold text-black transition hover:bg-lime-500"
+                            className={`${adminButtonBase} bg-lime-400 text-black shadow-sm hover:-translate-y-0.5 hover:bg-lime-500`}
                           >
                             <FiCheck />
                             Approve
@@ -615,7 +645,7 @@ export default function Garages() {
                             onClick={() =>
                               runApplicationAction(application, "changes")
                             }
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
+                            className={`${adminButtonBase} border border-line bg-white text-ink hover:-translate-y-0.5 hover:border-ink hover:bg-bg-soft`}
                           >
                             <FiEdit3 />
                             Changes
@@ -626,7 +656,7 @@ export default function Garages() {
                             onClick={() =>
                               runApplicationAction(application, "deny")
                             }
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white"
+                            className={`${adminButtonBase} bg-red-700 text-white hover:-translate-y-0.5 hover:bg-red-800`}
                           >
                             <FiX />
                             Deny
@@ -659,7 +689,7 @@ export default function Garages() {
                   type="button"
                   onClick={loadGaragesAndServices}
                   disabled={loading}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink transition hover:border-ink hover:bg-bg-soft"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-white text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <FiRefreshCw className={loading ? "animate-spin" : ""} />
                 </button>
@@ -677,7 +707,7 @@ export default function Garages() {
                 <button
                   type="button"
                   onClick={loadGaragesAndServices}
-                  className="inline-flex h-10 items-center justify-center rounded-lg border border-line px-3 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
+                  className={`${adminButtonBase} border border-line bg-white text-ink hover:border-ink hover:bg-bg-soft`}
                 >
                   Apply filter
                 </button>
@@ -685,7 +715,7 @@ export default function Garages() {
 
               {!isIntern && garages.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <label className="inline-flex h-8 items-center gap-2 rounded-full bg-bg-soft px-3 text-xs font-semibold text-muted">
+                  <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:bg-bg-soft">
                     <input
                       type="checkbox"
                       checked={selectedGarageIds.length === garages.length}
@@ -702,7 +732,7 @@ export default function Garages() {
                     type="button"
                     onClick={() => deleteGarages(selectedGarageIds)}
                     disabled={!selectedGarageIds.length}
-                    className="inline-flex h-8 items-center justify-center gap-2 rounded-full bg-red-50 px-3 text-xs font-semibold text-red-700 disabled:opacity-50"
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-red-50 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <FiTrash2 />
                     Delete
@@ -1166,7 +1196,7 @@ export default function Garages() {
                               <button
                                 type="button"
                                 onClick={() => editGarageService(item)}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink transition hover:border-ink hover:bg-bg-soft"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-white text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 <FiEdit3 />
                               </button>
