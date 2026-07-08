@@ -127,6 +127,10 @@ const isCanceledRequest = (error) =>
 const isReportEndpoint = (url) =>
   String(url || "").includes("/system-issues");
 
+const isNetworkTimeout = (error) =>
+  error?.code === "ECONNABORTED" ||
+  /timeout of \d+ms exceeded|timeout/i.test(String(error?.message || ""));
+
 export const reportApiFailure = (error) => {
   if (!error || isCanceledRequest(error)) return;
 
@@ -147,13 +151,20 @@ export const reportApiFailure = (error) => {
 
   if (!shouldReport) return;
 
+  const timedOut = isNetworkTimeout(error);
+
   void reportSystemIssue(error, {
     title: !error.response
-      ? "API request could not reach the server"
+      ? timedOut
+        ? "API request timed out before the server responded"
+        : "API request could not reach the server"
       : "API request failed",
     message:
       error.response?.data?.message || error.message || "API request failed",
-    severity: Number(status) >= 500 || !error.response ? "ERROR" : "WARNING",
+    severity:
+      Number(status) >= 500 || (!error.response && criticalFlow)
+        ? "ERROR"
+        : "WARNING",
     endpoint,
     method: String(config.method || "GET").toUpperCase(),
     httpStatus: status,
@@ -161,9 +172,11 @@ export const reportApiFailure = (error) => {
     metadata: {
       errorCode: error.code || null,
       timeout: config.timeout || null,
+      retryCount: config.__networkRetryCount || 0,
       params: config.params || null,
       statusText: error.response?.statusText || null,
       criticalFlow,
+      timedOut,
     },
   });
 };

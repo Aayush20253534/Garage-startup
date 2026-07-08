@@ -601,7 +601,7 @@ class AppErrorBoundary extends Component {
         (key) =>
           key.startsWith("rov_route_reload_attempted:") ||
           key.startsWith("rov_chunk_reload_attempted:") ||
-          key === "rovauto:stale-chunk-reload",
+          key.startsWith("rovauto:stale-chunk-reload"),
       )
       .forEach((key) => sessionStorage.removeItem(key));
 

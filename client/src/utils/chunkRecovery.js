@@ -1,4 +1,4 @@
-const CHUNK_RELOAD_KEY = "rovauto:stale-chunk-reload";
+const CHUNK_RELOAD_KEY_PREFIX = "rovauto:stale-chunk-reload";
 const CHUNK_RELOAD_COOLDOWN_MS = 15_000;
 const MISSING_LAZY_DEFAULT_CODE = "MISSING_LAZY_DEFAULT";
 
@@ -24,6 +24,29 @@ const removeSessionValue = (key) => {
   } catch {
     // Session storage can be unavailable in strict browser modes.
   }
+};
+
+const getBuildId = () => {
+  try {
+    return typeof __APP_BUILD_ID__ !== "undefined"
+      ? String(__APP_BUILD_ID__)
+      : "unknown";
+  } catch {
+    return "unknown";
+  }
+};
+
+const getChunkReloadKey = (error) => {
+  const pathname =
+    typeof window !== "undefined" ? window.location.pathname : "unknown-route";
+  const message = String(
+    error?.message || error?.reason?.message || error?.reason || error || "",
+  )
+    .replace(/https?:\/\/[^\s)]+/g, "<url>")
+    .replace(/[A-Za-z0-9_-]{8,}(?=\.js)/g, "<hash>")
+    .slice(0, 160);
+
+  return `${CHUNK_RELOAD_KEY_PREFIX}:${getBuildId()}:${pathname}:${message}`;
 };
 
 export const createMissingLazyDefaultError = (moduleName) => {
@@ -54,7 +77,13 @@ export const isChunkLoadError = (error) => {
 };
 
 export const clearChunkReloadGuard = () => {
-  removeSessionValue(CHUNK_RELOAD_KEY);
+  try {
+    Object.keys(window.sessionStorage)
+      .filter((key) => key.startsWith(CHUNK_RELOAD_KEY_PREFIX))
+      .forEach((key) => removeSessionValue(key));
+  } catch {
+    // Session storage can be unavailable in strict browser modes.
+  }
 };
 
 export const reloadForLatestBuild = (error) => {
@@ -67,9 +96,10 @@ export const reloadForLatestBuild = (error) => {
   }
 
   const now = Date.now();
-  const previousReload = Number(getSessionValue(CHUNK_RELOAD_KEY) || 0);
+  const reloadKey = getChunkReloadKey(error);
+  const previousReload = Number(getSessionValue(reloadKey) || 0);
 
-  if (now - previousReload < CHUNK_RELOAD_COOLDOWN_MS) {
+  if (previousReload > 0) {
     console.error(
       "A stale frontend chunk is still unavailable after one refresh.",
       error,
@@ -77,7 +107,7 @@ export const reloadForLatestBuild = (error) => {
     return false;
   }
 
-  setSessionValue(CHUNK_RELOAD_KEY, String(now));
+  setSessionValue(reloadKey, String(now));
 
   const url = new URL(window.location.href);
   url.searchParams.set("rov_build_refresh", String(now));
