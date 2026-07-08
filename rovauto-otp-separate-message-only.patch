@@ -1,0 +1,225 @@
+diff --git a/server/src/services/bookingLifecycle.service.js b/server/src/services/bookingLifecycle.service.js
+index 265ab3a..605414b 100644
+--- a/server/src/services/bookingLifecycle.service.js
++++ b/server/src/services/bookingLifecycle.service.js
+@@ -6,7 +6,7 @@ const BOOKING_STATUS = require("../constants/bookingStatus");
+ const BROADCAST_STATUS = require("../constants/broadcastStatus");
+ const notificationService = require("../customer/services/notification.service");
+ const {
+-  sendCustomerGarageDetailsWhatsapp,
++  sendCustomerHandoverOtpWhatsapp,
+   sendCustomerVehicleDeliveredWhatsapp,
+ } = require("./garageWhatsapp.service");
+ const { uploadToCloudinary } = require("../utils/cloudinaryUpload");
+@@ -234,7 +234,6 @@ const expireStaleGarageSearchesForUser = async (userId) => {
+ const notifyGarageAccepted = async ({
+   booking,
+   garage,
+-  otp,
+   distanceKm = null,
+   etaMinutes = null,
+ }) => {
+@@ -248,14 +247,45 @@ const notifyGarageAccepted = async ({
+     userId: booking.userId,
+     type: "BOOKING",
+     title: "Garage accepted your request",
+-    message: `${garage.name} has accepted your service request.${etaText} Your handover OTP is ${otp}. Share it with the garage only when handing over the vehicle.`,
++    message: `${garage.name} has accepted your service request.${etaText} Your handover OTP has been sent separately.`,
+     link: "/dashboard/bookings",
+     metadata: {
+       bookingId: booking.id,
+       garageId: garage.id,
+-      otp,
+       distanceKm,
+       etaMinutes,
++    },
++  });
++};
++
++const notifyVehicleHandoverOtp = async ({
++  booking,
++  garage,
++  otp,
++  expiresAt,
++  isRegenerated = false,
++}) => {
++  if (!otp) return null;
++
++  return notificationService.createNotification({
++    userId: booking.userId,
++    type: "BOOKING",
++    title: isRegenerated
++      ? "New vehicle handover OTP"
++      : "Vehicle handover OTP",
++    message: [
++      `Your handover OTP is ${otp}.`,
++      garage?.name
++        ? `Share it only when handing your vehicle to ${garage.name}.`
++        : "Share it only during physical vehicle handover.",
++      "Do not share it early or with anyone else.",
++    ].join(" "),
++    link: `/tracking?bookingId=${booking.id}`,
++    metadata: {
++      bookingId: booking.id,
++      garageId: garage?.id || booking.garageId || null,
++      otp,
++      expiresAt: expiresAt?.toISOString?.() || expiresAt || null,
+       purpose: "VEHICLE_HANDOVER",
+     },
+   });
+@@ -339,21 +369,14 @@ const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
+   });
+ 
+   await Promise.allSettled([
+-    notificationService.createNotification({
+-      userId: booking.userId,
+-      type: "BOOKING",
+-      title: "New vehicle handover OTP",
+-      message: `Your new handover OTP is ${handoverOtp.otp}. Share it only when handing the vehicle to ${booking.garage.name}.`,
+-      link: `/tracking?bookingId=${booking.id}`,
+-      metadata: {
+-        bookingId: booking.id,
+-        garageId: booking.garage.id,
+-        otp: handoverOtp.otp,
+-        expiresAt: handoverOtp.expiresAt.toISOString(),
+-        purpose: "VEHICLE_HANDOVER",
+-      },
++    notifyVehicleHandoverOtp({
++      booking,
++      garage: booking.garage,
++      otp: handoverOtp.otp,
++      expiresAt: handoverOtp.expiresAt,
++      isRegenerated: true,
+     }),
+-    sendCustomerGarageDetailsWhatsapp({
++    sendCustomerHandoverOtpWhatsapp({
+       customer: booking.user,
+       garage: booking.garage,
+       booking,
+@@ -555,6 +578,7 @@ module.exports = {
+   getGarageSearchTimeoutMs,
+   getSearchExpiresAt,
+   notifyGarageAccepted,
++  notifyVehicleHandoverOtp,
+   regenerateBookingHandoverOtp,
+   verifyBookingHandoverOtp,
+   markBookingDeliveredByGarage,
+diff --git a/server/src/services/garageRequest.service.js b/server/src/services/garageRequest.service.js
+index e881b85..4e53220 100644
+--- a/server/src/services/garageRequest.service.js
++++ b/server/src/services/garageRequest.service.js
+@@ -17,6 +17,7 @@ const {
+   getGarageAcceptUrl,
+   getMapsLink,
+   sendCustomerGarageDetailsWhatsapp,
++  sendCustomerHandoverOtpWhatsapp,
+   sendGarageBookingRequestWhatsapp,
+   sendGarageCustomerLocationWhatsapp,
+ } = require("./garageWhatsapp.service");
+@@ -720,21 +721,36 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
+   const distanceKm = getRequestDistanceKm(result.request);
+   const etaMinutes = estimateArrivalMinutes(distanceKm);
+ 
++  const sendCustomerAcceptanceWhatsapp = async () => {
++    await sendCustomerGarageDetailsWhatsapp({
++      customer: result.request.booking.user,
++      garage: result.request.garage,
++      booking: result.request.booking,
++    });
++
++    return sendCustomerHandoverOtpWhatsapp({
++      customer: result.request.booking.user,
++      garage: result.request.garage,
++      booking: result.request.booking,
++      otp: result.handoverOtp.otp,
++      otpExpiresAt: result.handoverOtp.expiresAt,
++    });
++  };
++
+   await Promise.allSettled([
+     bookingLifecycleService.notifyGarageAccepted({
+       booking: result.request.booking,
+       garage: result.request.garage,
+-      otp: result.handoverOtp.otp,
+       distanceKm,
+       etaMinutes,
+     }),
+-    sendCustomerGarageDetailsWhatsapp({
+-      customer: result.request.booking.user,
+-      garage: result.request.garage,
++    bookingLifecycleService.notifyVehicleHandoverOtp({
+       booking: result.request.booking,
++      garage: result.request.garage,
+       otp: result.handoverOtp.otp,
+-      otpExpiresAt: result.handoverOtp.expiresAt,
++      expiresAt: result.handoverOtp.expiresAt,
+     }),
++    sendCustomerAcceptanceWhatsapp(),
+     sendGarageCustomerLocationWhatsapp({
+       garage: result.request.garage,
+       booking: result.request.booking,
+diff --git a/server/src/services/garageWhatsapp.service.js b/server/src/services/garageWhatsapp.service.js
+index 8d6614f..b4f3ff0 100644
+--- a/server/src/services/garageWhatsapp.service.js
++++ b/server/src/services/garageWhatsapp.service.js
+@@ -157,25 +157,41 @@ const sendCustomerGarageDetailsWhatsapp = async ({
+   customer,
+   garage,
+   booking,
++}) => {
++  const mapsLink = getMapsLink(garage.latitude, garage.longitude);
++  const message = [
++    `Rovauto booking ${booking.bookingCode} confirmed.`,
++    `Garage: ${garage.name}`,
++    `Phone: ${garage.phone}`,
++    garage.address ? `Address: ${garage.address}` : null,
++    mapsLink ? `Garage location: ${mapsLink}` : null,
++    "Your handover OTP will arrive in a separate WhatsApp message.",
++  ].filter(Boolean).join("\n");
++
++  return sendWhatsappMessage({ to: customer.phone, message });
++};
++
++const sendCustomerHandoverOtpWhatsapp = async ({
++  customer,
++  garage,
++  booking,
+   otp,
+   otpExpiresAt,
+   isRegenerated = false,
+ }) => {
+-  const mapsLink = getMapsLink(garage.latitude, garage.longitude);
++  if (!otp) return { sent: false, reason: "missing_otp" };
++
+   const otpExpiry = formatOtpExpiry(otpExpiresAt);
+   const message = [
+     isRegenerated
+       ? `New handover OTP for Rovauto booking ${booking.bookingCode}.`
+-      : `Rovauto booking ${booking.bookingCode} confirmed.`,
+-    `Garage: ${garage.name}`,
+-    `Phone: ${garage.phone}`,
+-    garage.address ? `Address: ${garage.address}` : null,
+-    mapsLink ? `Garage location: ${mapsLink}` : null,
+-    otp ? `Vehicle handover OTP: ${otp}` : null,
+-    otpExpiry ? `OTP valid until: ${otpExpiry}` : null,
+-    otp
+-      ? "Share this OTP only when the garage representative is physically receiving your vehicle."
+-      : null,
++      : `Vehicle handover OTP for Rovauto booking ${booking.bookingCode}.`,
++    `OTP: ${otp}`,
++    otpExpiry ? `Valid until: ${otpExpiry}` : null,
++    garage?.name
++      ? `Use this only while handing your vehicle to ${garage.name}.`
++      : "Use this only while handing over your vehicle.",
++    "Do not share this OTP before physical vehicle handover.",
+   ].filter(Boolean).join("\n");
+ 
+   return sendWhatsappMessage({ to: customer.phone, message });
+@@ -204,6 +220,7 @@ module.exports = {
+   getWhatsappPhoneNumberId,
+   getWhatsappProviderUrl,
+   sendCustomerGarageDetailsWhatsapp,
++  sendCustomerHandoverOtpWhatsapp,
+   sendCustomerVehicleDeliveredWhatsapp,
+   sendGarageBookingRequestWhatsapp,
+   sendGarageCustomerLocationWhatsapp,

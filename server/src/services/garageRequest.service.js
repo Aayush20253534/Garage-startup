@@ -17,6 +17,7 @@ const {
   getGarageAcceptUrl,
   getMapsLink,
   sendCustomerGarageDetailsWhatsapp,
+  sendCustomerHandoverOtpWhatsapp,
   sendGarageBookingRequestWhatsapp,
   sendGarageCustomerLocationWhatsapp,
 } = require("./garageWhatsapp.service");
@@ -720,21 +721,36 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
   const distanceKm = getRequestDistanceKm(result.request);
   const etaMinutes = estimateArrivalMinutes(distanceKm);
 
-  await Promise.allSettled([
-    bookingLifecycleService.notifyGarageAccepted({
-      booking: result.request.booking,
+  const sendCustomerAcceptanceWhatsapp = async () => {
+    await sendCustomerGarageDetailsWhatsapp({
+      customer: result.request.booking.user,
       garage: result.request.garage,
-      otp: result.handoverOtp.otp,
-      distanceKm,
-      etaMinutes,
-    }),
-    sendCustomerGarageDetailsWhatsapp({
+      booking: result.request.booking,
+    });
+
+    return sendCustomerHandoverOtpWhatsapp({
       customer: result.request.booking.user,
       garage: result.request.garage,
       booking: result.request.booking,
       otp: result.handoverOtp.otp,
       otpExpiresAt: result.handoverOtp.expiresAt,
+    });
+  };
+
+  await Promise.allSettled([
+    bookingLifecycleService.notifyGarageAccepted({
+      booking: result.request.booking,
+      garage: result.request.garage,
+      distanceKm,
+      etaMinutes,
     }),
+    bookingLifecycleService.notifyVehicleHandoverOtp({
+      booking: result.request.booking,
+      garage: result.request.garage,
+      otp: result.handoverOtp.otp,
+      expiresAt: result.handoverOtp.expiresAt,
+    }),
+    sendCustomerAcceptanceWhatsapp(),
     sendGarageCustomerLocationWhatsapp({
       garage: result.request.garage,
       booking: result.request.booking,

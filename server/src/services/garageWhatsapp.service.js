@@ -157,25 +157,41 @@ const sendCustomerGarageDetailsWhatsapp = async ({
   customer,
   garage,
   booking,
-  otp,
-  otpExpiresAt,
-  isRegenerated = false,
 }) => {
   const mapsLink = getMapsLink(garage.latitude, garage.longitude);
-  const otpExpiry = formatOtpExpiry(otpExpiresAt);
   const message = [
-    isRegenerated
-      ? `New handover OTP for Rovauto booking ${booking.bookingCode}.`
-      : `Rovauto booking ${booking.bookingCode} confirmed.`,
+    `Rovauto booking ${booking.bookingCode} confirmed.`,
     `Garage: ${garage.name}`,
     `Phone: ${garage.phone}`,
     garage.address ? `Address: ${garage.address}` : null,
     mapsLink ? `Garage location: ${mapsLink}` : null,
-    otp ? `Vehicle handover OTP: ${otp}` : null,
-    otpExpiry ? `OTP valid until: ${otpExpiry}` : null,
-    otp
-      ? "Share this OTP only when the garage representative is physically receiving your vehicle."
-      : null,
+    "Your handover OTP will arrive in a separate WhatsApp message.",
+  ].filter(Boolean).join("\n");
+
+  return sendWhatsappMessage({ to: customer.phone, message });
+};
+
+const sendCustomerHandoverOtpWhatsapp = async ({
+  customer,
+  garage,
+  booking,
+  otp,
+  otpExpiresAt,
+  isRegenerated = false,
+}) => {
+  if (!otp) return { sent: false, reason: "missing_otp" };
+
+  const otpExpiry = formatOtpExpiry(otpExpiresAt);
+  const message = [
+    isRegenerated
+      ? `New handover OTP for Rovauto booking ${booking.bookingCode}.`
+      : `Vehicle handover OTP for Rovauto booking ${booking.bookingCode}.`,
+    `OTP: ${otp}`,
+    otpExpiry ? `Valid until: ${otpExpiry}` : null,
+    garage?.name
+      ? `Use this only while handing your vehicle to ${garage.name}.`
+      : "Use this only while handing over your vehicle.",
+    "Do not share this OTP before physical vehicle handover.",
   ].filter(Boolean).join("\n");
 
   return sendWhatsappMessage({ to: customer.phone, message });
@@ -204,6 +220,7 @@ module.exports = {
   getWhatsappPhoneNumberId,
   getWhatsappProviderUrl,
   sendCustomerGarageDetailsWhatsapp,
+  sendCustomerHandoverOtpWhatsapp,
   sendCustomerVehicleDeliveredWhatsapp,
   sendGarageBookingRequestWhatsapp,
   sendGarageCustomerLocationWhatsapp,

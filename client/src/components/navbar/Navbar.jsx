@@ -55,6 +55,7 @@ export default function Navbar() {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState("");
   const notificationsRef = useRef(null);
+  const mobileNotificationsRef = useRef(null);
 
   const { user, vehicle, cart = [], logout } = useApp();
   const { unreadCount } = useUnreadNotifications();
@@ -161,7 +162,11 @@ export default function Navbar() {
     if (!notificationsOpen) return undefined;
 
     const handlePointerDown = (event) => {
-      if (notificationsRef.current?.contains(event.target)) return;
+      const clickedDesktopPanel = notificationsRef.current?.contains(event.target);
+      const clickedMobilePanel = mobileNotificationsRef.current?.contains(event.target);
+
+      if (clickedDesktopPanel || clickedMobilePanel) return;
+
       setNotificationsOpen(false);
     };
 
@@ -573,15 +578,175 @@ export default function Navbar() {
           )}
         </div>
 
-        <button
-          type="button"
-          className="grid h-10 w-10 place-items-center rounded-full border border-line bg-white lg:hidden"
-          onClick={() => setOpen(true)}
-          aria-label="Open menu"
-          aria-expanded={open}
-        >
-          <FiMenu />
-        </button>
+        <div className="flex items-center gap-2 lg:hidden">
+          {user && (
+            <div ref={mobileNotificationsRef} className="relative">
+              <button
+                type="button"
+                onClick={handleNotificationToggle}
+                className={[
+                  "relative grid h-10 w-10 place-items-center rounded-full border bg-white transition",
+                  notificationsOpen
+                    ? "border-ink shadow-sm"
+                    : "border-line hover:border-ink",
+                ].join(" ")}
+                aria-label="Notifications"
+                aria-expanded={notificationsOpen}
+                aria-haspopup="dialog"
+              >
+                <FiBell />
+
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-brand px-1.5 text-center text-[10px] font-bold text-black">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {notificationsOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ duration: 0.16 }}
+                    className="fixed left-4 right-4 top-[72px] z-[60] max-h-[calc(100dvh-96px)] overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-ink/10 sm:left-auto sm:right-6 sm:w-[360px]"
+                    role="dialog"
+                    aria-label="Latest notifications"
+                  >
+                    <div className="border-b border-line bg-bg-soft/60 px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-ink">
+                            Notifications
+                          </p>
+                          <p className="text-xs text-muted">
+                            Latest 3 platform updates
+                          </p>
+                        </div>
+
+                        {unreadCount > 0 && (
+                          <span className="rounded-full bg-brand px-2.5 py-1 text-[11px] font-bold text-black">
+                            {unreadCount > 99 ? "99+" : unreadCount} unread
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="max-h-[calc(100dvh-210px)] overflow-y-auto p-3">
+                      {notificationsLoading ? (
+                        <div className="grid gap-2">
+                          {[0, 1, 2].map((item) => (
+                            <div
+                              key={item}
+                              className="rounded-2xl border border-line bg-white p-3"
+                            >
+                              <div className="mb-2 h-3 w-2/3 animate-pulse rounded-full bg-bg-soft" />
+                              <div className="h-3 w-full animate-pulse rounded-full bg-bg-soft" />
+                            </div>
+                          ))}
+                        </div>
+                      ) : notificationsError ? (
+                        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm font-medium text-red-600">
+                          {notificationsError}
+                        </div>
+                      ) : latestNotifications.length > 0 ? (
+                        <div className="grid gap-2">
+                          {latestNotifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              className={[
+                                "rounded-2xl border bg-white p-3 transition hover:border-ink/20 hover:bg-bg-soft/40",
+                                notification.isRead
+                                  ? "border-line"
+                                  : "border-brand/50 shadow-sm",
+                              ].join(" ")}
+                            >
+                              <div className="flex items-start gap-3">
+                                <span
+                                  className={[
+                                    "mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl",
+                                    notification.isRead
+                                      ? "bg-bg-soft text-muted"
+                                      : "bg-brand text-black",
+                                  ].join(" ")}
+                                >
+                                  <FiBell />
+                                </span>
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="line-clamp-1 text-sm font-bold text-ink">
+                                      {notification.title || "Notification"}
+                                    </p>
+                                    <span className="shrink-0 text-[11px] font-medium text-muted">
+                                      {formatNotificationTime(
+                                        notification.createdAt,
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">
+                                    {notification.message ||
+                                      "You have a new update."}
+                                  </p>
+
+                                  {notification.link && (
+                                    <Link
+                                      to={notification.link}
+                                      onClick={() => setNotificationsOpen(false)}
+                                      className="mt-2 inline-flex text-xs font-bold text-ink underline-offset-4 hover:underline"
+                                    >
+                                      Open update
+                                    </Link>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-line bg-bg-soft/50 px-4 py-6 text-center">
+                          <p className="text-sm font-bold text-ink">
+                            No notifications yet
+                          </p>
+                          <p className="mt-1 text-xs text-muted">
+                            New booking and payment updates will appear here.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-line bg-white px-3 py-3">
+                      <Link
+                        to="/dashboard/notifications"
+                        onClick={(event) =>
+                          handleMobileNavigate(event, "/dashboard/notifications")
+                        }
+                        className="flex h-10 items-center justify-center rounded-xl border border-line bg-white text-sm font-bold text-ink transition hover:border-ink/25 hover:bg-bg-soft"
+                      >
+                        View all notifications
+                      </Link>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="grid h-10 w-10 place-items-center rounded-full border border-line bg-white"
+            onClick={() => {
+              closeDropdowns();
+              setOpen(true);
+            }}
+            aria-label="Open menu"
+            aria-expanded={open}
+          >
+            <FiMenu />
+          </button>
+        </div>
       </div>
 
       </motion.header>
