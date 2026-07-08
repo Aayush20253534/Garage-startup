@@ -441,8 +441,10 @@ const getPaymentSummary = (records = []) =>
 
       if (record.type === PAYMENT_RECORD_TYPES.CUSTOMER_PLATFORM_FEE) {
         summary.customerPlatformFee += amount;
+        summary.totalPlatformRevenue += amount;
       } else if (record.type === PAYMENT_RECORD_TYPES.GARAGE_PLATFORM_FEE) {
         summary.garagePlatformFee += amount;
+        summary.totalPlatformRevenue += amount;
       } else if (
         record.type === PAYMENT_RECORD_TYPES.CUSTOMER_WALLET_RECHARGE ||
         record.type === PAYMENT_RECORD_TYPES.GARAGE_WALLET_RECHARGE
@@ -457,6 +459,7 @@ const getPaymentSummary = (records = []) =>
       successfulAmount: 0,
       customerPlatformFee: 0,
       garagePlatformFee: 0,
+      totalPlatformRevenue: 0,
       walletRecharges: 0,
     },
   );
@@ -466,6 +469,7 @@ const emptyPaymentSummary = () => ({
   successfulAmount: 0,
   customerPlatformFee: 0,
   garagePlatformFee: 0,
+  totalPlatformRevenue: 0,
   walletRecharges: 0,
 });
 
@@ -605,9 +609,11 @@ const getFullPaymentSummary = async ({
   sums.forEach(({ key, amount }) => {
     if (key === "customerPlatformFee") {
       summary.customerPlatformFee += amount;
+      summary.totalPlatformRevenue += amount;
       summary.successfulAmount += amount;
     } else if (key === "garagePlatformFee") {
       summary.garagePlatformFee += amount;
+      summary.totalPlatformRevenue += amount;
     } else if (key === "walletRecharges") {
       summary.walletRecharges += amount;
     } else {
@@ -796,6 +802,9 @@ const getDashboardStats = async () => {
       totalServiceCost: totalServiceCost._sum.totalServiceAmount || 0,
       customerPlatformFeeRevenue: customerPlatformFeeRevenue._sum.amount || 0,
       garagePlatformFeeRevenue: garagePlatformFeeRevenue._sum.amount || 0,
+      totalPlatformRevenue:
+        Number(customerPlatformFeeRevenue._sum.amount || 0) +
+        Number(garagePlatformFeeRevenue._sum.amount || 0),
       openSystemIssues,
       criticalSystemIssues,
     },

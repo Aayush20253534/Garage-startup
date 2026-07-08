@@ -36,6 +36,7 @@ export default function AdminDashboard() {
     totalServiceCost: 0,
     customerPlatformFeeRevenue: 0,
     garagePlatformFeeRevenue: 0,
+    totalPlatformRevenue: 0,
     openSystemIssues: 0,
     criticalSystemIssues: 0,
   });
@@ -66,6 +67,11 @@ export default function AdminDashboard() {
     load();
   }, []);
 
+  const totalPlatformRevenue =
+    Number(stats.totalPlatformRevenue || 0) ||
+    Number(stats.customerPlatformFeeRevenue || 0) +
+      Number(stats.garagePlatformFeeRevenue || 0);
+
   const cards = [
     {
       icon: FiHome,
@@ -87,6 +93,12 @@ export default function AdminDashboard() {
     },
     {
       icon: FiDollarSign,
+      number: formatCurrency(totalPlatformRevenue),
+      label: "Total Platform Revenue",
+      caption: "Customer + garage fees",
+    },
+    {
+      icon: FiDollarSign,
       number: formatCurrency(stats.customerPlatformFeeRevenue),
       label: "Customer Platform Fee",
       caption: "Paid checkout fees",
@@ -100,8 +112,8 @@ export default function AdminDashboard() {
     {
       icon: FiDollarSign,
       number: formatCurrency(stats.totalServiceCost),
-      label: "Total Cost of Services Provided",
-      caption: "Excludes platform fees",
+      label: "Garage Service Cost",
+      caption: "Cash payable to garages, not revenue",
     },
     {
       icon: FiUsers,

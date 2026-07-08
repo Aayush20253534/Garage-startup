@@ -180,20 +180,48 @@ function Payments() {
         const amount = Number(record.amount || 0);
         const isSuccessful = ["PAID", "SUCCESS"].includes(record.status);
 
-        if (isSuccessful) {
-          acc.successfulAmount += amount;
+        if (!isSuccessful) {
+          return acc;
+        }
+
+        acc.successfulAmount += amount;
+
+        if (record.type === "CUSTOMER_PLATFORM_FEE") {
+          acc.customerPlatformFee += amount;
+        } else if (record.type === "GARAGE_PLATFORM_FEE") {
+          acc.garagePlatformFee += amount;
+        } else if (
+          record.type === "CUSTOMER_WALLET_RECHARGE" ||
+          record.type === "GARAGE_WALLET_RECHARGE"
+        ) {
+          acc.walletRecharges += amount;
         }
 
         return acc;
       },
-      { successfulAmount: 0 },
+      {
+        customerPlatformFee: 0,
+        garagePlatformFee: 0,
+        successfulAmount: 0,
+        walletRecharges: 0,
+      },
+    );
+
+    const customerPlatformFee = Number(
+      summary?.customerPlatformFee ?? fallback.customerPlatformFee,
+    );
+    const garagePlatformFee = Number(
+      summary?.garagePlatformFee ?? fallback.garagePlatformFee,
     );
 
     return {
-      customerPlatformFee: Number(summary?.customerPlatformFee || 0),
-      garagePlatformFee: Number(summary?.garagePlatformFee || 0),
-      walletRecharges: Number(summary?.walletRecharges || 0),
-      successfulAmount: Number(summary?.successfulAmount || fallback.successfulAmount),
+      customerPlatformFee,
+      garagePlatformFee,
+      totalPlatformRevenue: Number(
+        summary?.totalPlatformRevenue ?? customerPlatformFee + garagePlatformFee,
+      ),
+      walletRecharges: Number(summary?.walletRecharges ?? fallback.walletRecharges),
+      successfulAmount: Number(summary?.successfulAmount ?? fallback.successfulAmount),
       totalRecords: Number(summary?.totalRecords ?? records.length),
     };
   }, [records, summary]);
@@ -268,7 +296,7 @@ function Payments() {
         <div>
           <h2 className="text-2xl font-bold text-ink">Payments</h2>
           <p className="mt-1 text-sm text-muted">
-            Track customer fees, garage fees, and wallet recharge records handled through the platform.
+            Track platform revenue separately from wallet recharges and other cash-flow records.
           </p>
         </div>
 
@@ -304,6 +332,12 @@ function Payments() {
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
+          icon={FiDollarSign}
+          label="Total Revenue"
+          value={formatCurrency(totals.totalPlatformRevenue)}
+          caption="Customer platform fees + garage platform fees"
+        />
+        <StatCard
           icon={FiCreditCard}
           label="Customer Platform Fee"
           value={formatCurrency(totals.customerPlatformFee)}
@@ -316,16 +350,10 @@ function Payments() {
           caption="Successful garage acceptance deductions"
         />
         <StatCard
-          icon={FiDollarSign}
-          label="Wallet Recharges"
-          value={formatCurrency(totals.walletRecharges)}
-          caption="Customer and garage recharge orders"
-        />
-        <StatCard
           icon={FiSearch}
           label="Displayed Records"
           value={totals.totalRecords.toLocaleString("en-IN")}
-          caption={`${formatCurrency(totals.successfulAmount)} successful amount shown`}
+          caption={`${formatCurrency(totals.successfulAmount)} successful cash flow shown`}
         />
       </section>
 
