@@ -17,7 +17,6 @@ import {
 } from "react-icons/fi";
 
 const activeStatuses = [
-  "PENDING_PAYMENT",
   "SEARCHING_GARAGE",
   "GARAGE_ASSIGNED",
   "CONFIRMED",
@@ -25,7 +24,6 @@ const activeStatuses = [
 ];
 
 const getProgress = (status) => {
-  if (status === "PENDING_PAYMENT") return "20%";
   if (status === "SEARCHING_GARAGE") return "40%";
   if (status === "GARAGE_ASSIGNED") return "55%";
   if (status === "CONFIRMED") return "65%";

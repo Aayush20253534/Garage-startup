@@ -5,6 +5,7 @@ const { protect } = require("../../middlewares/auth.middleware");
 const validate = require("../../middlewares/validate.middleware");
 
 const {
+  cancelPaymentOrderValidation,
   createPaymentOrderValidation,
   verifyPaymentValidation,
 } = require("../validations/payment.validation");
@@ -25,6 +26,13 @@ router.post(
   verifyPaymentValidation,
   validate,
   paymentController.verifyPayment
+);
+
+router.post(
+  "/cancel",
+  cancelPaymentOrderValidation,
+  validate,
+  paymentController.cancelPaymentOrder
 );
 
 module.exports = router;

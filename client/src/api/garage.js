@@ -302,7 +302,9 @@ export const garageApi = {
 
   async acceptRequest(...args) {
     // New: acceptRequest(requestId, note)
-    const [requestId, note = ""] = args.slice(-2);
+    // Compatibility: acceptRequest(token, requestId, note)
+    const normalizedArgs = args[0] === "cookie-session" ? args.slice(1) : args;
+    const [requestId, note = ""] = normalizedArgs.slice(-2);
 
     const request = unwrap(
       await api.post(`/garage/requests/${requestId}/accept`, {
@@ -315,7 +317,9 @@ export const garageApi = {
 
   async rejectRequest(...args) {
     // New: rejectRequest(requestId, note)
-    const [requestId, note = ""] = args.slice(-2);
+    // Compatibility: rejectRequest(token, requestId, note)
+    const normalizedArgs = args[0] === "cookie-session" ? args.slice(1) : args;
+    const [requestId, note = ""] = normalizedArgs.slice(-2);
 
     const request = unwrap(
       await api.post(`/garage/requests/${requestId}/reject`, {

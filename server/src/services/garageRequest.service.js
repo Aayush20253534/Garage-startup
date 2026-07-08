@@ -369,11 +369,7 @@ const startNextGarageSearchCycle = async (bookingId) => {
   const now = new Date();
   const activeRequests = await getCurrentRoundRequests(bookingId);
 
-  if (
-    activeRequests.length > 0 &&
-    booking.searchExpiresAt &&
-    booking.searchExpiresAt > now
-  ) {
+  if (booking.searchExpiresAt && booking.searchExpiresAt > now) {
     return serializeGarageRequests(activeRequests);
   }
 

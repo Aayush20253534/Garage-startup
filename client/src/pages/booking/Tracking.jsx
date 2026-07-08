@@ -57,6 +57,16 @@ const TRACKING_STEPS = [
 
 const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
 
+const getWhatsappUrl = (phone) => {
+  let digits = String(phone || "").replace(/\D/g, "");
+
+  if (digits.length === 10) digits = `91${digits}`;
+  if (digits.length > 10) digits = digits.replace(/^0+/, "");
+
+  return digits ? `https://wa.me/${digits}` : null;
+};
+
+
 const getServicesTotal = (booking) => {
   const total = Number(booking?.totalServiceAmount || 0);
   const maxTotal = Number(booking?.totalServiceMaxAmount || 0);
@@ -837,11 +847,9 @@ function Tracking() {
                 onClick={() => {
                   const phone =
                     booking.garage.whatsappNo || booking.garage.phone;
-                  if (phone) {
-                    window.open(
-                      `https://wa.me/${phone.replace(/\D/g, "")}`,
-                      "_blank",
-                    );
+                  const whatsappUrl = getWhatsappUrl(phone);
+                  if (whatsappUrl) {
+                    window.open(whatsappUrl, "_blank");
                   }
                 }}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft focus:outline-none focus:ring-2 focus:ring-brand/40"

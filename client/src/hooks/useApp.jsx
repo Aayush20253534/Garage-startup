@@ -702,7 +702,7 @@ export function AppProvider({ children }) {
     const response = await api.get("/bookings", {
       params: {
         status:
-          "PENDING_PAYMENT,SEARCHING_GARAGE,GARAGE_ASSIGNED,CONFIRMED,IN_PROGRESS",
+          "SEARCHING_GARAGE,GARAGE_ASSIGNED,CONFIRMED,IN_PROGRESS",
       },
     });
 

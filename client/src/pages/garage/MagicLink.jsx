@@ -17,6 +17,15 @@ const isUnlockedStatus = (status) =>
     status,
   );
 
+const getWhatsappUrl = (phone) => {
+  let digits = String(phone || "").replace(/\D/g, "");
+
+  if (digits.length === 10) digits = `91${digits}`;
+  if (digits.length > 10) digits = digits.replace(/^0+/, "");
+
+  return digits ? `https://wa.me/${digits}` : null;
+};
+
 export default function MagicLink() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -75,7 +84,6 @@ export default function MagicLink() {
     setError("");
     try {
       const updated = await garageApi.acceptRequest(
-        garageToken,
         booking.requestId || booking.id,
       );
       setBooking(updated);
@@ -93,7 +101,6 @@ export default function MagicLink() {
     setError("");
     try {
       const updated = await garageApi.rejectRequest(
-        garageToken,
         booking.requestId || booking.id,
       );
       setBooking(updated);
@@ -285,9 +292,9 @@ export default function MagicLink() {
                       <button
                         type="button"
                         onClick={() =>
-                          booking.customer.phone &&
+                          getWhatsappUrl(booking.customer.phone) &&
                           window.open(
-                            `https://wa.me/${booking.customer.phone.replace(/\D/g, "")}`,
+                            getWhatsappUrl(booking.customer.phone),
                             "_blank",
                           )
                         }

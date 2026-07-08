@@ -13,7 +13,12 @@ const verifyPaymentValidation = [
     .withMessage("Cashfree order ID is required"),
 ];
 
+const cancelPaymentOrderValidation = [
+  body("bookingId").isUUID().withMessage("Valid booking ID is required"),
+];
+
 module.exports = {
+  cancelPaymentOrderValidation,
   createPaymentOrderValidation,
   verifyPaymentValidation,
 };

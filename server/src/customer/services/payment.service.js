@@ -137,6 +137,20 @@ const assertCashfreeOrderMatchesPayment = (
   }
 };
 
+const ensurePendingPaymentBooking = (booking) => {
+  if (!booking) {
+    throw new ApiError(404, "Booking not found");
+  }
+
+  if (booking.status !== "PENDING_PAYMENT") {
+    throw new ApiError(400, "Booking is no longer pending payment");
+  }
+
+  if (booking.payment?.status === "PAID") {
+    throw new ApiError(400, "Payment already completed");
+  }
+};
+
 const createPaymentOrder = async (userId, { bookingId }) => {
   assertServiceHoursOpen();
 
@@ -165,17 +179,7 @@ const createPaymentOrder = async (userId, { bookingId }) => {
     },
   });
 
-  if (!booking) {
-    throw new ApiError(404, "Booking not found");
-  }
-
-  if (booking.status !== "PENDING_PAYMENT") {
-    throw new ApiError(400, "Booking is not pending payment");
-  }
-
-  if (booking.payment?.status === "PAID") {
-    throw new ApiError(400, "Payment already completed");
-  }
+  ensurePendingPaymentBooking(booking);
 
   const amount = booking.payableAmount || booking.handlingFee || 1;
 
@@ -328,6 +332,13 @@ const verifyPayment = async (
     throw new ApiError(404, "Payment order not found");
   }
 
+  if (
+    booking.status !== "PENDING_PAYMENT" &&
+    booking.payment.status !== "PAID"
+  ) {
+    throw new ApiError(400, "Booking is no longer payable");
+  }
+
   if (booking.payment.status === "PAID") {
     // Make verification idempotent. Browser payment callbacks are not famous
     // for arriving exactly once.
@@ -458,6 +469,47 @@ const verifyPayment = async (
   };
 };
 
+const cancelPaymentOrder = async (userId, { bookingId }) => {
+  const booking = await prisma.booking.findFirst({
+    where: {
+      id: bookingId,
+      userId,
+    },
+    include: {
+      payment: true,
+    },
+  });
+
+  ensurePendingPaymentBooking(booking);
+
+  const cancelledBooking = await prisma.$transaction(async (tx) => {
+    if (booking.payment) {
+      await tx.payment.update({
+        where: { bookingId },
+        data: { status: "FAILED" },
+      });
+    }
+
+    return tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: "CANCELLED",
+        searchExpiresAt: null,
+        expiredAt: new Date(),
+      },
+      include: bookingInclude,
+    });
+  });
+
+  await invalidatePaymentBookingCaches(userId);
+
+  return {
+    booking: cancelledBooking,
+    payment: cancelledBooking.payment,
+    message: "Payment was cancelled and the booking was removed from active bookings.",
+  };
+};
+
 const getMyPayments = async (userId) => {
   return prisma.payment.findMany({
     where: {
@@ -480,5 +532,6 @@ const getMyPayments = async (userId) => {
 module.exports = {
   createPaymentOrder,
   verifyPayment,
+  cancelPaymentOrder,
   getMyPayments,
 };

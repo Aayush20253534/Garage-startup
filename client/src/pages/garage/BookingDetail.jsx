@@ -26,6 +26,16 @@ const timelineSteps = [
   { status: "COMPLETED", label: "Completed" },
 ];
 
+
+const getWhatsappUrl = (phone) => {
+  let digits = String(phone || "").replace(/\D/g, "");
+
+  if (digits.length === 10) digits = `91${digits}`;
+  if (digits.length > 10) digits = digits.replace(/^0+/, "");
+
+  return digits ? `https://wa.me/${digits}` : null;
+};
+
 const formatDateTime = (value) => {
   if (!value) return "Not available";
 
@@ -437,9 +447,9 @@ export default function GarageBookingDetail() {
               </button>
               <button
                 onClick={() =>
-                  booking.customer.phone &&
+                  getWhatsappUrl(booking.customer.phone) &&
                   window.open(
-                    `https://wa.me/${booking.customer.phone.replace(/\D/g, "")}`,
+                    getWhatsappUrl(booking.customer.phone),
                     "_blank",
                   )
                 }

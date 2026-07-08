@@ -2,6 +2,7 @@ import api from "@/api/axios";
 import { assertServiceHoursOpen } from "@/utils/serviceHours";
 
 const PAYMENT_AUTH_REQUIRED = "PAYMENT_AUTH_REQUIRED";
+const PAYMENT_CANCELLED = "PAYMENT_CANCELLED";
 
 export const isPaymentAuthError = (error) => {
   const message = error?.response?.data?.message || "";
@@ -13,6 +14,32 @@ export const isPaymentAuthError = (error) => {
         message,
       ))
   );
+};
+
+const markPaymentCancelled = async (bookingId) => {
+  if (!bookingId) return;
+
+  try {
+    await api.post("/payments/cancel", { bookingId });
+  } catch (error) {
+    // Do not hide the original Cashfree cancellation/failure from the user.
+    console.warn("Unable to mark payment as cancelled", error);
+  }
+};
+
+const getPaymentErrorMessage = (error, fallback) =>
+  error?.response?.data?.message || error?.message || fallback;
+
+const isIncompletePaymentError = (error) =>
+  error?.response?.status === 400 &&
+  /not completed|cancelled|canceled|failed/i.test(
+    getPaymentErrorMessage(error, ""),
+  );
+
+const createPaymentCancelledError = (message) => {
+  const error = new Error(message || "Payment cancelled");
+  error.code = PAYMENT_CANCELLED;
+  return error;
 };
 
 export const loadCashfreeCheckout = () =>
@@ -63,15 +90,25 @@ export const payForBooking = async ({ booking }) => {
   });
 
   if (checkoutResult?.error) {
-    throw new Error(
+    await markPaymentCancelled(booking.id);
+    throw createPaymentCancelledError(
       checkoutResult.error.message || "Payment cancelled or failed",
     );
   }
 
-  const verifyRes = await api.post("/payments/verify", {
-    bookingId: booking.id,
-    cashfreeOrderId: cashfreeOrder.id,
-  });
+  try {
+    const verifyRes = await api.post("/payments/verify", {
+      bookingId: booking.id,
+      cashfreeOrderId: cashfreeOrder.id,
+    });
 
-  return verifyRes.data.data.booking;
+    return verifyRes.data.data.booking;
+  } catch (error) {
+    if (isIncompletePaymentError(error)) {
+      await markPaymentCancelled(booking.id);
+      error.code = PAYMENT_CANCELLED;
+    }
+
+    throw error;
+  }
 };

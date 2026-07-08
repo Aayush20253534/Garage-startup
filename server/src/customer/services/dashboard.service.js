@@ -4,7 +4,6 @@ const { getCache, setCache } = require("../../utils/cache");
 const DASHBOARD_TTL = Number(process.env.DASHBOARD_CACHE_TTL || 60);
 
 const ACTIVE_STATUSES = [
-  "PENDING_PAYMENT",
   "SEARCHING_GARAGE",
   "GARAGE_ASSIGNED",
   "CONFIRMED",
