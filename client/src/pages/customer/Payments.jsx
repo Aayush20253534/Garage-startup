@@ -64,66 +64,74 @@ export default function Payments() {
       )}
 
       <div className="card-soft overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-bg-soft text-left">
-            <tr>
-              {[
-                "Txn ID",
-                "Service",
-                "Date",
-                "Method",
-                "Status",
-                "Amount",
-              ].map((heading) => (
-                <th key={heading} className="px-4 py-3 font-semibold">
-                  {heading}
-                </th>
-              ))}
-            </tr>
-          </thead>
-
-          <tbody>
-            {items.map((payment) => (
-              <tr key={payment.id} className="border-t border-line">
-                <td className="px-4 py-3 font-medium">
-                  {payment.cashfreePaymentId ||
-                    payment.cashfreeOrderId ||
-                    payment.id}
-                </td>
-
-                <td className="px-4 py-3">{getServiceText(payment)}</td>
-
-                <td className="px-4 py-3">{formatDate(payment.createdAt)}</td>
-
-                <td className="px-4 py-3">
-                  {payment.walletAmountUsed > 0 && payment.upiAmountPaid > 0
-                    ? "Wallet + UPI"
-                    : payment.walletAmountUsed > 0
-                      ? "Wallet"
-                      : "Cashfree"}
-                </td>
-
-                <td className="px-4 py-3">
-                  <span className="chip-brand">{payment.status}</span>
-                </td>
-
-                <td className="px-4 py-3 font-semibold">
-                  {formatRupees(payment.amount)}
-                </td>
-
-              </tr>
-            ))}
-
-            {items.length === 0 && (
+        <div className="w-full overflow-x-auto">
+          <table className="min-w-[760px] w-full text-sm">
+            <thead className="bg-bg-soft text-left">
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                  No online payments yet. Service costs are paid directly to
-                  the garage.
-                </td>
+                {[
+                  "Txn ID",
+                  "Service",
+                  "Date",
+                  "Method",
+                  "Status",
+                  "Amount",
+                ].map((heading) => (
+                  <th
+                    key={heading}
+                    className="whitespace-nowrap px-4 py-3 font-semibold"
+                  >
+                    {heading}
+                  </th>
+                ))}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {items.map((payment) => (
+                <tr key={payment.id} className="border-t border-line">
+                  <td className="max-w-[180px] truncate px-4 py-3 font-medium">
+                    {payment.cashfreePaymentId ||
+                      payment.cashfreeOrderId ||
+                      payment.id}
+                  </td>
+
+                  <td className="max-w-[220px] truncate px-4 py-3">
+                    {getServiceText(payment)}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {formatDate(payment.createdAt)}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {payment.walletAmountUsed > 0 && payment.upiAmountPaid > 0
+                      ? "Wallet + UPI"
+                      : payment.walletAmountUsed > 0
+                        ? "Wallet"
+                        : "Cashfree"}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <span className="chip-brand">{payment.status}</span>
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold">
+                    {formatRupees(payment.amount)}
+                  </td>
+                </tr>
+              ))}
+
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                    No online payments yet. Service costs are paid directly to
+                    the garage.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
