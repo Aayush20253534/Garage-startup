@@ -35,6 +35,28 @@ const getReturnBaseUrl = () => {
   return normalizedUrl;
 };
 
+const getCashfreeNotifyUrl = () => {
+  const explicitUrl = String(process.env.CASHFREE_NOTIFY_URL || "").trim();
+  if (explicitUrl) return explicitUrl;
+
+  const baseUrl = String(
+    process.env.PUBLIC_API_URL ||
+      process.env.API_BASE_URL ||
+      process.env.BACKEND_URL ||
+      "",
+  )
+    .trim()
+    .replace(/\/+$/, "");
+
+  if (!baseUrl || !baseUrl.startsWith("https://")) return undefined;
+
+  if (baseUrl.endsWith("/api/v1")) {
+    return `${baseUrl}/webhooks/cashfree`;
+  }
+
+  return `${baseUrl}/api/v1/webhooks/cashfree`;
+};
+
 const assertCashfreeOrderMatches = (cashfreeOrder, expected) => {
   const cashfreeAmount = Number(cashfreeOrder.order_amount);
   const localAmount = Number(expected.amount);
@@ -74,7 +96,7 @@ const createCashfreeOrder = async ({ orderId, amount, user, returnPath, note, ta
         },
         order_meta: {
           return_url: `${getReturnBaseUrl()}${returnPath}?cashfree_order_id={order_id}`,
-          notify_url: process.env.CASHFREE_NOTIFY_URL || undefined,
+          notify_url: getCashfreeNotifyUrl(),
         },
         order_note: note,
         order_tags: tags,

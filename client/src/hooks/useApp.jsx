@@ -114,6 +114,28 @@ const readNumber = (key, fallback = null) => {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 };
 
+const getLocationIdentity = (value) => {
+  if (!value) return null;
+
+  return [
+    value.id,
+    value.placeId,
+    value.city,
+    value.latitude,
+    value.longitude,
+    value.formattedAddress || value.fullAddress || value.address,
+  ]
+    .filter((item) => item !== undefined && item !== null && item !== "")
+    .join("|") || null;
+};
+
+const getCartPricingContextKey = (selectedVehicle, selectedLocation) =>
+  JSON.stringify({
+    vehicleId: selectedVehicle?.id || null,
+    location: getLocationIdentity(selectedLocation),
+  });
+
+
 const getStoredSessionRole = () => {
   const explicitRole = localStorage.getItem(SESSION_ROLE_KEY);
   const explicitAccountType = localStorage.getItem(
@@ -216,6 +238,9 @@ export function AppProvider({ children }) {
   const { garage: garageUser } = useSelector(selectGarageState);
 
   const [cart, setCart] = useState([]);
+  const [cartContextKey, setCartContextKey] = useState(() =>
+    getCartPricingContextKey(vehicle, location),
+  );
   const [authLoading, setAuthLoading] = useState(true);
 
   // Prevent duplicate session/profile requests when multiple components mount
@@ -946,6 +971,30 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    const nextContextKey = getCartPricingContextKey(vehicle, location);
+
+    if (cartContextKey && cartContextKey !== nextContextKey && cart.length > 0) {
+      setCart([]);
+    }
+
+    if (cartContextKey !== nextContextKey) {
+      setCartContextKey(nextContextKey);
+    }
+  }, [
+    cart.length,
+    cartContextKey,
+    vehicle?.id,
+    location?.id,
+    location?.placeId,
+    location?.city,
+    location?.latitude,
+    location?.longitude,
+    location?.formattedAddress,
+    location?.fullAddress,
+    location?.address,
+  ]);
+
+  useEffect(() => {
     if (user) {
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("rov_user", JSON.stringify(user));
@@ -1017,9 +1066,23 @@ export function AppProvider({ children }) {
   };
 
   const addToCart = (service) => {
+    const nextContextKey = getCartPricingContextKey(vehicle, location);
+
+    setCartContextKey(nextContextKey);
     setCart((current) => {
-      const exists = current.find((item) => item.id === service.id);
-      return exists ? current : [...current, service];
+      const contextSafeCart =
+        cartContextKey === nextContextKey ? current : [];
+      const exists = contextSafeCart.find((item) => item.id === service.id);
+
+      return exists
+        ? contextSafeCart
+        : [
+            ...contextSafeCart,
+            {
+              ...service,
+              pricingContextKey: nextContextKey,
+            },
+          ];
     });
   };
 
@@ -1029,6 +1092,7 @@ export function AppProvider({ children }) {
 
   const clearCart = () => {
     setCart([]);
+    setCartContextKey(getCartPricingContextKey(vehicle, location));
   };
 
   const value = {

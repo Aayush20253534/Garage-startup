@@ -26,9 +26,24 @@ const isIncompletePaymentError = (error) =>
   );
 
 const createPaymentIncompleteError = (message) => {
-  const error = new Error(message || "Payment was not completed. You can retry payment from this checkout.");
+  const error = new Error(
+    message ||
+      "Payment was not completed. You can retry payment from this checkout.",
+  );
   error.code = PAYMENT_INCOMPLETE;
   return error;
+};
+
+const cancelLocalPaymentAttempt = async (bookingId) => {
+  try {
+    await api.post(
+      "/payments/cancel",
+      { bookingId },
+      { skipErrorReporting: true },
+    );
+  } catch {
+    // Do not hide the original checkout error if local cleanup fails.
+  }
 };
 
 export const loadCashfreeCheckout = () =>
@@ -79,9 +94,11 @@ export const payForBooking = async ({ booking }) => {
   });
 
   if (checkoutResult?.error) {
+    await cancelLocalPaymentAttempt(booking.id);
+
     throw createPaymentIncompleteError(
       checkoutResult.error.message ||
-        "Payment was not completed. You can retry without losing this booking.",
+        "Payment was not completed. A fresh payment session will be created when you retry.",
     );
   }
 

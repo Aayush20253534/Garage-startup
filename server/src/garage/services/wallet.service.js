@@ -11,6 +11,17 @@ const {
 } = require("./cashfree.service");
 const { activateGarageIfEligible, getGarageForOwner } = require("./garageOwner.service");
 
+const TERMINAL_CASHFREE_ORDER_STATUSES = new Set([
+  "EXPIRED",
+  "TERMINATED",
+  "FAILED",
+  "CANCELLED",
+  "CANCELED",
+]);
+
+const getCashfreeOrderStatus = (cashfreeOrder) =>
+  String(cashfreeOrder?.order_status || "").toUpperCase();
+
 const getOrCreateGarageWallet = async (garageId) => {
   const garage = await prisma.garage.findUnique({ where: { id: garageId } });
   if (!garage) throw new ApiError(404, "Garage not found");
@@ -104,65 +115,174 @@ const createGarageWalletRechargeOrder = async (user, amount) => {
   };
 };
 
-const verifyGarageWalletRechargeOrder = async (userId, cashfreeOrderId) => {
-  const garage = await getGarageForOwner(userId);
-  const wallet = await getOrCreateGarageWallet(garage.id);
-  const transaction = await prisma.garageWalletTransaction.findFirst({
-    where: { garageWalletId: wallet.id, garageId: garage.id, cashfreeOrderId, type: "RECHARGE" },
-    orderBy: { createdAt: "desc" },
+const buildRechargeResult = ({
+  wallet,
+  transaction,
+  garage,
+  message,
+}) => ({
+  wallet,
+  transaction,
+  garage,
+  activation: {
+    minimumBalance: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
+    minimumActivationAmount: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
+    hasActivationBalance:
+      garage.isActive ||
+      wallet.balance >= GARAGE_MINIMUM_ACTIVATION_RECHARGE,
+    photoCount: garage.images?.length || 0,
+    isActive: garage.isActive,
+  },
+  message,
+});
+
+const completePaidGarageWalletRecharge = async (transaction, cashfreeOrder) => {
+  assertCashfreeOrderMatches(cashfreeOrder, {
+    cashfreeOrderId: transaction.cashfreeOrderId,
+    amount: transaction.amount,
+    currency: "INR",
   });
 
-  if (!transaction) throw new ApiError(404, "Garage wallet recharge order not found");
+  const orderStatus = getCashfreeOrderStatus(cashfreeOrder);
 
-  if (transaction.status === "SUCCESS") {
-    return { wallet, transaction, garage, message: "Garage wallet recharge already verified" };
-  }
-
-  const cashfreeOrder = await fetchCashfreeOrder(cashfreeOrderId);
-  assertCashfreeOrderMatches(cashfreeOrder, { cashfreeOrderId: transaction.cashfreeOrderId, amount: transaction.amount, currency: "INR" });
-
-  if (cashfreeOrder.order_status !== "PAID") {
-    if (["EXPIRED", "TERMINATED", "FAILED"].includes(cashfreeOrder.order_status)) {
-      await prisma.garageWalletTransaction.update({
-        where: { id: transaction.id },
-        data: { status: "FAILED", description: "Garage wallet recharge failed Cashfree verification" },
+  if (orderStatus !== "PAID") {
+    if (TERMINAL_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
+      await prisma.garageWalletTransaction.updateMany({
+        where: { id: transaction.id, status: "PENDING" },
+        data: {
+          status: "FAILED",
+          description: "Garage wallet recharge failed Cashfree verification",
+        },
       });
     }
+
     throw new ApiError(400, "Cashfree payment is not completed yet");
   }
 
   return prisma.$transaction(async (tx) => {
-    const currentWallet = await tx.garageWallet.findUnique({ where: { id: wallet.id } });
-    const balanceAfter = currentWallet.balance + transaction.amount;
-    const updatedWallet = await tx.garageWallet.update({ where: { id: wallet.id }, data: { balance: balanceAfter } });
-    const updatedTransaction = await tx.garageWalletTransaction.update({
-      where: { id: transaction.id },
+    const claim = await tx.garageWalletTransaction.updateMany({
+      where: { id: transaction.id, status: "PENDING" },
       data: {
         status: "SUCCESS",
-        balanceAfter,
-        cashfreePaymentId: cashfreeOrder.cf_order_id ? String(cashfreeOrder.cf_order_id) : transaction.cashfreePaymentId,
+        cashfreePaymentId: cashfreeOrder.cf_order_id
+          ? String(cashfreeOrder.cf_order_id)
+          : transaction.cashfreePaymentId,
         description: "Garage wallet recharge verified by Cashfree",
       },
     });
-    const updatedGarage = await activateGarageIfEligible(tx, garage.id);
-    return {
+
+    if (claim.count === 0) {
+      const existingTransaction = await tx.garageWalletTransaction.findUnique({
+        where: { id: transaction.id },
+      });
+      const currentWallet = await tx.garageWallet.findUnique({
+        where: { id: transaction.garageWalletId },
+      });
+      const currentGarage = await tx.garage.findUnique({
+        where: { id: transaction.garageId },
+        include: { images: true },
+      });
+
+      return buildRechargeResult({
+        wallet: currentWallet,
+        transaction: existingTransaction,
+        garage: currentGarage,
+        message: "Garage wallet recharge already verified",
+      });
+    }
+
+    const updatedWallet = await tx.garageWallet.update({
+      where: { id: transaction.garageWalletId },
+      data: { balance: { increment: transaction.amount } },
+    });
+
+    const updatedTransaction = await tx.garageWalletTransaction.update({
+      where: { id: transaction.id },
+      data: { balanceAfter: updatedWallet.balance },
+    });
+
+    const updatedGarage = await activateGarageIfEligible(tx, transaction.garageId);
+
+    return buildRechargeResult({
       wallet: updatedWallet,
       transaction: updatedTransaction,
       garage: updatedGarage,
-      activation: {
-        minimumBalance: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
-        minimumActivationAmount: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
-        hasActivationBalance:
-          updatedGarage.isActive ||
-          updatedWallet.balance >= GARAGE_MINIMUM_ACTIVATION_RECHARGE,
-        photoCount: updatedGarage.images?.length || 0,
-        isActive: updatedGarage.isActive,
-      },
       message: updatedGarage.isActive
         ? "Garage wallet recharge verified. Garage is active."
         : "Garage wallet recharge verified. Garage activation is pending verification or minimum balance.",
-    };
+    });
   });
+};
+
+const findRechargeTransactionByCashfreeOrderId = async (cashfreeOrderId, where = {}) =>
+  prisma.garageWalletTransaction.findFirst({
+    where: {
+      cashfreeOrderId,
+      type: "RECHARGE",
+      ...where,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+const verifyGarageWalletRechargeByCashfreeOrderId = async (cashfreeOrderId) => {
+  const transaction = await findRechargeTransactionByCashfreeOrderId(
+    cashfreeOrderId,
+  );
+
+  if (!transaction) return null;
+
+  if (transaction.status === "SUCCESS") {
+    const [wallet, garage] = await Promise.all([
+      prisma.garageWallet.findUnique({
+        where: { id: transaction.garageWalletId },
+      }),
+      prisma.garage.findUnique({
+        where: { id: transaction.garageId },
+        include: { images: true },
+      }),
+    ]);
+
+    return buildRechargeResult({
+      wallet,
+      transaction,
+      garage,
+      message: "Garage wallet recharge already verified",
+    });
+  }
+
+  const cashfreeOrder = await fetchCashfreeOrder(cashfreeOrderId);
+  return completePaidGarageWalletRecharge(transaction, cashfreeOrder);
+};
+
+const verifyGarageWalletRechargeOrder = async (userId, cashfreeOrderId) => {
+  const garage = await getGarageForOwner(userId);
+  const wallet = await getOrCreateGarageWallet(garage.id);
+  const transaction = await findRechargeTransactionByCashfreeOrderId(
+    cashfreeOrderId,
+    { garageWalletId: wallet.id, garageId: garage.id },
+  );
+
+  if (!transaction) throw new ApiError(404, "Garage wallet recharge order not found");
+
+  if (transaction.status === "SUCCESS") {
+    const currentWallet = await prisma.garageWallet.findUnique({
+      where: { id: wallet.id },
+    });
+    const currentGarage = await prisma.garage.findUnique({
+      where: { id: garage.id },
+      include: { images: true },
+    });
+
+    return buildRechargeResult({
+      wallet: currentWallet,
+      transaction,
+      garage: currentGarage,
+      message: "Garage wallet recharge already verified",
+    });
+  }
+
+  const cashfreeOrder = await fetchCashfreeOrder(cashfreeOrderId);
+  return completePaidGarageWalletRecharge(transaction, cashfreeOrder);
 };
 
 module.exports = {
@@ -170,5 +290,6 @@ module.exports = {
   getGarageWalletForOwner,
   getGarageWalletTransactionsForOwner,
   getOrCreateGarageWallet,
+  verifyGarageWalletRechargeByCashfreeOrderId,
   verifyGarageWalletRechargeOrder,
 };

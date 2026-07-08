@@ -57,6 +57,72 @@ const getProbeBaseUrl = () =>
 const isSafeProbeMethod = (method) =>
   ["GET", "HEAD"].includes(String(method || "GET").toUpperCase());
 
+const parseStatusListEnv = (value, fallback = []) => {
+  const raw = String(value || "")
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isInteger(item));
+
+  return raw.length > 0 ? raw : fallback;
+};
+
+const getAllowedProtectedProbeStatuses = () =>
+  new Set(
+    parseStatusListEnv(
+      process.env.SYSTEM_ISSUE_PROTECTED_PROBE_OK_STATUSES,
+      [401, 403],
+    ),
+  );
+
+const isQuietOnlyAutoResolveEnabled = () =>
+  parseBooleanEnv(process.env.SYSTEM_ISSUE_QUIET_ONLY_AUTO_RESOLVE_ENABLED, true);
+
+const isProtectedEndpoint = (issue) => {
+  const endpoint = String(issue.endpoint || "");
+  const actorType = String(issue.actorType || "PUBLIC").toUpperCase();
+
+  return (
+    actorType !== "PUBLIC" ||
+    /^\/?(api\/v1\/)?(customer|vehicles|locations|notifications|bookings|payments|complaints|dashboard|chatbot|activities|wallet|sos|garage\/wallet|garage\/requests|admin|intern)(\/|$)/i.test(
+      endpoint.replace(/^https?:\/\/[^/]+/i, ""),
+    )
+  );
+};
+
+const canResolveByQuietPeriodOnly = (issue) => {
+  if (!isQuietOnlyAutoResolveEnabled()) return false;
+  if (/system-issues\/report/i.test(String(issue.endpoint || ""))) return false;
+
+  return !isSafeProbeMethod(issue.method) || isProtectedEndpoint(issue);
+};
+
+const buildResolutionNote = (quietPeriodMs, verification) => {
+  const base =
+    `Auto-resolved after no new occurrences for ${formatMinutes(quietPeriodMs)} `;
+
+  if (verification.reason === "quiet_period_only") {
+    return (
+      base +
+      "because this issue belongs to an unsafe or protected endpoint that cannot be replayed safely. " +
+      "The issue will reopen automatically if it happens again."
+    );
+  }
+
+  if (verification.reason === "protected_probe_reachable") {
+    return (
+      base +
+      `and the protected endpoint responded with expected auth status ${verification.status}. ` +
+      "The issue will reopen automatically if it happens again."
+    );
+  }
+
+  return (
+    base +
+    `and a successful verification probe (${verification.status}). ` +
+    "The issue will reopen automatically if it happens again."
+  );
+};
+
 const toProbeUrl = (issue) => {
   const metadataProbeUrl =
     typeof issue.metadata?.autoResolveProbeUrl === "string"
@@ -96,6 +162,10 @@ const verifyIssueResolved = async (issue) => {
   const probeUrl = toProbeUrl(issue);
 
   if (!probeUrl) {
+    if (canResolveByQuietPeriodOnly(issue)) {
+      return { verified: true, reason: "quiet_period_only" };
+    }
+
     return { verified: false, reason: "no_safe_probe" };
   }
 
@@ -114,11 +184,27 @@ const verifyIssueResolved = async (issue) => {
       return { verified: true, status: response.status, probeUrl };
     }
 
+    if (
+      isProtectedEndpoint(issue) &&
+      getAllowedProtectedProbeStatuses().has(response.status)
+    ) {
+      return {
+        verified: true,
+        status: response.status,
+        probeUrl,
+        reason: "protected_probe_reachable",
+      };
+    }
+
     return { verified: false, status: response.status, probeUrl };
   } catch (error) {
     return {
       verified: false,
-      reason: error.code || error.message || "probe_failed",
+      reason:
+        error.response?.status ||
+        error.code ||
+        error.message ||
+        "probe_failed",
       probeUrl,
     };
   }
@@ -171,10 +257,7 @@ const runSystemIssueAutoResolverOnce = async () => {
           status: "RESOLVED",
           resolvedAt: new Date(),
           resolvedById: null,
-          resolutionNote:
-            `Auto-resolved after no new occurrences for ${formatMinutes(quietPeriodMs)} ` +
-            `and a successful verification probe (${verification.status}). ` +
-            "The issue will reopen automatically if it happens again.",
+          resolutionNote: buildResolutionNote(quietPeriodMs, verification),
         },
       });
 
