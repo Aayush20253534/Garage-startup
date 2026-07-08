@@ -1,0 +1,327 @@
+--- a/client/src/components/navbar/Navbar.jsx
++++ b/client/src/components/navbar/Navbar.jsx
+@@ -1,4 +1,4 @@
+-import { useEffect, useState } from "react";
++import { useEffect, useRef, useState } from "react";
+ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+ import { motion, AnimatePresence } from "framer-motion";
+ import {
+@@ -14,6 +14,7 @@
+ import Logo from "@/components/common/Logo";
+ import { useApp } from "@/hooks/useApp";
+ import useUnreadNotifications from "@/hooks/useUnreadNotifications";
++import api from "@/api/axios";
+ 
+ const NAV = [
+   { to: "/", label: "Home" },
+@@ -23,11 +24,37 @@
+   { to: "/contact", label: "Contact" },
+ ];
+ 
++const formatNotificationTime = (date) => {
++  if (!date) return "";
++
++  const diff = Date.now() - new Date(date).getTime();
++  const minutes = Math.floor(diff / 60000);
++  const hours = Math.floor(diff / 3600000);
++  const days = Math.floor(diff / 86400000);
++
++  if (minutes < 1) return "Just now";
++  if (minutes < 60) return `${minutes}m ago`;
++  if (hours < 24) return `${hours}h ago`;
++  if (days === 1) return "Yesterday";
++
++  return `${days}d ago`;
++};
++
++const sortLatestNotifications = (items) =>
++  [...items].sort(
++    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
++  );
++
+ export default function Navbar() {
+   const [scrolled, setScrolled] = useState(false);
+   const [open, setOpen] = useState(false);
+   const [profileOpen, setProfileOpen] = useState(false);
+   const [vehOpen, setVehOpen] = useState(false);
++  const [notificationsOpen, setNotificationsOpen] = useState(false);
++  const [latestNotifications, setLatestNotifications] = useState([]);
++  const [notificationsLoading, setNotificationsLoading] = useState(false);
++  const [notificationsError, setNotificationsError] = useState("");
++  const notificationsRef = useRef(null);
+ 
+   const { user, vehicle, cart = [], logout } = useApp();
+   const { unreadCount } = useUnreadNotifications();
+@@ -44,6 +71,7 @@
+   const closeDropdowns = () => {
+     setProfileOpen(false);
+     setVehOpen(false);
++    setNotificationsOpen(false);
+   };
+ 
+   const handleMobileNavigate = (event, to) => {
+@@ -58,6 +86,51 @@
+     });
+   };
+ 
++  const loadLatestNotifications = async () => {
++    if (!user || user.role !== "CUSTOMER") {
++      setLatestNotifications([]);
++      return;
++    }
++
++    try {
++      setNotificationsLoading(true);
++      setNotificationsError("");
++
++      const response = await api.get("/notifications");
++      const items = Array.isArray(response.data?.data)
++        ? response.data.data
++        : [];
++
++      setLatestNotifications(sortLatestNotifications(items).slice(0, 3));
++
++      window.dispatchEvent(
++        new CustomEvent("rov:notifications-updated", {
++          detail: {
++            unreadCount: items.filter((item) => !item.isRead).length,
++          },
++        }),
++      );
++    } catch (error) {
++      setNotificationsError(
++        error.response?.data?.message || "Unable to load notifications",
++      );
++    } finally {
++      setNotificationsLoading(false);
++    }
++  };
++
++  const handleNotificationToggle = async () => {
++    const shouldOpen = !notificationsOpen;
++
++    setNotificationsOpen(shouldOpen);
++    setProfileOpen(false);
++    setVehOpen(false);
++
++    if (shouldOpen) {
++      await loadLatestNotifications();
++    }
++  };
++
+   const handleLogout = async () => {
+     closeDropdowns();
+     closeMobileMenu();
+@@ -85,6 +158,27 @@
+   }, [pathname]);
+ 
+   useEffect(() => {
++    if (!notificationsOpen) return undefined;
++
++    const handlePointerDown = (event) => {
++      if (notificationsRef.current?.contains(event.target)) return;
++      setNotificationsOpen(false);
++    };
++
++    const handleKeyDown = (event) => {
++      if (event.key === "Escape") setNotificationsOpen(false);
++    };
++
++    document.addEventListener("mousedown", handlePointerDown);
++    window.addEventListener("keydown", handleKeyDown);
++
++    return () => {
++      document.removeEventListener("mousedown", handlePointerDown);
++      window.removeEventListener("keydown", handleKeyDown);
++    };
++  }, [notificationsOpen]);
++
++  useEffect(() => {
+     if (!open) {
+       document.body.style.overflow = "";
+       return undefined;
+@@ -187,6 +281,7 @@
+                     onClick={() => {
+                       setVehOpen((value) => !value);
+                       setProfileOpen(false);
++                      setNotificationsOpen(false);
+                     }}
+                     className="flex h-10 max-w-[220px] items-center gap-2 rounded-full border border-line bg-white py-1 pl-1.5 pr-3 transition hover:border-ink"
+                   >
+@@ -265,19 +360,156 @@
+                 )}
+               </Link>
+ 
+-              <Link
+-                to="/dashboard/notifications"
+-                className="relative grid h-10 w-10 place-items-center rounded-full border border-line bg-white transition hover:border-ink"
+-                aria-label="Notifications"
+-              >
+-                <FiBell />
++              <div ref={notificationsRef} className="relative">
++                <button
++                  type="button"
++                  onClick={handleNotificationToggle}
++                  className={[
++                    "relative grid h-10 w-10 place-items-center rounded-full border bg-white transition",
++                    notificationsOpen
++                      ? "border-ink shadow-sm"
++                      : "border-line hover:border-ink",
++                  ].join(" ")}
++                  aria-label="Notifications"
++                  aria-expanded={notificationsOpen}
++                  aria-haspopup="dialog"
++                >
++                  <FiBell />
+ 
+-                {unreadCount > 0 && (
+-                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-brand px-1.5 text-center text-[10px] font-bold text-black">
+-                    {unreadCount > 99 ? "99+" : unreadCount}
+-                  </span>
+-                )}
+-              </Link>
++                  {unreadCount > 0 && (
++                    <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-brand px-1.5 text-center text-[10px] font-bold text-black">
++                      {unreadCount > 99 ? "99+" : unreadCount}
++                    </span>
++                  )}
++                </button>
++
++                <AnimatePresence>
++                  {notificationsOpen && (
++                    <motion.div
++                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
++                      animate={{ opacity: 1, y: 0, scale: 1 }}
++                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
++                      transition={{ duration: 0.16 }}
++                      className="absolute right-0 mt-3 w-[360px] overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-ink/10"
++                      role="dialog"
++                      aria-label="Latest notifications"
++                    >
++                      <div className="border-b border-line bg-bg-soft/60 px-4 py-3">
++                        <div className="flex items-center justify-between gap-3">
++                          <div>
++                            <p className="text-sm font-bold text-ink">
++                              Notifications
++                            </p>
++                            <p className="text-xs text-muted">
++                              Latest 3 platform updates
++                            </p>
++                          </div>
++
++                          {unreadCount > 0 && (
++                            <span className="rounded-full bg-brand px-2.5 py-1 text-[11px] font-bold text-black">
++                              {unreadCount > 99 ? "99+" : unreadCount} unread
++                            </span>
++                          )}
++                        </div>
++                      </div>
++
++                      <div className="max-h-[360px] p-3">
++                        {notificationsLoading ? (
++                          <div className="grid gap-2">
++                            {[0, 1, 2].map((item) => (
++                              <div
++                                key={item}
++                                className="rounded-2xl border border-line bg-white p-3"
++                              >
++                                <div className="mb-2 h-3 w-2/3 animate-pulse rounded-full bg-bg-soft" />
++                                <div className="h-3 w-full animate-pulse rounded-full bg-bg-soft" />
++                              </div>
++                            ))}
++                          </div>
++                        ) : notificationsError ? (
++                          <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm font-medium text-red-600">
++                            {notificationsError}
++                          </div>
++                        ) : latestNotifications.length > 0 ? (
++                          <div className="grid gap-2">
++                            {latestNotifications.map((notification) => (
++                              <div
++                                key={notification.id}
++                                className={[
++                                  "rounded-2xl border bg-white p-3 transition hover:border-ink/20 hover:bg-bg-soft/40",
++                                  notification.isRead
++                                    ? "border-line"
++                                    : "border-brand/50 shadow-sm",
++                                ].join(" ")}
++                              >
++                                <div className="flex items-start gap-3">
++                                  <span
++                                    className={[
++                                      "mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl",
++                                      notification.isRead
++                                        ? "bg-bg-soft text-muted"
++                                        : "bg-brand text-black",
++                                    ].join(" ")}
++                                  >
++                                    <FiBell />
++                                  </span>
++
++                                  <div className="min-w-0 flex-1">
++                                    <div className="flex items-start justify-between gap-2">
++                                      <p className="line-clamp-1 text-sm font-bold text-ink">
++                                        {notification.title || "Notification"}
++                                      </p>
++                                      <span className="shrink-0 text-[11px] font-medium text-muted">
++                                        {formatNotificationTime(
++                                          notification.createdAt,
++                                        )}
++                                      </span>
++                                    </div>
++
++                                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">
++                                      {notification.message ||
++                                        "You have a new update."}
++                                    </p>
++
++                                    {notification.link && (
++                                      <Link
++                                        to={notification.link}
++                                        onClick={() => setNotificationsOpen(false)}
++                                        className="mt-2 inline-flex text-xs font-bold text-ink underline-offset-4 hover:underline"
++                                      >
++                                        Open update
++                                      </Link>
++                                    )}
++                                  </div>
++                                </div>
++                              </div>
++                            ))}
++                          </div>
++                        ) : (
++                          <div className="rounded-2xl border border-dashed border-line bg-bg-soft/50 px-4 py-6 text-center">
++                            <p className="text-sm font-bold text-ink">
++                              No notifications yet
++                            </p>
++                            <p className="mt-1 text-xs text-muted">
++                              New booking and payment updates will appear here.
++                            </p>
++                          </div>
++                        )}
++                      </div>
++
++                      <div className="border-t border-line bg-white px-3 py-3">
++                        <Link
++                          to="/dashboard/notifications"
++                          onClick={() => setNotificationsOpen(false)}
++                          className="flex h-10 items-center justify-center rounded-xl border border-line bg-white text-sm font-bold text-ink transition hover:border-ink/25 hover:bg-bg-soft"
++                        >
++                          View all notifications
++                        </Link>
++                      </div>
++                    </motion.div>
++                  )}
++                </AnimatePresence>
++              </div>
+ 
+               <div className="relative">
+                 <button
+@@ -285,6 +517,7 @@
+                   onClick={() => {
+                     setProfileOpen((value) => !value);
+                     setVehOpen(false);
++                    setNotificationsOpen(false);
+                   }}
+                   className="flex h-10 max-w-[190px] items-center gap-2 rounded-full border border-line bg-white py-1 pl-1.5 pr-3 transition hover:border-ink"
+                 >
