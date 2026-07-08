@@ -1,6 +1,37 @@
+const { Transform } = require("stream");
+
 const asyncHandler = require("../../utils/asyncHandler");
 const ApiResponse = require("../../utils/apiResponse");
 const service = require("../services/dangerous.service");
+
+const createPgDumpViewerFilter = () => {
+  let carry = "";
+
+  return new Transform({
+    transform(chunk, encoding, callback) {
+      const input = carry + chunk.toString("utf8");
+      const lines = input.split(/\r?\n/);
+      carry = lines.pop() || "";
+
+      const filtered = lines
+        .filter((line) => !/^\\(?:restrict|unrestrict)(?:\s|$)/i.test(line.trim()))
+        .join("\n");
+
+      if (filtered) {
+        this.push(`${filtered}\n`);
+      }
+
+      callback();
+    },
+    flush(callback) {
+      if (carry && !/^\\(?:restrict|unrestrict)(?:\s|$)/i.test(carry.trim())) {
+        this.push(carry);
+      }
+
+      callback();
+    },
+  });
+};
 
 const listDangerousCommands = asyncHandler(async (req, res) => {
   return res
@@ -44,13 +75,13 @@ const downloadSqlBackup = asyncHandler(async (req, res, next) => {
     started = true;
 
     res.status(200);
-    res.setHeader("Content-Type", "application/sql; charset=utf-8");
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename=\"${filename}\"`);
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("X-Content-Type-Options", "nosniff");
 
-    child.stdout.pipe(res);
+    child.stdout.pipe(createPgDumpViewerFilter()).pipe(res);
   });
 
   child.once("error", (error) => {

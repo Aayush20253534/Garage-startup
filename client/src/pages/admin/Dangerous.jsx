@@ -76,7 +76,7 @@ const saveBlobResponse = (response) => {
   const disposition = response.headers?.["content-disposition"] || "";
   const filename = getFilenameFromDisposition(disposition);
   const blob = new Blob([response.data], {
-    type: response.headers?.["content-type"] || "application/sql",
+    type: response.headers?.["content-type"] || "text/plain",
   });
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -230,7 +230,7 @@ function DangerousCommandCard({ command, onRun, running, result }) {
               ? "Preparing..."
               : "Running..."
             : isDownloadAction
-              ? "Download SQL"
+              ? "Download .sql"
               : "Run command"}
         </button>
       </div>
@@ -317,7 +317,7 @@ export default function Dangerous() {
               Dangerous scripts
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-red-800/80">
-              These actions permanently delete production data. Every command requires the exact confirmation phrase: rovauto plus the command name.
+              These actions permanently delete production data. Every command requires the exact confirmation phrase: rovauto plus the command name. SQL backups download as PostgreSQL restore scripts, not as clickable .db files.
             </p>
           </div>
 

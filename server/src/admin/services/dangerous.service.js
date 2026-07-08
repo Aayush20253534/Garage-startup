@@ -32,9 +32,9 @@ const COMMANDS = [
   },
   {
     command: "download-sql-backup",
-    label: "Download current SQL database backup",
+    label: "Download readable SQL database backup",
     description:
-      "Exports the current PostgreSQL database as a plain .sql file using pg_dump. This does not delete or modify data, but the downloaded file contains sensitive production data.",
+      "Exports the current PostgreSQL database as a readable .sql restore script. The file is not a clickable .db database; import it into PostgreSQL or open it in a text SQL viewer.",
     tone: "warning",
     fields: [],
     action: "download",
@@ -298,6 +298,8 @@ const createSqlBackupProcess = ({ command, confirmation } = {}) => {
       "--clean",
       "--if-exists",
       "--encoding=UTF8",
+      "--column-inserts",
+      "--quote-all-identifiers",
     ],
     {
       cwd: process.cwd(),
