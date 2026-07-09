@@ -35,6 +35,18 @@ const getWhatsappProviderUrl = () => {
 const isMetaCloudApiUrl = (url) => /graph\.facebook\.com\/.+\/messages/i.test(String(url || ""));
 const isWhatsappConfigured = () => Boolean(getWhatsappProviderUrl() && getWhatsappAccessToken());
 
+const DEFAULT_TEMPLATE_LANGUAGE = process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US";
+const GARAGE_REQUEST_TEMPLATE =
+  process.env.WHATSAPP_GARAGE_REQUEST_TEMPLATE || "garage_booking_request";
+const GARAGE_ACCEPTED_DETAILS_TEMPLATE =
+  process.env.WHATSAPP_GARAGE_ACCEPTED_DETAILS_TEMPLATE ||
+  "garage_booking_accepted_details";
+
+const shouldUseTemplates = () => {
+  const value = String(process.env.WHATSAPP_USE_TEMPLATES || "true").toLowerCase();
+  return !["0", "false", "off", "no"].includes(value);
+};
+
 const WHATSAPP_LOG_PREFIX = "[whatsapp]";
 
 const shouldLogWhatsapp = () => {
@@ -84,6 +96,27 @@ const getGarageAcceptUrl = (requestId) => {
 const getMapsLink = (latitude, longitude) => {
   if (latitude === null || latitude === undefined || longitude === null || longitude === undefined) return null;
   return `https://www.google.com/maps?q=${latitude},${longitude}`;
+};
+
+const getCustomerLocationText = (booking = {}) => {
+  return booking.customerAddress || "Customer location shared in booking";
+};
+
+const getCustomerMapsLink = (booking = {}) => {
+  const coordinateLink = getMapsLink(
+    booking.customerLatitude,
+    booking.customerLongitude,
+  );
+
+  if (coordinateLink) return coordinateLink;
+
+  if (booking.customerAddress) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      booking.customerAddress,
+    )}`;
+  }
+
+  return "Location map not available";
 };
 
 const sendWhatsappMessage = async ({ to, message, context = {} }) => {
@@ -195,6 +228,157 @@ const sendWhatsappMessage = async ({ to, message, context = {} }) => {
   }
 };
 
+const toTextParameter = (value) => ({
+  type: "text",
+  text: String(value ?? "-").slice(0, 1024),
+});
+
+const buildTemplatePayload = ({ phone, templateName, languageCode, parameters }) => ({
+  messaging_product: "whatsapp",
+  recipient_type: "individual",
+  to: phone,
+  type: "template",
+  template: {
+    name: templateName,
+    language: {
+      code: languageCode || DEFAULT_TEMPLATE_LANGUAGE,
+    },
+    components: [
+      {
+        type: "body",
+        parameters: parameters.map(toTextParameter),
+      },
+    ],
+  },
+});
+
+const sendWhatsappTemplateMessage = async ({
+  to,
+  templateName,
+  parameters = [],
+  languageCode = DEFAULT_TEMPLATE_LANGUAGE,
+  fallbackMessage = "",
+  context = {},
+}) => {
+  const phone = normalizeWhatsappNumber(to);
+
+  if (!phone || !templateName) {
+    logWhatsapp("warn", "template.skipped", {
+      reason: "missing_phone_or_template",
+      rawTo: to ? maskPhone(String(to).replace(/\D/g, "")) : "missing",
+      templateName: templateName || "missing",
+      defaultCountryCode: getDefaultCountryCode(),
+      ...context,
+    });
+
+    return { sent: false, reason: "missing_phone_or_template" };
+  }
+
+  if (!shouldUseTemplates()) {
+    return sendWhatsappMessage({ to, message: fallbackMessage, context });
+  }
+
+  if (!isWhatsappConfigured()) {
+    const whatsappLink = fallbackMessage
+      ? createWhatsappLink(phone, fallbackMessage)
+      : null;
+
+    logWhatsapp("warn", "template.not_configured", {
+      to: maskPhone(phone),
+      providerUrl: sanitizeProviderUrl(getWhatsappProviderUrl()),
+      hasAccessToken: Boolean(getWhatsappAccessToken()),
+      phoneNumberId: getWhatsappPhoneNumberId() || "missing",
+      defaultCountryCode: getDefaultCountryCode(),
+      templateName,
+      languageCode,
+      whatsappLink,
+      ...context,
+    });
+
+    return { sent: false, logged: true, whatsappLink };
+  }
+
+  const providerUrl = getWhatsappProviderUrl();
+  const accessToken = getWhatsappAccessToken();
+  const metaCloudApi = isMetaCloudApiUrl(providerUrl);
+
+  if (!metaCloudApi) {
+    logWhatsapp("warn", "template.unsupported_provider", {
+      to: maskPhone(phone),
+      providerUrl: sanitizeProviderUrl(providerUrl),
+      templateName,
+      languageCode,
+      ...context,
+    });
+
+    return sendWhatsappMessage({ to, message: fallbackMessage, context });
+  }
+
+  const payload = buildTemplatePayload({
+    phone,
+    templateName,
+    languageCode,
+    parameters,
+  });
+
+  logWhatsapp("info", "template.attempt", {
+    to: maskPhone(phone),
+    provider: "meta_cloud_api",
+    providerUrl: sanitizeProviderUrl(providerUrl),
+    phoneNumberId: getWhatsappPhoneNumberId() || "not_applicable",
+    defaultCountryCode: getDefaultCountryCode(),
+    templateName,
+    languageCode,
+    parameterCount: parameters.length,
+    parameterPreview: parameters.map((value) => String(value ?? "-").slice(0, 80)),
+    ...context,
+  });
+
+  try {
+    const response = await axios.post(providerUrl, payload, {
+      timeout: Number(process.env.WHATSAPP_SEND_TIMEOUT_MS || 15000),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    logWhatsapp("info", "template.success", {
+      to: maskPhone(phone),
+      status: response.status,
+      templateName,
+      providerResponse: summarizeProviderResponse(response.data),
+      ...context,
+    });
+
+    return { sent: true, providerResponse: response.data, status: response.status };
+  } catch (error) {
+    const status = error.response?.status || null;
+    const responseData = error.response?.data || null;
+
+    logWhatsapp("error", "template.failed", {
+      to: maskPhone(phone),
+      status,
+      code: error.code,
+      errorMessage: error.message,
+      templateName,
+      providerError: summarizeProviderResponse(responseData),
+      providerResponse: responseData,
+      ...context,
+    });
+
+    return {
+      sent: false,
+      failed: true,
+      status,
+      code: error.code,
+      errorMessage: error.message,
+      providerResponse: responseData,
+    };
+  }
+};
+
+
 const formatVehicleDetails = (vehicle) => {
   if (!vehicle) return "Vehicle details unavailable";
   return [vehicle.brand, vehicle.model, vehicle.registrationNumber || vehicle.numberPlate, vehicle.fuelType]
@@ -221,53 +405,54 @@ const sendGarageBookingRequestWhatsapp = async ({
   acceptFee = 0,
 }) => {
   const acceptUrl = getGarageAcceptUrl(request.id);
+  const brand = booking.vehicle?.brand || "Vehicle";
+  const model = booking.vehicle?.model || "N/A";
+  const services = formatServiceList(booking.services);
   const numericAcceptFee = Number(acceptFee) || 0;
-  const message = [
+  const fallbackMessage = [
     "New Rovauto booking request",
-    `Brand: ${booking.vehicle?.brand || "Vehicle"}`,
-    `Model: ${booking.vehicle?.model || "N/A"}`,
-    `Services: ${formatServiceList(booking.services)}`,
-    `Amount: ${formatBookingAmount(booking)}`,
-    numericAcceptFee > 0
-      ? `Garage accept fee: Rs. ${numericAcceptFee.toLocaleString("en-IN")}`
-      : null,
-    numericAcceptFee > 0
-      ? "Recharge wallet before accepting if your balance is low."
-      : null,
-    `Accept here: ${acceptUrl}`,
+    `Brand: ${brand}`,
+    `Model: ${model}`,
+    `Services: ${services}`,
+    `Open booking: ${acceptUrl}`,
   ].filter(Boolean).join("\n");
 
-  return sendWhatsappMessage({
+  return sendWhatsappTemplateMessage({
     to: garage.whatsappNo || garage.phone,
-    message,
+    templateName: GARAGE_REQUEST_TEMPLATE,
+    languageCode: DEFAULT_TEMPLATE_LANGUAGE,
+    parameters: [brand, model, services, acceptUrl],
+    fallbackMessage,
     context: {
       type: "garage_booking_request",
       garageId: garage.id,
       requestId: request.id,
       bookingId: booking.id,
       bookingCode: booking.bookingCode,
+      acceptFee: numericAcceptFee,
     },
   });
 };
 
 const sendGarageCustomerLocationWhatsapp = async ({ garage, booking }) => {
-  const mapsLink = getMapsLink(
-    booking.customerLatitude,
-    booking.customerLongitude,
-  );
-  const message = [
+  const customerName = booking.user?.name || "Customer";
+  const customerPhone = booking.user?.phone || "Phone not available";
+  const location = getCustomerLocationText(booking);
+  const mapsLink = getCustomerMapsLink(booking);
+  const fallbackMessage = [
     `Rovauto booking ${booking.bookingCode} accepted.`,
-    `Customer: ${booking.user?.name || "Customer"}`,
-    booking.user?.phone ? `Phone: ${booking.user.phone}` : null,
-    booking.customerAddress ? `Address: ${booking.customerAddress}` : null,
-    `Vehicle: ${formatVehicleDetails(booking.vehicle)}`,
-    `Services: ${formatServiceList(booking.services)}`,
-    mapsLink ? `Customer location: ${mapsLink}` : null,
+    `Customer: ${customerName}`,
+    `Phone: ${customerPhone}`,
+    `Location: ${location}`,
+    `Map: ${mapsLink}`,
   ].filter(Boolean).join("\n");
 
-  return sendWhatsappMessage({
+  return sendWhatsappTemplateMessage({
     to: garage.whatsappNo || garage.phone,
-    message,
+    templateName: GARAGE_ACCEPTED_DETAILS_TEMPLATE,
+    languageCode: DEFAULT_TEMPLATE_LANGUAGE,
+    parameters: [customerName, customerPhone, location, mapsLink],
+    fallbackMessage,
     context: {
       type: "garage_customer_location",
       garageId: garage.id,
@@ -384,6 +569,7 @@ const sendCustomerVehicleDeliveredWhatsapp = async ({
 module.exports = {
   getWhatsappAccessToken,
   getGarageAcceptUrl,
+  getCustomerMapsLink,
   getMapsLink,
   getWhatsappPhoneNumberId,
   getWhatsappProviderUrl,
@@ -393,4 +579,5 @@ module.exports = {
   sendGarageBookingRequestWhatsapp,
   sendGarageCustomerLocationWhatsapp,
   sendWhatsappMessage,
+  sendWhatsappTemplateMessage,
 };
