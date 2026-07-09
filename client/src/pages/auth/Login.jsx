@@ -180,7 +180,7 @@ export default function Login() {
             type="button"
             onClick={handleGoogleAuth}
             disabled={loading}
-            className="flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-3 font-medium transition hover:border-ink disabled:opacity-60"
+            className="flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold transition hover:border-ink hover:bg-bg-soft disabled:opacity-60"
           >
             <FcGoogle className="text-xl" />
             Continue with Google
@@ -213,7 +213,10 @@ export default function Login() {
             className="px-4 py-3 rounded-xl border border-line focus:border-ink outline-none"
           />
 
-          <button disabled={loading} className="btn-primary mt-2">
+          <button
+            disabled={loading}
+            className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
             {loading ? (
               "Logging in..."
             ) : (

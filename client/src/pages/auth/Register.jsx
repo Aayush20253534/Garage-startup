@@ -224,7 +224,7 @@ export default function Register() {
             type="button"
             onClick={handleGoogleAuth}
             disabled={loading}
-            className="flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-3 font-medium transition hover:border-ink disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FcGoogle className="text-xl" />
             {loadingAction === "GOOGLE" ? "Connecting..." : "Continue with Google"}
@@ -316,7 +316,7 @@ export default function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary mt-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loadingAction === "FORM" ? "Creating..." : "Create Account"}
           </button>
