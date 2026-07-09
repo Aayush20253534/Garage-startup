@@ -203,7 +203,9 @@ const buildRawGarageConditions = ({
     )`);
   }
 
-  return Prisma.join(conditions, Prisma.raw(" AND "));
+  return conditions.reduce((combinedCondition, condition) =>
+    Prisma.sql`${combinedCondition} AND ${condition}`,
+  );
 };
 
 const queryGarageDistanceRows = async ({
