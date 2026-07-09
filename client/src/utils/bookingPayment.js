@@ -61,7 +61,7 @@ export const loadCashfreeCheckout = () =>
     document.body.appendChild(script);
   });
 
-export const payForBooking = async ({ booking }) => {
+export const payForBooking = async ({ booking, useWallet = false } = {}) => {
   if (!booking?.id) {
     throw new Error("Booking not found");
   }
@@ -74,9 +74,15 @@ export const payForBooking = async ({ booking }) => {
 
   const orderRes = await api.post("/payments/create-order", {
     bookingId: booking.id,
+    useWallet: Boolean(useWallet),
   });
 
-  const { cashfreeOrder, mode } = orderRes.data.data;
+  const result = orderRes.data.data || {};
+  const { cashfreeOrder, mode } = result;
+
+  if (result.booking && (!cashfreeOrder || result.payment?.status === "PAID")) {
+    return result.booking;
+  }
 
   await loadCashfreeCheckout();
 

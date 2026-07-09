@@ -98,6 +98,8 @@ export default function Checkout() {
   const [phoneDraft, setPhoneDraft] = useState(user?.phone || "");
   const [pendingBooking, setPendingBooking] = useState(null);
   const [editingAddress, setEditingAddress] = useState(false);
+  const [wallet, setWallet] = useState(null);
+  const [useWallet, setUseWallet] = useState(false);
   const [addressForm, setAddressForm] = useState(() =>
     getCheckoutAddressForm({ location, user }),
   );
@@ -113,6 +115,11 @@ export default function Checkout() {
   const payAtGarageMin = subTotalMin;
   const payAtGarageMax = subTotalMax;
   const payNowAmount = calculatePlatformFee(payAtGarageMax);
+  const walletBalance = Number(wallet?.balance || 0);
+  const walletAmountUsed = useWallet
+    ? Math.min(walletBalance, payNowAmount)
+    : 0;
+  const cashfreePayNowAmount = Math.max(payNowAmount - walletAmountUsed, 0);
   const savedPhone = normalizeIndianPhone(user?.phone || "");
   const phoneToSave = normalizeIndianPhone(phoneDraft);
   const hasSavedPhone = INDIA_PHONE_REGEX.test(savedPhone);
@@ -123,6 +130,29 @@ export default function Checkout() {
   useEffect(() => {
     setPhoneDraft(user?.phone || "");
   }, [user?.phone]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    api
+      .get("/wallet")
+      .then((response) => {
+        if (mounted) setWallet(response.data?.data || null);
+      })
+      .catch(() => {
+        if (mounted) setWallet(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (useWallet && walletBalance <= 0) {
+      setUseWallet(false);
+    }
+  }, [useWallet, walletBalance]);
 
   useEffect(() => {
     if (!editingAddress) {
@@ -324,7 +354,7 @@ export default function Checkout() {
         setPendingBooking(booking);
       }
 
-      const paidBooking = await payForBooking({ booking });
+      const paidBooking = await payForBooking({ booking, useWallet });
 
       addRecentActivity({
         type: "BOOKING",
@@ -555,10 +585,54 @@ export default function Checkout() {
               {formatRupeeRange(payAtGarageMin, payAtGarageMax)}
             </span>
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-base">
-            <span className="font-semibold">Pay now</span>
-            <span className="whitespace-nowrap text-right text-xl font-bold">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+            <span className="text-muted">Platform fee</span>
+            <span className="whitespace-nowrap text-right font-semibold">
               {formatRupees(payNowAmount)}
+            </span>
+          </div>
+        </div>
+
+        <label
+          className={`mt-4 flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition ${
+            walletBalance > 0
+              ? "border-brand/40 bg-brand/10 hover:bg-brand/15"
+              : "border-line bg-bg-soft text-muted"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={useWallet}
+            disabled={walletBalance <= 0 || payNowAmount <= 0}
+            onChange={(event) => setUseWallet(event.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-line accent-black disabled:cursor-not-allowed"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-ink">
+              Use wallet balance
+            </span>
+            <span className="mt-0.5 block text-xs text-muted">
+              Available: {formatRupees(walletBalance)}
+              {useWallet && walletAmountUsed > 0
+                ? ` • Applying ${formatRupees(walletAmountUsed)}`
+                : ""}
+            </span>
+          </span>
+        </label>
+
+        <div className="mt-4 rounded-xl border border-line bg-white p-3 text-sm">
+          {useWallet && walletAmountUsed > 0 && (
+            <div className="mb-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-muted">
+              <span>Wallet applied</span>
+              <span className="whitespace-nowrap text-right font-semibold text-green-700">
+                -{formatRupees(walletAmountUsed)}
+              </span>
+            </div>
+          )}
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-base">
+            <span className="font-semibold">Amount to pay now</span>
+            <span className="whitespace-nowrap text-right text-xl font-bold">
+              {formatRupees(cashfreePayNowAmount)}
             </span>
           </div>
         </div>
@@ -576,14 +650,18 @@ export default function Checkout() {
         >
           <FiCreditCard />{" "}
           {loading
-            ? "Opening payment..."
+            ? cashfreePayNowAmount > 0
+              ? "Opening payment..."
+              : "Activating booking..."
             : hasComingSoonItems
               ? "Remove Coming Soon Services"
               : cart.length === 0
                 ? "Add services to continue"
               : !hasSavedPhone
                 ? "Save phone to pay"
-                : `Pay ${formatRupees(payNowAmount)} Now`}
+                : cashfreePayNowAmount > 0
+                  ? `Pay ${formatRupees(cashfreePayNowAmount)} Now`
+                  : "Pay with wallet"}
         </button>
         <div className="mt-3 text-center text-xs text-muted">
           Pay only the platform fee now. The service amount is paid in cash at

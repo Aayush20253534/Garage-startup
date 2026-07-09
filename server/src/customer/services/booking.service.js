@@ -451,12 +451,16 @@ const getServiceHistory = async (userId) => {
 const getRefundAmountForCancelledBooking = (booking) => {
   if (booking.payment?.status !== "PAID") return 0;
 
-  const onlinePaidAmount = Number(
-    booking.payment.upiAmountPaid || booking.payment.amount || 0,
-  );
   const walletPaidAmount = Number(
     booking.payment.walletAmountUsed || booking.walletAmountUsed || 0,
   );
+  const upiAmountPaid = Number(booking.payment.upiAmountPaid || 0);
+  const onlinePaidAmount =
+    upiAmountPaid > 0
+      ? upiAmountPaid
+      : walletPaidAmount > 0
+        ? 0
+        : Number(booking.payment.amount || 0);
   const refundAmount = onlinePaidAmount + walletPaidAmount;
 
   return Number.isFinite(refundAmount) && refundAmount > 0

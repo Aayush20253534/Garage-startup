@@ -64,10 +64,13 @@ export default function PendingBookings() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [payingId, setPayingId] = useState(null);
+  const [wallet, setWallet] = useState(null);
+  const [useWalletByBookingId, setUseWalletByBookingId] = useState({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   const pendingCount = useMemo(() => bookings.length, [bookings]);
+  const walletBalance = Number(wallet?.balance || 0);
 
   const loadPendingBookings = async ({ force = false } = {}) => {
     try {
@@ -91,7 +94,43 @@ export default function PendingBookings() {
 
   useEffect(() => {
     loadPendingBookings();
+
+    let mounted = true;
+
+    api
+      .get("/wallet")
+      .then((response) => {
+        if (mounted) setWallet(response.data?.data || null);
+      })
+      .catch(() => {
+        if (mounted) setWallet(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  const getBookingOnlineAmount = (booking) =>
+    Number(booking.payableAmount || booking.payment?.amount || booking.handlingFee || 0);
+
+  const isWalletSelected = (booking) =>
+    Boolean(useWalletByBookingId[booking.id]) && walletBalance > 0;
+
+  const getWalletAmountForBooking = (booking) =>
+    isWalletSelected(booking)
+      ? Math.min(walletBalance, getBookingOnlineAmount(booking))
+      : 0;
+
+  const getCashfreeAmountForBooking = (booking) =>
+    Math.max(getBookingOnlineAmount(booking) - getWalletAmountForBooking(booking), 0);
+
+  const toggleWalletForBooking = (bookingId, checked) => {
+    setUseWalletByBookingId((current) => ({
+      ...current,
+      [bookingId]: checked,
+    }));
+  };
 
   const handlePayNow = async (booking) => {
     try {
@@ -99,7 +138,10 @@ export default function PendingBookings() {
       setError("");
       setNotice("");
 
-      const updatedBooking = await payForBooking({ booking });
+      const updatedBooking = await payForBooking({
+        booking,
+        useWallet: isWalletSelected(booking),
+      });
       clearBookingCaches?.();
 
       nav("/tracking", {
@@ -191,6 +233,9 @@ export default function PendingBookings() {
       <div className="space-y-4">
         {bookings.map((booking) => {
           const isPaying = payingId === booking.id;
+          const onlineAmount = getBookingOnlineAmount(booking);
+          const walletAmountUsed = getWalletAmountForBooking(booking);
+          const cashfreeAmount = getCashfreeAmountForBooking(booking);
 
           return (
             <article
@@ -240,7 +285,7 @@ export default function PendingBookings() {
                         <FiCreditCard className="h-3.5 w-3.5" /> Online Due
                       </span>
                       <span className="mt-1 text-sm font-semibold text-ink truncate">
-                        {getOnlineAmountText(booking)}
+                        {formatRupees(onlineAmount)}
                       </span>
                     </div>
 
@@ -271,6 +316,49 @@ export default function PendingBookings() {
                     </p>
                   </div>
 
+                  <label
+                    className={`mb-3 flex cursor-pointer items-start gap-3 rounded-md border p-3 text-xs transition ${
+                      walletBalance > 0
+                        ? "border-brand/40 bg-brand/10 hover:bg-brand/15"
+                        : "border-line bg-white text-muted"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(useWalletByBookingId[booking.id])}
+                      disabled={walletBalance <= 0 || onlineAmount <= 0 || Boolean(payingId)}
+                      onChange={(event) =>
+                        toggleWalletForBooking(booking.id, event.target.checked)
+                      }
+                      className="mt-0.5 h-4 w-4 rounded border-line accent-black disabled:cursor-not-allowed"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-ink">
+                        Use wallet balance
+                      </span>
+                      <span className="mt-0.5 block text-muted">
+                        Available: {formatRupees(walletBalance)}
+                      </span>
+                    </span>
+                  </label>
+
+                  <div className="mb-3 rounded-md border border-line bg-white p-3 text-xs">
+                    {walletAmountUsed > 0 && (
+                      <div className="mb-1 flex items-center justify-between gap-2 text-muted">
+                        <span>Wallet applied</span>
+                        <span className="font-semibold text-green-700">
+                          -{formatRupees(walletAmountUsed)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="font-semibold text-ink">Pay now</span>
+                      <span className="font-bold text-ink">
+                        {formatRupees(cashfreeAmount)}
+                      </span>
+                    </div>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => handlePayNow(booking)}
@@ -278,7 +366,13 @@ export default function PendingBookings() {
                     className="inline-flex w-full h-9 items-center justify-center gap-2 rounded-md bg-brand px-4 text-sm font-medium text-black shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FiCreditCard className="h-4 w-4 shrink-0" />
-                    {isPaying ? "Opening payment..." : "Pay & Activate"}
+                    {isPaying
+                      ? cashfreeAmount > 0
+                        ? "Opening payment..."
+                        : "Activating booking..."
+                      : cashfreeAmount > 0
+                        ? `Pay ${formatRupees(cashfreeAmount)} & Activate`
+                        : "Pay with wallet"}
                   </button>
                 </aside>
               </div>

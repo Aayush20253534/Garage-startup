@@ -2,6 +2,11 @@ const { body } = require("express-validator");
 
 const createPaymentOrderValidation = [
   body("bookingId").isUUID().withMessage("Valid booking ID is required"),
+
+  body("useWallet")
+    .optional()
+    .isBoolean()
+    .withMessage("Wallet option must be true or false"),
 ];
 
 const verifyPaymentValidation = [

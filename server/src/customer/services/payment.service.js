@@ -99,15 +99,192 @@ const fetchCashfreeOrder = async (cashfreeOrderId, fallback) => {
   }
 };
 
-const markPaymentFailedIfCurrent = async (bookingId, cashfreeOrderId) => {
-  await prisma.payment.updateMany({
-    where: {
-      bookingId,
-      cashfreeOrderId,
-      status: "CREATED",
-    },
-    data: { status: "FAILED" },
+const toWholeRupee = (value, fallback = 0) => {
+  const amount = Math.round(Number(value));
+  return Number.isFinite(amount) && amount > 0 ? amount : fallback;
+};
+
+const isWalletRequested = (value) =>
+  value === true ||
+  value === 1 ||
+  value === "1" ||
+  String(value).toLowerCase() === "true";
+
+const getBookingPaymentAmount = (booking) => {
+  return (
+    toWholeRupee(booking?.handlingFee) ||
+    toWholeRupee(booking?.payment?.amount) ||
+    toWholeRupee(booking?.payableAmount) ||
+    1
+  );
+};
+
+const getCashfreePayableAmount = (payment = {}) => {
+  const upiAmount = Math.round(Number(payment.upiAmountPaid));
+
+  if (Number.isFinite(upiAmount) && upiAmount > 0) {
+    return upiAmount;
+  }
+
+  if (toWholeRupee(payment.walletAmountUsed) > 0) {
+    return 0;
+  }
+
+  return toWholeRupee(payment.amount);
+};
+
+const getWalletPaymentSplit = async (userId, totalAmount, useWallet) => {
+  const amount = toWholeRupee(totalAmount);
+
+  if (!isWalletRequested(useWallet)) {
+    return {
+      walletAmountUsed: 0,
+      upiAmountPaid: amount,
+    };
+  }
+
+  const wallet = await prisma.wallet.findUnique({
+    where: { userId },
+    select: { balance: true },
   });
+
+  const walletBalance = toWholeRupee(wallet?.balance);
+  const walletAmountUsed = Math.min(walletBalance, amount);
+
+  return {
+    walletAmountUsed,
+    upiAmountPaid: Math.max(amount - walletAmountUsed, 0),
+  };
+};
+
+const reserveWalletForBookingPaymentTx = async (
+  tx,
+  { userId, booking, amount, cashfreeOrderId = null },
+) => {
+  const walletAmount = toWholeRupee(amount);
+
+  if (walletAmount <= 0) return null;
+
+  const debitResult = await tx.wallet.updateMany({
+    where: {
+      userId,
+      balance: { gte: walletAmount },
+    },
+    data: {
+      balance: { decrement: walletAmount },
+    },
+  });
+
+  if (debitResult.count !== 1) {
+    throw new ApiError(400, "Wallet balance changed. Please refresh and try again.");
+  }
+
+  const wallet = await tx.wallet.findUnique({
+    where: { userId },
+  });
+
+  await tx.walletTransaction.create({
+    data: {
+      walletId: wallet.id,
+      userId,
+      type: "BOOKING_PAYMENT",
+      status: "SUCCESS",
+      amount: walletAmount,
+      balanceAfter: wallet.balance,
+      cashfreeOrderId,
+      description: `Wallet used for booking ${
+        booking.bookingCode || booking.id
+      }`,
+    },
+  });
+
+  return wallet;
+};
+
+const refundWalletPaymentTx = async (tx, { payment, booking, userId }) => {
+  const walletAmount = toWholeRupee(payment?.walletAmountUsed);
+
+  if (walletAmount <= 0) return null;
+
+  const wallet = await tx.wallet.upsert({
+    where: { userId },
+    update: {
+      balance: { increment: walletAmount },
+    },
+    create: {
+      userId,
+      type: "CUSTOMER",
+      balance: walletAmount,
+    },
+  });
+
+  await tx.walletTransaction.create({
+    data: {
+      walletId: wallet.id,
+      userId,
+      type: "BOOKING_REFUND",
+      status: "SUCCESS",
+      amount: walletAmount,
+      balanceAfter: wallet.balance,
+      cashfreeOrderId: payment.cashfreeOrderId || null,
+      cashfreePaymentId: payment.cashfreePaymentId || null,
+      description: `Wallet refund for booking ${
+        booking?.bookingCode || booking?.id || payment.bookingId
+      }`,
+    },
+  });
+
+  return wallet;
+};
+
+const failCreatedPaymentAndReleaseWallet = async ({
+  bookingId,
+  cashfreeOrderId = null,
+}) => {
+  const result = await prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.findFirst({
+      where: {
+        bookingId,
+        status: "CREATED",
+        ...(cashfreeOrderId ? { cashfreeOrderId } : {}),
+      },
+      include: { booking: true },
+    });
+
+    if (!payment) return null;
+
+    const booking = payment.booking;
+
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: { status: "FAILED" },
+    });
+
+    await refundWalletPaymentTx(tx, {
+      payment,
+      booking,
+      userId: booking.userId,
+    });
+
+    await tx.booking.updateMany({
+      where: {
+        id: bookingId,
+        status: "PENDING_PAYMENT",
+      },
+      data: {
+        walletAmountUsed: 0,
+        payableAmount: getBookingPaymentAmount(booking),
+      },
+    });
+
+    return { payment, booking };
+  });
+
+  if (result?.booking?.userId) {
+    await invalidatePaymentBookingCaches(result.booking.userId);
+  }
+
+  return result;
 };
 
 const getCashfreeCustomerPhone = (phone) => {
@@ -192,7 +369,7 @@ const assertCashfreeOrderMatchesPayment = (
   payment,
 ) => {
   const cashfreeAmount = Number(cashfreeOrder.order_amount);
-  const localAmount = Number(payment.amount);
+  const localCashfreeAmount = getCashfreePayableAmount(payment);
   const cashfreeCurrency = String(
     cashfreeOrder.order_currency || "",
   ).toUpperCase();
@@ -206,7 +383,7 @@ const assertCashfreeOrderMatchesPayment = (
 
   if (
     !Number.isFinite(cashfreeAmount) ||
-    cashfreeAmount !== localAmount
+    cashfreeAmount !== localCashfreeAmount
   ) {
     throw new ApiError(400, "Cashfree payment amount mismatch");
   }
@@ -260,12 +437,10 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
 
   if (orderStatus !== "PAID") {
     if (TERMINAL_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
-      await markPaymentFailedIfCurrent(
-        booking.id,
-        booking.payment.cashfreeOrderId,
-      );
-
-      await invalidatePaymentBookingCaches(booking.userId);
+      await failCreatedPaymentAndReleaseWallet({
+        bookingId: booking.id,
+        cashfreeOrderId: booking.payment.cashfreeOrderId,
+      });
     }
 
     throw new ApiError(400, "Cashfree payment is not completed yet");
@@ -354,10 +529,10 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
   }
 
   if (!isPaymentSessionFresh(payment)) {
-    await markPaymentFailedIfCurrent(
-      booking.id,
-      payment.cashfreeOrderId,
-    );
+    await failCreatedPaymentAndReleaseWallet({
+      bookingId: booking.id,
+      cashfreeOrderId: payment.cashfreeOrderId,
+    });
     return null;
   }
 
@@ -383,7 +558,7 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
       cashfreeOrder: {
         id: payment.cashfreeOrderId,
         cfOrderId: payment.cashfreePaymentId,
-        amount: payment.amount,
+        amount: getCashfreePayableAmount(payment),
         currency: payment.currency,
         paymentSessionId: payment.cashfreePaymentSessionId,
       },
@@ -392,24 +567,106 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
   }
 
   if (TERMINAL_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
-    await markPaymentFailedIfCurrent(
-      booking.id,
-      payment.cashfreeOrderId,
-    );
+    await failCreatedPaymentAndReleaseWallet({
+      bookingId: booking.id,
+      cashfreeOrderId: payment.cashfreeOrderId,
+    });
   }
 
   return null;
 };
 
-const createPaymentOrder = async (userId, { bookingId }) => {
-  assertServiceHoursOpen();
+const completeWalletOnlyBookingPayment = async (
+  userId,
+  booking,
+  totalAmount,
+  walletAmountUsed,
+) => {
+  const result = await prisma.$transaction(async (tx) => {
+    await reserveWalletForBookingPaymentTx(tx, {
+      userId,
+      booking,
+      amount: walletAmountUsed,
+    });
 
-  if (!isCashfreeConfigured()) {
-    throw new ApiError(
-      500,
-      "Cashfree payment gateway is not configured",
+    const payment = await tx.payment.upsert({
+      where: { bookingId: booking.id },
+      update: {
+        amount: totalAmount,
+        currency: "INR",
+        status: "PAID",
+        cashfreeOrderId: null,
+        cashfreePaymentId: null,
+        cashfreePaymentSessionId: null,
+        walletAmountUsed,
+        upiAmountPaid: 0,
+      },
+      create: {
+        bookingId: booking.id,
+        amount: totalAmount,
+        currency: "INR",
+        status: "PAID",
+        cashfreeOrderId: null,
+        cashfreePaymentId: null,
+        cashfreePaymentSessionId: null,
+        walletAmountUsed,
+        upiAmountPaid: 0,
+      },
+    });
+
+    await tx.booking.updateMany({
+      where: {
+        id: booking.id,
+        status: "PENDING_PAYMENT",
+      },
+      data: {
+        status: "SEARCHING_GARAGE",
+        walletAmountUsed,
+        payableAmount: 0,
+        searchExpiresAt: null,
+        expiredAt: null,
+      },
+    });
+
+    const updatedBooking = await tx.booking.findUnique({
+      where: { id: booking.id },
+      include: bookingInclude,
+    });
+
+    return { payment, booking: updatedBooking };
+  });
+
+  let broadcastRequests = [];
+
+  if (
+    result.booking?.status === "SEARCHING_GARAGE" &&
+    !result.booking?.garageId
+  ) {
+    broadcastRequests = await startGarageSearchAfterPayment(
+      booking.id,
+      userId,
     );
   }
+
+  await invalidatePaymentBookingCaches(userId);
+
+  return {
+    payment: result.payment,
+    booking: await prisma.booking.findUnique({
+      where: { id: booking.id },
+      include: bookingInclude,
+    }),
+    broadcastRequests,
+    walletAmountUsed,
+    upiAmountPaid: 0,
+    cashfreeOrder: null,
+    mode: getCashfreeMode(),
+    message: "Wallet payment completed. Searching nearby garages in two-minute rounds.",
+  };
+};
+
+const createPaymentOrder = async (userId, { bookingId, useWallet = false }) => {
+  assertServiceHoursOpen();
 
   const booking = await prisma.booking.findFirst({
     where: {
@@ -431,12 +688,66 @@ const createPaymentOrder = async (userId, { bookingId }) => {
 
   ensurePendingPaymentBooking(booking);
 
-  const amount = booking.payableAmount || booking.handlingFee || 1;
+  const amount = getBookingPaymentAmount(booking);
 
   if (amount <= 0) {
     throw new ApiError(
       400,
       "No online payment required for this booking",
+    );
+  }
+
+  let split = await getWalletPaymentSplit(userId, amount, useWallet);
+
+  if (booking.payment?.status === "CREATED") {
+    const existingWalletAmount = toWholeRupee(
+      booking.payment.walletAmountUsed,
+    );
+    const existingUpiAmount = getCashfreePayableAmount(booking.payment);
+    const requestedWallet = isWalletRequested(useWallet);
+    const canReuseExistingOrder =
+      booking.payment.amount === amount &&
+      ((requestedWallet && existingWalletAmount > 0) ||
+        (!requestedWallet && existingWalletAmount === 0) ||
+        (requestedWallet &&
+          existingWalletAmount === 0 &&
+          split.walletAmountUsed === 0)) &&
+      existingUpiAmount > 0;
+
+    if (canReuseExistingOrder) {
+      const reusableOrder = await tryReuseCreatedPaymentOrder(
+        booking,
+        amount,
+      );
+
+      if (reusableOrder) {
+        return reusableOrder;
+      }
+    } else {
+      await failCreatedPaymentAndReleaseWallet({
+        bookingId: booking.id,
+        cashfreeOrderId: booking.payment.cashfreeOrderId,
+      });
+    }
+
+    split = await getWalletPaymentSplit(userId, amount, useWallet);
+  }
+
+  const { walletAmountUsed, upiAmountPaid } = split;
+
+  if (walletAmountUsed >= amount && upiAmountPaid <= 0) {
+    return completeWalletOnlyBookingPayment(
+      userId,
+      booking,
+      amount,
+      walletAmountUsed,
+    );
+  }
+
+  if (!isCashfreeConfigured()) {
+    throw new ApiError(
+      500,
+      "Cashfree payment gateway is not configured",
     );
   }
 
@@ -449,15 +760,6 @@ const createPaymentOrder = async (userId, { bookingId }) => {
     );
   }
 
-  const reusableOrder = await tryReuseCreatedPaymentOrder(
-    booking,
-    amount,
-  );
-
-  if (reusableOrder) {
-    return reusableOrder;
-  }
-
   const cashfreeOrderId = `cf_${booking.bookingCode}_${Date.now()}`;
   const frontendUrl = getPaymentReturnBaseUrl();
 
@@ -468,7 +770,7 @@ const createPaymentOrder = async (userId, { bookingId }) => {
       `${getCashfreeBaseUrl()}/orders`,
       {
         order_id: cashfreeOrderId,
-        order_amount: amount,
+        order_amount: upiAmountPaid,
         order_currency: "INR",
         customer_details: {
           customer_id: userId,
@@ -485,6 +787,8 @@ const createPaymentOrder = async (userId, { bookingId }) => {
         order_tags: {
           bookingId: booking.id,
           userId,
+          walletAmountUsed: String(walletAmountUsed),
+          upiAmountPaid: String(upiAmountPaid),
         },
       },
       { headers: getCashfreeHeaders() },
@@ -498,38 +802,58 @@ const createPaymentOrder = async (userId, { bookingId }) => {
     );
   }
 
-  const payment = await prisma.payment.upsert({
-    where: { bookingId: booking.id },
-    update: {
-      amount,
-      currency: "INR",
-      status: "CREATED",
+  const payment = await prisma.$transaction(async (tx) => {
+    await reserveWalletForBookingPaymentTx(tx, {
+      userId,
+      booking,
+      amount: walletAmountUsed,
       cashfreeOrderId: cashfreeOrder.order_id,
-      cashfreePaymentId: cashfreeOrder.cf_order_id
-        ? String(cashfreeOrder.cf_order_id)
-        : null,
-      cashfreePaymentSessionId:
-        cashfreeOrder.payment_session_id,
-      upiAmountPaid: amount,
-    },
-    create: {
-      bookingId: booking.id,
-      amount,
-      currency: "INR",
-      status: "CREATED",
-      cashfreeOrderId: cashfreeOrder.order_id,
-      cashfreePaymentId: cashfreeOrder.cf_order_id
-        ? String(cashfreeOrder.cf_order_id)
-        : null,
-      cashfreePaymentSessionId:
-        cashfreeOrder.payment_session_id,
-      walletAmountUsed: booking.walletAmountUsed || 0,
-      upiAmountPaid: amount,
-    },
+    });
+
+    await tx.booking.update({
+      where: { id: booking.id },
+      data: {
+        walletAmountUsed,
+        payableAmount: upiAmountPaid,
+      },
+    });
+
+    return tx.payment.upsert({
+      where: { bookingId: booking.id },
+      update: {
+        amount,
+        currency: "INR",
+        status: "CREATED",
+        cashfreeOrderId: cashfreeOrder.order_id,
+        cashfreePaymentId: cashfreeOrder.cf_order_id
+          ? String(cashfreeOrder.cf_order_id)
+          : null,
+        cashfreePaymentSessionId:
+          cashfreeOrder.payment_session_id,
+        walletAmountUsed,
+        upiAmountPaid,
+      },
+      create: {
+        bookingId: booking.id,
+        amount,
+        currency: "INR",
+        status: "CREATED",
+        cashfreeOrderId: cashfreeOrder.order_id,
+        cashfreePaymentId: cashfreeOrder.cf_order_id
+          ? String(cashfreeOrder.cf_order_id)
+          : null,
+        cashfreePaymentSessionId:
+          cashfreeOrder.payment_session_id,
+        walletAmountUsed,
+        upiAmountPaid,
+      },
+    });
   });
 
   return {
     payment,
+    walletAmountUsed,
+    upiAmountPaid,
     cashfreeOrder: {
       id: cashfreeOrder.order_id,
       cfOrderId: cashfreeOrder.cf_order_id,
@@ -629,12 +953,18 @@ const cancelPaymentOrder = async (userId, { bookingId }) => {
 
   ensurePendingPaymentBooking(booking);
 
-  const payment = booking.payment
-    ? await prisma.payment.update({
-        where: { bookingId },
-        data: { status: "FAILED" },
-      })
-    : null;
+  let payment = null;
+
+  if (booking.payment?.status === "CREATED") {
+    const releaseResult = await failCreatedPaymentAndReleaseWallet({
+      bookingId,
+      cashfreeOrderId: booking.payment.cashfreeOrderId,
+    });
+
+    payment = releaseResult?.payment
+      ? { ...releaseResult.payment, status: "FAILED" }
+      : null;
+  }
 
   const payableBooking = await prisma.booking.findUnique({
     where: { id: bookingId },

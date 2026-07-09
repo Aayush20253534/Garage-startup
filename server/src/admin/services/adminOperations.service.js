@@ -153,7 +153,9 @@ const getBookingServiceNames = (booking = {}) =>
 
 const getCustomerPaymentMethod = (payment = {}) => {
   const walletAmount = Number(payment.walletAmountUsed || 0);
-  const upiAmount = Number(payment.upiAmountPaid || payment.amount || 0);
+  const upiAmount =
+    Number(payment.upiAmountPaid || 0) ||
+    (walletAmount > 0 ? 0 : Number(payment.amount || 0));
 
   if (walletAmount > 0 && upiAmount > 0) return "Wallet + Cashfree";
   if (walletAmount > 0) return "Wallet";
