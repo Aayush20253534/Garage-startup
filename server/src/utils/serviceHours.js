@@ -3,9 +3,10 @@ const ApiError = require("./apiError");
 const SERVICE_TIME_ZONE = "Asia/Kolkata";
 const SERVICE_OPEN_MINUTES = 10 * 60;
 const SERVICE_CLOSE_MINUTES = 22 * 60;
+const SERVICE_HOURS_CLOSED_CODE = "SERVICE_HOURS_CLOSED";
 
 const SERVICE_HOURS_MESSAGE =
-  "Rovauto services are available daily from 10:00 AM to 10:00 PM (IST). Please try again during service hours.";
+  "You can only pay between 10:00 AM and 10:00 PM (IST). Please retry during payment hours.";
 
 const indiaTimeFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: SERVICE_TIME_ZONE,
@@ -39,11 +40,14 @@ const isWithinServiceHours = (date = new Date()) => {
 
 const assertServiceHoursOpen = (date = new Date()) => {
   if (!isWithinServiceHours(date)) {
-    throw new ApiError(403, SERVICE_HOURS_MESSAGE);
+    const error = new ApiError(403, SERVICE_HOURS_MESSAGE);
+    error.code = SERVICE_HOURS_CLOSED_CODE;
+    throw error;
   }
 };
 
 module.exports = {
+  SERVICE_HOURS_CLOSED_CODE,
   SERVICE_HOURS_MESSAGE,
   SERVICE_TIME_ZONE,
   isWithinServiceHours,

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import { payForBooking } from "@/utils/bookingPayment";
+import { isServiceHoursError, SERVICE_HOURS_MESSAGE } from "@/utils/serviceHours";
 import { formatRupees, formatRupeeRange } from "@/utils/priceRange";
 import {
   FiAlertCircle,
@@ -109,6 +110,12 @@ export default function PendingBookings() {
         err.response?.data?.message ||
         err.message ||
         "Payment was not completed. This booking is still saved here for retry.";
+
+      if (isServiceHoursError(err)) {
+        setNotice(SERVICE_HOURS_MESSAGE);
+        setError("");
+        return;
+      }
 
       setNotice(
         /not completed|cancelled|canceled|failed/i.test(message)
