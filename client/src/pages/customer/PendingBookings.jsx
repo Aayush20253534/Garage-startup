@@ -112,18 +112,40 @@ export default function PendingBookings() {
   }, []);
 
   const getBookingOnlineAmount = (booking) =>
-    Number(booking.payableAmount || booking.payment?.amount || booking.handlingFee || 0);
+    Number(booking.payment?.amount || booking.handlingFee || booking.payableAmount || 0);
+
+  const getExistingWalletAmount = (booking) =>
+    Number(booking.payment?.walletAmountUsed || booking.walletAmountUsed || 0);
+
+  const getExistingCashfreeAmount = (booking) =>
+    Number(booking.payment?.upiAmountPaid || booking.payableAmount || 0);
+
+  const hasCreatedCashfreeWalletOrder = (booking) =>
+    booking.payment?.status === "CREATED" &&
+    Boolean(booking.payment?.cashfreeOrderId) &&
+    getExistingWalletAmount(booking) > 0;
 
   const isWalletSelected = (booking) =>
-    Boolean(useWalletByBookingId[booking.id]) && walletBalance > 0;
+    hasCreatedCashfreeWalletOrder(booking) ||
+    (Boolean(useWalletByBookingId[booking.id]) && walletBalance > 0);
 
-  const getWalletAmountForBooking = (booking) =>
-    isWalletSelected(booking)
+  const getWalletAmountForBooking = (booking) => {
+    if (hasCreatedCashfreeWalletOrder(booking)) {
+      return getExistingWalletAmount(booking);
+    }
+
+    return isWalletSelected(booking)
       ? Math.min(walletBalance, getBookingOnlineAmount(booking))
       : 0;
+  };
 
-  const getCashfreeAmountForBooking = (booking) =>
-    Math.max(getBookingOnlineAmount(booking) - getWalletAmountForBooking(booking), 0);
+  const getCashfreeAmountForBooking = (booking) => {
+    if (hasCreatedCashfreeWalletOrder(booking)) {
+      return getExistingCashfreeAmount(booking);
+    }
+
+    return Math.max(getBookingOnlineAmount(booking) - getWalletAmountForBooking(booking), 0);
+  };
 
   const toggleWalletForBooking = (bookingId, checked) => {
     setUseWalletByBookingId((current) => ({
@@ -325,8 +347,13 @@ export default function PendingBookings() {
                   >
                     <input
                       type="checkbox"
-                      checked={Boolean(useWalletByBookingId[booking.id])}
-                      disabled={walletBalance <= 0 || onlineAmount <= 0 || Boolean(payingId)}
+                      checked={isWalletSelected(booking)}
+                      disabled={
+                        hasCreatedCashfreeWalletOrder(booking) ||
+                        walletBalance <= 0 ||
+                        onlineAmount <= 0 ||
+                        Boolean(payingId)
+                      }
                       onChange={(event) =>
                         toggleWalletForBooking(booking.id, event.target.checked)
                       }
@@ -337,7 +364,9 @@ export default function PendingBookings() {
                         Use wallet balance
                       </span>
                       <span className="mt-0.5 block text-muted">
-                        Available: {formatRupees(walletBalance)}
+                        {hasCreatedCashfreeWalletOrder(booking)
+                          ? "Wallet will apply after successful payment"
+                          : `Available: ${formatRupees(walletBalance)}`}
                       </span>
                     </span>
                   </label>
@@ -350,6 +379,11 @@ export default function PendingBookings() {
                           -{formatRupees(walletAmountUsed)}
                         </span>
                       </div>
+                    )}
+                    {hasCreatedCashfreeWalletOrder(booking) && (
+                      <p className="mb-2 text-[11px] leading-4 text-muted">
+                        Wallet is finalized only after Cashfree confirms payment.
+                      </p>
                     )}
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <span className="font-semibold text-ink">Pay now</span>

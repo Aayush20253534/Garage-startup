@@ -332,6 +332,18 @@ const getMyBookings = async (userId, query = {}) => {
 };
 
 const getPendingPaymentBookings = async (userId) => {
+  try {
+    const paymentService = require("./payment.service");
+    await paymentService.syncUserPendingCashfreePayments(userId);
+  } catch (error) {
+    // Listing pending bookings should stay available even if Cashfree sync is
+    // temporarily unavailable. The next refresh or webhook will retry.
+    console.error(
+      `[pending-payment] unable to sync Cashfree payments for ${userId}:`,
+      error.message,
+    );
+  }
+
   return prisma.booking.findMany({
     where: {
       userId,

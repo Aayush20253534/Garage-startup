@@ -201,10 +201,116 @@ const reserveWalletForBookingPaymentTx = async (
   return wallet;
 };
 
-const refundWalletPaymentTx = async (tx, { payment, booking, userId }) => {
+const getWalletPaymentLookupFilters = ({ payment, booking } = {}) => {
+  const filters = [];
+
+  if (payment?.cashfreeOrderId) {
+    filters.push({ cashfreeOrderId: payment.cashfreeOrderId });
+  }
+
+  if (payment?.cashfreePaymentId) {
+    filters.push({ cashfreePaymentId: payment.cashfreePaymentId });
+  }
+
+  if (booking?.bookingCode) {
+    filters.push({ description: { contains: booking.bookingCode } });
+  }
+
+  if (booking?.id || payment?.bookingId) {
+    filters.push({
+      description: { contains: booking?.id || payment.bookingId },
+    });
+  }
+
+  return filters;
+};
+
+const findWalletPaymentDebitTx = async (tx, { payment, booking, userId }) => {
+  const walletAmount = toWholeRupee(
+    payment?.walletAmountUsed ?? booking?.walletAmountUsed,
+  );
+
+  if (walletAmount <= 0) return null;
+
+  const filters = getWalletPaymentLookupFilters({ payment, booking });
+
+  return tx.walletTransaction.findFirst({
+    where: {
+      userId,
+      type: "BOOKING_PAYMENT",
+      status: "SUCCESS",
+      amount: walletAmount,
+      ...(filters.length > 0 ? { OR: filters } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+const findWalletPaymentRefundTx = async (tx, { payment, booking, userId }) => {
   const walletAmount = toWholeRupee(payment?.walletAmountUsed);
 
   if (walletAmount <= 0) return null;
+
+  const filters = getWalletPaymentLookupFilters({ payment, booking });
+
+  return tx.walletTransaction.findFirst({
+    where: {
+      userId,
+      type: "BOOKING_REFUND",
+      status: "SUCCESS",
+      amount: walletAmount,
+      ...(filters.length > 0 ? { OR: filters } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+const applyWalletPaymentIfNeededTx = async (tx, { payment, booking, userId }) => {
+  const walletAmount = toWholeRupee(payment?.walletAmountUsed);
+
+  if (walletAmount <= 0) return null;
+
+  const existingDebit = await findWalletPaymentDebitTx(tx, {
+    payment,
+    booking,
+    userId,
+  });
+
+  if (existingDebit) return existingDebit;
+
+  return reserveWalletForBookingPaymentTx(tx, {
+    userId,
+    booking,
+    amount: walletAmount,
+    cashfreeOrderId: payment.cashfreeOrderId || null,
+  });
+};
+
+const refundWalletPaymentTx = async (
+  tx,
+  { payment, booking, userId, onlyIfDebited = false },
+) => {
+  const walletAmount = toWholeRupee(payment?.walletAmountUsed);
+
+  if (walletAmount <= 0) return null;
+
+  if (onlyIfDebited) {
+    const existingDebit = await findWalletPaymentDebitTx(tx, {
+      payment,
+      booking,
+      userId,
+    });
+
+    if (!existingDebit) return null;
+  }
+
+  const existingRefund = await findWalletPaymentRefundTx(tx, {
+    payment,
+    booking,
+    userId,
+  });
+
+  if (existingRefund) return null;
 
   const wallet = await tx.wallet.upsert({
     where: { userId },
@@ -264,6 +370,7 @@ const failCreatedPaymentAndReleaseWallet = async ({
       payment,
       booking,
       userId: booking.userId,
+      onlyIfDebited: true,
     });
 
     await tx.booking.updateMany({
@@ -447,6 +554,12 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    await applyWalletPaymentIfNeededTx(tx, {
+      payment: booking.payment,
+      booking,
+      userId: booking.userId,
+    });
+
     const paymentUpdate = await tx.payment.updateMany({
       where: {
         bookingId: booking.id,
@@ -803,13 +916,12 @@ const createPaymentOrder = async (userId, { bookingId, useWallet = false }) => {
   }
 
   const payment = await prisma.$transaction(async (tx) => {
-    await reserveWalletForBookingPaymentTx(tx, {
-      userId,
-      booking,
-      amount: walletAmountUsed,
-      cashfreeOrderId: cashfreeOrder.order_id,
-    });
-
+    /*
+     * For partial wallet + Cashfree payments, do not debit the wallet while
+     * the Cashfree order is only CREATED. The wallet is applied atomically
+     * only after Cashfree confirms PAID. This prevents balance from being
+     * lost when the browser refreshes/closes before /payments/verify runs.
+     */
     await tx.booking.update({
       where: { id: booking.id },
       data: {
@@ -1095,6 +1207,68 @@ const handleCashfreeWebhook = async (req) => {
   };
 };
 
+const syncUserPendingCashfreePayments = async (userId) => {
+  const pendingBookings = await prisma.booking.findMany({
+    where: {
+      userId,
+      status: "PENDING_PAYMENT",
+      payment: {
+        status: "CREATED",
+        cashfreeOrderId: { not: null },
+      },
+    },
+    include: {
+      payment: true,
+      services: true,
+    },
+    take: 10,
+    orderBy: { updatedAt: "desc" },
+  });
+
+  const results = await Promise.allSettled(
+    pendingBookings.map(async (booking) => {
+      const cashfreeOrder = await fetchCashfreeOrder(
+        booking.payment.cashfreeOrderId,
+        "Unable to sync pending Cashfree payment",
+      );
+      const orderStatus = getCashfreeOrderStatus(cashfreeOrder);
+
+      if (orderStatus === "PAID") {
+        return completePaidBookingPayment(booking, cashfreeOrder);
+      }
+
+      if (TERMINAL_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
+        return failCreatedPaymentAndReleaseWallet({
+          bookingId: booking.id,
+          cashfreeOrderId: booking.payment.cashfreeOrderId,
+        });
+      }
+
+      return null;
+    }),
+  );
+
+  results.forEach((result, index) => {
+    if (result.status !== "rejected") return;
+
+    const booking = pendingBookings[index];
+
+    console.error(
+      `[payment-sync] unable to sync pending payment for ${booking.id}:`,
+      result.reason?.message || result.reason,
+    );
+    void systemIssueReporter.captureBackgroundError(result.reason, {
+      title: "Unable to sync pending Cashfree payment",
+      component: "Payment service",
+      metadata: {
+        bookingId: booking.id,
+        userId,
+        cashfreeOrderId: booking.payment?.cashfreeOrderId,
+      },
+    });
+  });
+};
+
 const getMyPayments = async (userId) => {
   return prisma.payment.findMany({
     where: {
@@ -1119,5 +1293,6 @@ module.exports = {
   createPaymentOrder,
   getMyPayments,
   handleCashfreeWebhook,
+  syncUserPendingCashfreePayments,
   verifyPayment,
 };
