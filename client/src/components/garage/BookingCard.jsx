@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { FiCheck, FiX } from "react-icons/fi";
+import { FiAlertCircle, FiCheck, FiX } from "react-icons/fi";
 import { formatRupees } from "@/utils/priceRange";
 
 const statusColors = {
@@ -20,12 +20,27 @@ const statusColors = {
   EXPIRED: "bg-gray-100 text-gray-700",
 };
 
-export default function BookingCard({ booking, onAccept, onDecline }) {
+export default function BookingCard({
+  booking,
+  onAccept,
+  onDecline,
+  walletBalance = null,
+  onRecharge,
+}) {
   const navigate = useNavigate();
   const isNewBooking = booking.status === "NEW" || booking.status === "SENT";
+  const acceptFee = Number(booking.acceptFee || 0);
+  const numericWalletBalance = Number(walletBalance);
+  const hasWalletBalance = Number.isFinite(numericWalletBalance);
+  const needsRecharge =
+    isNewBooking && acceptFee > 0 && hasWalletBalance && numericWalletBalance < acceptFee;
 
   const handleAccept = (e) => {
     e.stopPropagation();
+    if (needsRecharge) {
+      onRecharge?.();
+      return;
+    }
     onAccept?.(booking);
   };
 
@@ -78,14 +93,43 @@ export default function BookingCard({ booking, onAccept, onDecline }) {
         </div>
       </div>
 
+      {isNewBooking && acceptFee > 0 && (
+        <div
+          className={[
+            "mb-3 rounded-xl border px-3 py-2 text-xs",
+            needsRecharge
+              ? "border-amber-200 bg-amber-50 text-amber-800"
+              : "border-green-200 bg-green-50 text-green-700",
+          ].join(" ")}
+        >
+          <div className="flex items-start gap-2">
+            <FiAlertCircle className="mt-0.5 shrink-0" />
+            <span>
+              Accept fee: <strong>{formatRupees(acceptFee)}</strong>
+              {hasWalletBalance ? (
+                <> · Wallet: <strong>{formatRupees(numericWalletBalance)}</strong></>
+              ) : null}
+              {needsRecharge
+                ? ". Recharge wallet before accepting this booking."
+                : ". This will be deducted when you accept."}
+            </span>
+          </div>
+        </div>
+      )}
+
       {isNewBooking && onAccept && onDecline && (
         <div className="flex gap-2">
           <button
             onClick={handleAccept}
-            className="flex-1 bg-green-600 text-white hover:bg-green-700 transition-colors px-4 py-2 rounded-lg flex items-center justify-center gap-2"
+            className={[
+              "flex-1 px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors",
+              needsRecharge
+                ? "bg-amber-500 text-white hover:bg-amber-600"
+                : "bg-green-600 text-white hover:bg-green-700",
+            ].join(" ")}
           >
             <FiCheck className="w-4 h-4" />
-            Accept
+            {needsRecharge ? "Recharge to Accept" : "Accept"}
           </button>
           <button
             onClick={handleDecline}

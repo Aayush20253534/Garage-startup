@@ -77,9 +77,21 @@ export default function MagicLink() {
 
   const accepted = booking && isUnlockedStatus(booking.status);
   const isPending = booking?.status === "NEW" || booking?.status === "SENT";
+  const acceptFee = Number(booking?.acceptFee || 0);
+  const walletBalance = Number(
+    garage?.walletBalance ?? garage?.wallet?.balance ?? NaN,
+  );
+  const hasWalletBalance = Number.isFinite(walletBalance);
+  const needsRecharge =
+    isPending && acceptFee > 0 && hasWalletBalance && walletBalance < acceptFee;
 
   const handleAccept = async () => {
     if (!booking) return;
+
+    if (needsRecharge) {
+      navigate("/garage/wallet", { state: returnState });
+      return;
+    }
 
     setActionLoading("accept");
     setError("");
@@ -307,17 +319,38 @@ export default function MagicLink() {
                   </motion.div>
                 )}
 
+                {isPending && acceptFee > 0 && (
+                  <div
+                    className={[
+                      "rounded-xl border px-4 py-3 text-sm",
+                      needsRecharge
+                        ? "border-amber-200 bg-amber-50 text-amber-800"
+                        : "border-green-200 bg-green-50 text-green-700",
+                    ].join(" ")}
+                  >
+                    Accept fee: <strong>{formatRupees(acceptFee)}</strong>
+                    {hasWalletBalance ? (
+                      <> · Wallet: <strong>{formatRupees(walletBalance)}</strong></>
+                    ) : null}
+                    {needsRecharge
+                      ? ". Recharge wallet before accepting this booking."
+                      : ". This will be deducted when you accept."}
+                  </div>
+                )}
+
                 {isPending && (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={handleAccept}
                       disabled={Boolean(actionLoading)}
-                      className="btn-primary py-4 text-lg"
+                      className={needsRecharge ? "btn-dark py-4 text-lg" : "btn-primary py-4 text-lg"}
                     >
                       {actionLoading === "accept"
                         ? "Accepting..."
-                        : "Accept Booking"}
+                        : needsRecharge
+                          ? "Recharge to Accept"
+                          : "Accept Booking"}
                     </button>
                     <button
                       type="button"

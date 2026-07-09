@@ -278,6 +278,10 @@ const getGarageRequestById = async (garageId, requestId) => {
 
 const sendGarageRequestAlerts = async ({ requests, booking }) => {
   const alerts = [];
+  const acceptFee = getGarageAcceptFee(booking);
+  const feeMessage = acceptFee > 0
+    ? ` Acceptance requires Rs. ${acceptFee} in garage wallet.`
+    : "";
 
   for (const request of requests) {
     alerts.push(
@@ -285,6 +289,7 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
         garage: request.garage,
         request,
         booking,
+        acceptFee,
       }),
     );
 
@@ -299,13 +304,14 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
           } needs ${booking.services
             .map((item) => item.service?.name)
             .filter(Boolean)
-            .join(", ") || "garage service"}. Open the request before this two-minute round expires.`,
+            .join(", ") || "garage service"}. Open the request before this two-minute round expires.${feeMessage}`,
           link: `/garage/magic/${request.id}`,
           metadata: {
             bookingId: booking.id,
             requestId: request.id,
             garageId: request.garage.id,
             action: "ACCEPT_GARAGE_REQUEST",
+            acceptFee,
           },
         }),
       );
@@ -433,8 +439,11 @@ const startNextGarageSearchCycle = async (bookingId) => {
     maxDistance: null,
     onlyVerified: true,
     requireOpenNow: false,
-    requireWalletBalance: true,
-    minGarageWalletBalance: garageAcceptFee,
+    // Do not filter nearby garages by wallet balance. Garages should still
+    // receive nearby booking alerts, but acceptance remains blocked below
+    // unless their wallet has enough balance for the acceptance fee.
+    requireWalletBalance: false,
+    minGarageWalletBalance: 0,
   });
 
   if (eligibleGarages.length === 0) {
@@ -628,7 +637,7 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       where: { garageId },
     });
 
-    if (!garageWallet || garageWallet.balance < garageAcceptFee) {
+    if (!garageWallet) {
       throw new ApiError(
         400,
         `Insufficient garage wallet balance. Recharge at least Rs. ${garageAcceptFee} to accept this booking.`,
@@ -706,13 +715,28 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       });
     }
 
-    const garageBalanceAfter =
-      garageWallet.balance - garageAcceptFee;
-
-    await tx.garageWallet.update({
-      where: { id: garageWallet.id },
-      data: { balance: garageBalanceAfter },
+    const garageDebit = await tx.garageWallet.updateMany({
+      where: {
+        id: garageWallet.id,
+        balance: { gte: garageAcceptFee },
+      },
+      data: {
+        balance: { decrement: garageAcceptFee },
+      },
     });
+
+    if (garageDebit.count === 0) {
+      throw new ApiError(
+        400,
+        `Insufficient garage wallet balance. Recharge at least Rs. ${garageAcceptFee} to accept this booking.`,
+      );
+    }
+
+    const updatedGarageWallet = await tx.garageWallet.findUnique({
+      where: { id: garageWallet.id },
+    });
+
+    const garageBalanceAfter = updatedGarageWallet?.balance ?? 0;
 
     await tx.garageWalletTransaction.create({
       data: {

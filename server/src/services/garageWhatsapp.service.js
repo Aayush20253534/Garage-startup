@@ -105,14 +105,26 @@ const formatBookingAmount = (booking) => {
   return amount > 0 ? `Rs. ${amount.toLocaleString("en-IN")}` : "To be confirmed";
 };
 
-const sendGarageBookingRequestWhatsapp = async ({ garage, request, booking }) => {
+const sendGarageBookingRequestWhatsapp = async ({
+  garage,
+  request,
+  booking,
+  acceptFee = 0,
+}) => {
   const acceptUrl = getGarageAcceptUrl(request.id);
+  const numericAcceptFee = Number(acceptFee) || 0;
   const message = [
     "New Rovauto booking request",
     `Brand: ${booking.vehicle?.brand || "Vehicle"}`,
     `Model: ${booking.vehicle?.model || "N/A"}`,
     `Services: ${formatServiceList(booking.services)}`,
     `Amount: ${formatBookingAmount(booking)}`,
+    numericAcceptFee > 0
+      ? `Garage accept fee: Rs. ${numericAcceptFee.toLocaleString("en-IN")}`
+      : null,
+    numericAcceptFee > 0
+      ? "Recharge wallet before accepting if your balance is low."
+      : null,
     `Accept here: ${acceptUrl}`,
   ].filter(Boolean).join("\n");
 

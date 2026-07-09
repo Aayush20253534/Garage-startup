@@ -6,6 +6,7 @@ import {
 } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FiAlertCircle, FiRefreshCw } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 import BookingCard from "@/components/garage/BookingCard";
 import { setBookings } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
@@ -30,8 +31,9 @@ const toStatus = (filter) => {
 };
 
 export default function GarageBookings() {
-  const { bookings } = useSelector((state) => state.garage);
+  const { bookings, wallet } = useSelector((state) => state.garage);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { garage } = useApp();
 
   const [activeFilter, setActiveFilter] = useState("All");
@@ -41,6 +43,9 @@ export default function GarageBookings() {
   const requestInFlight = useRef(false);
 
   const safeBookings = Array.isArray(bookings) ? bookings : [];
+  const walletBalance = Number(
+    wallet?.balance ?? garage?.walletBalance ?? garage?.wallet?.balance ?? NaN,
+  );
 
   const loadBookings = useCallback(
     async ({ initial = false } = {}) => {
@@ -188,6 +193,8 @@ export default function GarageBookings() {
               booking={booking}
               onAccept={handleAccept}
               onDecline={handleDecline}
+              walletBalance={walletBalance}
+              onRecharge={() => navigate("/garage/wallet")}
             />
           ))
         ) : (
