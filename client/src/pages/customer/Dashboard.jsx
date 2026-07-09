@@ -14,8 +14,9 @@ import {
   FiClock,
   FiPlusCircle,
   FiRefreshCcw,
-  FiShield,
   FiTruck,
+  FiCreditCard,
+  FiAlertCircle
 } from "react-icons/fi";
 
 const activeStatuses = [
@@ -57,15 +58,11 @@ function Dashboard() {
   );
 
   const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
-
   const [wallet, setWallet] = useState(() => dashboardCache?.wallet || null);
-
   const [completedCount, setCompletedCount] = useState(
     () => dashboardCache?.completedBookingsCount || 0
   );
-
   const [loading, setLoading] = useState(() => !dashboardCache);
-
   const [recentActivities, setRecentActivities] = useState(() =>
     getRecentActivities()
   );
@@ -76,17 +73,13 @@ function Dashboard() {
   const activeBookings = bookings.filter((booking) =>
     activeStatuses.includes(booking.status)
   );
-
   const activeBooking = activeBookings[0];
 
   const syncVehicleState = (list = []) => {
     const safeList = Array.isArray(list) ? list : [];
-
     setVehicles?.(safeList);
-
     const defaultVehicle =
       safeList.find((item) => item.isDefault) || safeList[0] || null;
-
     setVehicle?.(defaultVehicle);
   };
 
@@ -152,10 +145,10 @@ function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center rounded-3xl bg-white p-10 shadow-sm">
-        <div className="flex flex-col items-center gap-3">
-          <FiRefreshCcw className="h-8 w-8 animate-spin text-brand" />
-          <p className="text-sm text-muted">Loading your dashboard...</p>
+      <div className="mx-auto max-w-7xl p-6">
+        <div className="flex items-center space-x-2 text-sm text-muted">
+          <FiRefreshCcw className="animate-spin" />
+          <span>Loading dashboard...</span>
         </div>
       </div>
     );
@@ -166,22 +159,19 @@ function Dashboard() {
       icon: FiCalendar,
       label: "Active Bookings",
       number: activeBookingsCount,
-      sub: "In progress",
-      color: "text-brand",
+      sub: "Current service requests",
     },
     {
       icon: FiClock,
       label: "Pending Payments",
       number: pendingBookingsCount,
-      sub: "Awaiting action",
-      color: "text-amber-600",
+      sub: "Awaiting checkout",
     },
     {
       icon: FiCheckCircle,
       label: "Completed",
       number: completedCount,
-      sub: "This month",
-      color: "text-emerald-600",
+      sub: "Historical services",
     },
     {
       icon: FiTruck,
@@ -190,336 +180,247 @@ function Dashboard() {
       sub: hasVehicles
         ? vehicle
           ? `${vehicle.brand} ${vehicle.model}`
-          : "Multiple vehicles"
-        : "Get started",
-      color: "text-brand",
+          : "Manage vehicles"
+        : "No vehicles added",
     },
   ];
 
   const fallbackActions = [
     hasVehicles
-      ? {
-          label: "Book Service",
-          desc: "Request nearby garages",
-          to: "/booking/vehicle",
-          icon: FiPlusCircle,
-        }
-      : {
-          label: "Add Vehicle",
-          desc: "Save your first vehicle",
-          to: "/booking/vehicle",
-          icon: FiTruck,
-        },
-    {
-      label: "SOS",
-      desc: "Emergency roadside help",
-      to: "/sos",
-      icon: FiShield,
-    },
-    {
-      label: "Manage Vehicles",
-      desc: "View & edit fleet",
-      to: "/dashboard/vehicles",
-      icon: FiTruck,
-    },
+      ? [
+          "Book Service",
+          "Choose services and request nearby garages",
+          "/booking/vehicle",
+        ]
+      : ["Add Vehicle", "Save your first vehicle to start booking", "/booking/vehicle"],
+    ["SOS", "Emergency roadside request", "/sos"],
+    [
+      "My Vehicles",
+      hasVehicles ? "Manage your saved vehicles" : "Add and manage vehicles",
+      "/dashboard/vehicles",
+    ],
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 px-4 pb-8">
-      {/* Welcome Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-950 to-black p-8 text-white shadow-xl sm:p-10">
-        <div className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-brand/10 blur-3xl" />
-        <div className="absolute -bottom-12 -left-12 h-80 w-80 rounded-full bg-white/5 blur-3xl" />
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      {/* Header Section */}
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-black/5 pb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">
+            Overview
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Welcome back, {user?.name || "User"}. Here's what's happening with your vehicles today.
+          </p>
+        </div>
 
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          {pendingBookingsCount > 0 && (
+            <Link
+              to="/dashboard/pending-bookings"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-red-50 px-4 text-sm font-medium text-red-700 transition hover:bg-red-100 border border-red-200"
+            >
+              <FiAlertCircle />
+              Pay Pending
+            </Link>
+          )}
+
+          <Link
+            to="/dashboard/payments"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-black/10 bg-white px-4 text-sm font-medium text-ink transition hover:bg-gray-50 shadow-sm"
+          >
+            <FiCreditCard />
+            Wallet: {formatRupees(wallet?.balance || 0)}
+          </Link>
+
+          <Link
+            to={hasVehicles ? "/booking/vehicle" : "/booking/vehicle"}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-brand px-4 text-sm font-medium text-black shadow-sm transition hover:brightness-95"
+          >
+            {hasVehicles ? "Book Service" : "Add Vehicle"}
+          </Link>
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => loadDashboard({ force: true })}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-black/10 bg-white text-ink shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Refresh dashboard"
+          >
+            <FiRefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+      </section>
+
+      {/* Alert / Setup Banner */}
+      {!hasVehicles && (
+        <section className="flex flex-col gap-4 rounded-md border border-brand/30 bg-brand/5 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium tracking-widest text-white/70">
-              WELCOME BACK
-            </div>
-            <h1 className="mt-3 text-4xl font-bold tracking-tight lg:text-5xl">
-              Hello, {user?.name?.split(" ")[0] || "there"}
-            </h1>
-            <p className="mt-3 max-w-md text-lg text-white/70">
-              {hasVehicles
-                ? "Here's what's happening with your vehicles today."
-                : "Let's get your first vehicle set up and start booking services."}
+            <h3 className="text-sm font-semibold text-ink">
+              Vehicle setup required
+            </h3>
+            <p className="mt-1 text-sm text-muted">
+              Add your vehicle once to unlock service bookings and maintenance tracking.
             </p>
           </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => loadDashboard({ force: true })}
-              className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-5 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
-            >
-              <FiRefreshCcw className={loading ? "animate-spin" : ""} />
-              Refresh
-            </button>
-
-            <Link
-              to="/booking/vehicle"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-brand px-6 font-semibold text-black transition hover:bg-brand/90"
-            >
-              {hasVehicles ? "Book Service" : "Add Vehicle"}
-              <FiArrowRight />
-            </Link>
-          </div>
-        </div>
-
-        {/* Quick Stats Bar */}
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {statCards.slice(0, 3).map((stat, idx) => (
-            <div
-              key={idx}
-              className="rounded-2xl bg-white/5 p-4 backdrop-blur-sm"
-            >
-              <div className="text-xs uppercase tracking-widest text-white/60">
-                {stat.label}
-              </div>
-              <div className="mt-1 text-3xl font-semibold text-white">
-                {stat.number}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Vehicle Warning */}
-      {!hasVehicles && (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
-          <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
-            <div className="flex gap-4">
-              <div className="mt-1 rounded-2xl bg-amber-100 p-3 text-amber-600">
-                <FiTruck className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-ink">
-                  Vehicle setup required
-                </h3>
-                <p className="mt-1.5 text-muted">
-                  Add your vehicle to unlock full booking capabilities.
-                </p>
-              </div>
-            </div>
-            <Link
-              to="/booking/vehicle"
-              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl bg-brand px-6 font-semibold text-black transition hover:bg-brand/90"
-            >
-              <FiPlusCircle />
-              Add Vehicle
-            </Link>
-          </div>
-        </div>
+          <Link
+            to="/booking/vehicle"
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-brand px-4 text-sm font-medium text-black shadow-sm transition hover:brightness-95"
+          >
+            <FiPlusCircle />
+            Add Vehicle
+          </Link>
+        </section>
       )}
 
       {/* Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((item, index) => {
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {statCards.map((item) => {
           const Icon = item.icon;
           return (
             <div
-              key={index}
-              className="group rounded-3xl bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+              key={item.label}
+              className="card-soft flex flex-col justify-between rounded-lg border border-black/5 p-5 shadow-sm"
             >
-              <div className="flex items-start justify-between">
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/10 text-brand transition-colors group-hover:bg-brand group-hover:text-white`}
-                >
-                  <Icon className="h-6 w-6" />
-                </div>
-                <div className="text-right">
-                  <div className="text-4xl font-bold text-ink">
-                    {item.number}
-                  </div>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted">{item.label}</span>
+                <Icon className="h-4 w-4 text-muted" />
               </div>
-
-              <div className="mt-6">
-                <div className="font-semibold text-ink">{item.label}</div>
-                <div className="mt-1 text-sm text-muted">{item.sub}</div>
+              <div className="mt-4">
+                <div className="text-2xl font-bold text-ink">{item.number}</div>
+                <div className="mt-1 truncate text-xs text-muted">{item.sub}</div>
               </div>
             </div>
           );
         })}
-      </div>
+      </section>
 
-      <div className="grid gap-6 lg:grid-cols-12">
-        {/* Active Service */}
-        <div className="lg:col-span-7">
-          <div className="rounded-3xl bg-white p-8 shadow-sm">
-            <div className="flex items-center justify-between">
+      {/* Main Content Area */}
+      <section className="grid gap-6 lg:grid-cols-3">
+        
+        {/* Active Service Column */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="card-soft rounded-lg border border-black/5 p-5 shadow-sm">
+            <div className="mb-5 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-semibold text-ink">
-                  Active Service
-                </h2>
-                <p className="text-sm text-muted">Real-time tracking</p>
+                <h3 className="text-base font-semibold text-ink">Active Service</h3>
+                <p className="text-sm text-muted">Track your current booking progress</p>
               </div>
               {activeBooking && (
                 <Link
                   to="/tracking"
                   state={{ bookingId: activeBooking.id }}
-                  className="flex items-center gap-2 text-sm font-semibold text-brand hover:text-brand/80"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-brand-dark hover:underline"
                 >
-                  View full tracking <FiArrowRight />
+                  View Details <FiArrowRight className="h-4 w-4" />
                 </Link>
               )}
             </div>
 
             {activeBooking ? (
-              <div className="mt-8">
-                <div className="flex items-center gap-5 rounded-2xl bg-zinc-50 p-6">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brand text-4xl text-white">
-                    <FiTruck />
+              <div className="rounded-md border border-black/5 bg-white p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand/10 text-brand-dark">
+                      <FiTruck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-ink">
+                        {activeBooking.services
+                          ?.map((item) => item.service?.name)
+                          .filter(Boolean)
+                          .join(", ") || "Vehicle Service"}
+                      </div>
+                      <div className="mt-1 text-sm text-muted">
+                        {activeBooking.vehicle?.brand} {activeBooking.vehicle?.model}
+                        {activeBooking.garage
+                          ? ` • ${activeBooking.garage.name}`
+                          : " • Awaiting Garage Assignment"}
+                      </div>
+                    </div>
                   </div>
+                  <span className="inline-flex items-center rounded-full bg-black/5 px-2.5 py-1 text-xs font-medium text-ink">
+                    {activeBooking.status?.replaceAll("_", " ")}
+                  </span>
+                </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-lg text-ink">
-                          {activeBooking.services
-                            ?.map((item) => item.service?.name)
-                            .filter(Boolean)
-                            .join(", ") || "Vehicle Service"}
-                        </p>
-                        <p className="text-sm text-muted">
-                          {activeBooking.vehicle?.brand}{" "}
-                          {activeBooking.vehicle?.model}
-                          {activeBooking.garage && (
-                            <> • {activeBooking.garage.name}</>
-                          )}
-                        </p>
-                      </div>
-
-                      <span className="rounded-full bg-emerald-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                        {activeBooking.status?.replaceAll("_", " ")}
-                      </span>
-                    </div>
-
-                    <div className="mt-6">
-                      <div className="flex justify-between text-xs text-muted mb-2">
-                        <span>PROGRESS</span>
-                        <span>{getProgress(activeBooking.status)}</span>
-                      </div>
-                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200">
-                        <div
-                          className="h-full bg-gradient-to-r from-brand to-brand-dark transition-all duration-500"
-                          style={{ width: getProgress(activeBooking.status) }}
-                        />
-                      </div>
-                    </div>
+                <div className="mt-6">
+                  <div className="flex justify-between text-xs text-muted mb-2">
+                    <span>Progress</span>
+                    <span>{getProgress(activeBooking.status)}</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5">
+                    <div
+                      className="h-full bg-brand transition-all duration-500 ease-in-out"
+                      style={{ width: getProgress(activeBooking.status) }}
+                    />
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 py-16 text-center">
-                <FiTruck className="h-12 w-12 text-zinc-300" />
-                <p className="mt-4 font-medium text-ink">
-                  No active services
-                </p>
-                <p className="mt-1 max-w-xs text-sm text-muted">
+              <div className="flex h-32 flex-col items-center justify-center rounded-md border border-dashed border-black/15 bg-black/5 p-4 text-center">
+                <p className="text-sm font-medium text-ink">No active services</p>
+                <p className="mt-1 text-xs text-muted">
                   {hasVehicles
-                    ? "Your vehicles are ready when you need them."
-                    : "Add a vehicle to start booking garage services."}
+                    ? "Your vehicles are currently up to date."
+                    : "Add a vehicle to book your first service."}
                 </p>
-                <Link
-                  to="/booking/vehicle"
-                  className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-zinc-900 px-6 py-3 text-sm font-semibold text-white"
-                >
-                  {hasVehicles ? "Book Now" : "Add Vehicle"}
-                </Link>
               </div>
             )}
           </div>
         </div>
 
-        {/* Quick Actions & Activity */}
-        <div className="lg:col-span-5">
-          <div className="rounded-3xl bg-white p-8 shadow-sm h-full flex flex-col">
-            <h2 className="text-2xl font-semibold text-ink">Quick Actions</h2>
-            <p className="text-sm text-muted">Recent activity & shortcuts</p>
-
-            <div className="mt-8 flex-1 overflow-hidden">
-              <div className="max-h-[460px] space-y-2 overflow-y-auto pr-2 custom-scrollbar">
-                {recentActivities.length > 0 ? (
-                  recentActivities.map((activity) => (
-                    <Link
-                      key={activity.id}
-                      to={activity.path || "/dashboard"}
-                      className="group flex gap-4 rounded-2xl border border-transparent p-4 transition hover:border-zinc-100 hover:bg-zinc-50"
-                    >
-                      <div className="mt-0.5 text-brand">
-                        <FiCheckCircle className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-ink group-hover:text-brand transition-colors">
-                          {activity.title}
-                        </p>
-                        <p className="mt-0.5 line-clamp-2 text-sm text-muted">
-                          {activity.detail}
-                        </p>
-                        <p className="mt-2 text-[10px] text-zinc-400">
-                          {new Date(activity.createdAt).toLocaleDateString([], {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  <div className="space-y-2">
-                    {fallbackActions.map((action, i) => {
-                      const Icon = action.icon;
-                      return (
-                        <Link
-                          key={i}
-                          to={action.to}
-                          className="group flex items-center gap-4 rounded-2xl border border-transparent p-4 transition hover:border-zinc-100 hover:bg-zinc-50"
-                        >
-                          <div className="rounded-xl bg-zinc-100 p-3 text-brand group-hover:bg-brand group-hover:text-white transition-all">
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <div className="font-semibold text-ink">
-                              {action.label}
-                            </div>
-                            <div className="text-sm text-muted">
-                              {action.desc}
-                            </div>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+        {/* Quick Actions / Activity Sidebar */}
+        <div className="space-y-4">
+          <div className="card-soft rounded-lg border border-black/5 p-5 shadow-sm h-full max-h-[400px] flex flex-col">
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-ink">Activity & Shortcuts</h3>
+              <p className="text-sm text-muted">Recent events and quick links</p>
             </div>
 
-            {/* Wallet Card */}
-            <div className="mt-8 rounded-2xl bg-gradient-to-br from-zinc-900 to-black p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-white/60">
-                    WALLET BALANCE
-                  </p>
-                  <p className="mt-1 text-3xl font-semibold">
-                    {formatRupees(wallet?.balance || 0)}
-                  </p>
-                </div>
-                <Link
-                  to="/dashboard/payments"
-                  className="rounded-xl bg-white/10 px-5 py-2 text-sm font-medium hover:bg-white/20 transition"
-                >
-                  Manage
-                </Link>
-              </div>
+            <div className="flex-1 overflow-y-auto pr-2">
+              <ul className="space-y-3">
+                {recentActivities.length > 0
+                  ? recentActivities.map((activity) => (
+                      <li key={activity.id}>
+                        <Link
+                          to={activity.path || "/dashboard"}
+                          className="group flex items-start gap-3 rounded-md p-2 hover:bg-black/5 transition-colors"
+                        >
+                          <FiCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted group-hover:text-ink transition-colors" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-ink truncate">
+                              {activity.title}
+                            </p>
+                            <p className="text-xs text-muted truncate">
+                              {activity.detail || "System Update"}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-muted">
+                              {new Date(activity.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </Link>
+                      </li>
+                    ))
+                  : fallbackActions.map(([name, desc, to]) => (
+                      <li key={name}>
+                        <Link
+                          to={to}
+                          className="group flex items-start gap-3 rounded-md p-2 hover:bg-black/5 transition-colors"
+                        >
+                          <FiArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-muted group-hover:text-ink transition-colors" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-ink">{name}</p>
+                            <p className="text-xs text-muted">{desc}</p>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+              </ul>
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
