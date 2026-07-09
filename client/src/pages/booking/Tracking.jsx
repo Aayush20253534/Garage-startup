@@ -16,6 +16,7 @@ import { formatRupees } from "@/utils/priceRange";
 import {
   FiCheck,
   FiClock,
+  FiDollarSign,
   FiMapPin,
   FiMessageCircle,
   FiNavigation,
@@ -278,6 +279,7 @@ function Tracking() {
   const [success, setSuccess] = useState("");
   const [reviewOpen, setReviewOpen] = useState(false);
   const [handoverOtpResult, setHandoverOtpResult] = useState(null);
+  const [finalAmount, setFinalAmount] = useState("");
   const requestInFlight = useRef(false);
 
   useEffect(() => {
@@ -380,13 +382,22 @@ function Tracking() {
   };
 
   const acceptDelivery = async () => {
+    const amount = Math.round(Number(finalAmount));
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Enter the final amount paid to the garage before accepting delivery.");
+      return;
+    }
+
     try {
       setActionLoading("delivery");
       setError("");
       const response = await api.post(
         `/bookings/${bookingId}/accept-delivery`,
+        { finalAmount: amount },
       );
       setBooking(response.data.data);
+      setFinalAmount("");
       clearBookingCaches?.();
     } catch (err) {
       setError(
@@ -415,7 +426,7 @@ function Tracking() {
       }));
       setHandoverOtpResult(result);
       setSuccess(
-        "A new handover OTP was generated and sent to your notifications and WhatsApp.",
+        "A new handover OTP was generated and sent to your notifications, WhatsApp, and email.",
       );
     } catch (err) {
       setError(
@@ -653,15 +664,40 @@ function Tracking() {
 
         {booking.deliveredAt && booking.status !== "COMPLETED" && (
           <div className="card-soft mt-6 p-6">
-            <h2 className="text-xl font-bold">Vehicle delivery ready</h2>
-            <p className="mt-2 text-sm text-muted">
-              Accept only after you receive the vehicle and review the completed work.
-            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-xl font-bold">Vehicle delivery ready</h2>
+                <p className="mt-2 text-sm text-muted">
+                  Review the delivery photos, enter the final amount you paid
+                  to the garage, then accept delivery.
+                </p>
+              </div>
+              <span className="chip-brand w-fit">Customer confirmation</span>
+            </div>
+
+            <label className="mt-5 block">
+              <span className="mb-1.5 flex items-center gap-2 text-sm font-semibold">
+                <FiDollarSign className="text-brand-dark" />
+                Final amount paid to garage
+              </span>
+              <input
+                type="number"
+                min="1"
+                inputMode="numeric"
+                value={finalAmount}
+                onChange={(event) =>
+                  setFinalAmount(event.target.value.replace(/\D/g, ""))
+                }
+                placeholder="Enter final amount"
+                className="w-full rounded-xl border border-line px-4 py-3 text-sm font-semibold outline-none transition focus:border-ink"
+              />
+            </label>
+
             <button
               type="button"
               onClick={acceptDelivery}
-              disabled={actionLoading === "delivery"}
-              className="btn-primary mt-5"
+              disabled={actionLoading === "delivery" || Number(finalAmount) <= 0}
+              className="btn-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {actionLoading === "delivery"
                 ? "Accepting..."
@@ -675,8 +711,8 @@ function Tracking() {
             <div className="card-soft mt-6 p-6">
               <h3 className="mb-2 text-xl font-bold">Service completed</h3>
               <p className="text-sm text-muted">
-                The garage has recorded the final amount and the booking is now
-                in your service history.
+                You confirmed the final amount and the booking is now in your
+                service history.
               </p>
               <button
                 type="button"

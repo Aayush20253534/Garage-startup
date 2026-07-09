@@ -85,11 +85,12 @@ export const mapGarageRequestToBooking = (request) => {
           : booking.status || request.status
         : request.status;
 
-  return {
-    id: request.id,
-    requestId: request.id,
-    bookingId: booking.id,
-    status,
+    return {
+      id: request.id,
+      requestId: request.id,
+      bookingId: booking.id,
+      bookingCode: booking.bookingCode,
+      status,
     createdAt: booking.createdAt || request.createdAt,
     distance: request.distanceKm || request.distance || 0,
     etaMinutes: request.etaMinutes || null,
@@ -358,11 +359,12 @@ export const garageApi = {
   },
 
   async markDelivered(...args) {
-    // New: markDelivered(requestId, images, finalAmount)
-    const [requestId, images = [], finalAmount] = args.slice(-3);
+    // New: markDelivered(requestId, images)
+    // Compatibility: markDelivered(token, requestId, images)
+    const normalizedArgs = args[0] === "cookie-session" ? args.slice(1) : args;
+    const [requestId, images = []] = normalizedArgs.slice(-2);
 
     const formData = new FormData();
-    formData.append("finalAmount", finalAmount);
 
     images
       .map((item) => item.file || item)

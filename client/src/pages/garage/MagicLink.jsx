@@ -100,6 +100,7 @@ export default function MagicLink() {
         booking.requestId || booking.id,
       );
       setBooking(updated);
+      navigate(`/garage/bookings/${updated.requestId || updated.id}`);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to accept booking");
     } finally {

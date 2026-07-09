@@ -26,6 +26,8 @@ const formatUpdatedAt = (value) => {
 export default function LiveBookingTracking({
   bookingId,
   canShare = false,
+  autoStart = false,
+  onTrackingUpdate,
   dark = false,
   title = "Live garage route",
 }) {
@@ -37,30 +39,35 @@ export default function LiveBookingTracking({
   const watchIdRef = useRef(null);
   const lastSentAtRef = useRef(0);
   const mountedRef = useRef(true);
+  const autoStartAttemptedRef = useRef(false);
 
-  const loadTracking = useCallback(async ({ silent = false } = {}) => {
-    if (!bookingId) return;
-    if (!silent) setLoading(true);
+  const loadTracking = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!bookingId) return;
+      if (!silent) setLoading(true);
 
-    try {
-      const result = await mapsApi.getBookingTracking(bookingId);
-      if (mountedRef.current) {
-        setTracking(result);
-        setSharing(Boolean(result?.trackingActive && watchIdRef.current !== null));
-        setError("");
+      try {
+        const result = await mapsApi.getBookingTracking(bookingId);
+        if (mountedRef.current) {
+          setTracking(result);
+          onTrackingUpdate?.(result);
+          setSharing(Boolean(result?.trackingActive && watchIdRef.current !== null));
+          setError("");
+        }
+      } catch (err) {
+        if (mountedRef.current) {
+          setError(
+            err.response?.data?.message ||
+              err.message ||
+              "Live tracking is unavailable.",
+          );
+        }
+      } finally {
+        if (mountedRef.current && !silent) setLoading(false);
       }
-    } catch (err) {
-      if (mountedRef.current) {
-        setError(
-          err.response?.data?.message ||
-            err.message ||
-            "Live tracking is unavailable.",
-        );
-      }
-    } finally {
-      if (mountedRef.current && !silent) setLoading(false);
-    }
-  }, [bookingId]);
+    },
+    [bookingId, onTrackingUpdate],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -118,7 +125,7 @@ export default function LiveBookingTracking({
 
     try {
       setError("");
-      setShareMessage("Starting secure live location…");
+      setShareMessage("Starting secure live location...");
       await mapsApi.startBookingTracking(bookingId);
       lastSentAtRef.current = 0;
 
@@ -146,6 +153,21 @@ export default function LiveBookingTracking({
     }
   };
 
+  useEffect(() => {
+    if (
+      !autoStart ||
+      !canShare ||
+      !bookingId ||
+      sharing ||
+      autoStartAttemptedRef.current
+    ) {
+      return;
+    }
+
+    autoStartAttemptedRef.current = true;
+    void startSharing();
+  }, [autoStart, bookingId, canShare, sharing]);
+
   const stopSharing = async () => {
     if (watchIdRef.current !== null && navigator.geolocation) {
       navigator.geolocation.clearWatch(watchIdRef.current);
@@ -171,12 +193,14 @@ export default function LiveBookingTracking({
 
   if (loading) {
     return (
-      <div className={`rounded-3xl border p-6 text-sm ${
-        dark
-          ? "border-gray-700 bg-gray-800 text-gray-300"
-          : "border-line bg-white text-muted"
-      }`}>
-        <FiRefreshCw className="mr-2 inline animate-spin" /> Loading live route…
+      <div
+        className={`rounded-3xl border p-6 text-sm ${
+          dark
+            ? "border-gray-700 bg-gray-800 text-gray-300"
+            : "border-line bg-white text-muted"
+        }`}
+      >
+        <FiRefreshCw className="mr-2 inline animate-spin" /> Loading live route...
       </div>
     );
   }
@@ -195,11 +219,13 @@ export default function LiveBookingTracking({
   return (
     <div className="space-y-4">
       {error && (
-        <div className={`flex items-start gap-2 rounded-2xl border px-4 py-3 text-sm ${
-          dark
-            ? "border-red-500/30 bg-red-500/10 text-red-300"
-            : "border-red-200 bg-red-50 text-red-700"
-        }`}>
+        <div
+          className={`flex items-start gap-2 rounded-2xl border px-4 py-3 text-sm ${
+            dark
+              ? "border-red-500/30 bg-red-500/10 text-red-300"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
           <FiAlertCircle className="mt-0.5 shrink-0" /> {error}
         </div>
       )}
@@ -218,20 +244,38 @@ export default function LiveBookingTracking({
         dark={dark}
       />
 
-      <div className={`grid gap-3 rounded-3xl border p-4 sm:grid-cols-3 ${
-        dark ? "border-gray-700 bg-gray-800" : "border-line bg-white"
-      }`}>
+      <div
+        className={`grid gap-3 rounded-3xl border p-4 sm:grid-cols-3 ${
+          dark ? "border-gray-700 bg-gray-800" : "border-line bg-white"
+        }`}
+      >
         <div className={`rounded-2xl p-4 ${dark ? "bg-gray-900" : "bg-bg-soft"}`}>
-          <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide ${dark ? "text-gray-500" : "text-muted"}`}>
+          <div
+            className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide ${
+              dark ? "text-gray-500" : "text-muted"
+            }`}
+          >
             <FiRadio /> Status
           </div>
-          <p className={`mt-2 font-bold ${tracking?.trackingActive ? "text-green-500" : dark ? "text-gray-200" : "text-ink"}`}>
+          <p
+            className={`mt-2 font-bold ${
+              tracking?.trackingActive
+                ? "text-green-500"
+                : dark
+                  ? "text-gray-200"
+                  : "text-ink"
+            }`}
+          >
             {tracking?.trackingActive ? "Live" : "Not sharing"}
           </p>
         </div>
 
         <div className={`rounded-2xl p-4 ${dark ? "bg-gray-900" : "bg-bg-soft"}`}>
-          <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide ${dark ? "text-gray-500" : "text-muted"}`}>
+          <div
+            className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide ${
+              dark ? "text-gray-500" : "text-muted"
+            }`}
+          >
             <FiClock /> Last update
           </div>
           <p className={`mt-2 font-bold ${dark ? "text-white" : "text-ink"}`}>
@@ -240,21 +284,29 @@ export default function LiveBookingTracking({
         </div>
 
         <div className={`rounded-2xl p-4 ${dark ? "bg-gray-900" : "bg-bg-soft"}`}>
-          <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide ${dark ? "text-gray-500" : "text-muted"}`}>
+          <div
+            className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide ${
+              dark ? "text-gray-500" : "text-muted"
+            }`}
+          >
             <FiMapPin /> Accuracy
           </div>
           <p className={`mt-2 font-bold ${dark ? "text-white" : "text-ink"}`}>
             {tracking?.latestLocation?.accuracyM
-              ? `±${Math.round(tracking.latestLocation.accuracyM)} m`
+              ? `+/- ${Math.round(tracking.latestLocation.accuracyM)} m`
               : "Not reported"}
           </p>
         </div>
       </div>
 
       {canShare && (
-        <div className={`rounded-3xl border p-5 ${
-          dark ? "border-gray-700 bg-gray-800" : "border-line bg-white shadow-soft"
-        }`}>
+        <div
+          className={`rounded-3xl border p-5 ${
+            dark
+              ? "border-gray-700 bg-gray-800"
+              : "border-line bg-white shadow-soft"
+          }`}
+        >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className={`font-bold ${dark ? "text-white" : "text-ink"}`}>
@@ -265,7 +317,9 @@ export default function LiveBookingTracking({
                 ETA is refreshed at controlled intervals.
               </p>
               {shareMessage && (
-                <p className="mt-2 text-xs font-semibold text-green-500">{shareMessage}</p>
+                <p className="mt-2 text-xs font-semibold text-green-500">
+                  {shareMessage}
+                </p>
               )}
             </div>
 

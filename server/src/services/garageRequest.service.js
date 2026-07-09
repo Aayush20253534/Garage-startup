@@ -848,6 +848,13 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       otp: result.handoverOtp.otp,
       expiresAt: result.handoverOtp.expiresAt,
     }),
+    bookingLifecycleService.sendCustomerHandoverOtpEmail({
+      customer: result.request.booking.user,
+      garage: result.request.garage,
+      booking: result.request.booking,
+      otp: result.handoverOtp.otp,
+      otpExpiresAt: result.handoverOtp.expiresAt,
+    }),
     sendCustomerAcceptanceWhatsapp(),
     sendGarageCustomerLocationWhatsapp({
       garage: result.request.garage,

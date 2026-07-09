@@ -51,7 +51,11 @@ const getBookingSuccess = asyncHandler(async (req, res) => {
 
 
 const acceptDelivery = asyncHandler(async (req, res) => {
-  const booking = await bookingService.acceptDelivery(req.user.id, req.params.id);
+  const booking = await bookingService.acceptDelivery(
+    req.user.id,
+    req.params.id,
+    req.body.finalAmount,
+  );
 
   return res
     .status(200)

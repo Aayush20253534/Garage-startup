@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { Resend } = require("resend");
 
 const prisma = require("../config/prisma");
 const ApiError = require("../utils/apiError");
@@ -20,6 +21,8 @@ const DEFAULT_HANDOVER_OTP_RESEND_COOLDOWN_SECONDS = 60;
 const REQUIRED_INSPECTION_PHOTO_COUNT = REQUIRED_BOOKING_INSPECTION_IMAGES;
 const MAX_INSPECTION_PHOTO_SIZE_BYTES = 1024 * 1024;
 const INSPECTION_IMAGE_FOLDER = "project-x/bookings/inspection-images";
+let resendClient = null;
+let activeResendApiKey = null;
 
 const invalidateBookingReadCaches = async (userId, bookingId) => {
   if (!userId) return;
@@ -51,6 +54,100 @@ const getSearchExpiresAt = () =>
 
 const getOtpHash = (otp) =>
   crypto.createHash("sha256").update(String(otp)).digest("hex");
+
+const getEmailSender = () =>
+  process.env.EMAIL_FROM ||
+  process.env.RESEND_FROM_EMAIL ||
+  "Rovauto <onboarding@resend.dev>";
+
+const escapeHtml = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const getResendClient = () => {
+  const apiKey = String(process.env.RESEND_API_KEY || "").trim();
+  if (!apiKey) return null;
+
+  if (!resendClient || activeResendApiKey !== apiKey) {
+    resendClient = new Resend(apiKey);
+    activeResendApiKey = apiKey;
+  }
+
+  return resendClient;
+};
+
+const sendCustomerHandoverOtpEmail = async ({
+  customer,
+  garage,
+  booking,
+  otp,
+  otpExpiresAt,
+  isRegenerated = false,
+}) => {
+  const email = String(customer?.email || "").trim().toLowerCase();
+  if (!email || !otp) return { sent: false, reason: "missing-recipient" };
+
+  const resend = getResendClient();
+  const from = getEmailSender();
+
+  if (!resend || !from) {
+    console.warn("[handover-email] skipped; Resend is not configured");
+    return { sent: false, reason: "email-not-configured" };
+  }
+
+  const subject = isRegenerated
+    ? "New Rovauto vehicle handover OTP"
+    : "Your Rovauto vehicle handover OTP";
+  const expiryText = otpExpiresAt
+    ? new Date(otpExpiresAt).toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "soon";
+  const garageName = garage?.name || "your assigned garage";
+  const bookingCode = booking?.bookingCode || booking?.id || "your booking";
+  const safeSubject = escapeHtml(subject);
+  const safeGarageName = escapeHtml(garageName);
+  const safeBookingCode = escapeHtml(bookingCode);
+  const safeExpiryText = escapeHtml(expiryText);
+  const safeOtp = escapeHtml(otp);
+  const text = [
+    `Your Rovauto handover OTP is ${otp}.`,
+    `Booking: ${bookingCode}`,
+    `Garage: ${garageName}`,
+    `Expires: ${expiryText}`,
+    "Share this OTP only when physically handing over your vehicle.",
+  ].join("\n");
+  const html = `
+    <div style="font-family:Arial,sans-serif;color:#111;line-height:1.5">
+      <h2>${safeSubject}</h2>
+      <p>Your OTP for booking <strong>${safeBookingCode}</strong> is:</p>
+      <div style="font-size:28px;font-weight:700;letter-spacing:4px;margin:16px 0">${safeOtp}</div>
+      <p>Garage: <strong>${safeGarageName}</strong></p>
+      <p>Expires: <strong>${safeExpiryText}</strong></p>
+      <p>Share this OTP only when physically handing over your vehicle.</p>
+    </div>
+  `;
+
+  const { data, error } = await resend.emails.send({
+    from,
+    to: [email],
+    subject,
+    html,
+    text,
+    tags: [{ name: "type", value: "handover_otp" }],
+  });
+
+  if (error) {
+    throw new ApiError(502, error.message || "Unable to send handover OTP email");
+  }
+
+  return { sent: true, emailId: data?.id || null };
+};
 
 const getHandoverOtpTtlMinutes = () => {
   const ttlMinutes = Number(
@@ -401,6 +498,14 @@ const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
       otpExpiresAt: handoverOtp.expiresAt,
       isRegenerated: true,
     }),
+    sendCustomerHandoverOtpEmail({
+      customer: booking.user,
+      garage: booking.garage,
+      booking,
+      otp: handoverOtp.otp,
+      otpExpiresAt: handoverOtp.expiresAt,
+      isRegenerated: true,
+    }),
   ]);
 
   return {
@@ -478,14 +583,7 @@ const markBookingDeliveredByGarage = async ({
   garageId,
   requestId,
   images,
-  finalAmount,
 }) => {
-  const parsedFinalAmount = Math.round(Number(finalAmount));
-
-  if (!Number.isFinite(parsedFinalAmount) || parsedFinalAmount <= 0) {
-    throw new ApiError(400, "Final service amount is required");
-  }
-
   const request = await prisma.garageBroadcastRequest.findFirst({
     where: {
       id: requestId,
@@ -535,8 +633,6 @@ const markBookingDeliveredByGarage = async ({
     where: { id: booking.id },
     data: {
       deliveredAt: new Date(),
-      totalServiceAmount: parsedFinalAmount,
-      totalServiceMaxAmount: parsedFinalAmount,
     },
     include: bookingDetailInclude,
   });
@@ -558,7 +654,17 @@ const markBookingDeliveredByGarage = async ({
   return { request, booking: updatedBooking };
 };
 
-const acceptDeliveredBookingByCustomer = async ({ userId, bookingId }) => {
+const acceptDeliveredBookingByCustomer = async ({
+  userId,
+  bookingId,
+  finalAmount,
+}) => {
+  const parsedFinalAmount = Math.round(Number(finalAmount));
+
+  if (!Number.isFinite(parsedFinalAmount) || parsedFinalAmount <= 0) {
+    throw new ApiError(400, "Final service amount is required");
+  }
+
   const booking = await prisma.booking.findFirst({
     where: { id: bookingId, userId },
     include: { garage: true, payment: true },
@@ -573,11 +679,13 @@ const acceptDeliveredBookingByCustomer = async ({ userId, bookingId }) => {
     );
   }
 
-  return prisma.booking.update({
+  const updatedBooking = await prisma.booking.update({
     where: { id: bookingId },
     data: {
       status: BOOKING_STATUS.COMPLETED,
       customerAcceptedAt: new Date(),
+      totalServiceAmount: parsedFinalAmount,
+      totalServiceMaxAmount: parsedFinalAmount,
     },
     include: {
       garage: true,
@@ -590,6 +698,10 @@ const acceptDeliveredBookingByCustomer = async ({ userId, bookingId }) => {
       },
     },
   });
+
+  await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
+
+  return updatedBooking;
 };
 
 module.exports = {
@@ -600,6 +712,7 @@ module.exports = {
   getSearchExpiresAt,
   notifyGarageAccepted,
   notifyVehicleHandoverOtp,
+  sendCustomerHandoverOtpEmail,
   regenerateBookingHandoverOtp,
   verifyBookingHandoverOtp,
   markBookingDeliveredByGarage,

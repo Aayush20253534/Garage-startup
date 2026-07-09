@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
-import api from "@/api/axios";
 import {
-  FiCheckCircle,
   FiNavigation,
   FiRefreshCw,
 } from "react-icons/fi";
@@ -49,13 +47,11 @@ const formatStatus = (status) => {
 };
 
 export default function ActiveBookings() {
-  const { fetchActiveBookings, clearBookingCaches } = useApp();
-  const nav = useNavigate();
+  const { fetchActiveBookings } = useApp();
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [acceptingId, setAcceptingId] = useState(null);
   const [error, setError] = useState("");
 
   const loadBookings = async ({ force = false } = {}) => {
@@ -82,26 +78,6 @@ export default function ActiveBookings() {
   useEffect(() => {
     loadBookings();
   }, []);
-
-  const acceptDelivery = async (booking) => {
-    try {
-      setAcceptingId(booking.id);
-      setError("");
-      await api.post(`/bookings/${booking.id}/accept-delivery`);
-      clearBookingCaches?.();
-      await loadBookings({ force: true });
-      nav("/dashboard/history");
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Could not accept delivery. Please try again.",
-      );
-    } finally {
-      setAcceptingId(null);
-    }
-  };
-
-
 
   if (loading) {
     return (
@@ -174,17 +150,14 @@ export default function ActiveBookings() {
               </span>
 
               {isAwaitingDeliveryAcceptance ? (
-                <button
-                  type="button"
-                  onClick={() => acceptDelivery(booking)}
-                  disabled={acceptingId === booking.id}
+                <Link
+                  to="/tracking"
+                  state={{ bookingId: booking.id }}
                   className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                 >
-                  <FiCheckCircle />
-                  {acceptingId === booking.id
-                    ? "Accepting..."
-                    : "Accept Delivery"}
-                </button>
+                  <FiNavigation />
+                  Review Delivery
+                </Link>
               ) : (
                 <Link
                   to="/tracking"

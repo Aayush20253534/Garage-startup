@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -7,7 +7,7 @@ import {
   FiMapPin,
   FiClock,
   FiCheckCircle,
-  FiDollarSign,
+  FiNavigation,
 } from "react-icons/fi";
 import ImageUpload from "@/components/garage/ImageUpload";
 import InspectionGallery from "@/components/booking/InspectionGallery";
@@ -46,6 +46,40 @@ const formatDateTime = (value) => {
   });
 };
 
+const ARRIVAL_UNLOCK_DISTANCE_METERS = 200;
+const CUSTOMER_ACCEPTANCE_POLL_INTERVAL_MS = 3000;
+const GARAGE_DASHBOARD_PATH = "/garage";
+
+const toRad = (value) => (Number(value) * Math.PI) / 180;
+
+const getDistanceMeters = (origin, destination) => {
+  const lat1 = Number(origin?.latitude);
+  const lon1 = Number(origin?.longitude);
+  const lat2 = Number(destination?.latitude);
+  const lon2 = Number(destination?.longitude);
+
+  if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return null;
+
+  const earthRadiusMeters = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+  return Math.round(
+    earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)),
+  );
+};
+
+const formatDistance = (meters) => {
+  if (!Number.isFinite(meters)) return "Waiting for live location";
+  if (meters < 1000) return `${meters} m away`;
+  return `${(meters / 1000).toFixed(1)} km away`;
+};
+
 export default function GarageBookingDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -54,8 +88,8 @@ export default function GarageBookingDetail() {
   const { bookings } = useSelector((state) => state.garage);
   const [preServiceImages, setPreServiceImages] = useState([]);
   const [postServiceImages, setPostServiceImages] = useState([]);
-  const [finalAmount, setFinalAmount] = useState("");
   const [otp, setOtp] = useState("");
+  const [trackingSummary, setTrackingSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [remoteBooking, setRemoteBooking] = useState(null);
@@ -66,6 +100,35 @@ export default function GarageBookingDetail() {
     (item) => item.id === id || item.requestId === id || item.bookingId === id,
   );
   const booking = cachedBooking || remoteBooking;
+
+  const handleTrackingUpdate = useCallback((tracking) => {
+    setTrackingSummary(tracking);
+  }, []);
+
+  const mergeBookingIntoStore = useCallback(
+    (updatedBooking) => {
+      setRemoteBooking(updatedBooking);
+      dispatch(
+        setBookings(
+          bookings.some(
+            (item) =>
+              item.id === updatedBooking.id ||
+              item.requestId === updatedBooking.requestId ||
+              item.bookingId === updatedBooking.bookingId,
+          )
+            ? bookings.map((item) =>
+                item.id === updatedBooking.id ||
+                item.requestId === updatedBooking.requestId ||
+                item.bookingId === updatedBooking.bookingId
+                  ? updatedBooking
+                  : item,
+              )
+            : [updatedBooking, ...bookings],
+        ),
+      );
+    },
+    [bookings, dispatch],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -81,18 +144,7 @@ export default function GarageBookingDetail() {
 
         if (!mounted) return;
 
-        setRemoteBooking(fetchedBooking);
-        dispatch(
-          setBookings([
-            fetchedBooking,
-            ...bookings.filter(
-              (item) =>
-                item.id !== fetchedBooking.id &&
-                item.requestId !== fetchedBooking.requestId &&
-                item.bookingId !== fetchedBooking.bookingId,
-            ),
-          ]),
-        );
+        mergeBookingIntoStore(fetchedBooking);
       } catch (err) {
         if (mounted) {
           setError(
@@ -110,7 +162,86 @@ export default function GarageBookingDetail() {
     return () => {
       mounted = false;
     };
-  }, [cachedBooking, dispatch, garageToken, id]);
+  }, [cachedBooking, garageToken, id, mergeBookingIntoStore]);
+
+  useEffect(() => {
+    if (!booking) return;
+
+    if (booking.status === "COMPLETED" || booking.customerAcceptedAt) {
+      if (booking.status !== "COMPLETED") {
+        mergeBookingIntoStore({ ...booking, status: "COMPLETED" });
+      }
+
+      navigate(GARAGE_DASHBOARD_PATH, {
+        replace: true,
+        state: { message: "Booking completed by customer." },
+      });
+    }
+  }, [
+    booking,
+    booking?.customerAcceptedAt,
+    booking?.status,
+    mergeBookingIntoStore,
+    navigate,
+  ]);
+
+  useEffect(() => {
+    const waitingForCustomerAcceptance = Boolean(
+      booking?.deliveredAt &&
+        !booking.customerAcceptedAt &&
+        booking.status !== "COMPLETED",
+    );
+
+    if (!waitingForCustomerAcceptance || !garageToken) return undefined;
+
+    let cancelled = false;
+
+    const refreshCompletionStatus = async () => {
+      try {
+        const refreshedBooking = await garageApi.getRequest(
+          booking.requestId || booking.id,
+        );
+
+        if (cancelled) return;
+
+        if (
+          refreshedBooking.status === "COMPLETED" ||
+          refreshedBooking.customerAcceptedAt
+        ) {
+          mergeBookingIntoStore({
+            ...refreshedBooking,
+            status: "COMPLETED",
+          });
+          navigate(GARAGE_DASHBOARD_PATH, {
+            replace: true,
+            state: { message: "Booking completed by customer." },
+          });
+        }
+      } catch {
+        // Keep the delivered screen usable if a silent completion refresh fails.
+      }
+    };
+
+    void refreshCompletionStatus();
+    const interval = window.setInterval(
+      refreshCompletionStatus,
+      CUSTOMER_ACCEPTANCE_POLL_INTERVAL_MS,
+    );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [
+    booking?.customerAcceptedAt,
+    booking?.deliveredAt,
+    booking?.id,
+    booking?.requestId,
+    booking?.status,
+    garageToken,
+    mergeBookingIntoStore,
+    navigate,
+  ]);
 
   if (!booking) {
     return (
@@ -134,20 +265,11 @@ export default function GarageBookingDetail() {
   const updateLocalBooking = (patch) => {
     const updatedBooking = { ...booking, ...patch };
 
-    setRemoteBooking(updatedBooking);
-    dispatch(
-      setBookings(
-        bookings.some((item) => item.id === booking.id)
-          ? bookings.map((item) =>
-              item.id === booking.id ? updatedBooking : item,
-            )
-          : [updatedBooking, ...bookings],
-      ),
-    );
+    mergeBookingIntoStore(updatedBooking);
   };
 
   const verifyHandover = async () => {
-    if (preServiceImages.length !== 5 || !otp.trim()) return;
+    if (!isNearCustomer || preServiceImages.length !== 5 || !otp.trim()) return;
 
     setLoading(true);
     setError("");
@@ -177,7 +299,7 @@ export default function GarageBookingDetail() {
   };
 
   const markDelivered = async () => {
-    if (postServiceImages.length !== 5 || Number(finalAmount) <= 0) return;
+    if (postServiceImages.length !== 5) return;
 
     setLoading(true);
     setError("");
@@ -188,23 +310,21 @@ export default function GarageBookingDetail() {
         garageToken,
         booking.requestId || booking.id,
         postServiceImages,
-        finalAmount,
       );
 
       updateLocalBooking({
         status: "DELIVERED",
         deliveredAt: result?.booking?.deliveredAt || new Date().toISOString(),
         totalServiceAmount:
-          result?.booking?.totalServiceAmount || Number(finalAmount),
+          result?.booking?.totalServiceAmount || booking.totalServiceAmount,
         totalServiceMaxAmount:
-          result?.booking?.totalServiceMaxAmount || Number(finalAmount),
+          result?.booking?.totalServiceMaxAmount || booking.totalServiceMaxAmount,
         inspectionImages:
           result?.booking?.inspectionImages || booking.inspectionImages || [],
       });
       setPostServiceImages([]);
-      setFinalAmount("");
       setSuccess(
-        "Vehicle marked delivered. The customer must now inspect and accept delivery.",
+        "Vehicle marked delivered. The customer must now inspect, enter the final amount, and accept delivery.",
       );
     } catch (err) {
       setError(
@@ -228,7 +348,34 @@ export default function GarageBookingDetail() {
     timelineSteps.findIndex((step) => step.status === booking.status),
   );
   const inspectionImages = booking.inspectionImages || [];
-  const isAwaitingCustomerAcceptance = booking.status === "DELIVERED";
+  const isCompletedByCustomer =
+    booking.status === "COMPLETED" || Boolean(booking.customerAcceptedAt);
+  const isAwaitingCustomerAcceptance =
+    booking.status === "DELIVERED" && !booking.customerAcceptedAt;
+  const bookingDisplayId =
+    booking.bookingCode || booking.bookingId || booking.id;
+  const isHandoverStage = ["ACCEPTED", "CONFIRMED"].includes(booking.status);
+  const liveTrackingEnabled = ["ACCEPTED", "CONFIRMED", "IN_PROGRESS", "DELIVERED"].includes(booking.status);
+  const distanceToCustomerMeters =
+    getDistanceMeters(
+      trackingSummary?.latestLocation,
+      trackingSummary?.customerLocation,
+    ) ??
+    (Number.isFinite(Number(trackingSummary?.route?.distanceMeters))
+      ? Math.round(Number(trackingSummary.route.distanceMeters))
+      : null);
+  const isNearCustomer =
+    Number.isFinite(distanceToCustomerMeters) &&
+    distanceToCustomerMeters <= ARRIVAL_UNLOCK_DISTANCE_METERS;
+  const hasCompleteOtp = otp.length === 6;
+
+  if (isCompletedByCustomer) {
+    return (
+      <div className="card-soft p-6 text-sm font-semibold text-muted">
+        Opening garage dashboard...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -248,19 +395,22 @@ export default function GarageBookingDetail() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <div className="card-soft p-6">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="space-y-6">
+          <div className="card-soft p-5 sm:p-6">
             <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold">
-                  {booking.bookingId || booking.id}
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">
+                  Booking status
+                </p>
+                <h1 className="mt-1 break-words text-2xl font-bold leading-tight sm:text-3xl">
+                  {bookingDisplayId}
                 </h1>
-                <p className="text-muted">
+                <p className="mt-1 text-sm text-muted">
                   {new Date(booking.createdAt).toLocaleDateString()}
                 </p>
               </div>
-              <span className="chip-brand">
+              <span className="chip-brand shrink-0">
                 {booking.status.replaceAll("_", " ")}
               </span>
             </div>
@@ -311,42 +461,95 @@ export default function GarageBookingDetail() {
             </div>
           </div>
 
-          {booking.status === "ACCEPTED" || booking.status === "CONFIRMED" ? (
-            <div className="card-soft p-6">
-              <h3 className="mb-2 text-xl font-bold">Receive Vehicle</h3>
-              <p className="text-muted">
-                Enter the customer handover OTP and upload exactly five vehicle
-                photos, each 1 MB or less.
-              </p>
-              <p className="mt-2 text-xs text-muted">
-                OTP expiry: {formatDateTime(booking.handoverOtpExpiresAt)}. The
-                customer can generate a new OTP from booking tracking if needed.
-              </p>
-              <input
-                value={otp}
-                onChange={(event) =>
-                  setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-                }
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="6-digit handover OTP"
-                className="mb-4 mt-4 w-full rounded-xl border border-line px-4 py-3 focus:border-ink focus:outline-none"
-              />
-              <ImageUpload
-                min={5}
-                max={5}
-                value={preServiceImages}
-                onChange={setPreServiceImages}
-              />
-              <button
-                onClick={verifyHandover}
-                disabled={
-                  loading || preServiceImages.length !== 5 || otp.length !== 6
-                }
-                className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? "Verifying..." : "Verify Handover & Start Service"}
-              </button>
+          {liveTrackingEnabled && (
+            <LiveBookingTracking
+              bookingId={booking.bookingId}
+              canShare
+              autoStart
+              onTrackingUpdate={handleTrackingUpdate}
+              title="Live route to customer"
+            />
+          )}
+
+          {isHandoverStage ? (
+            <div className="card-soft p-5 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-xl font-bold">Receive Vehicle</h3>
+                  <p className="mt-1 text-sm text-muted">
+                    Share live location first. The handover OTP unlocks when
+                    you are within {ARRIVAL_UNLOCK_DISTANCE_METERS}m of the
+                    customer location.
+                  </p>
+                </div>
+                <span
+                  className={[
+                    "inline-flex h-8 w-fit items-center rounded-lg px-3 text-xs font-bold",
+                    isNearCustomer
+                      ? "bg-brand text-black"
+                      : "bg-bg-soft text-muted",
+                  ].join(" ")}
+                >
+                  {formatDistance(distanceToCustomerMeters)}
+                </span>
+              </div>
+
+              {!isNearCustomer ? (
+                <div className="mt-5 rounded-xl border border-line bg-bg-soft p-4 text-sm text-muted">
+                  <div className="flex items-start gap-3">
+                    <FiNavigation className="mt-0.5 shrink-0 text-brand-dark" />
+                    <p>
+                      Keep live sharing on and navigate to the customer. The OTP
+                      box appears automatically once you are very close.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="mt-4 text-xs text-muted">
+                    OTP expiry: {formatDateTime(booking.handoverOtpExpiresAt)}.
+                    The customer can generate a new OTP from booking tracking if
+                    needed.
+                  </p>
+                  <input
+                    value={otp}
+                    onChange={(event) =>
+                      setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="6-digit handover OTP"
+                    className="mt-4 w-full rounded-xl border border-line px-4 py-3 focus:border-ink focus:outline-none"
+                  />
+
+                  {hasCompleteOtp && (
+                    <div className="mt-4">
+                      <p className="mb-3 text-sm text-muted">
+                        Upload exactly five pickup photos after entering the
+                        OTP. Each photo must be 1 MB or less.
+                      </p>
+                      <ImageUpload
+                        min={5}
+                        max={5}
+                        value={preServiceImages}
+                        onChange={setPreServiceImages}
+                      />
+                    </div>
+                  )}
+
+                  <button
+                    onClick={verifyHandover}
+                    disabled={
+                      loading ||
+                      !hasCompleteOtp ||
+                      preServiceImages.length !== 5
+                    }
+                    className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loading ? "Verifying..." : "Verify Handover & Start Service"}
+                  </button>
+                </>
+              )}
             </div>
           ) : null}
 
@@ -354,27 +557,9 @@ export default function GarageBookingDetail() {
             <div className="card-soft p-6">
               <h3 className="mb-2 text-xl font-bold">Complete Service</h3>
               <p className="mb-4 text-muted">
-                Upload exactly five post-service photos, each 1 MB or less,
-                and record the final cash amount before marking the vehicle
-                delivered.
+                Upload exactly five post-service photos, each 1 MB or less.
+                The customer enters the final amount while accepting delivery.
               </p>
-              <label className="mb-4 block">
-                <span className="mb-1.5 flex items-center gap-2 text-sm font-semibold">
-                  <FiDollarSign className="text-brand-dark" />
-                  Final amount paid to garage
-                </span>
-                <input
-                  type="number"
-                  min="1"
-                  inputMode="numeric"
-                  value={finalAmount}
-                  onChange={(event) =>
-                    setFinalAmount(event.target.value.replace(/\D/g, ""))
-                  }
-                  placeholder="Enter final service amount"
-                  className="w-full rounded-xl border border-line px-4 py-3 text-sm font-semibold outline-none transition focus:border-ink"
-                />
-              </label>
               <ImageUpload
                 min={5}
                 max={5}
@@ -385,12 +570,11 @@ export default function GarageBookingDetail() {
                 onClick={markDelivered}
                 disabled={
                   loading ||
-                  postServiceImages.length !== 5 ||
-                  Number(finalAmount) <= 0
+                  postServiceImages.length !== 5
                 }
                 className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Completing..." : "Save Amount & Mark Delivered"}
+                {loading ? "Completing..." : "Mark Ready for Customer"}
               </button>
             </div>
           ) : null}
@@ -417,14 +601,6 @@ export default function GarageBookingDetail() {
               phase="DELIVERY"
               title="Delivery inspection photos"
               description="Evidence recorded after the service was completed."
-            />
-          )}
-
-          {["ACCEPTED", "CONFIRMED", "IN_PROGRESS", "DELIVERED"].includes(booking.status) && (
-            <LiveBookingTracking
-              bookingId={booking.bookingId}
-              canShare
-              title="Customer route and live sharing"
             />
           )}
 

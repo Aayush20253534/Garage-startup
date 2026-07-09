@@ -4,7 +4,18 @@ const bookingIdValidation = [
   param("id").isUUID().withMessage("Invalid booking ID"),
 ];
 
-const acceptDeliveryValidation = bookingIdValidation;
+const acceptDeliveryValidation = [
+  ...bookingIdValidation,
+  body("finalAmount")
+    .exists({ checkFalsy: true })
+    .withMessage("Final service amount is required")
+    .bail()
+    .custom((value) => {
+      const amount = Number(value);
+      return Number.isFinite(amount) && amount > 0;
+    })
+    .withMessage("Final service amount must be greater than zero"),
+];
 
 const createBookingValidation = [
   body("vehicleId").isUUID().withMessage("Valid vehicle ID is required"),

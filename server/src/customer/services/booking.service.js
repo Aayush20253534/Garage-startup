@@ -449,11 +449,12 @@ const getBookingSuccess = async (userId, bookingId) => {
   };
 };
 
-const acceptDelivery = async (userId, bookingId) => {
+const acceptDelivery = async (userId, bookingId, finalAmount) => {
   const booking =
     await bookingLifecycleService.acceptDeliveredBookingByCustomer({
       userId,
       bookingId,
+      finalAmount,
     });
 
   await invalidateBookingCaches(userId);

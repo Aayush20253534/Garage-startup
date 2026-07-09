@@ -97,7 +97,7 @@ export default function GarageBookings() {
         ),
       );
 
-      await loadBookings();
+      navigate(`/garage/bookings/${updated.requestId || updated.id}`);
     } catch (err) {
       setError(
         err.response?.data?.message || "Unable to accept booking",
