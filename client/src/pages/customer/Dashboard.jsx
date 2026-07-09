@@ -152,8 +152,11 @@ function Dashboard() {
 
   if (loading) {
     return (
-      <div className="card-soft rounded-2xl p-5 text-sm text-muted">
-        Loading dashboard...
+      <div className="flex min-h-[400px] items-center justify-center rounded-3xl bg-white p-10 shadow-sm">
+        <div className="flex flex-col items-center gap-3">
+          <FiRefreshCcw className="h-8 w-8 animate-spin text-brand" />
+          <p className="text-sm text-muted">Loading your dashboard...</p>
+        </div>
       </div>
     );
   }
@@ -163,26 +166,23 @@ function Dashboard() {
       icon: FiCalendar,
       label: "Active Bookings",
       number: activeBookingsCount,
-      sub: "Current service requests",
+      sub: "In progress",
+      color: "text-brand",
     },
     {
       icon: FiClock,
       label: "Pending Payments",
       number: pendingBookingsCount,
-      sub: "Saved bookings to pay",
+      sub: "Awaiting action",
+      color: "text-amber-600",
     },
     {
-      icon: FiClock,
+      icon: FiCheckCircle,
       label: "Completed",
       number: completedCount,
-      sub: "Completed services",
+      sub: "This month",
+      color: "text-emerald-600",
     },
-    // {
-    //   icon: FiShield,
-    //   label: "Wallet Coins",
-    //   number: wallet?.balance || 0,
-    //   sub: "RovAuto wallet balance",
-    // },
     {
       icon: FiTruck,
       label: "Vehicles",
@@ -190,256 +190,336 @@ function Dashboard() {
       sub: hasVehicles
         ? vehicle
           ? `${vehicle.brand} ${vehicle.model}`
-          : "Manage your vehicles"
-        : "Add your first vehicle",
+          : "Multiple vehicles"
+        : "Get started",
+      color: "text-brand",
     },
   ];
 
   const fallbackActions = [
     hasVehicles
-      ? [
-          "Book Service",
-          "Choose services and request nearby garages",
-          "/booking/vehicle",
-        ]
-      : ["Add Vehicle", "Save your first vehicle to start booking", "/booking/vehicle"],
-    ["SOS", "Emergency roadside request", "/sos"],
-    [
-      "My Vehicles",
-      hasVehicles ? "Manage your saved vehicles" : "Add and manage vehicles",
-      "/dashboard/vehicles",
-    ],
+      ? {
+          label: "Book Service",
+          desc: "Request nearby garages",
+          to: "/booking/vehicle",
+          icon: FiPlusCircle,
+        }
+      : {
+          label: "Add Vehicle",
+          desc: "Save your first vehicle",
+          to: "/booking/vehicle",
+          icon: FiTruck,
+        },
+    {
+      label: "SOS",
+      desc: "Emergency roadside help",
+      to: "/sos",
+      icon: FiShield,
+    },
+    {
+      label: "Manage Vehicles",
+      desc: "View & edit fleet",
+      to: "/dashboard/vehicles",
+      icon: FiTruck,
+    },
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 overflow-x-hidden">
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-ink to-ink-2 p-5 text-white shadow-sm sm:p-6">
-        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand/20 blur-3xl" />
+    <div className="mx-auto max-w-7xl space-y-8 px-4 pb-8">
+      {/* Welcome Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-950 to-black p-8 text-white shadow-xl sm:p-10">
+        <div className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-brand/10 blur-3xl" />
+        <div className="absolute -bottom-12 -left-12 h-80 w-80 rounded-full bg-white/5 blur-3xl" />
 
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-3xl font-bold leading-tight sm:text-4xl">
-              Hello {user?.name || "there"}
-            </h2>
-
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium tracking-widest text-white/70">
+              WELCOME BACK
+            </div>
+            <h1 className="mt-3 text-4xl font-bold tracking-tight lg:text-5xl">
+              Hello, {user?.name?.split(" ")[0] || "there"}
+            </h1>
+            <p className="mt-3 max-w-md text-lg text-white/70">
               {hasVehicles
-                ? "Manage bookings, wallet, vehicles, and service requests."
-                : "Add your first vehicle to start booking services."}
+                ? "Here's what's happening with your vehicles today."
+                : "Let's get your first vehicle set up and start booking services."}
             </p>
           </div>
 
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => loadDashboard({ force: true })}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <FiRefreshCcw className={loading ? "animate-spin" : ""} />
-            Refresh
-          </button>
-        </div>
-
-        <div className="relative mt-5 grid gap-3 sm:flex sm:flex-wrap">
-          <Link
-            to="/booking/vehicle"
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-brand px-5 text-sm font-bold text-black transition hover:bg-brand-dark hover:text-black"
-          >
-            {hasVehicles ? "Book a service" : "Add your first vehicle"}
-          </Link>
-
-          <Link
-            to="/sos"
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-white/10 px-5 text-sm font-bold text-white transition hover:bg-white/15"
-          >
-            SOS
-          </Link>
-
-          {pendingBookingsCount > 0 && (
-            <Link
-              to="/dashboard/pending-bookings"
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-white/10 px-5 text-sm font-bold text-white transition hover:bg-white/15"
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => loadDashboard({ force: true })}
+              className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-5 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
             >
-              Pay pending booking
-            </Link>
-          )}
-
-          <Link
-            to="/dashboard/payments"
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-white/10 px-5 text-sm font-bold text-white transition hover:bg-white/15"
-          >
-            Wallet: {formatRupees(wallet?.balance || 0)}
-          </Link>
-        </div>
-      </section>
-
-      {!hasVehicles && (
-        <section className="rounded-2xl border border-brand/40 bg-brand-soft/60 p-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-ink">
-                Vehicle setup required
-              </h3>
-              <p className="mt-1 text-sm text-muted">
-                Add your vehicle once, then booking services becomes available.
-              </p>
-            </div>
+              <FiRefreshCcw className={loading ? "animate-spin" : ""} />
+              Refresh
+            </button>
 
             <Link
               to="/booking/vehicle"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-brand px-6 font-semibold text-black transition hover:bg-brand/90"
+            >
+              {hasVehicles ? "Book Service" : "Add Vehicle"}
+              <FiArrowRight />
+            </Link>
+          </div>
+        </div>
+
+        {/* Quick Stats Bar */}
+        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {statCards.slice(0, 3).map((stat, idx) => (
+            <div
+              key={idx}
+              className="rounded-2xl bg-white/5 p-4 backdrop-blur-sm"
+            >
+              <div className="text-xs uppercase tracking-widest text-white/60">
+                {stat.label}
+              </div>
+              <div className="mt-1 text-3xl font-semibold text-white">
+                {stat.number}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Vehicle Warning */}
+      {!hasVehicles && (
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
+          <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+            <div className="flex gap-4">
+              <div className="mt-1 rounded-2xl bg-amber-100 p-3 text-amber-600">
+                <FiTruck className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-ink">
+                  Vehicle setup required
+                </h3>
+                <p className="mt-1.5 text-muted">
+                  Add your vehicle to unlock full booking capabilities.
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/booking/vehicle"
+              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl bg-brand px-6 font-semibold text-black transition hover:bg-brand/90"
             >
               <FiPlusCircle />
               Add Vehicle
             </Link>
           </div>
-        </section>
+        </div>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((item) => {
+      {/* Stats Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {statCards.map((item, index) => {
           const Icon = item.icon;
-
           return (
             <div
-              key={item.label}
-              className="card-soft rounded-2xl p-4 shadow-sm transition hover:shadow-md"
+              key={index}
+              className="group rounded-3xl bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-black">
-                <Icon />
+              <div className="flex items-start justify-between">
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/10 text-brand transition-colors group-hover:bg-brand group-hover:text-white`}
+                >
+                  <Icon className="h-6 w-6" />
+                </div>
+                <div className="text-right">
+                  <div className="text-4xl font-bold text-ink">
+                    {item.number}
+                  </div>
+                </div>
               </div>
 
-              <div className="mt-3 text-3xl font-bold text-ink">
-                {item.number}
-              </div>
-
-              <div className="mt-1 text-sm font-semibold text-ink">
-                {item.label}
-              </div>
-
-              <div className="mt-1 truncate text-xs text-muted">
-                {item.sub}
+              <div className="mt-6">
+                <div className="font-semibold text-ink">{item.label}</div>
+                <div className="mt-1 text-sm text-muted">{item.sub}</div>
               </div>
             </div>
           );
         })}
-      </section>
+      </div>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <div className="card-soft rounded-2xl p-4 shadow-sm lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="font-bold text-ink">Active service</h3>
-              <p className="mt-1 text-xs text-muted">
-                Current booking progress
-              </p>
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Active Service */}
+        <div className="lg:col-span-7">
+          <div className="rounded-3xl bg-white p-8 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold text-ink">
+                  Active Service
+                </h2>
+                <p className="text-sm text-muted">Real-time tracking</p>
+              </div>
+              {activeBooking && (
+                <Link
+                  to="/tracking"
+                  state={{ bookingId: activeBooking.id }}
+                  className="flex items-center gap-2 text-sm font-semibold text-brand hover:text-brand/80"
+                >
+                  View full tracking <FiArrowRight />
+                </Link>
+              )}
             </div>
 
-            {activeBooking && (
-              <Link
-                to="/tracking"
-                state={{ bookingId: activeBooking.id }}
-                className="inline-flex items-center gap-1 text-sm font-semibold text-ink"
-              >
-                Track <FiArrowRight />
-              </Link>
-            )}
-          </div>
-
-          {activeBooking ? (
-            <>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand text-xl text-black">
-                  <FiTruck />
-                </span>
-
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold text-ink">
-                    {activeBooking.services
-                      ?.map((item) => item.service?.name)
-                      .filter(Boolean)
-                      .join(", ") || "Vehicle Service"}
+            {activeBooking ? (
+              <div className="mt-8">
+                <div className="flex items-center gap-5 rounded-2xl bg-zinc-50 p-6">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brand text-4xl text-white">
+                    <FiTruck />
                   </div>
 
-                  <div className="mt-1 text-xs text-muted">
-                    {activeBooking.vehicle?.brand}{" "}
-                    {activeBooking.vehicle?.model}
-                    {activeBooking.garage
-                      ? ` · ${activeBooking.garage.name}`
-                      : " · Waiting for garage"}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-lg text-ink">
+                          {activeBooking.services
+                            ?.map((item) => item.service?.name)
+                            .filter(Boolean)
+                            .join(", ") || "Vehicle Service"}
+                        </p>
+                        <p className="text-sm text-muted">
+                          {activeBooking.vehicle?.brand}{" "}
+                          {activeBooking.vehicle?.model}
+                          {activeBooking.garage && (
+                            <> • {activeBooking.garage.name}</>
+                          )}
+                        </p>
+                      </div>
+
+                      <span className="rounded-full bg-emerald-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                        {activeBooking.status?.replaceAll("_", " ")}
+                      </span>
+                    </div>
+
+                    <div className="mt-6">
+                      <div className="flex justify-between text-xs text-muted mb-2">
+                        <span>PROGRESS</span>
+                        <span>{getProgress(activeBooking.status)}</span>
+                      </div>
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200">
+                        <div
+                          className="h-full bg-gradient-to-r from-brand to-brand-dark transition-all duration-500"
+                          style={{ width: getProgress(activeBooking.status) }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <span className="w-fit rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-ink">
-                  {activeBooking.status?.replaceAll("_", " ")}
-                </span>
               </div>
-
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-bg-soft">
-                <div
-                  className="h-full bg-brand"
-                  style={{ width: getProgress(activeBooking.status) }}
-                />
+            ) : (
+              <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 py-16 text-center">
+                <FiTruck className="h-12 w-12 text-zinc-300" />
+                <p className="mt-4 font-medium text-ink">
+                  No active services
+                </p>
+                <p className="mt-1 max-w-xs text-sm text-muted">
+                  {hasVehicles
+                    ? "Your vehicles are ready when you need them."
+                    : "Add a vehicle to start booking garage services."}
+                </p>
+                <Link
+                  to="/booking/vehicle"
+                  className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-zinc-900 px-6 py-3 text-sm font-semibold text-white"
+                >
+                  {hasVehicles ? "Book Now" : "Add Vehicle"}
+                </Link>
               </div>
-            </>
-          ) : (
-            <div className="rounded-xl bg-bg-soft p-4 text-sm text-muted">
-              {hasVehicles
-                ? "No active service right now. Civilization briefly holds."
-                : "No active service yet. Add a vehicle first, because booking a ghost car remains unsupported."}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        <div className="card-soft rounded-2xl p-4 shadow-sm">
-          <h3 className="font-bold text-ink">Quick Actions</h3>
-          <p className="mt-1 text-xs text-muted">Recent activity and shortcuts</p>
+        {/* Quick Actions & Activity */}
+        <div className="lg:col-span-5">
+          <div className="rounded-3xl bg-white p-8 shadow-sm h-full flex flex-col">
+            <h2 className="text-2xl font-semibold text-ink">Quick Actions</h2>
+            <p className="text-sm text-muted">Recent activity & shortcuts</p>
 
-          <ul className="mt-4 grid max-h-72 gap-2 overflow-y-auto pr-1 text-sm">
-            {recentActivities.length
-              ? recentActivities.map((activity) => (
-                  <li key={activity.id}>
+            <div className="mt-8 flex-1 overflow-hidden">
+              <div className="max-h-[460px] space-y-2 overflow-y-auto pr-2 custom-scrollbar">
+                {recentActivities.length > 0 ? (
+                  recentActivities.map((activity) => (
                     <Link
+                      key={activity.id}
                       to={activity.path || "/dashboard"}
-                      className="flex items-start gap-3 rounded-xl p-2 transition hover:bg-bg-soft hover:text-ink"
+                      className="group flex gap-4 rounded-2xl border border-transparent p-4 transition hover:border-zinc-100 hover:bg-zinc-50"
                     >
-                      <FiCheckCircle className="mt-0.5 shrink-0 text-brand-dark" />
-
-                      <div className="min-w-0">
-                        <div className="truncate font-semibold text-ink">
+                      <div className="mt-0.5 text-brand">
+                        <FiCheckCircle className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-ink group-hover:text-brand transition-colors">
                           {activity.title}
-                        </div>
-
-                        <div className="truncate text-xs text-muted">
-                          {activity.detail ||
-                            new Date(activity.createdAt).toLocaleString()}
-                        </div>
-
-                        <div className="mt-0.5 text-[11px] text-muted">
-                          {new Date(activity.createdAt).toLocaleString()}
-                        </div>
+                        </p>
+                        <p className="mt-0.5 line-clamp-2 text-sm text-muted">
+                          {activity.detail}
+                        </p>
+                        <p className="mt-2 text-[10px] text-zinc-400">
+                          {new Date(activity.createdAt).toLocaleDateString([], {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
                       </div>
                     </Link>
-                  </li>
-                ))
-              : fallbackActions.map(([name, desc, to]) => (
-                  <li key={name}>
-                    <Link
-                      to={to}
-                      className="flex items-start gap-3 rounded-xl p-2 transition hover:bg-bg-soft hover:text-ink"
-                    >
-                      <FiCheckCircle className="mt-0.5 shrink-0 text-brand-dark" />
+                  ))
+                ) : (
+                  <div className="space-y-2">
+                    {fallbackActions.map((action, i) => {
+                      const Icon = action.icon;
+                      return (
+                        <Link
+                          key={i}
+                          to={action.to}
+                          className="group flex items-center gap-4 rounded-2xl border border-transparent p-4 transition hover:border-zinc-100 hover:bg-zinc-50"
+                        >
+                          <div className="rounded-xl bg-zinc-100 p-3 text-brand group-hover:bg-brand group-hover:text-white transition-all">
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-ink">
+                              {action.label}
+                            </div>
+                            <div className="text-sm text-muted">
+                              {action.desc}
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
 
-                      <div className="min-w-0">
-                        <div className="font-semibold text-ink">{name}</div>
-                        <div className="text-xs text-muted">{desc}</div>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-          </ul>
+            {/* Wallet Card */}
+            <div className="mt-8 rounded-2xl bg-gradient-to-br from-zinc-900 to-black p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-white/60">
+                    WALLET BALANCE
+                  </p>
+                  <p className="mt-1 text-3xl font-semibold">
+                    {formatRupees(wallet?.balance || 0)}
+                  </p>
+                </div>
+                <Link
+                  to="/dashboard/payments"
+                  className="rounded-xl bg-white/10 px-5 py-2 text-sm font-medium hover:bg-white/20 transition"
+                >
+                  Manage
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }
