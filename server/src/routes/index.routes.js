@@ -44,6 +44,7 @@ const rateLimit = require("../middlewares/rateLimit.middleware");
 const {
   protectUser,
 } = require("../middlewares/auth.middleware");
+const { authorizeRoles } = require("../middlewares/role.middleware");
 const {
   otpSendRateLimits,
 } = require("../middlewares/otpRateLimit.middleware");
@@ -84,21 +85,24 @@ router.post(
 );
 
 /*
- * These route groups belong only to records stored in User.
- * Staff sessions are rejected before their controllers execute.
+ * Customer-only route groups.
+ * protectUser rejects staff sessions, then authorizeRoles("CUSTOMER") rejects
+ * garage-owner user sessions so role-specific data cannot mix.
  */
-router.use("/customer", protectUser, customerRoutes);
-router.use("/vehicles", protectUser, vehicleRoutes);
-router.use("/locations", protectUser, locationRoutes);
-router.use("/notifications", protectUser, notificationRoutes);
-router.use("/bookings", protectUser, bookingRoutes);
-router.use("/payments", protectUser, paymentRoutes);
-router.use("/complaints", protectUser, complaintRoutes);
-router.use("/dashboard", protectUser, dashboardRoutes);
-router.use("/chatbot", protectUser, chatbotRoutes);
-router.use("/activities", protectUser, activityRoutes);
-router.use("/wallet", protectUser, walletRoutes);
-router.use("/sos", protectUser, sosRoutes);
+const requireCustomer = authorizeRoles("CUSTOMER");
+
+router.use("/customer", protectUser, requireCustomer, customerRoutes);
+router.use("/vehicles", protectUser, requireCustomer, vehicleRoutes);
+router.use("/locations", protectUser, requireCustomer, locationRoutes);
+router.use("/notifications", protectUser, requireCustomer, notificationRoutes);
+router.use("/bookings", protectUser, requireCustomer, bookingRoutes);
+router.use("/payments", protectUser, requireCustomer, paymentRoutes);
+router.use("/complaints", protectUser, requireCustomer, complaintRoutes);
+router.use("/dashboard", protectUser, requireCustomer, dashboardRoutes);
+router.use("/chatbot", protectUser, requireCustomer, chatbotRoutes);
+router.use("/activities", protectUser, requireCustomer, activityRoutes);
+router.use("/wallet", protectUser, requireCustomer, walletRoutes);
+router.use("/sos", protectUser, requireCustomer, sosRoutes);
 
 /*
  * Public or mixed route groups keep their own route-level authorization.
