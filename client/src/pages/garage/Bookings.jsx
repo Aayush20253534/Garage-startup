@@ -72,24 +72,9 @@ export default function GarageBookings() {
     loadBookings({ initial: true });
   }, [loadBookings]);
 
-  useEffect(() => {
-    if (!garage) return undefined;
-
-    const interval = window.setInterval(() => {
-      loadBookings();
-    }, 5000);
-
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") loadBookings();
-    };
-
-    document.addEventListener("visibilitychange", refreshWhenVisible);
-
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
-    };
-  }, [garage, loadBookings]);
+  // Avoid constant polling from the garage bookings page. Bookings now load
+  // once on page/filter change, then refresh only when the garage clicks Refresh
+  // or after a booking action such as accept/decline.
 
   const handleAccept = async (booking) => {
     try {
@@ -147,7 +132,7 @@ export default function GarageBookings() {
             Bookings
           </h1>
           <p className="mt-1 text-sm text-muted">
-            New nearby requests refresh automatically every five seconds.
+            Bookings load once per page visit. Use Refresh to check for new requests.
           </p>
         </div>
 

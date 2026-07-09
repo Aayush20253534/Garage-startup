@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
@@ -103,6 +103,17 @@ export default function GarageDashboard() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const refreshGarageRef = useRef(refreshGarage);
+  const walletTransactionsRef = useRef(wallet?.transactions || []);
+
+  useEffect(() => {
+    refreshGarageRef.current = refreshGarage;
+  }, [refreshGarage]);
+
+  useEffect(() => {
+    walletTransactionsRef.current = wallet?.transactions || [];
+  }, [wallet?.transactions]);
+
   const loadDashboard = useCallback(async () => {
     if (!garageToken) {
       if (!authLoading) setLoading(false);
@@ -119,7 +130,7 @@ export default function GarageDashboard() {
           throw err;
         }),
         garageApi.getWallet(),
-        refreshGarage(),
+        refreshGarageRef.current(),
       ]);
 
       dispatch(setBookings(requestsResult || []));
@@ -128,7 +139,8 @@ export default function GarageDashboard() {
         setWallet({
           ...(walletData.wallet || {}),
           balance: walletData.wallet?.balance || 0,
-          transactions: walletData.transactions || wallet?.transactions || [],
+          transactions:
+            walletData.transactions || walletTransactionsRef.current || [],
           activation: walletData.activation,
         })
       );
@@ -139,13 +151,7 @@ export default function GarageDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [
-    garageToken,
-    authLoading,
-    refreshGarage,
-    dispatch,
-    wallet?.transactions,
-  ]);
+  }, [garageToken, authLoading, dispatch]);
 
   useEffect(() => {
     loadDashboard();
