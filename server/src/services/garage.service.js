@@ -231,7 +231,7 @@ const queryGarageDistanceRows = async ({
   const take = Math.max(1, Math.min(Number(limit) || 200, 500));
 
   try {
-    return await prisma.$queryRaw`
+    const distanceQuery = Prisma.sql`
       SELECT
         g."id",
         ST_Distance(${garagePoint}, ${originPoint}) / 1000.0 AS "distanceKm"
@@ -241,6 +241,8 @@ const queryGarageDistanceRows = async ({
       ORDER BY "distanceKm" ASC, g."isVerified" DESC, g."ratingAvg" DESC
       LIMIT ${take}
     `;
+
+    return await prisma.$queryRaw(distanceQuery);
   } catch (error) {
     console.warn("[garage-search] PostGIS distance query fallback:", error.message);
     return null;
