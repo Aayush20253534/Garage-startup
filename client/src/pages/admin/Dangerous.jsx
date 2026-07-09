@@ -12,11 +12,18 @@ import {
   FiZap,
 } from "react-icons/fi";
 
-const targetTypes = [
+const userTargetTypes = [
   { value: "id", label: "User ID" },
   { value: "email", label: "Email" },
   { value: "phone", label: "Phone" },
   { value: "name", label: "Exact name" },
+];
+
+const garageTargetTypes = [
+  { value: "id", label: "Garage ID" },
+  { value: "email", label: "Garage or owner email" },
+  { value: "phone", label: "Garage or owner phone" },
+  { value: "name", label: "Exact garage name" },
 ];
 
 const toneClass = {
@@ -45,6 +52,13 @@ const getDefaultPayload = (command) => {
     return {
       targetType: "email",
       targetValue: "",
+    };
+  }
+
+  if (command.fields?.includes("garageTargetType")) {
+    return {
+      garageTargetType: "id",
+      garageTargetValue: "",
     };
   }
 
@@ -115,6 +129,7 @@ function DangerousCommandCard({ command, onRun, running, result }) {
   const [payload, setPayload] = useState(() => getDefaultPayload(command));
   const classes = toneClass[command.tone] || toneClass.danger;
   const requiresUserTarget = command.fields?.includes("targetType");
+  const requiresGarageTarget = command.fields?.includes("garageTargetType");
   const requiresCustomerEmail = command.fields?.includes("customerEmail");
   const expected = command.confirmation;
   const canRun = confirmation === expected && !running;
@@ -148,7 +163,7 @@ function DangerousCommandCard({ command, onRun, running, result }) {
         </span>
       </div>
 
-      {(requiresUserTarget || requiresCustomerEmail) && (
+      {(requiresUserTarget || requiresGarageTarget || requiresCustomerEmail) && (
         <div className="mt-5 grid gap-3 rounded-xl border border-line bg-bg-soft p-4 md:grid-cols-2">
           {requiresUserTarget && (
             <>
@@ -159,7 +174,7 @@ function DangerousCommandCard({ command, onRun, running, result }) {
                   onChange={(event) => updatePayload("targetType", event.target.value)}
                   className={`${controlClass} mt-2`}
                 >
-                  {targetTypes.map((type) => (
+                  {userTargetTypes.map((type) => (
                     <option key={type.value} value={type.value}>
                       {type.label}
                     </option>
@@ -179,6 +194,39 @@ function DangerousCommandCard({ command, onRun, running, result }) {
 
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700 md:col-span-2">
                 Owned garages are always deleted with this user, including garage bookings, applications, media, and Cloudinary files.
+              </div>
+            </>
+          )}
+
+          {requiresGarageTarget && (
+            <>
+              <label className="block text-sm font-semibold text-ink">
+                Garage target type
+                <select
+                  value={payload.garageTargetType || "id"}
+                  onChange={(event) => updatePayload("garageTargetType", event.target.value)}
+                  className={`${controlClass} mt-2`}
+                >
+                  {garageTargetTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-sm font-semibold text-ink">
+                Garage target value
+                <input
+                  value={payload.garageTargetValue || ""}
+                  onChange={(event) => updatePayload("garageTargetValue", event.target.value)}
+                  className={`${controlClass} mt-2`}
+                  placeholder="Paste the exact garage identifier"
+                />
+              </label>
+
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700 md:col-span-2">
+                This deletes only the matched garage and linked garage records. The owner user account is not deleted.
               </div>
             </>
           )}

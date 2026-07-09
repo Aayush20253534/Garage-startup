@@ -16,6 +16,17 @@ import { requireAvailableCityName } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 
 const hasText = (value) => Boolean(String(value || "").trim());
+const hasOwn = (object, key) =>
+  Object.prototype.hasOwnProperty.call(object || {}, key);
+
+const takeExplicitValue = (next, previous, field, fallback = "") =>
+  hasOwn(next, field) ? (next[field] ?? "") : (previous[field] ?? fallback);
+
+const takeAddressText = (next, previous, fallbackField) => {
+  if (hasOwn(next, "formattedAddress")) return next.formattedAddress ?? "";
+  if (hasOwn(next, "fullAddress")) return next.fullAddress ?? "";
+  return previous[fallbackField] || "";
+};
 
 const getInitialLocation = ({ user, routeLocation }) => {
   const defaultLocation = getDefaultUserLocation(user);
@@ -89,15 +100,13 @@ export default function AddressForm() {
     setForm((previous) => ({
       ...previous,
       ...next,
-      address: next.address || previous.address || "",
-      area: next.area || previous.area || "",
-      city: next.city || "",
-      state: next.state || previous.state || "",
-      pincode: next.pincode || previous.pincode || "",
-      formattedAddress:
-        next.formattedAddress || next.fullAddress || previous.formattedAddress,
-      fullAddress:
-        next.formattedAddress || next.fullAddress || previous.fullAddress,
+      address: takeExplicitValue(next, previous, "address"),
+      area: takeExplicitValue(next, previous, "area"),
+      city: takeExplicitValue(next, previous, "city"),
+      state: takeExplicitValue(next, previous, "state"),
+      pincode: takeExplicitValue(next, previous, "pincode"),
+      formattedAddress: takeAddressText(next, previous, "formattedAddress"),
+      fullAddress: takeAddressText(next, previous, "fullAddress"),
       source: next.source || "MANUAL",
     }));
     setError("");

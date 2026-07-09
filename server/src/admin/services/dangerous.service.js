@@ -45,11 +45,19 @@ const COMMANDS = [
   },
   {
     command: "delete-user-data",
-    label: "Delete one user and every linked record",
+    label: "Delete specific user and linked records",
     description:
       "Deletes a matched user, all customer/owner records, booking data, wallet data, OTP/signup artifacts, cache, and DB-backed Cloudinary media.",
     tone: "danger",
     fields: ["targetType", "targetValue"],
+  },
+  {
+    command: "delete-garage-data",
+    label: "Delete specific garage and linked records",
+    description:
+      "Deletes one matched garage, its bookings, broadcasts, services, wallet, reviews, application records, cache, and DB-backed Cloudinary media. The garage owner user account is not deleted.",
+    tone: "danger",
+    fields: ["garageTargetType", "garageTargetValue"],
   },
   {
     command: "delete-customer-active-bookings",
@@ -177,6 +185,21 @@ const normalizePhoneLoose = (phone) => {
   if (digits.length === 10) return `+91${digits}`;
 
   return `+${digits}`;
+};
+
+const phoneCandidates = (phone) => {
+  const raw = normalizeString(phone);
+  const digits = raw.replace(/\D/g, "");
+  const lastTen = digits.length >= 10 ? digits.slice(-10) : "";
+
+  return unique([
+    raw,
+    digits,
+    digits ? `+${digits}` : "",
+    normalizePhoneLoose(raw),
+    lastTen,
+    lastTen ? `+91${lastTen}` : "",
+  ]);
 };
 
 const asImageAssets = (rows = []) =>
@@ -681,6 +704,107 @@ const findSelectedUsers = async (payload = {}) => {
   return users;
 };
 
+const buildGarageWhereFromPayload = (payload = {}) => {
+  const targetType = normalizeString(payload.garageTargetType || payload.targetType);
+  const targetValue = normalizeString(payload.garageTargetValue || payload.targetValue);
+  const id = normalizeString(payload.garageId || payload.id);
+  const email = normalizeEmail(payload.garageEmail || payload.email);
+  const phone = normalizeString(payload.garagePhone || payload.phone);
+  const name = normalizeString(payload.garageName || payload.name);
+  const OR = [];
+
+  if (id) OR.push({ id });
+  if (email) {
+    OR.push({ email });
+    OR.push({ owner: { is: { email } } });
+  }
+  if (phone) {
+    const phones = phoneCandidates(phone);
+    OR.push({ phone: { in: phones } });
+    OR.push({ whatsappNo: { in: phones } });
+    OR.push({ owner: { is: { phone: { in: phones } } } });
+  }
+  if (name) OR.push({ name });
+
+  if (targetType && targetValue) {
+    if (targetType === "id") OR.push({ id: targetValue });
+    if (targetType === "email") {
+      const normalizedEmail = normalizeEmail(targetValue);
+      OR.push({ email: normalizedEmail });
+      OR.push({ owner: { is: { email: normalizedEmail } } });
+    }
+    if (targetType === "phone") {
+      const phones = phoneCandidates(targetValue);
+      OR.push({ phone: { in: phones } });
+      OR.push({ whatsappNo: { in: phones } });
+      OR.push({ owner: { is: { phone: { in: phones } } } });
+    }
+    if (targetType === "name") OR.push({ name: targetValue });
+  }
+
+  return OR.length ? { OR } : null;
+};
+
+const findSelectedGarage = async (payload = {}) => {
+  const where = buildGarageWhereFromPayload(payload);
+
+  if (!where) {
+    throw new ApiError(400, "Provide a garage id, email, phone, or exact name");
+  }
+
+  const garages = await prisma.garage.findMany({
+    where,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      city: true,
+      area: true,
+      ownerId: true,
+      applicationId: true,
+      createdAt: true,
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
+  if (garages.length === 0) {
+    throw new ApiError(404, "No matching garages found");
+  }
+
+  const explicitId =
+    Boolean(normalizeString(payload.garageId || payload.id)) ||
+    (normalizeString(payload.garageTargetType || payload.targetType) === "id" &&
+      Boolean(normalizeString(payload.garageTargetValue || payload.targetValue)));
+
+  if (garages.length > 1 && !explicitId) {
+    throw new ApiError(
+      400,
+      `Matched ${garages.length} garages. Re-run with target type ID for exactly one garage.`,
+    );
+  }
+
+  if (garages.length > 1) {
+    throw new ApiError(
+      400,
+      `Matched ${garages.length} garages for this ID payload. Check the identifier and try again.`,
+    );
+  }
+
+  return garages[0];
+};
+
 const buildPendingSignupOr = ({ emails = [], phones = [] } = {}) => {
   const OR = [];
   if (emails.length) OR.push({ email: { in: emails } });
@@ -863,6 +987,13 @@ const getApplicationWhereForGarages = async (garageIds = []) => {
   return { OR };
 };
 
+const getApplicationWhereForGarage = (garage = {}) => ({
+  OR: [
+    { approvedGarageId: garage.id },
+    ...(garage.applicationId ? [{ id: garage.applicationId }] : []),
+  ],
+});
+
 const deleteGaragesInTransaction = async (tx, garageIds = [], applicationWhere = null) => {
   const ids = unique(garageIds);
 
@@ -1006,6 +1137,39 @@ const deleteUserData = async ({ payload = {}, requestedById = null } = {}) => {
   });
 
   return {
+    ...result,
+    cloudinary,
+  };
+};
+
+const deleteGarageData = async ({ payload = {}, requestedById = null } = {}) => {
+  const garage = await findSelectedGarage(payload);
+  const garageIds = [garage.id];
+  const applicationWhere = getApplicationWhereForGarage(garage);
+  const cloudinaryAssets = await collectGarageMedia(garageIds, applicationWhere);
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      await tx.systemIssue.updateMany({
+        where: { garageId: garage.id },
+        data: { garageId: null },
+      });
+
+      return deleteGaragesInTransaction(tx, garageIds, applicationWhere);
+    },
+    { timeout: 60000 },
+  );
+
+  await Promise.allSettled([deletePattern("garage:*"), deletePattern("customer:*")]);
+  const cloudinary = await deleteCloudinaryAssets(cloudinaryAssets);
+
+  console.warn("[admin-dangerous] delete-garage-data", {
+    requestedById,
+    garageId: garage.id,
+  });
+
+  return {
+    matchedGarage: garage,
     ...result,
     cloudinary,
   };
@@ -1470,6 +1634,8 @@ const runCommand = async ({ command, confirmation, payload = {}, requestedById =
     result = await resetServiceComingSoon();
   } else if (command === "delete-user-data") {
     result = await deleteUserData({ payload, requestedById });
+  } else if (command === "delete-garage-data") {
+    result = await deleteGarageData({ payload, requestedById });
   } else if (command === "delete-customer-active-bookings") {
     result = await deleteCustomerBookings({ payload, scope: "active" });
   } else if (command === "delete-customer-payments") {
