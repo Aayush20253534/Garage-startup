@@ -39,6 +39,7 @@ export default function LocationPicker({
   const [focused, setFocused] = useState(false);
   const sessionTokenRef = useRef(createSessionToken());
   const selectedTextRef = useRef(getDisplayValue(value));
+  const autocompleteRequestRef = useRef(0);
 
   const coordinate = useMemo(() => {
     const latitude = Number(value.latitude ?? value.lat);
@@ -58,20 +59,33 @@ export default function LocationPicker({
 
   useEffect(() => {
     const next = getDisplayValue(value);
-    if (next && next !== selectedTextRef.current) {
-      selectedTextRef.current = next;
-      setQuery(next);
+
+    if (!next) {
+      selectedTextRef.current = "";
+      setQuery("");
+      return;
     }
-  }, [value.formattedAddress, value.fullAddress, value.address]);
+
+    if (next === query) {
+      return;
+    }
+
+    selectedTextRef.current = next;
+    setQuery(next);
+  }, [value.formattedAddress, value.fullAddress, value.address, query]);
 
   useEffect(() => {
     const clean = query.trim();
     if (!focused || clean.length < 3 || clean === selectedTextRef.current) {
+      autocompleteRequestRef.current += 1;
       setSuggestions([]);
+      setSearching(false);
       return undefined;
     }
 
     const timer = window.setTimeout(async () => {
+      const requestId = autocompleteRequestRef.current + 1;
+      autocompleteRequestRef.current = requestId;
       setSearching(true);
       setError("");
       try {
@@ -81,12 +95,18 @@ export default function LocationPicker({
           latitude: coordinate?.latitude,
           longitude: coordinate?.longitude,
         });
-        setSuggestions(Array.isArray(results) ? results : []);
+        if (autocompleteRequestRef.current === requestId) {
+          setSuggestions(Array.isArray(results) ? results : []);
+        }
       } catch (err) {
-        setSuggestions([]);
-        setError(err.response?.data?.message || err.message || "Address search failed");
+        if (autocompleteRequestRef.current === requestId) {
+          setSuggestions([]);
+          setError(err.response?.data?.message || err.message || "Address search failed");
+        }
       } finally {
-        setSearching(false);
+        if (autocompleteRequestRef.current === requestId) {
+          setSearching(false);
+        }
       }
     }, 350);
 
