@@ -216,9 +216,20 @@ function Dashboard() {
   return (
     <div className="mx-auto max-w-7xl space-y-6 bg-gradient-to-b from-slate-50 via-white to-amber-50/30 px-4 py-8 sm:px-6 lg:px-8">
       {/* Header Section */}
-      <section className="rounded-2xl border border-white/70 bg-white/85 p-5 shadow-sm ring-1 ring-black/[0.02] backdrop-blur">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <section className="relative overflow-hidden rounded-2xl border border-amber-100/80 bg-gradient-to-br from-amber-50/90 via-white to-sky-50/70 p-5 shadow-sm ring-1 ring-black/[0.02] backdrop-blur">
+        <div
+          className="pointer-events-none absolute -right-14 -top-16 h-36 w-36 rounded-full bg-brand/15 blur-3xl"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -bottom-20 left-10 h-40 w-40 rounded-full bg-sky-200/30 blur-3xl"
+          aria-hidden="true"
+        />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
+          <span className="mb-2 inline-flex rounded-full border border-amber-200/70 bg-white/65 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700 shadow-sm">
+            Dashboard
+          </span>
           <h1 className="text-2xl font-bold tracking-tight text-ink">
             Overview
           </h1>
