@@ -211,7 +211,21 @@ export default function GarageDashboard() {
   const activation = garage?.activation || wallet?.activation || {};
   const balance = wallet?.balance || garage?.walletBalance || 0;
 
-  const conversionRate = safeBookings.length
+  const acceptedServices = useMemo(
+    () =>
+      safeBookings.filter((booking) =>
+        ["ACCEPTED", "CONFIRMED", "IN_PROGRESS", "COMPLETED"].includes(
+          booking.status
+        )
+      ),
+    [safeBookings]
+  );
+
+  const acceptanceRate = safeBookings.length
+    ? Math.round((acceptedServices.length / safeBookings.length) * 100)
+    : 0;
+
+  const completionRate = safeBookings.length
     ? Math.round((completedServices.length / safeBookings.length) * 100)
     : 0;
 
@@ -446,23 +460,42 @@ export default function GarageDashboard() {
                 </button>
               </div>
 
-              <div className="mb-5 grid grid-cols-3 gap-2 sm:mb-6 sm:gap-4">
+              <div className="mb-5 grid grid-cols-2 gap-2 sm:mb-6 sm:grid-cols-4 sm:gap-4">
                 <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:p-4">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold leading-4 text-muted sm:text-xs">
                     <FiTrendingUp className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">Conversion</span>
+                    <span className="truncate">Acceptance</span>
                   </p>
                   <p className="mt-2 text-xl font-bold text-ink sm:text-2xl">
-                    {conversionRate}%
+                    {acceptanceRate}%
+                  </p>
+                  <p className="mt-1 text-[10px] leading-4 text-muted sm:text-[11px]">
+                    Accepted, active, or completed
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:p-4">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold leading-4 text-muted sm:text-xs">
+                    <FiCheckCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">Completion</span>
+                  </p>
+                  <p className="mt-2 text-xl font-bold text-ink sm:text-2xl">
+                    {completionRate}%
+                  </p>
+                  <p className="mt-1 text-[10px] leading-4 text-muted sm:text-[11px]">
+                    Completed from total requests
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:p-4">
                   <p className="text-[11px] font-semibold leading-4 text-muted sm:text-xs">
-                    Pending
+                    Open
                   </p>
                   <p className="mt-2 text-xl font-bold text-ink sm:text-2xl">
                     {activeBookings.length}
+                  </p>
+                  <p className="mt-1 text-[10px] leading-4 text-muted sm:text-[11px]">
+                    Pending or in progress
                   </p>
                 </div>
 
@@ -476,6 +509,9 @@ export default function GarageDashboard() {
                       {" "}
                       / 5
                     </span>
+                  </p>
+                  <p className="mt-1 text-[10px] leading-4 text-muted sm:text-[11px]">
+                    Verified reviews
                   </p>
                 </div>
               </div>
