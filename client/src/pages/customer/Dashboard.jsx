@@ -16,7 +16,7 @@ import {
   FiRefreshCcw,
   FiTruck,
   FiCreditCard,
-  FiAlertCircle,
+  FiAlertCircle
 } from "react-icons/fi";
 
 const activeStatuses = [
@@ -160,27 +160,18 @@ function Dashboard() {
       label: "Active Bookings",
       number: activeBookingsCount,
       sub: "Current service requests",
-      tone: "bg-sky-50/80 border-sky-100",
-      iconTone: "bg-sky-100 text-sky-700",
-      accent: "bg-sky-400",
     },
     {
       icon: FiClock,
       label: "Pending Payments",
       number: pendingBookingsCount,
       sub: "Awaiting checkout",
-      tone: "bg-amber-50/80 border-amber-100",
-      iconTone: "bg-amber-100 text-amber-700",
-      accent: "bg-amber-400",
     },
     {
       icon: FiCheckCircle,
       label: "Completed",
       number: completedCount,
       sub: "Historical services",
-      tone: "bg-emerald-50/80 border-emerald-100",
-      iconTone: "bg-emerald-100 text-emerald-700",
-      accent: "bg-emerald-400",
     },
     {
       icon: FiTruck,
@@ -191,9 +182,6 @@ function Dashboard() {
           ? `${vehicle.brand} ${vehicle.model}`
           : "Manage vehicles"
         : "No vehicles added",
-      tone: "bg-indigo-50/80 border-indigo-100",
-      iconTone: "bg-indigo-100 text-indigo-700",
-      accent: "bg-indigo-400",
     },
   ];
 
@@ -214,26 +202,14 @@ function Dashboard() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 bg-gradient-to-b from-slate-50 via-white to-amber-50/30 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       {/* Header Section */}
-      <section className="relative overflow-hidden rounded-2xl border border-amber-100/80 bg-gradient-to-br from-amber-50/90 via-white to-sky-50/70 p-5 shadow-sm ring-1 ring-black/[0.02] backdrop-blur">
-        <div
-          className="pointer-events-none absolute -right-14 -top-16 h-36 w-36 rounded-full bg-brand/15 blur-3xl"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute -bottom-20 left-10 h-40 w-40 rounded-full bg-sky-200/30 blur-3xl"
-          aria-hidden="true"
-        />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-black/5 pb-6">
         <div>
-          <span className="mb-2 inline-flex rounded-full border border-amber-200/70 bg-white/65 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700 shadow-sm">
-            Dashboard
-          </span>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">
+          <h1 className="text-2xl font-bold text-ink">
             Overview
           </h1>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
+          <p className="mt-1 text-sm text-muted">
             Welcome back, {user?.name || "User"}. Here's what's happening with your vehicles today.
           </p>
         </div>
@@ -242,7 +218,7 @@ function Dashboard() {
           {pendingBookingsCount > 0 && (
             <Link
               to="/dashboard/pending-bookings"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-medium text-red-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-red-100"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-red-50 px-4 text-sm font-medium text-red-700 transition hover:bg-red-100 border border-red-200"
             >
               <FiAlertCircle />
               Pay Pending
@@ -251,7 +227,7 @@ function Dashboard() {
 
           <Link
             to="/dashboard/payments"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-ink shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-black/10 bg-white px-4 text-sm font-medium text-ink transition hover:bg-gray-50 shadow-sm"
           >
             <FiCreditCard />
             Wallet: {formatRupees(wallet?.balance || 0)}
@@ -259,7 +235,7 @@ function Dashboard() {
 
           <Link
             to={hasVehicles ? "/booking/vehicle" : "/booking/vehicle"}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:brightness-95"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-brand px-4 text-sm font-medium text-black shadow-sm transition hover:brightness-95"
           >
             {hasVehicles ? "Book Service" : "Add Vehicle"}
           </Link>
@@ -268,29 +244,28 @@ function Dashboard() {
             type="button"
             disabled={loading}
             onClick={() => loadDashboard({ force: true })}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-ink shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-black/10 bg-white text-ink shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Refresh dashboard"
           >
             <FiRefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
-        </div>
       </section>
 
       {/* Alert / Setup Banner */}
       {!hasVehicles && (
-        <section className="flex flex-col gap-4 rounded-2xl border border-brand/25 bg-gradient-to-r from-brand/10 via-white to-amber-50 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <section className="flex flex-col gap-4 rounded-md border border-brand/30 bg-brand/5 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-ink">
               Vehicle setup required
             </h3>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
+            <p className="mt-1 text-sm text-muted">
               Add your vehicle once to unlock service bookings and maintenance tracking.
             </p>
           </div>
           <Link
             to="/booking/vehicle"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:brightness-95"
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-brand px-4 text-sm font-medium text-black shadow-sm transition hover:brightness-95"
           >
             <FiPlusCircle />
             Add Vehicle
@@ -305,29 +280,15 @@ function Dashboard() {
           return (
             <div
               key={item.label}
-              className={`group relative overflow-hidden rounded-2xl border ${item.tone} p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
+              className="card-soft flex flex-col justify-between rounded-lg border border-black/5 p-5 shadow-sm"
             >
-              <div
-                className={`absolute inset-x-0 top-0 h-1 ${item.accent}`}
-                aria-hidden="true"
-              />
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <span className="text-sm font-medium text-slate-600">
-                    {item.label}
-                  </span>
-                  <div className="mt-3 text-3xl font-bold tracking-tight text-ink">
-                    {item.number}
-                  </div>
-                </div>
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${item.iconTone} shadow-sm transition-transform group-hover:scale-105`}
-                >
-                  <Icon className="h-5 w-5" />
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted">{item.label}</span>
+                <Icon className="h-4 w-4 text-muted" />
               </div>
-              <div className="mt-3 truncate text-xs font-medium text-slate-500">
-                {item.sub}
+              <div className="mt-4">
+                <div className="text-2xl font-bold text-ink">{item.number}</div>
+                <div className="mt-1 truncate text-xs text-muted">{item.sub}</div>
               </div>
             </div>
           );
@@ -338,9 +299,9 @@ function Dashboard() {
       <section className="grid gap-6 lg:grid-cols-3">
         
         {/* Active Service Column */}
-        <div className="space-y-4 lg:col-span-2">
-          <div className="rounded-2xl border border-white/70 bg-white/90 p-5 shadow-sm ring-1 ring-black/[0.02]">
-            <div className="mb-5 flex items-center justify-between gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="card-soft rounded-lg border border-black/5 p-5 shadow-sm">
+            <div className="mb-5 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-semibold text-ink">Active Service</h3>
                 <p className="text-sm text-muted">Track your current booking progress</p>
@@ -349,7 +310,7 @@ function Dashboard() {
                 <Link
                   to="/tracking"
                   state={{ bookingId: activeBooking.id }}
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-brand-dark transition hover:bg-brand/10"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-brand-dark hover:underline"
                 >
                   View Details <FiArrowRight className="h-4 w-4" />
                 </Link>
@@ -357,10 +318,10 @@ function Dashboard() {
             </div>
 
             {activeBooking ? (
-              <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-white to-slate-50/80 p-4 shadow-sm">
+              <div className="rounded-md border border-black/5 bg-white p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand-dark shadow-sm">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand/10 text-brand-dark">
                       <FiTruck className="h-5 w-5" />
                     </div>
                     <div>
@@ -378,7 +339,7 @@ function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-ink shadow-sm">
+                  <span className="inline-flex items-center rounded-full bg-black/5 px-2.5 py-1 text-xs font-medium text-ink">
                     {activeBooking.status?.replaceAll("_", " ")}
                   </span>
                 </div>
@@ -388,17 +349,17 @@ function Dashboard() {
                     <span>Progress</span>
                     <span>{getProgress(activeBooking.status)}</span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5">
                     <div
-                      className="h-full rounded-full bg-brand transition-all duration-500 ease-in-out"
+                      className="h-full bg-brand transition-all duration-500 ease-in-out"
                       style={{ width: getProgress(activeBooking.status) }}
                     />
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="flex h-32 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-4 text-center">
-                <p className="text-sm font-semibold text-ink">No active services</p>
+              <div className="flex h-32 flex-col items-center justify-center rounded-md border border-dashed border-black/15 bg-black/5 p-4 text-center">
+                <p className="text-sm font-medium text-ink">No active services</p>
                 <p className="mt-1 text-xs text-muted">
                   {hasVehicles
                     ? "Your vehicles are currently up to date."
@@ -411,7 +372,7 @@ function Dashboard() {
 
         {/* Quick Actions / Activity Sidebar */}
         <div className="space-y-4">
-          <div className="flex h-full max-h-[400px] flex-col rounded-2xl border border-white/70 bg-white/90 p-5 shadow-sm ring-1 ring-black/[0.02]">
+          <div className="card-soft rounded-lg border border-black/5 p-5 shadow-sm h-full max-h-[400px] flex flex-col">
             <div className="mb-4">
               <h3 className="text-base font-semibold text-ink">Activity & Shortcuts</h3>
               <p className="text-sm text-muted">Recent events and quick links</p>
@@ -424,9 +385,9 @@ function Dashboard() {
                       <li key={activity.id}>
                         <Link
                           to={activity.path || "/dashboard"}
-                          className="group flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50"
+                          className="group flex items-start gap-3 rounded-md p-2 hover:bg-black/5 transition-colors"
                         >
-                          <FiCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted transition-colors group-hover:text-brand-dark" />
+                          <FiCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted group-hover:text-ink transition-colors" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-ink truncate">
                               {activity.title}
@@ -445,9 +406,9 @@ function Dashboard() {
                       <li key={name}>
                         <Link
                           to={to}
-                          className="group flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50"
+                          className="group flex items-start gap-3 rounded-md p-2 hover:bg-black/5 transition-colors"
                         >
-                          <FiArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-muted transition-colors group-hover:text-brand-dark" />
+                          <FiArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-muted group-hover:text-ink transition-colors" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-ink">{name}</p>
                             <p className="text-xs text-muted">{desc}</p>
