@@ -39,6 +39,11 @@ const SOCIAL_LINKS = [
     label: "Rovauto on Facebook",
     href: "https://www.facebook.com/share/18AVZ22uvY/",
   },
+  {
+    Icon: FiLinkedin,
+    label: "Rovauto on Linkedin",
+    href: "https://www.linkedin.com/company/rovauto",
+  },
 ];
 
 const SERVICE_FOOTER_LINKS = [
