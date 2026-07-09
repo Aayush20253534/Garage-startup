@@ -1,8 +1,10 @@
 const prisma = require("../config/prisma");
 const ApiError = require("../utils/apiError");
+const { getCache, setCache, deletePattern } = require("../utils/cache");
 
 const UNAVAILABLE_CITY_MESSAGE =
   "Sorry, the service isn't available in your region.";
+const CITY_CACHE_TTL_SECONDS = Number(process.env.CITY_CACHE_TTL_SECONDS || 10 * 60);
 
 const normalizeName = (value) => String(value || "").trim().replace(/\s+/g, " ");
 const normalizeKey = (value) =>
@@ -13,6 +15,17 @@ const normalizeKey = (value) =>
     .trim();
 
 const compact = (values = []) => values.map(normalizeName).filter(Boolean);
+
+const getCityListCacheKey = (includeInactive) =>
+  `cities:list:${includeInactive ? "all" : "active"}`;
+
+const invalidateCityCache = async () => {
+  await Promise.allSettled([
+    deletePattern("cities:*"),
+    deletePattern("services:*"),
+    deletePattern("price-ranges:*"),
+  ]);
+};
 
 const getComponentText = (component = {}) =>
   component.longText ||
@@ -75,10 +88,17 @@ const getLocationCityCandidates = (locationOrCity = {}) => {
 };
 
 const listCities = async ({ includeInactive = false } = {}) => {
-  return prisma.city.findMany({
+  const cacheKey = getCityListCacheKey(includeInactive);
+  const cached = await getCache(cacheKey);
+  if (cached) return cached;
+
+  const cities = await prisma.city.findMany({
     where: includeInactive ? {} : { isActive: true },
     orderBy: [{ name: "asc" }],
   });
+
+  await setCache(cacheKey, cities, CITY_CACHE_TTL_SECONDS);
+  return cities;
 };
 
 const findActiveCityFromLocation = async (locationOrCity) => {
@@ -130,7 +150,7 @@ const createCity = async ({ name, state = "" }) => {
   const existing = await prisma.city.findUnique({ where: { normalizedName } });
   if (existing) throw new ApiError(409, "City already exists");
 
-  return prisma.city.create({
+  const city = await prisma.city.create({
     data: {
       name: cityName,
       normalizedName,
@@ -138,6 +158,9 @@ const createCity = async ({ name, state = "" }) => {
       isActive: true,
     },
   });
+
+  await invalidateCityCache();
+  return city;
 };
 
 const updateCity = async (cityId, payload = {}) => {
@@ -153,7 +176,7 @@ const updateCity = async (cityId, payload = {}) => {
     if (duplicate) throw new ApiError(409, "City already exists");
   }
 
-  return prisma.city.update({
+  const city = await prisma.city.update({
     where: { id: cityId },
     data: {
       name: cityName,
@@ -162,12 +185,16 @@ const updateCity = async (cityId, payload = {}) => {
       ...(payload.isActive !== undefined && { isActive: payload.isActive === true || payload.isActive === "true" }),
     },
   });
+
+  await invalidateCityCache();
+  return city;
 };
 
 module.exports = {
   createCity,
   ensureAddressContainsCity,
   findActiveCityFromLocation,
+  invalidateCityCache,
   listCities,
   normalizeKey,
   normalizeName,

@@ -38,11 +38,11 @@ const getCache = async (key) => {
     const cached = await withTimeout(redis.get(key));
 
     if (!cached) {
-      console.log(`❌ Cache Miss: ${key}`);
+      console.log(`[cache] miss: ${key}`);
       return null;
     }
 
-    console.log(`✅ Cache Hit: ${key}`);
+    console.log(`[cache] hit: ${key}`);
     return JSON.parse(cached);
   } catch (error) {
     console.error(`Redis get failed for ${key}:`, error.message);
@@ -57,7 +57,7 @@ const setCache = async (key, data, ttlSeconds = 60) => {
 
     await withTimeout(redis.set(key, JSON.stringify(data), "EX", ttlSeconds));
 
-    console.log(`💾 Cache Set: ${key}`);
+    console.log(`[cache] set: ${key}`);
     return true;
   } catch (error) {
     console.error(`Redis set failed for ${key}:`, error.message);
@@ -72,7 +72,7 @@ const deleteCache = async (key) => {
 
     await withTimeout(redis.del(key));
 
-    console.log(`🧹 Cache Deleted: ${key}`);
+    console.log(`[cache] deleted: ${key}`);
     return true;
   } catch (error) {
     console.error(`Redis delete failed for ${key}:`, error.message);
@@ -95,13 +95,13 @@ const deletePattern = async (pattern) => {
     } while (cursor !== "0");
 
     if (keys.length === 0) {
-      console.log(`🧹 No cache keys found for pattern: ${pattern}`);
+      console.log(`[cache] no keys for pattern: ${pattern}`);
       return true;
     }
 
     await withTimeout(redis.del(...keys));
 
-    console.log(`🧹 Cache Deleted Pattern: ${pattern} (${keys.length} keys)`);
+    console.log(`[cache] deleted pattern: ${pattern} (${keys.length} keys)`);
     return true;
   } catch (error) {
     console.error(`Redis pattern delete failed for ${pattern}:`, error.message);

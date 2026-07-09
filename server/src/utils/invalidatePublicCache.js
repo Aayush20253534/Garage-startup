@@ -5,6 +5,8 @@ const invalidatePublicCache = async () => {
     deletePattern("services:*"),
     deletePattern("vehicle-meta:*"),
     deletePattern("garages:*"),
+    deletePattern("cities:*"),
+    deletePattern("price-ranges:*"),
   ]);
 };
 

@@ -36,7 +36,10 @@ const categoryInclude = {
 };
 
 const invalidateServiceCache = async () => {
-  await deletePattern("services:*");
+  await Promise.allSettled([
+    deletePattern("services:*"),
+    deletePattern("price-ranges:*"),
+  ]);
 };
 
 const listCategories = async (query = {}) => {

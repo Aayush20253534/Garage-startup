@@ -2,7 +2,7 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const generateBookingCode = require("../../utils/bookingCode");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
-const { deletePattern } = require("../../utils/cache");
+const { getCache, setCache, deletePattern } = require("../../utils/cache");
 const {
   addGarageWhatsappLink,
   createWhatsappLink,
@@ -51,6 +51,10 @@ const bookingInclude = {
     orderBy: [{ phase: "asc" }, { order: "asc" }],
   },
 };
+
+const BOOKING_READ_CACHE_TTL_SECONDS = Number(
+  process.env.BOOKING_READ_CACHE_TTL_SECONDS || 60,
+);
 
 const ALLOWED_BOOKING_STATUSES = [
   "PENDING_PAYMENT",
@@ -129,6 +133,15 @@ const invalidateBookingCaches = async (userId) => {
     invalidateCustomerCache(userId),
   ]);
 };
+
+const getBookingListCacheKey = (userId, statuses = []) =>
+  `customer:${userId}:bookings:list:${statuses.join(",") || "all"}`;
+
+const getBookingDetailCacheKey = (userId, bookingId) =>
+  `customer:${userId}:booking:${bookingId}`;
+
+const getServiceHistoryCacheKey = (userId) =>
+  `customer:${userId}:bookings:history`;
 
 const createBooking = async (userId, data) => {
   const {
@@ -319,6 +332,10 @@ const getMyBookings = async (userId, query = {}) => {
         : { status: statuses[0] };
   }
 
+  const cacheKey = getBookingListCacheKey(userId, statuses);
+  const cached = await getCache(cacheKey);
+  if (cached) return cached;
+
   const bookings = await prisma.booking.findMany({
     where: {
       userId,
@@ -328,6 +345,7 @@ const getMyBookings = async (userId, query = {}) => {
     orderBy: { createdAt: "desc" },
   });
 
+  await setCache(cacheKey, bookings, BOOKING_READ_CACHE_TTL_SECONDS);
   return bookings;
 };
 
@@ -378,6 +396,10 @@ const getBookingById = async (userId, bookingId) => {
     await garageRequestService.ensureBookingSearchActive(bookingId);
   }
 
+  const cacheKey = getBookingDetailCacheKey(userId, bookingId);
+  const cached = await getCache(cacheKey);
+  if (cached) return cached;
+
   const booking = await prisma.booking.findFirst({
     where: {
       id: bookingId,
@@ -390,6 +412,7 @@ const getBookingById = async (userId, bookingId) => {
     throw new ApiError(404, "Booking not found");
   }
 
+  await setCache(cacheKey, booking, BOOKING_READ_CACHE_TTL_SECONDS);
   return booking;
 };
 
@@ -449,7 +472,11 @@ const regenerateHandoverOtp = async (userId, bookingId) => {
 };
 
 const getServiceHistory = async (userId) => {
-  return prisma.booking.findMany({
+  const cacheKey = getServiceHistoryCacheKey(userId);
+  const cached = await getCache(cacheKey);
+  if (cached) return cached;
+
+  const bookings = await prisma.booking.findMany({
     where: {
       userId,
       status: "COMPLETED",
@@ -458,6 +485,9 @@ const getServiceHistory = async (userId) => {
     include: bookingInclude,
     orderBy: { customerAcceptedAt: "desc" },
   });
+
+  await setCache(cacheKey, bookings, BOOKING_READ_CACHE_TTL_SECONDS);
+  return bookings;
 };
 
 const getRefundAmountForCancelledBooking = (booking) => {

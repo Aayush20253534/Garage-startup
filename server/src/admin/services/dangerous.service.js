@@ -1127,7 +1127,7 @@ const deleteUserData = async ({ payload = {}, requestedById = null } = {}) => {
     { timeout: 60000 },
   );
 
-  await Promise.allSettled([deletePattern("customer:*"), deletePattern("garage:*")]);
+  await Promise.allSettled([deletePattern("customer:*"), deletePattern("garages:*")]);
   const cloudinary = await deleteCloudinaryAssets(cloudinaryAssets);
 
   console.warn("[admin-dangerous] delete-user-data", {
@@ -1160,7 +1160,7 @@ const deleteGarageData = async ({ payload = {}, requestedById = null } = {}) => 
     { timeout: 60000 },
   );
 
-  await Promise.allSettled([deletePattern("garage:*"), deletePattern("customer:*")]);
+  await Promise.allSettled([deletePattern("garages:*"), deletePattern("customer:*")]);
   const cloudinary = await deleteCloudinaryAssets(cloudinaryAssets);
 
   console.warn("[admin-dangerous] delete-garage-data", {
@@ -1313,7 +1313,7 @@ const deleteAllBookings = async () => {
     { timeout: 60000 },
   );
 
-  await Promise.allSettled([deletePattern("customer:*"), deletePattern("garage:*")]);
+  await Promise.allSettled([deletePattern("customer:*"), deletePattern("garages:*")]);
   const cloudinary = await deleteCloudinaryAssets(asImageAssets(imageRecords));
 
   return {
@@ -1351,7 +1351,7 @@ const deleteAllPayments = async () => {
     };
   });
 
-  await Promise.allSettled([deletePattern("customer:*"), deletePattern("garage:*")]);
+  await Promise.allSettled([deletePattern("customer:*"), deletePattern("garages:*")]);
   return result;
 };
 
@@ -1374,7 +1374,7 @@ const deleteAllGarages = async () => {
     { timeout: 60000 },
   );
 
-  await Promise.allSettled([deletePattern("garage:*"), deletePattern("customer:*")]);
+  await Promise.allSettled([deletePattern("garages:*"), deletePattern("customer:*")]);
   const cloudinary = await deleteCloudinaryAssets(cloudinaryAssets);
 
   return {
@@ -1431,7 +1431,11 @@ const deleteAllServices = async () => {
     };
   });
 
-  await Promise.allSettled([deletePattern("services:*"), deletePattern("garage:*")]);
+  await Promise.allSettled([
+    deletePattern("services:*"),
+    deletePattern("garages:*"),
+    deletePattern("price-ranges:*"),
+  ]);
   const cloudinary = await deleteCloudinaryAssets(cloudinaryAssets);
 
   return {
@@ -1443,6 +1447,8 @@ const deleteAllServices = async () => {
 const deleteAllVehicleMetadata = async () => {
   const deletedBrands = await prisma.vehicleBrand.deleteMany();
 
+  await Promise.allSettled([deletePattern("vehicle-meta:*")]);
+
   return {
     deletedVehicleBrands: deletedBrands.count,
   };
@@ -1451,7 +1457,12 @@ const deleteAllVehicleMetadata = async () => {
 const deleteAllCities = async () => {
   const deleted = await prisma.city.deleteMany();
 
-  await Promise.allSettled([deletePattern("public:*"), deletePattern("cities:*")]);
+  await Promise.allSettled([
+    deletePattern("public:*"),
+    deletePattern("cities:*"),
+    deletePattern("services:*"),
+    deletePattern("price-ranges:*"),
+  ]);
 
   return {
     deletedCities: deleted.count,
@@ -1546,7 +1557,7 @@ const nukeUsers = async () => {
     { timeout: 60000 },
   );
 
-  await Promise.allSettled([deletePattern("customer:*"), deletePattern("garage:*")]);
+  await Promise.allSettled([deletePattern("customer:*"), deletePattern("garages:*")]);
   const cloudinary = await deleteCloudinaryAssets(cloudinaryAssets);
 
   return {
@@ -1603,10 +1614,12 @@ const nukePlatform = async () => {
 
   await Promise.allSettled([
     deletePattern("customer:*"),
-    deletePattern("garage:*"),
+    deletePattern("garages:*"),
     deletePattern("public:*"),
     deletePattern("services:*"),
     deletePattern("cities:*"),
+    deletePattern("vehicle-meta:*"),
+    deletePattern("price-ranges:*"),
   ]);
   const cloudinary = await deleteCloudinaryAssets(cloudinaryAssets);
 

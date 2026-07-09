@@ -962,6 +962,8 @@ const createPaymentOrder = async (userId, { bookingId, useWallet = false }) => {
     });
   });
 
+  await invalidatePaymentBookingCaches(userId);
+
   return {
     payment,
     walletAmountUsed,

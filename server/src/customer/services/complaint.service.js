@@ -1,6 +1,20 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
+const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
+const { deletePattern } = require("../../utils/cache");
 const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
+
+const invalidateComplaintBookingCaches = async (userId, bookingId) => {
+  if (!userId) return;
+
+  await Promise.allSettled([
+    deletePattern(`customer:${userId}:bookings:*`),
+    bookingId
+      ? deletePattern(`customer:${userId}:booking:${bookingId}*`)
+      : deletePattern(`customer:${userId}:booking:*`),
+    invalidateCustomerCache(userId),
+  ]);
+};
 
 const createComplaint = async (userId, data, files = []) => {
   if (!files || files.length < 1) {
@@ -76,6 +90,7 @@ const createComplaint = async (userId, data, files = []) => {
     },
   });
 
+  await invalidateComplaintBookingCaches(userId, data.bookingId);
   return complaint;
 };
 

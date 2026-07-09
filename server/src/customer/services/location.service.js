@@ -2,6 +2,11 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const cityService = require("../../services/city.service");
+const { getCache, setCache, deleteCache } = require("../../utils/cache");
+
+const LOCATIONS_CACHE_TTL_SECONDS = Number(
+  process.env.LOCATIONS_CACHE_TTL_SECONDS || 5 * 60,
+);
 
 const SERVICE_AREA_BOUNDS = [
   { minLatitude: 26, maxLatitude: 31, minLongitude: 80, maxLongitude: 89 },
@@ -75,6 +80,15 @@ const syncDefaultLocationToProfile = async (tx, userId, address) => {
   });
 };
 
+const getLocationsCacheKey = (userId) => `customer:${userId}:locations`;
+
+const invalidateLocationCaches = async (userId) => {
+  await Promise.allSettled([
+    deleteCache(getLocationsCacheKey(userId)),
+    invalidateCustomerCache(userId),
+  ]);
+};
+
 const createLocation = async (userId, data) => {
   const coordinates = normalizeAndValidateCoordinates(data);
   const normalizedAddress = await normalizeLocationAddress(data);
@@ -114,19 +128,22 @@ const createLocation = async (userId, data) => {
     return location;
   });
 
-  if (shouldBeDefault) {
-    await invalidateCustomerCache(userId);
-  }
+  await invalidateLocationCaches(userId);
 
   return result;
 };
 
 const getMyLocations = async (userId) => {
+  const cacheKey = getLocationsCacheKey(userId);
+  const cached = await getCache(cacheKey);
+  if (cached) return cached;
+
   const locations = await prisma.customerLocation.findMany({
     where: { userId },
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
   });
 
+  await setCache(cacheKey, locations, LOCATIONS_CACHE_TTL_SECONDS);
   return locations;
 };
 
@@ -209,9 +226,7 @@ const updateLocation = async (userId, locationId, data) => {
     return updatedLocation;
   });
 
-  if ((result.isDefault || shouldBeDefault) && normalizedAddress) {
-    await invalidateCustomerCache(userId);
-  }
+  await invalidateLocationCaches(userId);
 
   return result;
 };
@@ -250,9 +265,7 @@ const deleteLocation = async (userId, locationId) => {
     }
   });
 
-  if (location.isDefault) {
-    await invalidateCustomerCache(userId);
-  }
+  await invalidateLocationCaches(userId);
 
   return {
     deleted: true,
@@ -287,7 +300,7 @@ const setDefaultLocation = async (userId, locationId) => {
     return updatedLocation;
   });
 
-  await invalidateCustomerCache(userId);
+  await invalidateLocationCaches(userId);
 
   return result;
 };
@@ -295,6 +308,7 @@ const setDefaultLocation = async (userId, locationId) => {
 module.exports = {
   createLocation,
   getMyLocations,
+  invalidateLocationCaches,
   getLocationById,
   updateLocation,
   deleteLocation,

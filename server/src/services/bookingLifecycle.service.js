@@ -2,6 +2,8 @@ const crypto = require("crypto");
 
 const prisma = require("../config/prisma");
 const ApiError = require("../utils/apiError");
+const invalidateCustomerCache = require("../utils/invalidateCustomerCache");
+const { deletePattern } = require("../utils/cache");
 const BOOKING_STATUS = require("../constants/bookingStatus");
 const BROADCAST_STATUS = require("../constants/broadcastStatus");
 const notificationService = require("../customer/services/notification.service");
@@ -18,6 +20,18 @@ const DEFAULT_HANDOVER_OTP_RESEND_COOLDOWN_SECONDS = 60;
 const REQUIRED_INSPECTION_PHOTO_COUNT = REQUIRED_BOOKING_INSPECTION_IMAGES;
 const MAX_INSPECTION_PHOTO_SIZE_BYTES = 1024 * 1024;
 const INSPECTION_IMAGE_FOLDER = "project-x/bookings/inspection-images";
+
+const invalidateBookingReadCaches = async (userId, bookingId) => {
+  if (!userId) return;
+
+  await Promise.allSettled([
+    invalidateCustomerCache(userId),
+    deletePattern(`customer:${userId}:bookings:*`),
+    bookingId
+      ? deletePattern(`customer:${userId}:booking:${bookingId}*`)
+      : deletePattern(`customer:${userId}:booking:*`),
+  ]);
+};
 
 const getGarageSearchTimeoutMs = () => {
   const seconds = Number(
@@ -191,7 +205,7 @@ const expireBookingSearch = async (bookingId) => {
     return booking;
   }
 
-  return prisma.$transaction(async (tx) => {
+  const updatedBooking = await prisma.$transaction(async (tx) => {
     await tx.garageBroadcastRequest.updateMany({
       where: {
         bookingId,
@@ -212,6 +226,9 @@ const expireBookingSearch = async (bookingId) => {
       },
     });
   });
+
+  await invalidateBookingReadCaches(booking.userId, booking.id);
+  return updatedBooking;
 };
 
 const expireStaleGarageSearchesForUser = async (userId) => {
@@ -452,6 +469,8 @@ const verifyBookingHandoverOtp = async ({
     include: bookingDetailInclude,
   });
 
+  await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
+
   return { request, booking: updatedBooking };
 };
 
@@ -533,6 +552,8 @@ const markBookingDeliveredByGarage = async ({
       booking: updatedBooking,
     }),
   ]);
+
+  await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
 
   return { request, booking: updatedBooking };
 };

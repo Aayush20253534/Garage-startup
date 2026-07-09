@@ -1,6 +1,11 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
-const { deleteCache, deletePattern } = require("../../utils/cache");
+const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
+const { getCache, setCache, deleteCache, deletePattern } = require("../../utils/cache");
+
+const REVIEW_CACHE_TTL_SECONDS = Number(
+  process.env.REVIEW_CACHE_TTL_SECONDS || 5 * 60,
+);
 
 const invalidateGarageReviewCaches = async (garageId) => {
   if (!garageId) return;
@@ -8,6 +13,21 @@ const invalidateGarageReviewCaches = async (garageId) => {
   await Promise.allSettled([
     deleteCache(`garages:detail:${garageId}`),
     deletePattern("garages:list:*"),
+  ]);
+};
+
+const getMyReviewsCacheKey = (userId) => `customer:${userId}:reviews:list`;
+
+const invalidateCustomerReviewCaches = async (userId, bookingId) => {
+  if (!userId) return;
+
+  await Promise.allSettled([
+    deleteCache(getMyReviewsCacheKey(userId)),
+    deletePattern(`customer:${userId}:bookings:*`),
+    bookingId
+      ? deletePattern(`customer:${userId}:booking:${bookingId}*`)
+      : deletePattern(`customer:${userId}:booking:*`),
+    invalidateCustomerCache(userId),
   ]);
 };
 
@@ -66,12 +86,19 @@ const createReview = async (userId, data) => {
     return createdReview;
   });
 
-  await invalidateGarageReviewCaches(booking.garageId);
+  await Promise.allSettled([
+    invalidateGarageReviewCaches(booking.garageId),
+    invalidateCustomerReviewCaches(userId, booking.id),
+  ]);
   return review;
 };
 
 const getMyReviews = async (userId) => {
-  return prisma.review.findMany({
+  const cacheKey = getMyReviewsCacheKey(userId);
+  const cached = await getCache(cacheKey);
+  if (cached) return cached;
+
+  const reviews = await prisma.review.findMany({
     where: { userId },
     include: {
       garage: true,
@@ -79,6 +106,9 @@ const getMyReviews = async (userId) => {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  await setCache(cacheKey, reviews, REVIEW_CACHE_TTL_SECONDS);
+  return reviews;
 };
 
 const updateReview = async (userId, reviewId, data) => {
@@ -123,7 +153,10 @@ const updateReview = async (userId, reviewId, data) => {
     return updated;
   });
 
-  await invalidateGarageReviewCaches(review.garageId);
+  await Promise.allSettled([
+    invalidateGarageReviewCaches(review.garageId),
+    invalidateCustomerReviewCaches(userId, review.bookingId),
+  ]);
   return updatedReview;
 };
 
@@ -159,7 +192,10 @@ const deleteReview = async (userId, reviewId) => {
     });
   });
 
-  await invalidateGarageReviewCaches(review.garageId);
+  await Promise.allSettled([
+    invalidateGarageReviewCaches(review.garageId),
+    invalidateCustomerReviewCaches(userId, review.bookingId),
+  ]);
   return { deleted: true };
 };
 
