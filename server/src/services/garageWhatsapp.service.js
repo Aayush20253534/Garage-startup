@@ -1,5 +1,9 @@
 const axios = require("axios");
-const { createWhatsappLink, normalizeWhatsappNumber } = require("../utils/whatsapp");
+const {
+  createWhatsappLink,
+  getDefaultCountryCode,
+  normalizeWhatsappNumber,
+} = require("../utils/whatsapp");
 
 const looksLikeMetaToken = (value) => /^EA[A-Za-z0-9_-]+/.test(String(value || ""));
 const looksLikePhoneNumberId = (value) => /^\d{8,}$/.test(String(value || ""));
@@ -31,6 +35,45 @@ const getWhatsappProviderUrl = () => {
 const isMetaCloudApiUrl = (url) => /graph\.facebook\.com\/.+\/messages/i.test(String(url || ""));
 const isWhatsappConfigured = () => Boolean(getWhatsappProviderUrl() && getWhatsappAccessToken());
 
+const WHATSAPP_LOG_PREFIX = "[whatsapp]";
+
+const shouldLogWhatsapp = () => {
+  const value = String(process.env.WHATSAPP_DEBUG_LOGS || "true").toLowerCase();
+  return !["0", "false", "off", "no"].includes(value);
+};
+
+const maskPhone = (phone) => {
+  const value = String(phone || "");
+  if (value.length <= 4) return value || "missing";
+  return `${"*".repeat(Math.max(0, value.length - 4))}${value.slice(-4)}`;
+};
+
+const sanitizeProviderUrl = (url) => {
+  const value = String(url || "");
+  if (!value) return "missing";
+  return value.replace(/access_token=[^&]+/i, "access_token=<redacted>");
+};
+
+const summarizeProviderResponse = (data) => {
+  if (!data || typeof data !== "object") return data || null;
+
+  return {
+    messaging_product: data.messaging_product,
+    messageId: data.messages?.[0]?.id,
+    contactWaId: data.contacts?.[0]?.wa_id,
+    errorCode: data.error?.code,
+    errorType: data.error?.type,
+    errorMessage: data.error?.message,
+  };
+};
+
+const logWhatsapp = (level, event, details = {}) => {
+  if (!shouldLogWhatsapp() || process.env.NODE_ENV === "test") return;
+
+  const logger = console[level] || console.log;
+  logger(`${WHATSAPP_LOG_PREFIX} ${event}`, details);
+};
+
 const getFrontendBaseUrl = () => (process.env.FRONTEND_URL || process.env.CLIENT_URL || "https://www.rovauto.com").replace(/\/+$/, "");
 
 const getGarageAcceptUrl = (requestId) => {
@@ -43,20 +86,43 @@ const getMapsLink = (latitude, longitude) => {
   return `https://www.google.com/maps?q=${latitude},${longitude}`;
 };
 
-const sendWhatsappMessage = async ({ to, message }) => {
+const sendWhatsappMessage = async ({ to, message, context = {} }) => {
   const phone = normalizeWhatsappNumber(to);
-  if (!phone || !message) return { sent: false, reason: "missing_phone_or_message" };
+  const messagePreview = String(message || "").slice(0, 140);
+
+  if (!phone || !message) {
+    logWhatsapp("warn", "send.skipped", {
+      reason: "missing_phone_or_message",
+      rawTo: to ? maskPhone(String(to).replace(/\D/g, "")) : "missing",
+      hasMessage: Boolean(message),
+      defaultCountryCode: getDefaultCountryCode(),
+      ...context,
+    });
+
+    return { sent: false, reason: "missing_phone_or_message" };
+  }
 
   if (!isWhatsappConfigured()) {
-    if (process.env.NODE_ENV !== "test") {
-      console.log(`[whatsapp:log] to=${phone} ${message}`);
-    }
-    return { sent: false, logged: true, whatsappLink: createWhatsappLink(phone, message) };
+    const whatsappLink = createWhatsappLink(phone, message);
+
+    logWhatsapp("warn", "send.not_configured", {
+      to: maskPhone(phone),
+      providerUrl: sanitizeProviderUrl(getWhatsappProviderUrl()),
+      hasAccessToken: Boolean(getWhatsappAccessToken()),
+      phoneNumberId: getWhatsappPhoneNumberId() || "missing",
+      defaultCountryCode: getDefaultCountryCode(),
+      whatsappLink,
+      messagePreview,
+      ...context,
+    });
+
+    return { sent: false, logged: true, whatsappLink };
   }
 
   const providerUrl = getWhatsappProviderUrl();
   const accessToken = getWhatsappAccessToken();
-  const payload = isMetaCloudApiUrl(providerUrl)
+  const metaCloudApi = isMetaCloudApiUrl(providerUrl);
+  const payload = metaCloudApi
     ? {
         messaging_product: "whatsapp",
         recipient_type: "individual",
@@ -76,14 +142,57 @@ const sendWhatsappMessage = async ({ to, message }) => {
         from: getWhatsappPhoneNumberId() || undefined,
       };
 
-  const response = await axios.post(providerUrl, payload, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+  logWhatsapp("info", "send.attempt", {
+    to: maskPhone(phone),
+    provider: metaCloudApi ? "meta_cloud_api" : "custom_provider",
+    providerUrl: sanitizeProviderUrl(providerUrl),
+    phoneNumberId: getWhatsappPhoneNumberId() || "not_applicable",
+    defaultCountryCode: getDefaultCountryCode(),
+    messageLength: String(message).length,
+    messagePreview,
+    ...context,
   });
 
-  return { sent: true, providerResponse: response.data };
+  try {
+    const response = await axios.post(providerUrl, payload, {
+      timeout: Number(process.env.WHATSAPP_SEND_TIMEOUT_MS || 15000),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    logWhatsapp("info", "send.success", {
+      to: maskPhone(phone),
+      status: response.status,
+      providerResponse: summarizeProviderResponse(response.data),
+      ...context,
+    });
+
+    return { sent: true, providerResponse: response.data, status: response.status };
+  } catch (error) {
+    const status = error.response?.status || null;
+    const responseData = error.response?.data || null;
+
+    logWhatsapp("error", "send.failed", {
+      to: maskPhone(phone),
+      status,
+      code: error.code,
+      errorMessage: error.message,
+      providerError: summarizeProviderResponse(responseData),
+      providerResponse: responseData,
+      ...context,
+    });
+
+    return {
+      sent: false,
+      failed: true,
+      status,
+      code: error.code,
+      errorMessage: error.message,
+      providerResponse: responseData,
+    };
+  }
 };
 
 const formatVehicleDetails = (vehicle) => {
@@ -128,7 +237,17 @@ const sendGarageBookingRequestWhatsapp = async ({
     `Accept here: ${acceptUrl}`,
   ].filter(Boolean).join("\n");
 
-  return sendWhatsappMessage({ to: garage.whatsappNo || garage.phone, message });
+  return sendWhatsappMessage({
+    to: garage.whatsappNo || garage.phone,
+    message,
+    context: {
+      type: "garage_booking_request",
+      garageId: garage.id,
+      requestId: request.id,
+      bookingId: booking.id,
+      bookingCode: booking.bookingCode,
+    },
+  });
 };
 
 const sendGarageCustomerLocationWhatsapp = async ({ garage, booking }) => {
@@ -149,6 +268,12 @@ const sendGarageCustomerLocationWhatsapp = async ({ garage, booking }) => {
   return sendWhatsappMessage({
     to: garage.whatsappNo || garage.phone,
     message,
+    context: {
+      type: "garage_customer_location",
+      garageId: garage.id,
+      bookingId: booking.id,
+      bookingCode: booking.bookingCode,
+    },
   });
 };
 
@@ -180,7 +305,17 @@ const sendCustomerGarageDetailsWhatsapp = async ({
     "Your handover OTP will arrive in a separate WhatsApp message.",
   ].filter(Boolean).join("\n");
 
-  return sendWhatsappMessage({ to: customer.phone, message });
+  return sendWhatsappMessage({
+    to: customer.phone,
+    message,
+    context: {
+      type: "customer_garage_details",
+      customerId: customer.id,
+      garageId: garage.id,
+      bookingId: booking.id,
+      bookingCode: booking.bookingCode,
+    },
+  });
 };
 
 const sendCustomerHandoverOtpWhatsapp = async ({
@@ -206,7 +341,18 @@ const sendCustomerHandoverOtpWhatsapp = async ({
     "Do not share this OTP before physical vehicle handover.",
   ].filter(Boolean).join("\n");
 
-  return sendWhatsappMessage({ to: customer.phone, message });
+  return sendWhatsappMessage({
+    to: customer.phone,
+    message,
+    context: {
+      type: "customer_handover_otp",
+      customerId: customer.id,
+      garageId: garage?.id,
+      bookingId: booking.id,
+      bookingCode: booking.bookingCode,
+      isRegenerated,
+    },
+  });
 };
 
 const sendCustomerVehicleDeliveredWhatsapp = async ({
@@ -222,7 +368,17 @@ const sendCustomerVehicleDeliveredWhatsapp = async ({
     `Review and accept here: ${trackingUrl}`,
   ].join("\n");
 
-  return sendWhatsappMessage({ to: customer.phone, message });
+  return sendWhatsappMessage({
+    to: customer.phone,
+    message,
+    context: {
+      type: "customer_vehicle_delivered",
+      customerId: customer.id,
+      garageId: garage.id,
+      bookingId: booking.id,
+      bookingCode: booking.bookingCode,
+    },
+  });
 };
 
 module.exports = {

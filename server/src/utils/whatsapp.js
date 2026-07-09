@@ -1,6 +1,16 @@
 const DEFAULT_COUNTRY_CODE = "91";
 
-const normalizeWhatsappNumber = (phone, countryCode = DEFAULT_COUNTRY_CODE) => {
+const getDefaultCountryCode = () => {
+  const configured = String(
+    process.env.WHATSAPP_DEFAULT_COUNTRY_CODE ||
+      process.env.DEFAULT_COUNTRY_CODE ||
+      DEFAULT_COUNTRY_CODE,
+  ).replace(/\D/g, "");
+
+  return configured || DEFAULT_COUNTRY_CODE;
+};
+
+const normalizeWhatsappNumber = (phone, countryCode = getDefaultCountryCode()) => {
   const digits = String(phone || "").replace(/\D/g, "");
 
   if (!digits) return null;
@@ -30,5 +40,6 @@ const addGarageWhatsappLink = (garage, message) => {
 module.exports = {
   addGarageWhatsappLink,
   createWhatsappLink,
+  getDefaultCountryCode,
   normalizeWhatsappNumber,
 };

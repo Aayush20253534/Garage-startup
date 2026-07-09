@@ -277,25 +277,33 @@ const getGarageRequestById = async (garageId, requestId) => {
 };
 
 const sendGarageRequestAlerts = async ({ requests, booking }) => {
-  const alerts = [];
+  const alertJobs = [];
   const acceptFee = getGarageAcceptFee(booking);
   const feeMessage = acceptFee > 0
     ? ` Acceptance requires Rs. ${acceptFee} in garage wallet.`
     : "";
 
   for (const request of requests) {
-    alerts.push(
-      sendGarageBookingRequestWhatsapp({
+    alertJobs.push({
+      channel: "whatsapp",
+      garageId: request.garage.id,
+      requestId: request.id,
+      bookingId: booking.id,
+      promise: sendGarageBookingRequestWhatsapp({
         garage: request.garage,
         request,
         booking,
         acceptFee,
       }),
-    );
+    });
 
     if (request.garage?.ownerId) {
-      alerts.push(
-        notificationService.createNotification({
+      alertJobs.push({
+        channel: "in_app_notification",
+        garageId: request.garage.id,
+        requestId: request.id,
+        bookingId: booking.id,
+        promise: notificationService.createNotification({
           userId: request.garage.ownerId,
           type: "BOOKING",
           title: "New nearby booking request",
@@ -314,11 +322,61 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
             acceptFee,
           },
         }),
-      );
+      });
     }
   }
 
-  await Promise.allSettled(alerts);
+  const results = await Promise.allSettled(
+    alertJobs.map((job) => job.promise),
+  );
+
+  if (process.env.NODE_ENV !== "test") {
+    const whatsappResults = results
+      .map((result, index) => ({ result, job: alertJobs[index] }))
+      .filter(({ job }) => job.channel === "whatsapp");
+
+    const summary = whatsappResults.reduce(
+      (acc, { result }) => {
+        if (result.status === "fulfilled" && result.value?.sent) {
+          acc.sent += 1;
+        } else if (result.status === "fulfilled" && result.value?.logged) {
+          acc.loggedOnly += 1;
+        } else {
+          acc.failed += 1;
+        }
+        return acc;
+      },
+      { sent: 0, loggedOnly: 0, failed: 0 },
+    );
+
+    console.info("[garage-request:alerts] broadcast summary", {
+      bookingId: booking.id,
+      bookingCode: booking.bookingCode,
+      requestCount: requests.length,
+      whatsapp: summary,
+      totalJobs: alertJobs.length,
+    });
+
+    whatsappResults.forEach(({ result, job }) => {
+      const value = result.status === "fulfilled" ? result.value : null;
+      const failedReason =
+        result.status === "rejected"
+          ? result.reason?.message || String(result.reason)
+          : value?.errorMessage || value?.reason || null;
+
+      console.info("[garage-request:alerts] whatsapp result", {
+        bookingId: job.bookingId,
+        requestId: job.requestId,
+        garageId: job.garageId,
+        settled: result.status,
+        sent: Boolean(value?.sent),
+        loggedOnly: Boolean(value?.logged),
+        failed: result.status === "rejected" || Boolean(value?.failed),
+        status: value?.status || null,
+        reason: failedReason,
+      });
+    });
+  }
 };
 
 const chooseGaragesForNextRound = ({
