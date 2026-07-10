@@ -10,6 +10,9 @@ const ACTIVE_VEHICLE_BOOKING_STATUSES = [
   BOOKING_STATUS.IN_PROGRESS,
 ];
 
+const getVehicleBookingLockKey = (vehicleId) =>
+  `vehicle-active-booking:${vehicleId}`;
+
 const buildActiveBookingMessage = (booking) => {
   const bookingLabel = booking.bookingCode || booking.id;
 
@@ -53,8 +56,34 @@ const ensureVehicleHasNoActiveBooking = async (
   return true;
 };
 
+const lockVehicleBookingCreation = async (vehicleId, { tx = prisma } = {}) => {
+  await tx.$executeRaw`
+    SELECT pg_advisory_xact_lock(hashtext(${getVehicleBookingLockKey(
+      vehicleId,
+    )})::bigint)
+  `;
+};
+
+const lockAndEnsureVehicleHasNoActiveBooking = async (
+  userId,
+  vehicleId,
+  options = {},
+) => {
+  await lockVehicleBookingCreation(vehicleId, options);
+  return ensureVehicleHasNoActiveBooking(userId, vehicleId, options);
+};
+
+const isActiveVehicleBookingConflictError = (error) =>
+  error?.code === "P2002" &&
+  String(error?.meta?.target || error?.message || "").includes(
+    "Booking_one_active_per_vehicle_idx",
+  );
+
 module.exports = {
   ACTIVE_VEHICLE_BOOKING_STATUSES,
   ensureVehicleHasNoActiveBooking,
   findActiveVehicleBooking,
+  isActiveVehicleBookingConflictError,
+  lockAndEnsureVehicleHasNoActiveBooking,
+  lockVehicleBookingCreation,
 };

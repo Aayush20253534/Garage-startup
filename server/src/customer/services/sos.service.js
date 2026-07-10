@@ -4,6 +4,8 @@ const generateBookingCode = require("../../utils/bookingCode");
 const garageRequestService = require("../../services/garageRequest.service");
 const {
   ensureVehicleHasNoActiveBooking,
+  isActiveVehicleBookingConflictError,
+  lockAndEnsureVehicleHasNoActiveBooking,
 } = require("./vehicleBookingGuard.service");
 
 const BOOKING_STATUS = require("../../constants/bookingStatus");
@@ -54,64 +56,80 @@ const createSosRequest = async (userId, data) => {
 
   const bookingCode = await generateBookingCode();
 
-  const booking = await prisma.booking.create({
-    data: {
-      userId,
-      vehicleId,
-      garageId: null,
+  let booking;
 
-      bookingCode,
+  try {
+    booking = await prisma.$transaction(async (tx) => {
+      await lockAndEnsureVehicleHasNoActiveBooking(userId, vehicleId, {
+        tx,
+      });
 
-      requestType: REQUEST_TYPE.SOS,
-      status: BOOKING_STATUS.SEARCHING_GARAGE,
+      return tx.booking.create({
+        data: {
+          userId,
+          vehicleId,
+          garageId: null,
 
-      customerLatitude: Number(latitude),
-      customerLongitude: Number(longitude),
-      customerAddress: address || null,
+          bookingCode,
 
-      customerNote: note || "SOS emergency request",
+          requestType: REQUEST_TYPE.SOS,
+          status: BOOKING_STATUS.SEARCHING_GARAGE,
 
-      handlingFee: SOS_CHARGE,
-      totalServiceAmount: SOS_ESTIMATED_AMOUNT,
-      totalServiceMaxAmount: SOS_ESTIMATED_AMOUNT + 500,
-      walletAmountUsed: 0,
-      payableAmount: 0,
+          customerLatitude: Number(latitude),
+          customerLongitude: Number(longitude),
+          customerAddress: address || null,
 
-      services: {
-        create: {
-          serviceId: sosService.id,
-          quantity: 1,
-          estimatedPrice: SOS_ESTIMATED_AMOUNT,
-          estimatedMinPrice: SOS_ESTIMATED_AMOUNT,
-          estimatedMaxPrice: SOS_ESTIMATED_AMOUNT + 500,
-        },
-      },
+          customerNote: note || "SOS emergency request",
 
-      payment: {
-        create: {
-          amount: 0,
-          currency: "INR",
-          status: PAYMENT_STATUS.PAID,
+          handlingFee: SOS_CHARGE,
+          totalServiceAmount: SOS_ESTIMATED_AMOUNT,
+          totalServiceMaxAmount: SOS_ESTIMATED_AMOUNT + 500,
           walletAmountUsed: 0,
-          upiAmountPaid: 0,
-        },
-      },
-    },
-    include: {
-      vehicle: true,
-      services: {
-        include: {
-          service: {
-            include: {
-              category: true,
-              media: true,
+          payableAmount: 0,
+
+          services: {
+            create: {
+              serviceId: sosService.id,
+              quantity: 1,
+              estimatedPrice: SOS_ESTIMATED_AMOUNT,
+              estimatedMinPrice: SOS_ESTIMATED_AMOUNT,
+              estimatedMaxPrice: SOS_ESTIMATED_AMOUNT + 500,
+            },
+          },
+
+          payment: {
+            create: {
+              amount: 0,
+              currency: "INR",
+              status: PAYMENT_STATUS.PAID,
+              walletAmountUsed: 0,
+              upiAmountPaid: 0,
             },
           },
         },
-      },
-      payment: true,
-    },
-  });
+        include: {
+          vehicle: true,
+          services: {
+            include: {
+              service: {
+                include: {
+                  category: true,
+                  media: true,
+                },
+              },
+            },
+          },
+          payment: true,
+        },
+      });
+    });
+  } catch (error) {
+    if (isActiveVehicleBookingConflictError(error)) {
+      await ensureVehicleHasNoActiveBooking(userId, vehicleId);
+    }
+
+    throw error;
+  }
 
   try {
     const requests = await garageRequestService.broadcastBookingToNearbyGarages(

@@ -294,6 +294,7 @@ const getOperationsDashboard = async () => {
     failedPayments,
     pendingPayments,
     unresolvedComplaints,
+    openSupportTickets,
     recentBookings,
     statusGroups,
   ] = await Promise.all([
@@ -326,6 +327,9 @@ const getOperationsDashboard = async () => {
     prisma.payment.count({ where: { status: "FAILED" } }),
     prisma.payment.count({ where: { status: "CREATED" } }),
     prisma.complaint.count({ where: { status: { in: ["OPEN", "IN_REVIEW"] } } }),
+    prisma.supportTicket.count({
+      where: { status: { in: ["OPEN", "IN_REVIEW", "WAITING_CUSTOMER"] } },
+    }),
     prisma.booking.findMany({
       where: { status: { in: operationalStatuses } },
       include: bookingInclude,
@@ -349,6 +353,7 @@ const getOperationsDashboard = async () => {
       failedPayments,
       pendingPayments,
       unresolvedComplaints,
+      openSupportTickets,
     },
     statusCounts: statusGroups.reduce((result, row) => {
       result[row.status] = row._count._all;
@@ -707,6 +712,15 @@ const getCustomerProfile = async (userId) => {
         orderBy: { createdAt: "desc" },
         take: 20,
       },
+      supportTickets: {
+        include: {
+          booking: { select: { id: true, bookingCode: true } },
+          assignedTo: { select: { id: true, name: true, role: true } },
+          _count: { select: { messages: true, attachments: true } },
+        },
+        orderBy: { lastMessageAt: "desc" },
+        take: 20,
+      },
       customerActivities: {
         orderBy: { createdAt: "desc" },
         take: 30,
@@ -734,6 +748,7 @@ const getCustomerProfile = async (userId) => {
     platformFeeSpend,
     reviewCount,
     complaintCount,
+    supportTicketCount,
   ] = await Promise.all([
     prisma.booking.groupBy({
       by: ["status"],
@@ -756,6 +771,7 @@ const getCustomerProfile = async (userId) => {
     }),
     prisma.review.count({ where: { userId } }),
     prisma.complaint.count({ where: { userId } }),
+    prisma.supportTicket.count({ where: { userId } }),
   ]);
 
   const [withSessionStatus] = await attachCustomerSessionStatus([customer]);
@@ -778,6 +794,7 @@ const getCustomerProfile = async (userId) => {
         Number(serviceSpend._sum.totalServiceAmount || 0) +
         Number(platformFeeSpend._sum.amount || 0),
       complaintCount,
+      supportTicketCount,
       reviewCount,
     },
   };

@@ -14,6 +14,8 @@ const cityService = require("../../services/city.service");
 const { calculatePlatformFee } = require("../../utils/platformFee");
 const {
   ensureVehicleHasNoActiveBooking,
+  isActiveVehicleBookingConflictError,
+  lockAndEnsureVehicleHasNoActiveBooking,
 } = require("./vehicleBookingGuard.service");
 
 const bookingInclude = {
@@ -253,54 +255,68 @@ const createBooking = async (userId, data) => {
   const payableAmount = handlingFee;
   const bookingCode = await generateBookingCode();
 
-  const booking = await prisma.$transaction(async (tx) => {
-    return tx.booking.create({
-      data: {
-        userId,
-        vehicleId,
-        garageId: null,
-        bookingCode,
-        scheduledDate: scheduledDate
-          ? new Date(scheduledDate)
-          : null,
-        startTime: startTime || null,
-        endTime: endTime || null,
-        requestType: "NORMAL",
-        status: "PENDING_PAYMENT",
+  let booking;
 
-        // Payment verification starts the first two-minute garage search round.
-        searchExpiresAt: null,
+  try {
+    booking = await prisma.$transaction(async (tx) => {
+      await lockAndEnsureVehicleHasNoActiveBooking(userId, vehicleId, {
+        tx,
+      });
 
-        customerLatitude: Number(location.latitude),
-        customerLongitude: Number(location.longitude),
-        customerAddress: customerAddress || null,
-        customerPlaceId: location.placeId || null,
-        customerNote: customerNote || null,
-        handlingFee,
-        totalServiceAmount,
-        totalServiceMaxAmount,
-        walletAmountUsed,
-        payableAmount,
-        services: {
-          create: services.map((service) => {
-            const range = getBookingServiceRange(
-              service,
-              priceRangeMap,
-            );
+      return tx.booking.create({
+        data: {
+          userId,
+          vehicleId,
+          garageId: null,
+          bookingCode,
+          scheduledDate: scheduledDate
+            ? new Date(scheduledDate)
+            : null,
+          startTime: startTime || null,
+          endTime: endTime || null,
+          requestType: "NORMAL",
+          status: "PENDING_PAYMENT",
 
-            return {
-              serviceId: service.id,
-              quantity: 1,
-              estimatedPrice: range.min,
-              estimatedMinPrice: range.min,
-              estimatedMaxPrice: range.max,
-            };
-          }),
+          // Payment verification starts the first two-minute garage search round.
+          searchExpiresAt: null,
+
+          customerLatitude: Number(location.latitude),
+          customerLongitude: Number(location.longitude),
+          customerAddress: customerAddress || null,
+          customerPlaceId: location.placeId || null,
+          customerNote: customerNote || null,
+          handlingFee,
+          totalServiceAmount,
+          totalServiceMaxAmount,
+          walletAmountUsed,
+          payableAmount,
+          services: {
+            create: services.map((service) => {
+              const range = getBookingServiceRange(
+                service,
+                priceRangeMap,
+              );
+
+              return {
+                serviceId: service.id,
+                quantity: 1,
+                estimatedPrice: range.min,
+                estimatedMinPrice: range.min,
+                estimatedMaxPrice: range.max,
+              };
+            }),
+          },
         },
-      },
-      include: bookingInclude,
+        include: bookingInclude,
+      });
     });
-  });
+  } catch (error) {
+    if (isActiveVehicleBookingConflictError(error)) {
+      await ensureVehicleHasNoActiveBooking(userId, vehicleId);
+    }
+
+    throw error;
+  }
 
   await invalidateBookingCaches(userId);
 

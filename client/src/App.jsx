@@ -488,6 +488,10 @@ const Notifications = lazyPage(
   () => import("@/pages/customer/Notifications"),
   "Notifications",
 );
+const CustomerSupport = lazyPage(
+  () => import("@/pages/customer/Support"),
+  "CustomerSupport",
+);
 
 const GarageDashboard = lazyPage(
   () => import("@/pages/garage/Dashboard"),
@@ -582,6 +586,10 @@ const AdminDangerous = lazyPage(
   () => import("@/pages/admin/Dangerous"),
   "AdminDangerous",
 );
+const AdminSupportTickets = lazyPage(
+  () => import("@/pages/admin/SupportTickets"),
+  "AdminSupportTickets",
+);
 const InternLogin = lazyPage(() => import("@/pages/intern/Login"), "InternLogin");
 
 import {
@@ -606,6 +614,7 @@ import {
   FiDollarSign,
   FiHome,
   FiMail,
+  FiHelpCircle,
 } from "react-icons/fi";
 
 class AppErrorBoundary extends Component {
@@ -725,6 +734,7 @@ const customerItems = [
   { to: "/warranty", label: "Warranty Center", icon: FiShield },
   { to: "/dashboard/payments", label: "Payments", icon: FiCreditCard },
   { to: "/dashboard/notifications", label: "Notifications", icon: FiBell },
+  { to: "/dashboard/support", label: "Support", icon: FiHelpCircle },
   { to: "/dashboard/profile", label: "Profile", icon: FiUser },
 ];
 
@@ -748,6 +758,7 @@ const adminItems = [
   { to: "/admin/bookings", label: "Bookings", icon: FiCalendar },
   { to: "/admin/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
+  { to: "/admin/support-tickets", label: "Support & Disputes", icon: FiHelpCircle },
   { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon },
   { to: "/admin/notifications", label: "Notifications", icon: FiBell },
   { to: "/admin/email", label: "Email", icon: FiMail },
@@ -762,6 +773,7 @@ const internItems = [
   { to: "/intern/bookings", label: "Bookings", icon: FiCalendar },
   { to: "/intern/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/intern/system-issues", label: "System Issues", icon: FiAlertTriangle },
+  { to: "/intern/support-tickets", label: "Support & Disputes", icon: FiHelpCircle },
   { to: "/intern/notifications", label: "Notifications", icon: FiBell },
   { to: "/intern/email", label: "Email", icon: FiMail },
 ];
@@ -995,6 +1007,14 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/dashboard/support"
+            element={
+              <ProtectedRoute>
+                <CustomerSupport />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/dashboard/profile"
             element={
               <ProtectedRoute>
@@ -1151,6 +1171,14 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/admin/support-tickets"
+            element={
+              <ProtectedRoute>
+                <AdminSupportTickets />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/dangerous"
             element={
               <ProtectedRoute>
@@ -1240,6 +1268,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminSystemIssues />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/support-tickets"
+            element={
+              <ProtectedRoute>
+                <AdminSupportTickets />
               </ProtectedRoute>
             }
           />

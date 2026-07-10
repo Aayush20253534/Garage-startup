@@ -23,6 +23,8 @@ const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 const PASSWORD_MESSAGE =
   "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol";
+const PASSWORD_RESET_REQUEST_MESSAGE =
+  "If an active account exists for this email, a password reset OTP has been sent.";
 
 const USER_ROLES = ["CUSTOMER", "GARAGE_OWNER"];
 const STAFF_ROLES = ["ADMIN", "INTERN"];
@@ -578,28 +580,18 @@ const forgotPassword = async ({
     },
   });
 
-  if (!user) {
-    const accountLabel =
-      userRole === "GARAGE_OWNER" ? "garage" : "customer";
-
-    throw new ApiError(
-      404,
-      `No ${accountLabel} account is registered with this email`,
-    );
-  }
-
-  if (!user.isActive) {
-    throw new ApiError(
-      403,
-      "This account is disabled. Please contact Rovauto support.",
-    );
+  if (!user || !user.isActive) {
+    return {
+      email: cleanEmail,
+      message: PASSWORD_RESET_REQUEST_MESSAGE,
+    };
   }
 
   await createResetPasswordOtp(user.id, user.email);
 
   return {
-    email: user.email,
-    message: "Password reset OTP sent successfully",
+    email: cleanEmail,
+    message: PASSWORD_RESET_REQUEST_MESSAGE,
   };
 };
 
@@ -627,8 +619,8 @@ const resetPassword = async ({
     },
   });
 
-  if (!user) {
-    throw new ApiError(404, "User not found");
+  if (!user || !user.isActive) {
+    throw new ApiError(400, "Invalid or expired OTP");
   }
 
   const otpHash = hashOtp(otp);

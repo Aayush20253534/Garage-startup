@@ -9,6 +9,7 @@ import {
   FiClock,
   FiCreditCard,
   FiHome,
+  FiMessageSquare,
   FiRefreshCw,
   FiTool,
   FiUsers,
@@ -128,6 +129,14 @@ export default function AdminDashboard() {
       label: "Open complaints",
       caption: "Customer cases awaiting resolution",
       tone: "bg-amber-50 text-amber-800",
+    },
+    {
+      icon: FiMessageSquare,
+      value: operations.stats?.openSupportTickets || 0,
+      label: "Support tickets",
+      caption: "Open support requests and disputes",
+      tone: "bg-violet-50 text-violet-700",
+      to: `${portalRoot}/support-tickets`,
     },
     {
       icon: FiAlertTriangle,

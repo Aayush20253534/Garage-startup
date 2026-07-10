@@ -129,6 +129,28 @@ export const adminApi = {
     return unwrap(await api.post(`/admin/bookings/${bookingId}/notes`, { note }));
   },
 
+  async getSupportTickets(params = {}) {
+    return unwrap(await api.get("/admin/support-tickets", { params }));
+  },
+
+  async getSupportTicket(ticketId) {
+    return unwrap(await api.get(`/admin/support-tickets/${ticketId}`));
+  },
+
+  async updateSupportTicket(ticketId, payload) {
+    return unwrap(await api.patch(`/admin/support-tickets/${ticketId}`, payload));
+  },
+
+  async replyToSupportTicket(ticketId, payload) {
+    return unwrap(
+      await api.post(`/admin/support-tickets/${ticketId}/replies`, payload),
+    );
+  },
+
+  async getSupportStaff() {
+    return unwrap(await api.get("/admin/support-tickets/staff"));
+  },
+
   async getPayments(params = {}) {
     return unwrap(await api.get("/admin/payments", { params }));
   },

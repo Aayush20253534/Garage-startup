@@ -12,7 +12,10 @@ const {
   sendCustomerHandoverOtpWhatsapp,
   sendCustomerVehicleDeliveredWhatsapp,
 } = require("./garageWhatsapp.service");
-const { uploadToCloudinary } = require("../utils/cloudinaryUpload");
+const {
+  deleteFromCloudinary,
+  uploadToCloudinary,
+} = require("../utils/cloudinaryUpload");
 const { REQUIRED_BOOKING_INSPECTION_IMAGES } = require("../garage/constants");
 
 const DEFAULT_SEARCH_TIMEOUT_SECONDS = 120;
@@ -210,6 +213,26 @@ const validateInspectionImages = (files) => {
   }
 };
 
+const cleanupUploadedInspectionImages = async (uploadedImages = []) => {
+  if (uploadedImages.length === 0) return;
+
+  const results = await Promise.allSettled(
+    uploadedImages.map((image) =>
+      deleteFromCloudinary(image.public_id, "image"),
+    ),
+  );
+
+  const failedCleanup = results.filter(
+    (result) => result.status === "rejected",
+  );
+
+  if (failedCleanup.length > 0) {
+    console.error(
+      `[inspection-upload] unable to cleanup ${failedCleanup.length} uploaded image(s)`,
+    );
+  }
+};
+
 const uploadInspectionImages = async ({
   bookingId,
   garageId,
@@ -236,26 +259,43 @@ const uploadInspectionImages = async ({
 
   const uploadedImages = [];
 
-  for (const file of files) {
-    const uploaded = await uploadToCloudinary(
-      file.buffer,
-      INSPECTION_IMAGE_FOLDER,
-      "image",
-    );
-    uploadedImages.push(uploaded);
-  }
+  try {
+    for (const file of files) {
+      const uploaded = await uploadToCloudinary(
+        file.buffer,
+        INSPECTION_IMAGE_FOLDER,
+        "image",
+      );
+      uploadedImages.push(uploaded);
+    }
 
-  await prisma.bookingInspectionImage.createMany({
-    data: uploadedImages.map((image, index) => ({
-      bookingId,
-      garageId,
-      phase,
-      imageUrl: image.secure_url,
-      publicId: image.public_id,
-      order: index,
-    })),
-    skipDuplicates: true,
-  });
+    await prisma.bookingInspectionImage.createMany({
+      data: uploadedImages.map((image, index) => ({
+        bookingId,
+        garageId,
+        phase,
+        imageUrl: image.secure_url,
+        publicId: image.public_id,
+        order: index,
+      })),
+    });
+  } catch (error) {
+    await cleanupUploadedInspectionImages(uploadedImages);
+
+    const existingImagesAfterRace =
+      await prisma.bookingInspectionImage.findMany({
+        where: { bookingId, phase },
+        orderBy: { order: "asc" },
+      });
+
+    if (
+      existingImagesAfterRace.length === REQUIRED_INSPECTION_PHOTO_COUNT
+    ) {
+      return existingImagesAfterRace;
+    }
+
+    throw error;
+  }
 
   return prisma.bookingInspectionImage.findMany({
     where: { bookingId, phase },

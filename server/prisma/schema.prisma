@@ -36,6 +36,8 @@ model User {
   chatbotMessages      ChatbotMessage[]
   customerActivities   CustomerActivity[]
   trackingPoints       BookingTrackingPoint[]
+  supportTickets       SupportTicket[]
+  supportTicketMessages SupportTicketMessage[] @relation("SupportTicketUserMessages")
 
   @@unique([email, role])
   @@unique([phone, role])
@@ -74,6 +76,8 @@ model StaffAccount {
   passwordChangedAt DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  assignedSupportTickets SupportTicket[] @relation("AssignedSupportTickets")
+  supportTicketMessages SupportTicketMessage[] @relation("SupportTicketStaffMessages")
 
   @@index([role])
   @@index([isActive])
@@ -480,6 +484,7 @@ model Booking {
   review                Review?
   trackingPoints        BookingTrackingPoint[]
   adminEvents           AdminBookingEvent[]
+  supportTickets        SupportTicket[]
 
   @@index([userId])
   @@index([garageId])
@@ -706,6 +711,76 @@ model VehicleModel {
 
   @@unique([brandId, name])
   @@index([brandId])
+}
+
+model SupportTicket {
+  id                String                    @id @default(uuid())
+  ticketCode        String                    @unique
+  userId            String
+  bookingId         String?
+  type              SupportTicketType         @default(SUPPORT)
+  category          SupportTicketCategory     @default(GENERAL)
+  subject           String
+  description       String
+  priority          SupportTicketPriority     @default(NORMAL)
+  status            SupportTicketStatus       @default(OPEN)
+  assignedToId      String?
+  resolutionOutcome DisputeResolutionOutcome?
+  resolutionNote    String?
+  refundAmount      Int?
+  resolvedAt        DateTime?
+  lastMessageAt     DateTime                  @default(now())
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking           Booking?                  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  assignedTo        StaffAccount?             @relation("AssignedSupportTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  messages          SupportTicketMessage[]
+  attachments       SupportTicketAttachment[]
+
+  @@index([userId, updatedAt])
+  @@index([bookingId])
+  @@index([assignedToId, status])
+  @@index([type, status, priority])
+  @@index([lastMessageAt])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id            String                   @id @default(uuid())
+  ticketId      String
+  authorType    SupportMessageAuthorType
+  authorUserId  String?
+  authorStaffId String?
+  authorName    String
+  body          String
+  isInternal    Boolean                  @default(false)
+  createdAt     DateTime                 @default(now())
+  ticket        SupportTicket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorUser    User?                    @relation("SupportTicketUserMessages", fields: [authorUserId], references: [id], onDelete: SetNull)
+  authorStaff   StaffAccount?            @relation("SupportTicketStaffMessages", fields: [authorStaffId], references: [id], onDelete: SetNull)
+  attachments   SupportTicketAttachment[]
+
+  @@index([ticketId, createdAt])
+  @@index([authorUserId])
+  @@index([authorStaffId])
+  @@map("support_ticket_messages")
+}
+
+model SupportTicketAttachment {
+  id        String                @id @default(uuid())
+  ticketId  String
+  messageId String?
+  imageUrl  String
+  publicId  String
+  order     Int                   @default(0)
+  createdAt DateTime              @default(now())
+  ticket    SupportTicket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message   SupportTicketMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([messageId])
+  @@map("support_ticket_attachments")
 }
 
 model Complaint {
@@ -947,6 +1022,53 @@ enum PaymentStatus {
   PAID
   FAILED
   REFUNDED
+}
+
+enum SupportTicketType {
+  SUPPORT
+  DISPUTE
+}
+
+enum SupportTicketCategory {
+  GENERAL
+  BOOKING
+  PAYMENT
+  GARAGE
+  SERVICE
+  WARRANTY
+  ACCOUNT
+  TECHNICAL
+  OTHER
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_REVIEW
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum DisputeResolutionOutcome {
+  CUSTOMER_FAVORED
+  GARAGE_FAVORED
+  PARTIAL_REFUND
+  NO_ACTION
+  MUTUAL_AGREEMENT
+}
+
+enum SupportMessageAuthorType {
+  CUSTOMER
+  ADMIN
+  INTERN
+  SYSTEM
 }
 
 enum ComplaintStatus {

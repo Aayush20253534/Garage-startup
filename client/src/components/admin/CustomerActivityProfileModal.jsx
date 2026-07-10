@@ -157,7 +157,7 @@ export default function CustomerActivityProfileModal({ userId, onClose }) {
                       [FiCalendar, profile._count?.bookings || 0, "Total bookings"],
                       [FiTruck, profile._count?.vehicles || 0, "Vehicles"],
                       [FiCreditCard, formatRupees(profile.summary?.totalSpend || 0), "Total spend"],
-                      [FiBriefcase, profile.summary?.complaintCount || 0, "Complaints"],
+                      [FiBriefcase, profile.summary?.supportTicketCount || 0, "Support tickets"],
                     ].map(([Icon, value, label]) => (
                       <article key={label} className="rounded-2xl border border-line bg-white p-4">
                         <div className="flex items-center justify-between gap-3">
@@ -287,32 +287,47 @@ export default function CustomerActivityProfileModal({ userId, onClose }) {
               )}
 
               {tab === "support" && (
-                <div className="grid gap-5 lg:grid-cols-2">
+                <div className="space-y-5">
                   <article className="rounded-2xl border border-line bg-white p-4">
-                    <h4 className="font-bold text-ink">Complaints</h4>
-                    <div className="mt-4 grid gap-3">
-                      {(profile.complaints || []).length ? profile.complaints.map((complaint) => (
-                        <div key={complaint.id} className="rounded-xl bg-bg-soft p-3">
-                          <div className="flex items-start justify-between gap-3"><p className="font-bold text-ink">{complaint.title}</p><span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-muted">{formatStatus(complaint.status)}</span></div>
-                          <p className="mt-2 text-sm text-muted">{complaint.description}</p>
-                          <p className="mt-2 text-xs text-muted">{complaint.booking?.bookingCode ? `Booking #${complaint.booking.bookingCode} · ` : ""}{formatDateTime(complaint.createdAt)}</p>
+                    <h4 className="font-bold text-ink">Support tickets and disputes</h4>
+                    <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                      {(profile.supportTickets || []).length ? profile.supportTickets.map((ticket) => (
+                        <div key={ticket.id} className="rounded-xl bg-bg-soft p-3">
+                          <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase text-muted">{ticket.ticketCode} · {formatStatus(ticket.type)}</p><p className="mt-1 font-bold text-ink">{ticket.subject}</p></div><span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-muted">{formatStatus(ticket.status)}</span></div>
+                          <p className="mt-2 line-clamp-2 text-sm text-muted">{ticket.description}</p>
+                          <p className="mt-2 text-xs text-muted">{ticket.booking?.bookingCode ? `Booking #${ticket.booking.bookingCode} · ` : ""}{ticket.assignedTo?.name ? `Assigned to ${ticket.assignedTo.name} · ` : ""}{formatDateTime(ticket.lastMessageAt)}</p>
                         </div>
-                      )) : <p className="text-sm text-muted">No complaints.</p>}
+                      )) : <p className="text-sm text-muted">No support tickets.</p>}
                     </div>
                   </article>
 
-                  <article className="rounded-2xl border border-line bg-white p-4">
-                    <h4 className="font-bold text-ink">Wallet and recent transactions</h4>
-                    <div className="mt-3 rounded-xl bg-lime-100 p-4"><p className="text-xs text-muted">Current wallet balance</p><p className="mt-1 text-2xl font-bold text-ink">{formatRupees(profile.wallet?.balance || 0)}</p></div>
-                    <div className="mt-4 grid gap-2">
-                      {(profile.walletTransactions || []).slice(0, 10).map((transaction) => (
-                        <div key={transaction.id} className="flex items-center justify-between gap-3 rounded-xl bg-bg-soft px-3 py-3 text-sm">
-                          <div><p className="font-semibold text-ink">{formatStatus(transaction.type)}</p><p className="text-xs text-muted">{formatDateTime(transaction.createdAt)}</p></div>
-                          <span className="font-bold text-ink">{formatRupees(transaction.amount || 0)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </article>
+                  <div className="grid gap-5 lg:grid-cols-2">
+                    <article className="rounded-2xl border border-line bg-white p-4">
+                      <h4 className="font-bold text-ink">Legacy complaints</h4>
+                      <div className="mt-4 grid gap-3">
+                        {(profile.complaints || []).length ? profile.complaints.map((complaint) => (
+                          <div key={complaint.id} className="rounded-xl bg-bg-soft p-3">
+                            <div className="flex items-start justify-between gap-3"><p className="font-bold text-ink">{complaint.title}</p><span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-muted">{formatStatus(complaint.status)}</span></div>
+                            <p className="mt-2 text-sm text-muted">{complaint.description}</p>
+                            <p className="mt-2 text-xs text-muted">{complaint.booking?.bookingCode ? `Booking #${complaint.booking.bookingCode} · ` : ""}{formatDateTime(complaint.createdAt)}</p>
+                          </div>
+                        )) : <p className="text-sm text-muted">No legacy complaints.</p>}
+                      </div>
+                    </article>
+
+                    <article className="rounded-2xl border border-line bg-white p-4">
+                      <h4 className="font-bold text-ink">Wallet and recent transactions</h4>
+                      <div className="mt-3 rounded-xl bg-lime-100 p-4"><p className="text-xs text-muted">Current wallet balance</p><p className="mt-1 text-2xl font-bold text-ink">{formatRupees(profile.wallet?.balance || 0)}</p></div>
+                      <div className="mt-4 grid gap-2">
+                        {(profile.walletTransactions || []).slice(0, 10).map((transaction) => (
+                          <div key={transaction.id} className="flex items-center justify-between gap-3 rounded-xl bg-bg-soft px-3 py-3 text-sm">
+                            <div><p className="font-semibold text-ink">{formatStatus(transaction.type)}</p><p className="text-xs text-muted">{formatDateTime(transaction.createdAt)}</p></div>
+                            <span className="font-bold text-ink">{formatRupees(transaction.amount || 0)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  </div>
                 </div>
               )}
             </>

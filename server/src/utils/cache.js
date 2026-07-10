@@ -110,8 +110,10 @@ const deletePattern = async (pattern) => {
 };
 
 module.exports = {
+  ensureRedisConnected,
   getCache,
   setCache,
   deleteCache,
   deletePattern,
+  withTimeout,
 };

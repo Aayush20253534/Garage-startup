@@ -660,18 +660,25 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    const freshBooking = await tx.booking.findUnique({
-      where: { id: request.bookingId },
+    const freshRequest = await tx.garageBroadcastRequest.findFirst({
+      where: { id: requestId, garageId },
+      include: {
+        booking: true,
+        garage: { include: { wallet: true } },
+      },
     });
 
-    if (!freshBooking) throw new ApiError(404, "Booking not found");
-
-    if (freshBooking.garageId && freshBooking.garageId !== garageId) {
-      throw new ApiError(
-        400,
-        "Another garage already accepted this booking",
-      );
+    if (!freshRequest) {
+      throw new ApiError(404, "Garage request not found");
     }
+
+    if (freshRequest.status !== BROADCAST_STATUS.SENT) {
+      throw new ApiError(400, "This request is no longer available");
+    }
+
+    const freshBooking = freshRequest.booking;
+
+    if (!freshBooking) throw new ApiError(404, "Booking not found");
 
     if (
       ![
@@ -705,8 +712,34 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
     const handoverOtp = bookingLifecycleService.createHandoverOtp();
     const acceptedAt = new Date();
 
-    await tx.booking.update({
-      where: { id: request.bookingId },
+    const requestClaim = await tx.garageBroadcastRequest.updateMany({
+      where: {
+        id: requestId,
+        garageId,
+        status: BROADCAST_STATUS.SENT,
+      },
+      data: {
+        status: BROADCAST_STATUS.ACCEPTED,
+        acceptedAt,
+        garageResponseNote: note || null,
+      },
+    });
+
+    if (requestClaim.count === 0) {
+      throw new ApiError(400, "This request is no longer available");
+    }
+
+    const bookingClaim = await tx.booking.updateMany({
+      where: {
+        id: freshRequest.bookingId,
+        garageId: null,
+        status: {
+          in: [
+            BOOKING_STATUS.SEARCHING_GARAGE,
+            BOOKING_STATUS.GARAGE_ASSIGNED,
+          ],
+        },
+      },
       data: {
         garageId,
         status: BOOKING_STATUS.CONFIRMED,
@@ -719,9 +752,16 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       },
     });
 
+    if (bookingClaim.count === 0) {
+      throw new ApiError(
+        400,
+        "Another garage already accepted this booking",
+      );
+    }
+
     await tx.garageBroadcastRequest.updateMany({
       where: {
-        bookingId: request.bookingId,
+        bookingId: freshRequest.bookingId,
         id: { not: requestId },
         status: BROADCAST_STATUS.SENT,
       },
@@ -731,18 +771,9 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       },
     });
 
-    await tx.garageBroadcastRequest.update({
-      where: { id: requestId },
-      data: {
-        status: BROADCAST_STATUS.ACCEPTED,
-        acceptedAt,
-        garageResponseNote: note || null,
-      },
-    });
-
-    if (request.booking.requestType === REQUEST_TYPE.SOS) {
+    if (freshBooking.requestType === REQUEST_TYPE.SOS) {
       const wallet = await tx.wallet.findUnique({
-        where: { userId: request.booking.userId },
+        where: { userId: freshBooking.userId },
       });
 
       if (!wallet || wallet.balance < SOS_CHARGE) {
@@ -762,7 +793,7 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       await tx.walletTransaction.create({
         data: {
           walletId: wallet.id,
-          userId: request.booking.userId,
+          userId: freshBooking.userId,
           type: WALLET_TRANSACTION_TYPE.SOS_DEDUCTION,
           status: WALLET_TRANSACTION_STATUS.SUCCESS,
           amount: SOS_CHARGE,
