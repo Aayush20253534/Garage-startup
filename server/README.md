@@ -222,12 +222,15 @@ Because authentication uses cookies:
 
 ## Prisma Schema
 
-The schema contains 40 models and 21 enums.
+The schema contains 50 models and 29 enums.
 
 ### Identity and onboarding
 
 ```text
 User
+UserSession
+StaffAccount
+CustomerSupportAccount
 PendingSignup
 Otp
 EmailOtp
@@ -235,6 +238,7 @@ PhoneOtp
 CustomerProfile
 CustomerLocation
 Vehicle
+PushSubscription
 ```
 
 ### Services and garages
@@ -262,6 +266,8 @@ Booking
 BookingService
 BookingInspectionImage
 GarageBroadcastRequest
+BookingTrackingPoint
+AdminBookingEvent
 Payment
 Wallet
 WalletTransaction
@@ -276,13 +282,19 @@ Review
 Complaint
 ComplaintImage
 Notification
+Notify
+CustomerSupportPushSubscription
+CustomerSupportEmailLog
 CustomerActivity
 ChatbotConversation
 ChatbotMessage
 SystemIssue
+SupportTicket
+SupportTicketMessage
+SupportTicketAttachment
 ```
 
-Important enum groups include booking, payment, broadcast, wallet-transaction, garage-application, complaint, notification, media, location, fuel, request, and system-issue statuses.
+Important enum groups include booking, payment, broadcast, wallet-transaction, garage-application, complaint, notification, support-ticket, support-message, dispute-resolution, media, location, fuel, request, tracking-source, booking-photo, and system-issue statuses.
 
 ## API Route Groups
 
@@ -307,6 +319,7 @@ All routes below are prefixed with `/api/v1`.
 | `/sos`                  | SOS creation and lookup                                                                          |
 | `/reviews`              | Customer review create/list                                                                      |
 | `/complaints`           | Complaint creation and customer complaint history                                                |
+| `/support-tickets`      | Customer support tickets, disputes, replies, attachments, and close action                       |
 | `/notifications`        | Notification list and read state                                                                 |
 | `/dashboard`            | Customer dashboard aggregation                                                                   |
 | `/chatbot`              | History, ask, and clear                                                                          |
@@ -315,6 +328,7 @@ All routes below are prefixed with `/api/v1`.
 | `/cities`               | Public cities and admin city management                                                          |
 | `/public/stats`         | Public statistics                                                                                |
 | `/system-issues/report` | Frontend issue intake                                                                            |
+| `/customer-support`     | Support-agent dashboard, ticket queue, alerts, push subscriptions, and email                     |
 | `/admin/*`              | Admin operations, catalogs, garages, applications, prices, and issue management                  |
 | `/whatsapp`             | Health and webhook endpoints                                                                     |
 | `/webhooks/whatsapp`    | Alternate mount for the WhatsApp webhook router                                                  |
@@ -655,12 +669,15 @@ npm run db:delete-garages
 npm run db:delete-price-ranges
 npm run db:delete-bookings
 npm run db:delete-notifications
+npm run db:delete-support-data
+npm run db:delete-auth-sessions
+npm run db:delete-system-issues
 npm run db:nuke-users
 npm run db:approve-garage
 npm run db:activate-garage
 ```
 
-Several scripts are destructive or modify production-like records. Read the script source and use its dry-run/confirmation flags where provided before running it against a shared database.
+Several scripts are destructive or modify production-like records. Read the script source and use its dry-run/confirmation flags where provided before running it against a shared database. The cleanup scripts are aligned with the current Prisma schema, including support-ticket tables, support notifications, user sessions, customer/support push subscriptions, booking tracking points, admin booking events, and system issues.
 
 ## Docker
 

@@ -52,6 +52,8 @@ const collectCounts = async () => {
     payments,
     complaints,
     notifications,
+    userSessions,
+    pushSubscriptions,
     otps,
     reviews,
     wallets,
@@ -63,6 +65,11 @@ const collectCounts = async () => {
     customerActivities,
     chatbotConversations,
     chatbotMessages,
+    supportTickets,
+    supportTicketMessages,
+    supportTicketAttachments,
+    bookingTrackingPoints,
+    customerSupportEmailLogsLinkedToUsers,
     systemIssuesLinkedToUsers,
   ] = await Promise.all([
     prisma.user.count(),
@@ -79,6 +86,8 @@ const collectCounts = async () => {
         },
       },
     }),
+    prisma.userSession.count(),
+    prisma.pushSubscription.count(),
     prisma.otp.count(),
     prisma.review.count(),
     prisma.wallet.count(),
@@ -96,6 +105,23 @@ const collectCounts = async () => {
     prisma.customerActivity.count(),
     prisma.chatbotConversation.count(),
     prisma.chatbotMessage.count(),
+    prisma.supportTicket.count(),
+    prisma.supportTicketMessage.count(),
+    prisma.supportTicketAttachment.count(),
+    prisma.bookingTrackingPoint.count({
+      where: {
+        userId: {
+          not: null,
+        },
+      },
+    }),
+    prisma.customerSupportEmailLog.count({
+      where: {
+        userId: {
+          not: null,
+        },
+      },
+    }),
     prisma.systemIssue.count({
       where: {
         userId: {
@@ -114,6 +140,8 @@ const collectCounts = async () => {
     payments,
     complaints,
     notifications,
+    userSessions,
+    pushSubscriptions,
     otps,
     reviews,
     wallets,
@@ -125,6 +153,11 @@ const collectCounts = async () => {
     customerActivities,
     chatbotConversations,
     chatbotMessages,
+    supportTickets,
+    supportTicketMessages,
+    supportTicketAttachments,
+    bookingTrackingPoints,
+    customerSupportEmailLogsLinkedToUsers,
     systemIssuesLinkedToUsers,
   };
 };
@@ -136,6 +169,8 @@ const collectBackup = async () => {
     },
     include: {
       customerProfile: true,
+      sessions: true,
+      pushSubscriptions: true,
       vehicles: true,
       locations: true,
       customerActivities: true,
@@ -151,6 +186,14 @@ const collectBackup = async () => {
           broadcasts: true,
           review: true,
           inspectionImages: true,
+          trackingPoints: true,
+          adminEvents: true,
+          supportTickets: {
+            include: {
+              messages: true,
+              attachments: true,
+            },
+          },
           complaints: {
             include: {
               images: true,
@@ -172,6 +215,12 @@ const collectBackup = async () => {
       },
       walletTransactions: true,
       reviews: true,
+      supportTickets: {
+        include: {
+          messages: true,
+          attachments: true,
+        },
+      },
       ownedGarages: {
         select: {
           id: true,
@@ -206,7 +255,7 @@ const collectBackup = async () => {
     });
   }
 
-  const [pendingSignups, emailOtps, phoneOtps, systemIssues] =
+  const [pendingSignups, emailOtps, phoneOtps, systemIssues, supportEmailLogs] =
     await Promise.all([
       pendingSignupOR.length
         ? prisma.pendingSignup.findMany({
@@ -254,6 +303,18 @@ const collectBackup = async () => {
             },
           })
         : [],
+      userIds.length
+        ? prisma.customerSupportEmailLog.findMany({
+            where: {
+              userId: {
+                in: userIds,
+              },
+            },
+            orderBy: {
+              createdAt: "asc",
+            },
+          })
+        : [],
     ]);
 
   return {
@@ -267,6 +328,7 @@ const collectBackup = async () => {
       phoneOtps,
     },
     systemIssues,
+    supportEmailLogs,
   };
 };
 
@@ -386,6 +448,17 @@ const deleteAllUsersData = async () => {
      * Preserve issue rows and null the deleted user IDs explicitly.
      */
     await tx.systemIssue.updateMany({
+      where: {
+        userId: {
+          in: userIds,
+        },
+      },
+      data: {
+        userId: null,
+      },
+    });
+
+    await tx.customerSupportEmailLog.updateMany({
       where: {
         userId: {
           in: userIds,

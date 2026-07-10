@@ -1,6 +1,7 @@
 require("dotenv/config");
 
 const prisma = require("../config/prisma");
+const { deleteFromCloudinary } = require("../utils/cloudinaryUpload");
 const {
   buildDeletionSummary,
   deleteGaragesDeep,
@@ -14,6 +15,9 @@ const VALID_SCOPES = new Set([
   "price-ranges",
   "bookings",
   "notifications",
+  "support-data",
+  "auth-sessions",
+  "system-issues",
 ]);
 
 const getArg = (name) => {
@@ -33,6 +37,9 @@ Usage:
   npm run db:delete-price-ranges -- [--confirm]
   npm run db:delete-bookings -- [--confirm]
   npm run db:delete-notifications -- [--confirm]
+  npm run db:delete-support-data -- [--confirm]
+  npm run db:delete-auth-sessions -- [--confirm]
+  npm run db:delete-system-issues -- [--confirm]
 
 Dry-run is the default. Add --confirm to delete.
 
@@ -43,6 +50,9 @@ Examples:
   npm run db:delete-price-ranges -- --confirm
   npm run db:delete-bookings -- --confirm
   npm run db:delete-notifications -- --confirm
+  npm run db:delete-support-data -- --confirm
+  npm run db:delete-auth-sessions -- --confirm
+  npm run db:delete-system-issues -- --confirm
 `);
 };
 
@@ -53,6 +63,19 @@ const getScope = () => {
 
 const printDryRun = () => {
   console.log("\nDry-run only. Re-run with --confirm to delete these records.");
+};
+
+const deleteCloudinaryImages = async (publicIds = []) => {
+  const uniquePublicIds = [...new Set(publicIds.filter(Boolean))];
+  const results = await Promise.allSettled(
+    uniquePublicIds.map((publicId) => deleteFromCloudinary(publicId, "image")),
+  );
+
+  return {
+    requested: uniquePublicIds.length,
+    deleted: results.filter((result) => result.status === "fulfilled").length,
+    failed: results.filter((result) => result.status === "rejected").length,
+  };
 };
 
 const countSystemIssueReferences = async ({ garageIds, ownerIds }) => {
@@ -213,6 +236,9 @@ const deleteBookings = async () => {
           broadcasts: 0,
           images: 0,
           reviews: 0,
+          trackingPoints: 0,
+          adminEvents: 0,
+          supportTicketsDetached: 0,
           complaintsDetached: 0,
         }
       : {
@@ -245,6 +271,27 @@ const deleteBookings = async () => {
             },
           }),
           reviews: await prisma.review.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          trackingPoints: await prisma.bookingTrackingPoint.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          adminEvents: await prisma.adminBookingEvent.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          supportTicketsDetached: await prisma.supportTicket.count({
             where: {
               bookingId: {
                 in: bookingIds,
@@ -313,16 +360,115 @@ const deleteBookings = async () => {
 };
 
 const deleteNotifications = async () => {
-  const count = await prisma.notification.count();
-  console.log(`Matched ${count} notification(s).`);
+  const [customerNotifications, supportNotifies] = await Promise.all([
+    prisma.notification.count(),
+    prisma.notify.count(),
+  ]);
+
+  console.log("Matched notification records:");
+  console.log({
+    customerNotifications,
+    supportNotifies,
+  });
 
   if (!hasFlag("confirm")) {
     printDryRun();
     return;
   }
 
-  const result = await prisma.notification.deleteMany();
-  console.log(`Deleted ${result.count} notification(s).`);
+  const [customerResult, supportResult] = await prisma.$transaction([
+    prisma.notification.deleteMany(),
+    prisma.notify.deleteMany(),
+  ]);
+
+  console.log(
+    `Deleted ${customerResult.count} customer notification(s) and ${supportResult.count} support notify row(s).`,
+  );
+};
+
+const deleteSupportData = async () => {
+  const attachments = await prisma.supportTicketAttachment.findMany({
+    select: { publicId: true },
+  });
+  const related = {
+    supportTickets: await prisma.supportTicket.count(),
+    supportTicketMessages: await prisma.supportTicketMessage.count(),
+    supportTicketAttachments: await prisma.supportTicketAttachment.count(),
+    supportNotifies: await prisma.notify.count(),
+    supportPushSubscriptions:
+      await prisma.customerSupportPushSubscription.count(),
+    supportEmailLogs: await prisma.customerSupportEmailLog.count(),
+  };
+
+  console.log("Matched support desk data:");
+  console.log({ related });
+
+  if (!hasFlag("confirm")) {
+    printDryRun();
+    return;
+  }
+
+  const [tickets, notifies, pushSubscriptions, emailLogs] =
+    await prisma.$transaction([
+      prisma.supportTicket.deleteMany(),
+      prisma.notify.deleteMany(),
+      prisma.customerSupportPushSubscription.deleteMany(),
+      prisma.customerSupportEmailLog.deleteMany(),
+    ]);
+
+  const media = await deleteCloudinaryImages(
+    attachments.map((attachment) => attachment.publicId),
+  );
+
+  console.log(
+    `Deleted ${tickets.count} ticket(s), ${notifies.count} support notify row(s), ${pushSubscriptions.count} support push subscription(s), ${emailLogs.count} support email log(s), and ${media.deleted}/${media.requested} support attachment image(s) from Cloudinary.`,
+  );
+
+  if (media.failed) {
+    console.warn(
+      `${media.failed} support attachment image deletion(s) failed in Cloudinary.`,
+    );
+  }
+};
+
+const deleteAuthSessions = async () => {
+  const related = {
+    userSessions: await prisma.userSession.count(),
+    customerPushSubscriptions: await prisma.pushSubscription.count(),
+    supportPushSubscriptions:
+      await prisma.customerSupportPushSubscription.count(),
+  };
+
+  console.log("Matched auth session and push endpoint data:");
+  console.log({ related });
+
+  if (!hasFlag("confirm")) {
+    printDryRun();
+    return;
+  }
+
+  const [sessions, customerPush, supportPush] = await prisma.$transaction([
+    prisma.userSession.deleteMany(),
+    prisma.pushSubscription.deleteMany(),
+    prisma.customerSupportPushSubscription.deleteMany(),
+  ]);
+
+  console.log(
+    `Deleted ${sessions.count} user session(s), ${customerPush.count} customer push subscription(s), and ${supportPush.count} support push subscription(s).`,
+  );
+};
+
+const deleteSystemIssues = async () => {
+  const count = await prisma.systemIssue.count();
+  console.log(`Matched ${count} system issue(s).`);
+
+  if (!hasFlag("confirm")) {
+    printDryRun();
+    return;
+  }
+
+  const result = await prisma.systemIssue.deleteMany();
+  console.log(`Deleted ${result.count} system issue(s).`);
 };
 
 const run = async () => {
@@ -337,6 +483,9 @@ const run = async () => {
   if (scope === "price-ranges") await deletePriceRanges();
   if (scope === "bookings") await deleteBookings();
   if (scope === "notifications") await deleteNotifications();
+  if (scope === "support-data") await deleteSupportData();
+  if (scope === "auth-sessions") await deleteAuthSessions();
+  if (scope === "system-issues") await deleteSystemIssues();
 };
 
 run()

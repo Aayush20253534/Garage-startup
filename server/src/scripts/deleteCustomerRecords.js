@@ -88,9 +88,19 @@ const summarizeBookings = async (user, scope) => {
 
   const bookingIds = bookings.map((booking) => booking.id);
 
-  const [payments, complaints, bookingServices, broadcasts, reviews] =
+  const [
+    payments,
+    complaints,
+    bookingServices,
+    broadcasts,
+    reviews,
+    inspectionImages,
+    trackingPoints,
+    adminEvents,
+    supportTicketsDetached,
+  ] =
     bookingIds.length === 0
-      ? [0, 0, 0, 0, 0]
+      ? [0, 0, 0, 0, 0, 0, 0, 0, 0]
       : await Promise.all([
           prisma.payment.count({
             where: {
@@ -127,6 +137,34 @@ const summarizeBookings = async (user, scope) => {
               },
             },
           }),
+          prisma.bookingInspectionImage.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          prisma.bookingTrackingPoint.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          prisma.adminBookingEvent.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
+          prisma.supportTicket.count({
+            where: {
+              bookingId: {
+                in: bookingIds,
+              },
+            },
+          }),
         ]);
 
   return {
@@ -138,6 +176,10 @@ const summarizeBookings = async (user, scope) => {
       bookingServices,
       broadcasts,
       reviews,
+      inspectionImages,
+      trackingPoints,
+      adminEvents,
+      supportTicketsDetached,
     },
   };
 };

@@ -140,7 +140,24 @@ const COMMANDS = [
   {
     command: "delete-all-notifications",
     label: "Delete all notifications",
-    description: "Deletes all customer notifications.",
+    description:
+      "Deletes customer notifications and customer-support received alert rows.",
+    tone: "danger",
+    fields: [],
+  },
+  {
+    command: "delete-all-support-data",
+    label: "Delete support desk data",
+    description:
+      "Deletes support tickets, ticket messages, ticket attachments, support received alerts, support push subscriptions, and support email logs. Customer support accounts are preserved.",
+    tone: "danger",
+    fields: [],
+  },
+  {
+    command: "delete-all-auth-sessions",
+    label: "Delete auth sessions and push endpoints",
+    description:
+      "Deletes all customer web sessions plus customer and support PWA push subscription endpoints. User, staff, and support accounts are preserved.",
     tone: "danger",
     fields: [],
   },
@@ -155,7 +172,7 @@ const COMMANDS = [
     command: "nuke-users",
     label: "Nuke all users",
     description:
-      "Deletes every customer and garage-owner account, user-linked bookings, wallets, OTPs, notifications, activities, chatbot data, and user media in Cloudinary. Garages are preserved but owner links are cleared.",
+      "Deletes every customer and garage-owner account, sessions, push endpoints, user-linked bookings, wallets, OTPs, notifications, support tickets, activities, chatbot data, and user media in Cloudinary. Garages are preserved but owner links are cleared.",
     tone: "critical",
     fields: [],
   },
@@ -163,7 +180,7 @@ const COMMANDS = [
     command: "nuke-platform",
     label: "Nuke platform data",
     description:
-      "Deletes all non-staff platform data: users, garages, bookings, payments, applications, services, cities, vehicle metadata, notifications, system issues, and DB-backed Cloudinary media.",
+      "Deletes all non-staff platform data: users, garages, bookings, payments, applications, support tickets, support operational logs, services, cities, vehicle metadata, notifications, system issues, and DB-backed Cloudinary media. Staff and customer-support accounts are preserved.",
     tone: "critical",
     fields: [],
   },
@@ -855,7 +872,7 @@ const collectUserMedia = async (userIds = [], { includeOwnedGarages = false } = 
   const ids = unique(userIds);
   if (!ids.length) return [];
 
-  const [profiles, complaintImages, inspectionImages, ownedGarages] =
+  const [profiles, complaintImages, inspectionImages, supportAttachments, ownedGarages] =
     await Promise.all([
       prisma.customerProfile.findMany({
         where: { userId: { in: ids } },
@@ -876,6 +893,19 @@ const collectUserMedia = async (userIds = [], { includeOwnedGarages = false } = 
       }),
       prisma.bookingInspectionImage.findMany({
         where: { booking: { is: { userId: { in: ids } } } },
+        select: { publicId: true },
+      }),
+      prisma.supportTicketAttachment.findMany({
+        where: {
+          ticket: {
+            is: {
+              OR: [
+                { userId: { in: ids } },
+                { booking: { is: { userId: { in: ids } } } },
+              ],
+            },
+          },
+        },
         select: { publicId: true },
       }),
       includeOwnedGarages
@@ -912,6 +942,7 @@ const collectUserMedia = async (userIds = [], { includeOwnedGarages = false } = 
     ...profileAssets,
     ...asImageAssets(complaintImages),
     ...asImageAssets(inspectionImages),
+    ...asImageAssets(supportAttachments),
     ...garageAssets,
   ];
 };
@@ -926,6 +957,7 @@ const collectAllDbMedia = async () => {
     serviceMedia,
     categoryThumbnails,
     applicationImages,
+    supportAttachments,
   ] = await Promise.all([
     prisma.customerProfile.findMany({ select: { avatarPublicId: true } }),
     prisma.complaintImage.findMany({ select: { publicId: true } }),
@@ -935,6 +967,7 @@ const collectAllDbMedia = async () => {
     prisma.serviceMedia.findMany({ select: { publicId: true, mediaType: true } }),
     prisma.serviceCategory.findMany({ select: { thumbnailPublicId: true } }),
     prisma.garageApplicationImage.findMany({ select: { publicId: true } }),
+    prisma.supportTicketAttachment.findMany({ select: { publicId: true } }),
   ]);
 
   return [
@@ -957,6 +990,7 @@ const collectAllDbMedia = async () => {
       .filter(Boolean)
       .map((publicId) => ({ publicId, resourceType: "image" })),
     ...asImageAssets(applicationImages),
+    ...asImageAssets(supportAttachments),
   ];
 };
 
@@ -1100,6 +1134,11 @@ const deleteUserData = async ({ payload = {}, requestedById = null } = {}) => {
         data: { userId: null },
       });
 
+      await tx.customerSupportEmailLog.updateMany({
+        where: { userId: { in: ids } },
+        data: { userId: null },
+      });
+
       const bookingIds = (
         await tx.booking.findMany({
           where: { userId: { in: ids } },
@@ -1127,7 +1166,11 @@ const deleteUserData = async ({ payload = {}, requestedById = null } = {}) => {
     { timeout: 60000 },
   );
 
-  await Promise.allSettled([deletePattern("customer:*"), deletePattern("garages:*")]);
+  await Promise.allSettled([
+    deletePattern("customer:*"),
+    deletePattern("garages:*"),
+    deletePattern("support:*"),
+  ]);
   const cloudinary = await deleteCloudinaryAssets(cloudinaryAssets);
 
   console.warn("[admin-dangerous] delete-user-data", {
@@ -1313,7 +1356,11 @@ const deleteAllBookings = async () => {
     { timeout: 60000 },
   );
 
-  await Promise.allSettled([deletePattern("customer:*"), deletePattern("garages:*")]);
+  await Promise.allSettled([
+    deletePattern("customer:*"),
+    deletePattern("garages:*"),
+    deletePattern("support:*"),
+  ]);
   const cloudinary = await deleteCloudinaryAssets(asImageAssets(imageRecords));
 
   return {
@@ -1470,12 +1517,81 @@ const deleteAllCities = async () => {
 };
 
 const deleteAllNotifications = async () => {
-  const deleted = await prisma.notification.deleteMany();
-  await Promise.allSettled([deletePattern("customer:*")]);
+  const result = await prisma.$transaction(async (tx) => {
+    const [customerNotifications, supportNotifies] = await Promise.all([
+      tx.notification.deleteMany(),
+      tx.notify.deleteMany(),
+    ]);
+
+    return {
+      deletedCustomerNotifications: customerNotifications.count,
+      deletedSupportNotifies: supportNotifies.count,
+    };
+  });
+
+  await Promise.allSettled([
+    deletePattern("customer:*"),
+    deletePattern("support:*"),
+  ]);
+
+  return result;
+};
+
+const deleteAllSupportData = async () => {
+  const attachmentImages = await prisma.supportTicketAttachment.findMany({
+    select: { publicId: true },
+  });
+
+  const result = await prisma.$transaction(async (tx) => {
+    const [supportTickets, supportNotifies, supportPushSubscriptions, emailLogs] =
+      await Promise.all([
+        tx.supportTicket.deleteMany(),
+        tx.notify.deleteMany(),
+        tx.customerSupportPushSubscription.deleteMany(),
+        tx.customerSupportEmailLog.deleteMany(),
+      ]);
+
+    return {
+      deletedSupportTickets: supportTickets.count,
+      deletedSupportNotifies: supportNotifies.count,
+      deletedSupportPushSubscriptions: supportPushSubscriptions.count,
+      deletedSupportEmailLogs: emailLogs.count,
+    };
+  });
+
+  await Promise.allSettled([deletePattern("support:*")]);
+  const cloudinary = await deleteCloudinaryAssets(
+    asImageAssets(attachmentImages),
+  );
 
   return {
-    deletedNotifications: deleted.count,
+    ...result,
+    cloudinary,
   };
+};
+
+const deleteAllAuthSessions = async () => {
+  const result = await prisma.$transaction(async (tx) => {
+    const [sessions, customerPushSubscriptions, supportPushSubscriptions] =
+      await Promise.all([
+        tx.userSession.deleteMany(),
+        tx.pushSubscription.deleteMany(),
+        tx.customerSupportPushSubscription.deleteMany(),
+      ]);
+
+    return {
+      deletedUserSessions: sessions.count,
+      deletedCustomerPushSubscriptions: customerPushSubscriptions.count,
+      deletedSupportPushSubscriptions: supportPushSubscriptions.count,
+    };
+  });
+
+  await Promise.allSettled([
+    deletePattern("customer:*"),
+    deletePattern("support:*"),
+  ]);
+
+  return result;
 };
 
 const deleteAllSystemIssues = async () => {
@@ -1523,6 +1639,10 @@ const nukeUsers = async () => {
 
       await Promise.all([
         tx.systemIssue.updateMany({
+          where: { userId: { not: null } },
+          data: { userId: null },
+        }),
+        tx.customerSupportEmailLog.updateMany({
           where: { userId: { not: null } },
           data: { userId: null },
         }),
@@ -1579,6 +1699,11 @@ const nukePlatform = async () => {
       const bookings = await tx.booking.deleteMany();
       const complaints = await tx.complaint.deleteMany();
       const notifications = await tx.notification.deleteMany();
+      const supportTickets = await tx.supportTicket.deleteMany();
+      const supportNotifies = await tx.notify.deleteMany();
+      const supportPushSubscriptions =
+        await tx.customerSupportPushSubscription.deleteMany();
+      const supportEmailLogs = await tx.customerSupportEmailLog.deleteMany();
       const pendingSignups = await tx.pendingSignup.deleteMany();
       const emailOtps = await tx.emailOtp.deleteMany();
       const phoneOtps = await tx.phoneOtp.deleteMany();
@@ -1597,6 +1722,10 @@ const nukePlatform = async () => {
         deletedBookings: bookings.count,
         deletedComplaints: complaints.count,
         deletedNotifications: notifications.count,
+        deletedSupportTickets: supportTickets.count,
+        deletedSupportNotifies: supportNotifies.count,
+        deletedSupportPushSubscriptions: supportPushSubscriptions.count,
+        deletedSupportEmailLogs: supportEmailLogs.count,
         deletedUsers: users.count,
         deletedGarageApplications: garageApplications.count,
         deletedGarages: garages.count,
@@ -1620,6 +1749,7 @@ const nukePlatform = async () => {
     deletePattern("cities:*"),
     deletePattern("vehicle-meta:*"),
     deletePattern("price-ranges:*"),
+    deletePattern("support:*"),
   ]);
   const cloudinary = await deleteCloudinaryAssets(cloudinaryAssets);
 
@@ -1671,6 +1801,10 @@ const runCommand = async ({ command, confirmation, payload = {}, requestedById =
     result = await deleteAllCities();
   } else if (command === "delete-all-notifications") {
     result = await deleteAllNotifications();
+  } else if (command === "delete-all-support-data") {
+    result = await deleteAllSupportData();
+  } else if (command === "delete-all-auth-sessions") {
+    result = await deleteAllAuthSessions();
   } else if (command === "delete-all-system-issues") {
     result = await deleteAllSystemIssues();
   } else if (command === "nuke-users") {

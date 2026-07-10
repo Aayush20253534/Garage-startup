@@ -1,6 +1,6 @@
 # Rovauto Client
 
-The Rovauto client is a React 18 single-page application for public visitors, customers, garage partners, and administrators. It uses one route tree with role-aware layouts and guards, communicates with the backend through Axios, and relies on an HttpOnly authentication cookie rather than storing JWTs in JavaScript.
+The Rovauto client is a React 18 single-page application for public visitors, customers, garage partners, customer-support agents, interns, and administrators. It uses one route tree with role-aware layouts and guards, communicates with the backend through Axios, and relies on an HttpOnly authentication cookie rather than storing JWTs in JavaScript.
 
 ## Stack
 
@@ -38,6 +38,7 @@ The Rovauto client is a React 18 single-page application for public visitors, cu
 - Cashfree checkout and verification
 - Booking tracking, active bookings, service history, and payments
 - Vehicle, profile, notification, wallet, complaint, review, and SOS-related interfaces
+- Support tickets, disputes, ticket messages, attachments, and chatbot history
 - Persisted assistant conversation history
 
 ### Garage experience
@@ -57,7 +58,17 @@ The Rovauto client is a React 18 single-page application for public visitors, cu
 - Bookings
 - City/service price ranges
 - System issues
-- Notifications and bulk email
+- Support tickets and disputes
+- Customer-support account management
+- Intern account management
+- Notifications, support alerts, dangerous operations, and bulk email
+
+### Customer support experience
+
+- Dedicated support login and installable support PWA shell
+- Support dashboard and ticket queue
+- Ticket claiming/releasing, public replies, internal notes, and status updates
+- Received support alerts, customer notifications, and recorded support email
 
 ## Application Structure
 
@@ -263,10 +274,25 @@ The SOS routes use `SOSAvailabilityGuard`, which reads the service catalog and b
 /admin/services
 /admin/garages
 /admin/bookings
+/admin/pending-bookings
 /admin/revenue
+/admin/payments
 /admin/system-issues
-/admin/notifications
-/admin/email
+/admin/support-tickets
+/admin/customer-support-accounts
+/admin/intern-accounts
+/admin/dangerous
+```
+
+### Customer support portal
+
+```text
+/support/login
+/support
+/support/tickets
+/support/notify
+/support/notifications
+/support/email
 ```
 
 ### SOS

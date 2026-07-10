@@ -7,9 +7,9 @@
 ![Payments](https://img.shields.io/badge/Payments-Cashfree-6C47FF)
 ![Runtime](https://img.shields.io/badge/Node.js-%3E%3D20-339933)
 
-Rovauto is a full-stack vehicle-service platform that connects customers, garage partners, and administrators. The repository contains one React application with role-specific portals and one Express API backed by PostgreSQL and Prisma.
+Rovauto is a full-stack vehicle-service platform that connects customers, garage partners, customer-support agents, and administrators. The repository contains one React application with role-specific portals and one Express API backed by PostgreSQL and Prisma.
 
-The current implementation covers customer onboarding, vehicle and location management, service discovery, checkout and payments, nearby-garage broadcasting, garage booking workflows, wallet operations, SOS requests, media uploads, notifications, complaints, reviews, an AI support assistant, and an admin operations console.
+The current implementation covers customer onboarding, vehicle and location management, service discovery, checkout and payments, nearby-garage broadcasting, garage booking workflows, wallet operations, SOS requests, media uploads, push notifications, support tickets and disputes, support-agent operations, complaints, reviews, an AI support assistant, and an admin operations console.
 
 ## Product Surfaces
 
@@ -17,7 +17,8 @@ The current implementation covers customer onboarding, vehicle and location mana
 | --- | --- |
 | Customer | Signup/login, OTP and Google authentication, location onboarding, vehicle management, service booking, Cashfree payment, booking tracking, service history, wallet, notifications, complaints, reviews, SOS, profile, and chatbot history |
 | Garage partner | Partner application, email/password and OTP login, garage profile, service management, incoming booking requests, accept/reject flow, pickup and delivery verification, inspection media, wallet, and settings |
-| Admin | Operational dashboard, customers, garages, garage applications, services, vehicle catalog, cities, city-specific price ranges, bookings, notifications, bulk email, and system-issue monitoring |
+| Customer support | Dedicated login/PWA shell, support dashboard, ticket queue, ticket claiming, dispute replies, support notifications, customer notifications, and support email history |
+| Admin | Operational dashboard, customers, garages, garage applications, services, vehicle catalog, cities, city-specific price ranges, bookings, support tickets, support accounts, intern accounts, notifications, bulk email, dangerous operations, and system-issue monitoring |
 | Public | Landing pages, service catalog, category pages, contact form, warranty information, partner application, public statistics, and service availability checks |
 
 ## Current Architecture
@@ -48,7 +49,7 @@ flowchart LR
 - Redis is optional and treated as a cache. PostgreSQL remains the source of truth.
 - Google Geocoding is the active address provider. Groq can normalize a failed manual address before another Google lookup.
 - A recurring backend worker advances garage-search rounds for paid bookings that remain in `SEARCHING_GARAGE`.
-- Customer, garage-owner, and admin identities are role-scoped through compound unique constraints on email/role and phone/role.
+- Customer and garage-owner identities are role-scoped through compound unique constraints on email/role and phone/role. Admin and intern staff accounts live in `staff_accounts`; customer-support agents live in `customer_support_accounts`.
 
 ## Technology Stack
 
@@ -270,7 +271,8 @@ Legacy Nominatim variables remain in `server/.env.example`, but the current geoc
 | Customer booking | `/booking/address`, `/booking/vehicle`, `/booking/services`, `/booking/garage`, `/checkout`, `/tracking` |
 | Customer portal | `/dashboard`, `/dashboard/vehicles`, `/dashboard/bookings`, `/dashboard/history`, `/dashboard/payments`, `/dashboard/notifications`, `/dashboard/profile` |
 | Garage | `/garage/login`, `/garage/otp-login`, `/garage/onboarding`, `/garage`, `/garage/bookings`, `/garage/services`, `/garage/wallet`, `/garage/profile`, `/garage/settings` |
-| Admin | `/admin/login`, `/admin`, `/admin/customers`, `/admin/cars`, `/admin/services`, `/admin/garages`, `/admin/bookings`, `/admin/revenue`, `/admin/system-issues`, `/admin/notifications`, `/admin/email` |
+| Admin | `/admin/login`, `/admin`, `/admin/customers`, `/admin/cars`, `/admin/services`, `/admin/garages`, `/admin/bookings`, `/admin/pending-bookings`, `/admin/revenue`, `/admin/payments`, `/admin/system-issues`, `/admin/support-tickets`, `/admin/customer-support-accounts`, `/admin/intern-accounts`, `/admin/dangerous` |
+| Customer support | `/support/login`, `/support`, `/support/tickets`, `/support/notify`, `/support/notifications`, `/support/email` |
 | SOS | `/sos`, `/sos/location`, `/sos/checkout`, `/sos/success` |
 
 ### API groups
@@ -294,11 +296,13 @@ All API routes are mounted under `/api/v1`.
 /sos                      Emergency request creation and lookup
 /reviews                   Customer reviews
 /complaints               Customer complaints
+/support-tickets           Customer support tickets and disputes
 /notifications            Customer notifications
 /chatbot                  Assistant history, ask, and clear
 /activities               Customer activity feed
 /cities                   Public and admin-managed cities
 /system-issues            Frontend issue reporting
+/customer-support          Support-agent dashboard, tickets, alerts, push, and email
 /admin/*                   Admin operations and catalogs
 /whatsapp                 WhatsApp health and webhook endpoints
 /public/stats              Public platform statistics
@@ -437,7 +441,7 @@ npm run prisma:studio
 npm run seed:admin
 ```
 
-The server also includes targeted data-cleanup and garage-administration scripts. Review their implementation and arguments before running them against any shared database.
+The server also includes targeted data-cleanup and garage-administration scripts. Review their implementation and arguments before running them against any shared database. Current destructive cleanup scripts cover users, customer bookings/payments/history, garages, price ranges, bookings, customer/support notifications, support desk data, auth sessions and push endpoints, system issues, and full user nukes.
 
 ## Validation Performed on This Snapshot
 

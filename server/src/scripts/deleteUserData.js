@@ -78,6 +78,8 @@ const countRelatedData = async (user) => {
     locations,
     complaints,
     notifications,
+    userSessions,
+    pushSubscriptions,
     otps,
     reviews,
     wallet,
@@ -89,6 +91,11 @@ const countRelatedData = async (user) => {
     customerActivities,
     chatbotConversations,
     chatbotMessages,
+    supportTickets,
+    supportTicketMessages,
+    supportTicketAttachments,
+    bookingTrackingPoints,
+    supportEmailLogs,
     systemIssuesAsUser,
   ] = await Promise.all([
     prisma.booking.count({
@@ -112,6 +119,16 @@ const countRelatedData = async (user) => {
       },
     }),
     prisma.notification.count({
+      where: {
+        userId: user.id,
+      },
+    }),
+    prisma.userSession.count({
+      where: {
+        userId: user.id,
+      },
+    }),
+    prisma.pushSubscription.count({
       where: {
         userId: user.id,
       },
@@ -171,6 +188,35 @@ const countRelatedData = async (user) => {
         userId: user.id,
       },
     }),
+    prisma.supportTicket.count({
+      where: {
+        userId: user.id,
+      },
+    }),
+    prisma.supportTicketMessage.count({
+      where: {
+        authorUserId: user.id,
+      },
+    }),
+    prisma.supportTicketAttachment.count({
+      where: {
+        ticket: {
+          is: {
+            userId: user.id,
+          },
+        },
+      },
+    }),
+    prisma.bookingTrackingPoint.count({
+      where: {
+        userId: user.id,
+      },
+    }),
+    prisma.customerSupportEmailLog.count({
+      where: {
+        userId: user.id,
+      },
+    }),
     prisma.systemIssue.count({
       where: {
         userId: user.id,
@@ -184,6 +230,8 @@ const countRelatedData = async (user) => {
     locations,
     complaints,
     notifications,
+    userSessions,
+    pushSubscriptions,
     otps,
     reviews,
     wallet,
@@ -195,6 +243,11 @@ const countRelatedData = async (user) => {
     customerActivities,
     chatbotConversations,
     chatbotMessages,
+    supportTickets,
+    supportTicketMessages,
+    supportTicketAttachments,
+    bookingTrackingPoints,
+    supportEmailLogs,
     systemIssuesAsUser,
   };
 };
@@ -351,6 +404,17 @@ const deleteMatchedUsers = async () => {
      * issue history but clear references to records that are being deleted.
      */
     await tx.systemIssue.updateMany({
+      where: {
+        userId: {
+          in: ids,
+        },
+      },
+      data: {
+        userId: null,
+      },
+    });
+
+    await tx.customerSupportEmailLog.updateMany({
       where: {
         userId: {
           in: ids,
