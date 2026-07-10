@@ -8,7 +8,6 @@ import {
   FiCheckCircle,
   FiClock,
   FiCreditCard,
-  FiDollarSign,
   FiHome,
   FiRefreshCw,
   FiTool,
@@ -80,11 +79,6 @@ export default function AdminDashboard() {
     return () => window.clearInterval(interval);
   }, [load]);
 
-  const totalPlatformRevenue =
-    Number(stats.totalPlatformRevenue || 0) ||
-    Number(stats.customerPlatformFeeRevenue || 0) +
-      Number(stats.garagePlatformFeeRevenue || 0);
-
   const operationCards = [
     {
       icon: FiActivity,
@@ -145,11 +139,34 @@ export default function AdminDashboard() {
     },
   ];
 
+  const financialCards = [
+    {
+      icon: FiUsers,
+      value: formatCurrency(stats.customerPlatformFeeRevenue),
+      label: "Income from customers",
+      caption: "Customer platform fees received",
+      tone: "bg-blue-50 text-blue-700",
+    },
+    {
+      icon: FiHome,
+      value: formatCurrency(stats.garagePlatformFeeRevenue),
+      label: "Income from garages",
+      caption: "Garage acceptance fees received",
+      tone: "bg-amber-50 text-amber-800",
+    },
+    {
+      icon: FiTool,
+      value: formatCurrency(stats.totalServiceCost),
+      label: "Total service cost",
+      caption: "Completed service value, excluding both platform fees",
+      tone: "bg-lime-100 text-ink",
+    },
+  ];
+
   const businessCards = [
     { icon: FiHome, value: stats.activeGarages || 0, label: "Active garages" },
     { icon: FiUsers, value: stats.customers || 0, label: "Customers" },
     { icon: FiCalendar, value: stats.bookings || 0, label: "All bookings" },
-    { icon: FiDollarSign, value: formatCurrency(totalPlatformRevenue), label: "Platform revenue" },
   ];
 
   const totalStatusCount = useMemo(
@@ -290,8 +307,32 @@ export default function AdminDashboard() {
       </div>
 
       <section>
+        <div className="mb-3">
+          <h3 className="text-lg font-bold text-ink">Financial overview</h3>
+          <p className="mt-1 text-sm text-muted">Platform fee income and completed service value.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {financialCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className="rounded-2xl border border-line bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg ${card.tone}`}>
+                    <Icon />
+                  </span>
+                  <span className="text-right text-2xl font-bold text-ink sm:text-3xl">{card.value}</span>
+                </div>
+                <p className="mt-4 font-bold text-ink">{card.label}</p>
+                <p className="mt-1 text-xs text-muted">{card.caption}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
         <h3 className="mb-3 text-lg font-bold text-ink">Business overview</h3>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {businessCards.map((card) => {
             const Icon = card.icon;
             return (
