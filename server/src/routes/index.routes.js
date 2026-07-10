@@ -41,6 +41,8 @@ const adminServiceRoutes = require("../admin/routes/serviceAdmin.routes");
 const adminSystemIssueRoutes = require("../admin/routes/systemIssue.routes");
 const adminDangerousRoutes = require("../admin/routes/dangerous.routes");
 const adminSupportRoutes = require("../admin/routes/adminSupport.routes");
+const customerSupportAccountRoutes = require("../admin/routes/customerSupportAccount.routes");
+const customerSupportRoutes = require("../customerSupport/routes/customerSupport.routes");
 const authController = require("../customer/controllers/auth.controller");
 const validate = require("../middlewares/validate.middleware");
 const rateLimit = require("../middlewares/rateLimit.middleware");
@@ -70,6 +72,7 @@ router.use("/system-issues", systemIssueReportRoutes);
 router.use("/cities", cityRoutes);
 router.use("/maps", mapsRoutes);
 router.use("/push", pushRoutes);
+router.use("/customer-support", customerSupportRoutes);
 
 router.post(
   "/send-otp",
@@ -143,6 +146,7 @@ router.use("/admin/cars", adminCarMetaRoutes);
 router.use("/admin/services", adminServiceRoutes);
 router.use("/admin/system-issues", adminSystemIssueRoutes);
 router.use("/admin/dangerous", adminDangerousRoutes);
+router.use("/admin/customer-support-accounts", customerSupportAccountRoutes);
 router.use("/admin/support-tickets", adminSupportRoutes);
 router.use("/admin/garages", adminGarageRoutes);
 router.use("/admin", adminOperationsRoutes);

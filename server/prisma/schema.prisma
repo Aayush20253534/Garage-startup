@@ -84,6 +84,26 @@ model StaffAccount {
   @@map("staff_accounts")
 }
 
+model CustomerSupportAccount {
+  id                String                        @id @default(uuid())
+  name              String
+  email             String                        @unique
+  password          String
+  isActive          Boolean                       @default(true)
+  lastLoginAt       DateTime?
+  passwordChangedAt DateTime?
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+  assignedTickets   SupportTicket[]               @relation("CustomerSupportAssignedTickets")
+  messages          SupportTicketMessage[]        @relation("SupportTicketSupportMessages")
+  notifications     CustomerSupportNotification[]
+  emailLogs         CustomerSupportEmailLog[]
+
+  @@index([isActive])
+  @@index([lastLoginAt])
+  @@map("customer_support_accounts")
+}
+
 model CustomerActivity {
   id        String   @id @default(uuid())
   userId    String
@@ -725,6 +745,8 @@ model SupportTicket {
   priority          SupportTicketPriority     @default(NORMAL)
   status            SupportTicketStatus       @default(OPEN)
   assignedToId      String?
+  supportAssigneeId String?
+  claimedAt         DateTime?
   resolutionOutcome DisputeResolutionOutcome?
   resolutionNote    String?
   refundAmount      Int?
@@ -735,12 +757,14 @@ model SupportTicket {
   user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   booking           Booking?                  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   assignedTo        StaffAccount?             @relation("AssignedSupportTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  supportAssignee   CustomerSupportAccount?    @relation("CustomerSupportAssignedTickets", fields: [supportAssigneeId], references: [id], onDelete: SetNull)
   messages          SupportTicketMessage[]
   attachments       SupportTicketAttachment[]
 
   @@index([userId, updatedAt])
   @@index([bookingId])
   @@index([assignedToId, status])
+  @@index([supportAssigneeId, status])
   @@index([type, status, priority])
   @@index([lastMessageAt])
   @@map("support_tickets")
@@ -752,6 +776,7 @@ model SupportTicketMessage {
   authorType    SupportMessageAuthorType
   authorUserId  String?
   authorStaffId String?
+  authorSupportId String?
   authorName    String
   body          String
   isInternal    Boolean                  @default(false)
@@ -759,11 +784,13 @@ model SupportTicketMessage {
   ticket        SupportTicket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   authorUser    User?                    @relation("SupportTicketUserMessages", fields: [authorUserId], references: [id], onDelete: SetNull)
   authorStaff   StaffAccount?            @relation("SupportTicketStaffMessages", fields: [authorStaffId], references: [id], onDelete: SetNull)
+  authorSupport CustomerSupportAccount?  @relation("SupportTicketSupportMessages", fields: [authorSupportId], references: [id], onDelete: SetNull)
   attachments   SupportTicketAttachment[]
 
   @@index([ticketId, createdAt])
   @@index([authorUserId])
   @@index([authorStaffId])
+  @@index([authorSupportId])
   @@map("support_ticket_messages")
 }
 
@@ -781,6 +808,40 @@ model SupportTicketAttachment {
   @@index([ticketId])
   @@index([messageId])
   @@map("support_ticket_attachments")
+}
+
+model CustomerSupportNotification {
+  id               String                 @id @default(uuid())
+  supportAccountId String
+  title            String
+  message          String
+  link             String?
+  isRead           Boolean                @default(false)
+  metadata         Json?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  supportAccount   CustomerSupportAccount @relation(fields: [supportAccountId], references: [id], onDelete: Cascade)
+
+  @@index([supportAccountId, isRead, createdAt])
+  @@map("customer_support_notifications")
+}
+
+model CustomerSupportEmailLog {
+  id               String                 @id @default(uuid())
+  supportAccountId String
+  userId           String?
+  recipientEmail   String
+  recipientName    String?
+  subject          String
+  status           String                 @default("SENT")
+  providerMessageId String?
+  errorMessage     String?
+  createdAt        DateTime               @default(now())
+  supportAccount   CustomerSupportAccount @relation(fields: [supportAccountId], references: [id], onDelete: Cascade)
+
+  @@index([supportAccountId, createdAt])
+  @@index([recipientEmail])
+  @@map("customer_support_email_logs")
 }
 
 model Complaint {
@@ -1068,6 +1129,7 @@ enum SupportMessageAuthorType {
   CUSTOMER
   ADMIN
   INTERN
+  CUSTOMER_SUPPORT
   SYSTEM
 }
 

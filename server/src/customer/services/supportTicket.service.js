@@ -4,6 +4,7 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
 const { createActivity } = require("./activity.service");
+const supportNotificationService = require("../../customerSupport/services/supportNotification.service");
 
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
@@ -49,11 +50,11 @@ const TICKET_INCLUDE = {
       },
     },
   },
-  assignedTo: {
+  supportAssignee: {
     select: {
       id: true,
       name: true,
-      role: true,
+      email: true,
     },
   },
   attachments: {
@@ -199,6 +200,13 @@ const createTicket = async ({ user, data, files = [] }) => {
     metadata: { ticketId: ticket.id, ticketCode: ticket.ticketCode, type },
   }).catch(() => null);
 
+  await supportNotificationService.notifyAllActive({
+    title: type === "DISPUTE" ? "New customer dispute" : "New support ticket",
+    message: `${ticket.ticketCode}: ${ticket.subject}`,
+    link: `/support/tickets?ticket=${ticket.id}`,
+    metadata: { ticketId: ticket.id, ticketCode: ticket.ticketCode, type },
+  }).catch(() => null);
+
   return ticket;
 };
 
@@ -221,7 +229,7 @@ const listMyTickets = async (userId) => {
           },
         },
       },
-      assignedTo: { select: { id: true, name: true, role: true } },
+      supportAssignee: { select: { id: true, name: true, email: true } },
       _count: { select: { messages: true, attachments: true } },
       messages: {
         where: { isInternal: false },
@@ -256,7 +264,14 @@ const getMyTicket = async (userId, ticketId) => {
 const replyToTicket = async ({ user, ticketId, body }) => {
   const ticket = await prisma.supportTicket.findFirst({
     where: { id: ticketId, userId: user.id },
-    select: { id: true, ticketCode: true, status: true },
+    select: {
+      id: true,
+      ticketCode: true,
+      status: true,
+      type: true,
+      subject: true,
+      supportAssigneeId: true,
+    },
   });
 
   if (!ticket) {
@@ -289,6 +304,12 @@ const replyToTicket = async ({ user, ticketId, body }) => {
       },
     }),
   ]);
+
+  await supportNotificationService.notifyTicketQueue(ticket, {
+    title: "Customer replied to a support ticket",
+    message: `${ticket.ticketCode}: ${messageBody.slice(0, 160)}`,
+    link: `/support/tickets?ticket=${ticket.id}`,
+  }).catch(() => null);
 
   return getMyTicket(user.id, ticketId);
 };

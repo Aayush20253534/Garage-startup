@@ -557,7 +557,7 @@ export default function Support() {
                     <dl className="mt-3 space-y-3 text-muted">
                       <div><dt className="text-xs font-bold uppercase">Created</dt><dd className="mt-1 text-ink">{formatDateTime(selectedTicket.createdAt)}</dd></div>
                       <div><dt className="text-xs font-bold uppercase">Priority</dt><dd className="mt-1 text-ink">{selectedTicket.priority}</dd></div>
-                      <div><dt className="text-xs font-bold uppercase">Assigned to</dt><dd className="mt-1 text-ink">{selectedTicket.assignedTo?.name || "Support queue"}</dd></div>
+                      <div><dt className="text-xs font-bold uppercase">Assigned to</dt><dd className="mt-1 text-ink">{selectedTicket.supportAssignee?.name || "Support queue"}</dd></div>
                     </dl>
                   </div>
 

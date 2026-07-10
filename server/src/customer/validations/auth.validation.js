@@ -6,7 +6,7 @@ const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 const USER_ROLES = ["CUSTOMER", "GARAGE_OWNER"];
-const AUTH_ROLES = [...USER_ROLES, "ADMIN", "INTERN"];
+const AUTH_ROLES = [...USER_ROLES, "ADMIN", "INTERN", "CUSTOMER_SUPPORT"];
 
 const signupValidation = [
   body("name")

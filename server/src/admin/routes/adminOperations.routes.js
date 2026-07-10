@@ -13,10 +13,7 @@ const {
   customerQuerySchema,
   paymentQuerySchema,
   reassignBookingGarageSchema,
-  sendNotificationSchema,
-  sendUserEmailSchema,
   updateBookingStatusSchema,
-  userEmailSearchSchema,
 } = require("../validations/adminOperations.validation");
 
 const router = express.Router();
@@ -83,23 +80,4 @@ router.get(
   validate,
   controller.listPayments,
 );
-router.get(
-  "/email-users",
-  userEmailSearchSchema,
-  validate,
-  controller.searchEmailUsers,
-);
-router.post(
-  "/emails",
-  sendUserEmailSchema,
-  validate,
-  controller.sendUserEmail,
-);
-router.post(
-  "/notifications",
-  sendNotificationSchema,
-  validate,
-  controller.sendNotification,
-);
-
 module.exports = router;

@@ -715,7 +715,7 @@ const getCustomerProfile = async (userId) => {
       supportTickets: {
         include: {
           booking: { select: { id: true, bookingCode: true } },
-          assignedTo: { select: { id: true, name: true, role: true } },
+          supportAssignee: { select: { id: true, name: true, email: true } },
           _count: { select: { messages: true, attachments: true } },
         },
         orderBy: { lastMessageAt: "desc" },

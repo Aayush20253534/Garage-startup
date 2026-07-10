@@ -81,6 +81,10 @@ const getEffectiveAccountType = (user) => {
     return "STAFF";
   }
 
+  if (user?.role === "CUSTOMER_SUPPORT") {
+    return "CUSTOMER_SUPPORT";
+  }
+
   if (user?.role === "CUSTOMER" || user?.role === "GARAGE_OWNER") {
     return "USER";
   }
@@ -98,6 +102,10 @@ const getAccountPortal = (user) => {
 
   if (hasPortalRole(user, "INTERN", "STAFF")) {
     return "/intern";
+  }
+
+  if (hasPortalRole(user, "CUSTOMER_SUPPORT", "CUSTOMER_SUPPORT")) {
+    return "/support";
   }
 
   if (hasPortalRole(user, "GARAGE_OWNER", "USER")) {
@@ -119,6 +127,8 @@ function ProtectedRoute({ children }) {
     location.pathname === "/garage" || location.pathname.startsWith("/garage/");
   const isAdminRoute = location.pathname.startsWith("/admin");
   const isInternRoute = location.pathname.startsWith("/intern");
+  const isCustomerSupportRoute =
+    location.pathname === "/support" || location.pathname.startsWith("/support/");
 
   if (authLoading) {
     return <RouteFallback />;
@@ -143,6 +153,22 @@ function ProtectedRoute({ children }) {
       return (
         <Navigate
           to={user ? getAccountPortal(user) : "/intern/login"}
+          state={{ from: location }}
+          replace
+        />
+      );
+    }
+  } else if (isCustomerSupportRoute) {
+    const isCustomerSupport = hasPortalRole(
+      user,
+      "CUSTOMER_SUPPORT",
+      "CUSTOMER_SUPPORT",
+    );
+
+    if (!isCustomerSupport) {
+      return (
+        <Navigate
+          to={user ? getAccountPortal(user) : "/support/login"}
           state={{ from: location }}
           replace
         />
@@ -568,11 +594,6 @@ const AdminPayments = lazyPage(
   () => import("@/pages/admin/Payments"),
   "Payments",
 );
-const AdminNotifications = lazyPage(
-  () => import("@/pages/admin/Notifications"),
-  "AdminNotifications",
-);
-const AdminEmail = lazyPage(() => import("@/pages/admin/Email"), "AdminEmail");
 const AdminCars = lazyPage(() => import("@/pages/admin/Cars"), "AdminCars");
 const AdminServices = lazyPage(
   () => import("@/pages/admin/Services"),
@@ -589,6 +610,30 @@ const AdminDangerous = lazyPage(
 const AdminSupportTickets = lazyPage(
   () => import("@/pages/admin/SupportTickets"),
   "AdminSupportTickets",
+);
+const AdminCustomerSupportAccounts = lazyPage(
+  () => import("@/pages/admin/CustomerSupportAccounts"),
+  "AdminCustomerSupportAccounts",
+);
+const CustomerSupportLogin = lazyPage(
+  () => import("@/pages/support/Login"),
+  "CustomerSupportLogin",
+);
+const CustomerSupportDashboard = lazyPage(
+  () => import("@/pages/support/Dashboard"),
+  "CustomerSupportDashboard",
+);
+const CustomerSupportTickets = lazyPage(
+  () => import("@/pages/support/Tickets"),
+  "CustomerSupportTickets",
+);
+const CustomerSupportNotifications = lazyPage(
+  () => import("@/pages/support/Notifications"),
+  "CustomerSupportNotifications",
+);
+const CustomerSupportEmail = lazyPage(
+  () => import("@/pages/support/Email"),
+  "CustomerSupportEmail",
 );
 const InternLogin = lazyPage(() => import("@/pages/intern/Login"), "InternLogin");
 
@@ -615,6 +660,7 @@ import {
   FiHome,
   FiMail,
   FiHelpCircle,
+  FiHeadphones,
 } from "react-icons/fi";
 
 class AppErrorBoundary extends Component {
@@ -759,9 +805,15 @@ const adminItems = [
   { to: "/admin/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
   { to: "/admin/support-tickets", label: "Support & Disputes", icon: FiHelpCircle },
+  { to: "/admin/customer-support-accounts", label: "Support Accounts", icon: FiHeadphones },
   { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon },
-  { to: "/admin/notifications", label: "Notifications", icon: FiBell },
-  { to: "/admin/email", label: "Email", icon: FiMail },
+];
+
+const customerSupportItems = [
+  { to: "/support", label: "Dashboard", icon: FiGrid },
+  { to: "/support/tickets", label: "Support & Disputes", icon: FiHelpCircle },
+  { to: "/support/notifications", label: "Notifications", icon: FiBell },
+  { to: "/support/email", label: "Email", icon: FiMail },
 ];
 
 const internItems = [
@@ -773,9 +825,6 @@ const internItems = [
   { to: "/intern/bookings", label: "Bookings", icon: FiCalendar },
   { to: "/intern/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/intern/system-issues", label: "System Issues", icon: FiAlertTriangle },
-  { to: "/intern/support-tickets", label: "Support & Disputes", icon: FiHelpCircle },
-  { to: "/intern/notifications", label: "Notifications", icon: FiBell },
-  { to: "/intern/email", label: "Email", icon: FiMail },
 ];
 
 function AppRoutes() {
@@ -844,6 +893,7 @@ function AppRoutes() {
           />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/intern/login" element={<InternLogin />} />
+          <Route path="/support/login" element={<CustomerSupportLogin />} />
 
           <Route path="/garage/login" element={<GarageLogin />} />
           <Route path="/garage/otp-login" element={<GarageOtpLogin />} />
@@ -1179,26 +1229,18 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/admin/customer-support-accounts"
+            element={
+              <ProtectedRoute>
+                <AdminCustomerSupportAccounts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/dangerous"
             element={
               <ProtectedRoute>
                 <AdminDangerous />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/notifications"
-            element={
-              <ProtectedRoute>
-                <AdminNotifications />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/email"
-            element={
-              <ProtectedRoute>
-                <AdminEmail />
               </ProtectedRoute>
             }
           />
@@ -1271,27 +1313,45 @@ function AppRoutes() {
               </ProtectedRoute>
             }
           />
+        </Route>
+
+        <Route
+          element={
+            <DashboardLayout
+              items={customerSupportItems}
+              title="Customer Support"
+            />
+          }
+        >
           <Route
-            path="/intern/support-tickets"
+            path="/support"
             element={
               <ProtectedRoute>
-                <AdminSupportTickets />
+                <CustomerSupportDashboard />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/intern/notifications"
+            path="/support/tickets"
             element={
               <ProtectedRoute>
-                <AdminNotifications />
+                <CustomerSupportTickets />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/intern/email"
+            path="/support/notifications"
             element={
               <ProtectedRoute>
-                <AdminEmail />
+                <CustomerSupportNotifications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/support/email"
+            element={
+              <ProtectedRoute>
+                <CustomerSupportEmail />
               </ProtectedRoute>
             }
           />

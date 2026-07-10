@@ -1,6 +1,7 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const notificationService = require("../../customer/services/notification.service");
+const supportNotificationService = require("../../customerSupport/services/supportNotification.service");
 
 const PUBLIC_TICKET_INCLUDE = {
   user: {
@@ -30,24 +31,18 @@ const PUBLIC_TICKET_INCLUDE = {
       payment: true,
       services: {
         include: {
-          service: {
-            include: { category: true },
-          },
+          service: { include: { category: true } },
         },
       },
     },
   },
-  assignedTo: {
-    select: { id: true, name: true, loginId: true, role: true },
+  supportAssignee: {
+    select: { id: true, name: true, email: true, isActive: true },
   },
-  attachments: {
-    orderBy: { order: "asc" },
-  },
+  attachments: { orderBy: { order: "asc" } },
   messages: {
     orderBy: { createdAt: "asc" },
-    include: {
-      attachments: { orderBy: { order: "asc" } },
-    },
+    include: { attachments: { orderBy: { order: "asc" } } },
   },
 };
 
@@ -61,7 +56,7 @@ const getStartOfToday = () => {
 
 const getTicketStats = async () => {
   const today = getStartOfToday();
-  const [total, open, inReview, waitingCustomer, urgent, disputes, resolvedToday] =
+  const [total, open, inReview, waitingCustomer, urgent, disputes, resolvedToday, unassigned] =
     await Promise.all([
       prisma.supportTicket.count(),
       prisma.supportTicket.count({ where: { status: "OPEN" } }),
@@ -79,20 +74,16 @@ const getTicketStats = async () => {
           status: { in: ["OPEN", "IN_REVIEW", "WAITING_CUSTOMER"] },
         },
       }),
+      prisma.supportTicket.count({ where: { resolvedAt: { gte: today } } }),
       prisma.supportTicket.count({
-        where: { resolvedAt: { gte: today } },
+        where: {
+          supportAssigneeId: null,
+          status: { in: ["OPEN", "IN_REVIEW", "WAITING_CUSTOMER"] },
+        },
       }),
     ]);
 
-  return {
-    total,
-    open,
-    inReview,
-    waitingCustomer,
-    urgent,
-    disputes,
-    resolvedToday,
-  };
+  return { total, open, inReview, waitingCustomer, urgent, disputes, resolvedToday, unassigned };
 };
 
 const buildWhere = (query = {}) => {
@@ -102,10 +93,10 @@ const buildWhere = (query = {}) => {
     ...(query.status && { status: query.status }),
     ...(query.priority && { priority: query.priority }),
     ...(query.category && { category: query.category }),
-    ...(query.assignedToId === "unassigned"
-      ? { assignedToId: null }
-      : query.assignedToId
-        ? { assignedToId: query.assignedToId }
+    ...(query.supportAssigneeId === "unassigned"
+      ? { supportAssigneeId: null }
+      : query.supportAssigneeId
+        ? { supportAssigneeId: query.supportAssigneeId }
         : {}),
     ...(search && {
       OR: [
@@ -121,12 +112,8 @@ const buildWhere = (query = {}) => {
           },
         },
         {
-          booking: {
-            is: {
-              garage: {
-                is: { name: { contains: search, mode: "insensitive" } },
-              },
-            },
+          supportAssignee: {
+            is: { name: { contains: search, mode: "insensitive" } },
           },
         },
       ],
@@ -143,9 +130,7 @@ const listTickets = async (query = {}) => {
     prisma.supportTicket.findMany({
       where,
       include: {
-        user: {
-          select: { id: true, name: true, email: true, phone: true },
-        },
+        user: { select: { id: true, name: true, email: true, phone: true } },
         booking: {
           select: {
             id: true,
@@ -157,8 +142,8 @@ const listTickets = async (query = {}) => {
             },
           },
         },
-        assignedTo: {
-          select: { id: true, name: true, role: true },
+        supportAssignee: {
+          select: { id: true, name: true, email: true, isActive: true },
         },
         _count: { select: { messages: true, attachments: true } },
         messages: {
@@ -201,16 +186,12 @@ const getTicket = async (ticketId) => {
     where: { id: ticketId },
     include: PUBLIC_TICKET_INCLUDE,
   });
-
-  if (!ticket) {
-    throw new ApiError(404, "Support ticket not found");
-  }
-
+  if (!ticket) throw new ApiError(404, "Support ticket not found");
   return ticket;
 };
 
-const notifyCustomer = async (ticket, title, message) => {
-  return notificationService
+const notifyCustomer = async (ticket, title, message) =>
+  notificationService
     .createNotification({
       userId: ticket.userId,
       title,
@@ -229,31 +210,17 @@ const notifyCustomer = async (ticket, title, message) => {
         message: error?.message,
       });
     });
-};
 
-const updateTicket = async ({ ticketId, data, staff }) => {
+const updateTicket = async ({ ticketId, data }) => {
   const existing = await prisma.supportTicket.findUnique({
     where: { id: ticketId },
   });
-
-  if (!existing) {
-    throw new ApiError(404, "Support ticket not found");
-  }
+  if (!existing) throw new ApiError(404, "Support ticket not found");
 
   const nextStatus = data.status || existing.status;
   const resolving = ["RESOLVED", "CLOSED"].includes(nextStatus);
-  const hasResolutionNote = Object.prototype.hasOwnProperty.call(
-    data,
-    "resolutionNote",
-  );
-  const hasResolutionOutcome = Object.prototype.hasOwnProperty.call(
-    data,
-    "resolutionOutcome",
-  );
-  const hasRefundAmount = Object.prototype.hasOwnProperty.call(
-    data,
-    "refundAmount",
-  );
+  const hasResolutionNote = Object.prototype.hasOwnProperty.call(data, "resolutionNote");
+  const hasResolutionOutcome = Object.prototype.hasOwnProperty.call(data, "resolutionOutcome");
   const effectiveResolutionNote = hasResolutionNote
     ? sanitizeText(data.resolutionNote, 3000)
     : sanitizeText(existing.resolutionNote, 3000);
@@ -261,74 +228,79 @@ const updateTicket = async ({ ticketId, data, staff }) => {
     ? data.resolutionOutcome || null
     : existing.resolutionOutcome;
 
-  if (
-    staff.role !== "ADMIN" &&
-    (resolving || hasResolutionNote || hasResolutionOutcome || hasRefundAmount)
-  ) {
-    throw new ApiError(403, "Only admins can resolve disputes or record refunds");
-  }
-
   if (resolving && !effectiveResolutionNote) {
     throw new ApiError(400, "A resolution note is required before resolving a ticket");
   }
-
-  if (
-    existing.type === "DISPUTE" &&
-    resolving &&
-    !effectiveResolutionOutcome
-  ) {
+  if (existing.type === "DISPUTE" && resolving && !effectiveResolutionOutcome) {
     throw new ApiError(400, "Select a dispute resolution outcome");
   }
 
   const refundAmount =
-    data.refundAmount === undefined || data.refundAmount === null || data.refundAmount === ""
-      ? data.refundAmount === null || data.refundAmount === ""
+    data.refundAmount === undefined
+      ? existing.refundAmount
+      : data.refundAmount === null || data.refundAmount === ""
         ? null
-        : existing.refundAmount
-      : Math.max(Math.round(Number(data.refundAmount)), 0);
+        : Math.max(Math.round(Number(data.refundAmount)), 0);
 
   if (refundAmount !== null && !Number.isFinite(refundAmount)) {
     throw new ApiError(400, "Refund amount must be a valid number");
   }
 
-  if (data.assignedToId) {
-    const assignee = await prisma.staffAccount.findFirst({
-      where: { id: data.assignedToId, isActive: true },
-      select: { id: true },
+  let assignee = null;
+  if (data.supportAssigneeId) {
+    assignee = await prisma.customerSupportAccount.findFirst({
+      where: { id: data.supportAssigneeId, isActive: true },
+      select: { id: true, name: true, email: true },
     });
-    if (!assignee) throw new ApiError(404, "Assigned staff account not found");
+    if (!assignee) throw new ApiError(404, "Active customer support account not found");
   }
 
-  const updateData = {
-    ...(data.status && { status: data.status }),
-    ...(data.priority && { priority: data.priority }),
-    ...(Object.prototype.hasOwnProperty.call(data, "assignedToId") && {
-      assignedToId: data.assignedToId || null,
-    }),
-    ...(Object.prototype.hasOwnProperty.call(data, "resolutionOutcome") && {
-      resolutionOutcome: data.resolutionOutcome || null,
-    }),
-    ...(Object.prototype.hasOwnProperty.call(data, "resolutionNote") && {
-      resolutionNote: sanitizeText(data.resolutionNote, 3000) || null,
-    }),
-    ...(Object.prototype.hasOwnProperty.call(data, "refundAmount") && {
-      refundAmount,
-    }),
-    ...(resolving
-      ? { resolvedAt: existing.resolvedAt || new Date() }
-      : data.status
-        ? { resolvedAt: null }
-        : {}),
-  };
+  const changedAssignee =
+    Object.prototype.hasOwnProperty.call(data, "supportAssigneeId") &&
+    (data.supportAssigneeId || null) !== existing.supportAssigneeId;
 
   const updated = await prisma.supportTicket.update({
     where: { id: ticketId },
-    data: updateData,
+    data: {
+      ...(data.status && { status: data.status }),
+      ...(data.priority && { priority: data.priority }),
+      ...(Object.prototype.hasOwnProperty.call(data, "supportAssigneeId") && {
+        supportAssigneeId: data.supportAssigneeId || null,
+        claimedAt: data.supportAssigneeId ? new Date() : null,
+        assignedToId: null,
+      }),
+      ...(hasResolutionOutcome && {
+        resolutionOutcome: data.resolutionOutcome || null,
+      }),
+      ...(hasResolutionNote && {
+        resolutionNote: effectiveResolutionNote || null,
+      }),
+      ...(Object.prototype.hasOwnProperty.call(data, "refundAmount") && {
+        refundAmount,
+      }),
+      ...(resolving
+        ? { resolvedAt: existing.resolvedAt || new Date() }
+        : data.status
+          ? { resolvedAt: null }
+          : {}),
+    },
     include: PUBLIC_TICKET_INCLUDE,
   });
 
-  const changedStatus = data.status && data.status !== existing.status;
-  if (changedStatus) {
+  if (changedAssignee && assignee) {
+    await supportNotificationService.notifyAccount(assignee.id, {
+      title: "Support ticket assigned to you",
+      message: `${updated.ticketCode}: ${updated.subject}`,
+      link: `/support/tickets?ticket=${updated.id}`,
+      metadata: {
+        ticketId: updated.id,
+        ticketCode: updated.ticketCode,
+        assignedByAdmin: true,
+      },
+    }).catch(() => null);
+  }
+
+  if (data.status && data.status !== existing.status) {
     const readable = data.status.replaceAll("_", " ").toLowerCase();
     await notifyCustomer(
       updated,
@@ -340,74 +312,50 @@ const updateTicket = async ({ ticketId, data, staff }) => {
   return updated;
 };
 
-const replyToTicket = async ({ ticketId, body, isInternal = false, staff }) => {
+const replyToTicket = async ({ ticketId, body, staff }) => {
   const ticket = await prisma.supportTicket.findUnique({
     where: { id: ticketId },
-    select: {
-      id: true,
-      userId: true,
-      ticketCode: true,
-      type: true,
-      status: true,
-      subject: true,
-      assignedToId: true,
-    },
+    select: { id: true, status: true },
   });
-
   if (!ticket) throw new ApiError(404, "Support ticket not found");
   if (ticket.status === "CLOSED") {
-    throw new ApiError(400, "Closed tickets cannot receive new replies");
+    throw new ApiError(400, "Closed tickets cannot receive internal notes");
   }
 
   const messageBody = sanitizeText(body, 5000);
-  const now = new Date();
+  if (!messageBody) throw new ApiError(400, "Internal note is required");
 
-  await prisma.$transaction([
-    prisma.supportTicketMessage.create({
-      data: {
-        ticketId,
-        authorType: staff.role,
-        authorStaffId: staff.id,
-        authorName: staff.name,
-        body: messageBody,
-        isInternal: Boolean(isInternal),
-      },
-    }),
-    prisma.supportTicket.update({
-      where: { id: ticketId },
-      data: {
-        assignedToId: ticket.assignedToId || staff.id,
-        status: isInternal ? "IN_REVIEW" : "WAITING_CUSTOMER",
-        lastMessageAt: now,
-        resolvedAt: null,
-      },
-    }),
-  ]);
+  await prisma.supportTicketMessage.create({
+    data: {
+      ticketId,
+      authorType: "ADMIN",
+      authorStaffId: staff.id,
+      authorName: staff.name,
+      body: messageBody,
+      isInternal: true,
+    },
+  });
 
-  if (!isInternal) {
-    await notifyCustomer(
-      ticket,
-      "Rovauto support replied",
-      `${ticket.ticketCode}: ${messageBody.slice(0, 140)}`,
-    );
-  }
+  await prisma.supportTicket.update({
+    where: { id: ticketId },
+    data: { lastMessageAt: new Date() },
+  });
 
   return getTicket(ticketId);
 };
 
-const listStaff = async () => {
-  return prisma.staffAccount.findMany({
+const listStaff = async () =>
+  prisma.customerSupportAccount.findMany({
     where: { isActive: true },
     select: {
       id: true,
       name: true,
-      loginId: true,
       email: true,
-      role: true,
+      isActive: true,
+      lastLoginAt: true,
     },
-    orderBy: [{ role: "asc" }, { name: "asc" }],
+    orderBy: { name: "asc" },
   });
-};
 
 module.exports = {
   getTicket,

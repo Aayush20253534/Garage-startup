@@ -1,11 +1,12 @@
 import api from "@/api/axios";
 
-const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF"]);
+const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF", "CUSTOMER_SUPPORT"]);
 const VALID_ROLES = new Set([
   "CUSTOMER",
   "GARAGE_OWNER",
   "ADMIN",
   "INTERN",
+  "CUSTOMER_SUPPORT",
 ]);
 
 export const verifyCurrentSession = async ({ expectedRole } = {}) => {

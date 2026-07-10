@@ -11,9 +11,10 @@ const {
   accessTokenClearCookieOptions,
 } = require("../config/authCookie");
 
-const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF"]);
+const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF", "CUSTOMER_SUPPORT"]);
 const STAFF_ROLES = new Set(["ADMIN", "INTERN"]);
 const USER_ROLES = new Set(["CUSTOMER", "GARAGE_OWNER"]);
+const CUSTOMER_SUPPORT_ROLE = "CUSTOMER_SUPPORT";
 
 const readAccessToken = (req) =>
   req.cookies?.[ACCESS_TOKEN_COOKIE_NAME] || null;
@@ -37,6 +38,10 @@ const resolveAccountType = (decoded) => {
 
   if (USER_ROLES.has(decoded?.role)) {
     return "USER";
+  }
+
+  if (decoded?.role === CUSTOMER_SUPPORT_ROLE) {
+    return "CUSTOMER_SUPPORT";
   }
 
   return null;
@@ -64,6 +69,29 @@ const getActiveAccount = async (accountId, accountType) => {
       ? {
           ...staff,
           accountType: "STAFF",
+        }
+      : null;
+  }
+
+  if (accountType === "CUSTOMER_SUPPORT") {
+    const supportAccount = await prisma.customerSupportAccount.findUnique({
+      where: { id: accountId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isActive: true,
+        lastLoginAt: true,
+        passwordChangedAt: true,
+        createdAt: true,
+      },
+    });
+
+    return supportAccount
+      ? {
+          ...supportAccount,
+          role: CUSTOMER_SUPPORT_ROLE,
+          accountType: "CUSTOMER_SUPPORT",
         }
       : null;
   }
@@ -151,6 +179,21 @@ const authenticateRequest = async (
       return next(new ApiError(403, "Account is disabled"));
     }
 
+    if (
+      accountType !== "USER" &&
+      account.passwordChangedAt &&
+      decoded.iat &&
+      account.passwordChangedAt.getTime() > decoded.iat * 1000 + 1000
+    ) {
+      clearAccessTokenCookie(res);
+
+      if (optional) {
+        return next();
+      }
+
+      return next(new ApiError(401, "Password changed. Please log in again"));
+    }
+
     let authSessionId = null;
 
     if (accountType === "USER") {
@@ -192,7 +235,9 @@ const authenticateRequest = async (
           403,
           requiredAccountType === "STAFF"
             ? "Staff access required"
-            : "User account required",
+            : requiredAccountType === "CUSTOMER_SUPPORT"
+              ? "Customer support access required"
+              : "User account required",
         ),
       );
     }
@@ -224,6 +269,11 @@ const protectStaff = (req, res, next) =>
     requiredAccountType: "STAFF",
   });
 
+const protectCustomerSupport = (req, res, next) =>
+  authenticateRequest(req, res, next, {
+    requiredAccountType: "CUSTOMER_SUPPORT",
+  });
+
 const optionalProtect = (req, res, next) =>
   authenticateRequest(req, res, next, {
     optional: true,
@@ -232,6 +282,7 @@ const optionalProtect = (req, res, next) =>
 module.exports = {
   optionalProtect,
   protect,
+  protectCustomerSupport,
   protectStaff,
   protectUser,
 };

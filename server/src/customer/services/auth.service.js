@@ -28,7 +28,8 @@ const PASSWORD_RESET_REQUEST_MESSAGE =
 
 const USER_ROLES = ["CUSTOMER", "GARAGE_OWNER"];
 const STAFF_ROLES = ["ADMIN", "INTERN"];
-const ALL_AUTH_ROLES = [...USER_ROLES, ...STAFF_ROLES];
+const CUSTOMER_SUPPORT_ROLE = "CUSTOMER_SUPPORT";
+const ALL_AUTH_ROLES = [...USER_ROLES, ...STAFF_ROLES, CUSTOMER_SUPPORT_ROLE];
 
 const normalizeEmail = (email) =>
   String(email || "").trim().toLowerCase();
@@ -67,6 +68,19 @@ const toSafeStaff = (staff) => ({
   lastLoginAt: staff.lastLoginAt,
   passwordChangedAt: staff.passwordChangedAt,
   createdAt: staff.createdAt,
+});
+
+
+const toSafeCustomerSupport = (account) => ({
+  id: account.id,
+  name: account.name,
+  email: account.email,
+  role: CUSTOMER_SUPPORT_ROLE,
+  accountType: "CUSTOMER_SUPPORT",
+  isActive: account.isActive,
+  lastLoginAt: account.lastLoginAt,
+  passwordChangedAt: account.passwordChangedAt,
+  createdAt: account.createdAt,
 });
 
 const getAuthUserById = async (userId) => {
@@ -128,6 +142,28 @@ const getAuthStaffById = async (staffId) => {
     ...staff,
     accountType: "STAFF",
   };
+};
+
+
+const getAuthCustomerSupportById = async (accountId) => {
+  const account = await prisma.customerSupportAccount.findUnique({
+    where: { id: accountId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isActive: true,
+      lastLoginAt: true,
+      passwordChangedAt: true,
+      createdAt: true,
+    },
+  });
+
+  if (!account) {
+    throw new ApiError(404, "Customer support account not found");
+  }
+
+  return toSafeCustomerSupport(account);
 };
 
 const createUserAuthResult = async (
@@ -404,6 +440,43 @@ const login = async (
     );
   }
 
+  if (requestedRole === CUSTOMER_SUPPORT_ROLE) {
+    const cleanEmail = normalizeEmail(rawIdentifier);
+    const supportAccount = await prisma.customerSupportAccount.findUnique({
+      where: { email: cleanEmail },
+    });
+
+    if (!supportAccount) {
+      throw new ApiError(401, "Invalid credentials");
+    }
+
+    if (!supportAccount.isActive) {
+      throw new ApiError(403, "Account is disabled");
+    }
+
+    const isPasswordValid = await argon2.verify(
+      supportAccount.password,
+      password,
+    );
+
+    if (!isPasswordValid) {
+      throw new ApiError(401, "Invalid credentials");
+    }
+
+    const updatedAccount = await prisma.customerSupportAccount.update({
+      where: { id: supportAccount.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const safeAccount = toSafeCustomerSupport(updatedAccount);
+    const token = createAuthToken(safeAccount);
+
+    return {
+      user: safeAccount,
+      token,
+    };
+  }
+
   if (STAFF_ROLES.includes(requestedRole)) {
     const normalizedIdentifier = normalizeLoginId(rawIdentifier);
     const normalizedPhone = rawIdentifier.startsWith("+")
@@ -489,6 +562,10 @@ const login = async (
 };
 
 const getMe = async (accountId, accountType) => {
+  if (accountType === "CUSTOMER_SUPPORT") {
+    return getAuthCustomerSupportById(accountId);
+  }
+
   if (accountType === "STAFF") {
     return getAuthStaffById(accountId);
   }
@@ -678,6 +755,10 @@ const changePassword = async (
 
   if (!PASSWORD_REGEX.test(newPassword)) {
     throw new ApiError(400, PASSWORD_MESSAGE);
+  }
+
+  if (accountType === "CUSTOMER_SUPPORT") {
+    throw new ApiError(403, "Customer support passwords are managed by an admin");
   }
 
   const account =

@@ -32,7 +32,7 @@ const listTicketValidation = [
   query("category").optional().isIn(CATEGORIES).withMessage("Invalid category"),
   query("priority").optional().isIn(PRIORITIES).withMessage("Invalid priority"),
   query("status").optional().isIn(STATUSES).withMessage("Invalid status"),
-  query("assignedToId")
+  query("supportAssigneeId")
     .optional()
     .custom((value) => value === "unassigned" || /^[0-9a-f-]{36}$/i.test(value))
     .withMessage("Invalid assignee"),
@@ -44,10 +44,10 @@ const updateTicketValidation = [
   ...ticketIdParam,
   body("status").optional().isIn(STATUSES).withMessage("Invalid status"),
   body("priority").optional().isIn(PRIORITIES).withMessage("Invalid priority"),
-  body("assignedToId")
+  body("supportAssigneeId")
     .optional({ nullable: true })
     .custom((value) => value === null || value === "" || /^[0-9a-f-]{36}$/i.test(value))
-    .withMessage("Invalid staff account"),
+    .withMessage("Invalid customer support account"),
   body("resolutionOutcome")
     .optional({ nullable: true })
     .custom((value) => value === null || value === "" || OUTCOMES.includes(value))

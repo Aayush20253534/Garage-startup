@@ -295,7 +295,7 @@ export default function CustomerActivityProfileModal({ userId, onClose }) {
                         <div key={ticket.id} className="rounded-xl bg-bg-soft p-3">
                           <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase text-muted">{ticket.ticketCode} · {formatStatus(ticket.type)}</p><p className="mt-1 font-bold text-ink">{ticket.subject}</p></div><span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-muted">{formatStatus(ticket.status)}</span></div>
                           <p className="mt-2 line-clamp-2 text-sm text-muted">{ticket.description}</p>
-                          <p className="mt-2 text-xs text-muted">{ticket.booking?.bookingCode ? `Booking #${ticket.booking.bookingCode} · ` : ""}{ticket.assignedTo?.name ? `Assigned to ${ticket.assignedTo.name} · ` : ""}{formatDateTime(ticket.lastMessageAt)}</p>
+                          <p className="mt-2 text-xs text-muted">{ticket.booking?.bookingCode ? `Booking #${ticket.booking.bookingCode} · ` : ""}{ticket.supportAssignee?.name ? `Assigned to ${ticket.supportAssignee.name} · ` : ""}{formatDateTime(ticket.lastMessageAt)}</p>
                         </div>
                       )) : <p className="text-sm text-muted">No support tickets.</p>}
                     </div>

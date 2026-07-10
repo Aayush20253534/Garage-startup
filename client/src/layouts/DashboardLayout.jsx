@@ -6,14 +6,19 @@ import FAB from "@/components/FAB";
 import { useApp } from "@/hooks/useApp";
 import useUnreadNotifications from "@/hooks/useUnreadNotifications";
 import useOpenSystemIssueCount from "@/hooks/useOpenSystemIssueCount";
+import useCustomerSupportUnreadNotifications from "@/hooks/useCustomerSupportUnreadNotifications";
 import { FiLogOut, FiMenu, FiX } from "react-icons/fi";
 
 export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const { pathname } = useLocation();
   const { user, garage, logout, logoutGarage } = useApp();
   const { unreadCount } = useUnreadNotifications();
+  const { unreadCount: supportUnreadCount } =
+    useCustomerSupportUnreadNotifications();
   const isAdminPortal = pathname.startsWith("/admin");
   const isInternPortal = pathname.startsWith("/intern");
+  const isCustomerSupportPortal =
+    pathname === "/support" || pathname.startsWith("/support/");
   const isStaffPortal = isAdminPortal || isInternPortal;
 
   const { openIssueCount } = useOpenSystemIssueCount({
@@ -24,7 +29,8 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const [open, setOpen] = useState(false);
 
   const isGaragePortal = pathname.startsWith("/garage");
-  const showCustomerAssistant = !isGaragePortal && !isStaffPortal;
+  const showCustomerAssistant =
+    !isGaragePortal && !isStaffPortal && !isCustomerSupportPortal;
 
   const account = isGaragePortal ? garage : user;
 
@@ -38,7 +44,9 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
       ? "ADMIN"
       : isInternPortal
         ? "INTERN"
-        : account?.role || "CUSTOMER";
+        : isCustomerSupportPortal
+          ? "CUSTOMER SUPPORT"
+          : account?.role || "CUSTOMER";
 
   const accountInitial = accountName?.charAt(0)?.toUpperCase() || "R";
 
@@ -50,6 +58,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
       "/garage",
       "/admin",
       "/intern",
+      "/support",
     ].includes(to);
 
   const visibleItems = useMemo(() => {
@@ -103,6 +112,11 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
 
     if (isInternPortal) {
       navigate("/intern/login", { replace: true });
+      return;
+    }
+
+    if (isCustomerSupportPortal) {
+      navigate("/support/login", { replace: true });
       return;
     }
 
@@ -168,6 +182,13 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
                     unreadCount > 0 && (
                       <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-black">
                         {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+
+                  {item.to === "/support/notifications" &&
+                    supportUnreadCount > 0 && (
+                      <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-black">
+                        {supportUnreadCount > 99 ? "99+" : supportUnreadCount}
                       </span>
                     )}
 

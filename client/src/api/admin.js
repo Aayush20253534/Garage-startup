@@ -151,6 +151,28 @@ export const adminApi = {
     return unwrap(await api.get("/admin/support-tickets/staff"));
   },
 
+  async getCustomerSupportAccounts() {
+    return unwrap(await api.get("/admin/customer-support-accounts"));
+  },
+
+  async createCustomerSupportAccount(payload) {
+    return unwrap(await api.post("/admin/customer-support-accounts", payload));
+  },
+
+  async updateCustomerSupportAccount(accountId, payload) {
+    return unwrap(
+      await api.patch(`/admin/customer-support-accounts/${accountId}`, payload),
+    );
+  },
+
+  async changeCustomerSupportPassword(accountId, password) {
+    return unwrap(
+      await api.patch(`/admin/customer-support-accounts/${accountId}/password`, {
+        password,
+      }),
+    );
+  },
+
   async getPayments(params = {}) {
     return unwrap(await api.get("/admin/payments", { params }));
   },
@@ -161,18 +183,6 @@ export const adminApi = {
         data: { confirmation },
       }),
     );
-  },
-
-  async sendNotification(payload) {
-    return unwrap(await api.post("/admin/notifications", payload));
-  },
-
-  async searchEmailUsers(params = {}) {
-    return unwrap(await api.get("/admin/email-users", { params }));
-  },
-
-  async sendUserEmail(payload) {
-    return unwrap(await api.post("/admin/emails", payload));
   },
 
   async createPriceRange(payload) {

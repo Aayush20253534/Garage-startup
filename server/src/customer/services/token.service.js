@@ -9,7 +9,11 @@ const createAuthToken = (account, { sessionId = null } = {}) => {
 
   const accountType =
     account.accountType ||
-    (STAFF_ROLES.has(account.role) ? "STAFF" : "USER");
+    (account.role === "CUSTOMER_SUPPORT"
+      ? "CUSTOMER_SUPPORT"
+      : STAFF_ROLES.has(account.role)
+        ? "STAFF"
+        : "USER");
 
   return generateToken({
     id: account.id,
