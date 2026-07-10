@@ -672,8 +672,14 @@ export function AppProvider({ children }) {
   };
 
   const logout = async () => {
+    const pushScope =
+      user?.role === "CUSTOMER_SUPPORT" ? "support" : "user";
+
     try {
-      await disablePushNotifications({ ignoreServerErrors: true });
+      await disablePushNotifications({
+        ignoreServerErrors: true,
+        scope: pushScope,
+      });
     } catch {
       // Logging out must continue even if this browser has no push subscription.
     }
@@ -936,12 +942,15 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (authLoading) return;
 
+    const isCustomerSupport = user?.role === "CUSTOMER_SUPPORT";
     const hasPushEligibleSession =
-      user?.role === "CUSTOMER" || Boolean(garageUser);
+      user?.role === "CUSTOMER" || Boolean(garageUser) || isCustomerSupport;
 
     if (!hasPushEligibleSession) return;
 
-    syncExistingPushSubscription().catch((error) => {
+    syncExistingPushSubscription({
+      scope: isCustomerSupport ? "support" : "user",
+    }).catch((error) => {
       console.warn("Unable to sync Web Push subscription:", error);
     });
   }, [authLoading, user?.id, user?.role, garageUser?.id]);

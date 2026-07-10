@@ -204,7 +204,7 @@ const getDashboard = async (supportAccountId) => {
         resolvedAt: { gte: today },
       },
     }),
-    prisma.customerSupportNotification.count({
+    prisma.notify.count({
       where: { supportAccountId, isRead: false },
     }),
     prisma.customerSupportEmailLog.count({
@@ -226,7 +226,7 @@ const getDashboard = async (supportAccountId) => {
       orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
       take: 8,
     }),
-    prisma.customerSupportNotification.findMany({
+    prisma.notify.findMany({
       where: { supportAccountId },
       orderBy: { createdAt: "desc" },
       take: 6,
@@ -549,12 +549,12 @@ const updateTicket = async ({ ticketId, data, supportAccount }) => {
 
 const listNotifications = async (supportAccountId) => {
   const [items, unreadCount] = await Promise.all([
-    prisma.customerSupportNotification.findMany({
+    prisma.notify.findMany({
       where: { supportAccountId },
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
-    prisma.customerSupportNotification.count({
+    prisma.notify.count({
       where: { supportAccountId, isRead: false },
     }),
   ]);
@@ -563,7 +563,7 @@ const listNotifications = async (supportAccountId) => {
 };
 
 const markNotificationRead = async (notificationId, supportAccountId) => {
-  const result = await prisma.customerSupportNotification.updateMany({
+  const result = await prisma.notify.updateMany({
     where: { id: notificationId, supportAccountId },
     data: { isRead: true },
   });
@@ -573,7 +573,7 @@ const markNotificationRead = async (notificationId, supportAccountId) => {
 };
 
 const markAllNotificationsRead = async (supportAccountId) => {
-  const result = await prisma.customerSupportNotification.updateMany({
+  const result = await prisma.notify.updateMany({
     where: { supportAccountId, isRead: false },
     data: { isRead: true },
   });

@@ -1,6 +1,44 @@
 const asyncHandler = require("../../utils/asyncHandler");
 const ApiResponse = require("../../utils/apiResponse");
 const service = require("../services/customerSupport.service");
+const webPushService = require("../../services/webPush.service");
+
+
+const getPushPublicConfig = asyncHandler(async (_req, res) => {
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Customer support Web Push configuration fetched",
+        webPushService.getPublicConfig(),
+      ),
+    );
+});
+
+const subscribePush = asyncHandler(async (req, res) => {
+  const result = await webPushService.saveSupportSubscription({
+    supportAccountId: req.user.id,
+    subscription: req.body?.subscription,
+    deviceName: req.body?.deviceName,
+    userAgent: req.get("user-agent"),
+  });
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, "Support app notifications enabled", result));
+});
+
+const unsubscribePush = asyncHandler(async (req, res) => {
+  const result = await webPushService.removeSupportSubscription({
+    supportAccountId: req.user.id,
+    endpoint: req.body?.endpoint,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Support app notifications disabled", result));
+});
 
 const dashboard = asyncHandler(async (req, res) => {
   const result = await service.getDashboard(req.user.id);
@@ -88,6 +126,7 @@ const listEmailLogs = asyncHandler(async (req, res) => {
 
 module.exports = {
   claimTicket,
+  getPushPublicConfig,
   dashboard,
   getTicket,
   listEmailLogs,
@@ -100,5 +139,7 @@ module.exports = {
   searchEmailUsers,
   sendCustomerNotification,
   sendUserEmail,
+  subscribePush,
+  unsubscribePush,
   updateTicket,
 };

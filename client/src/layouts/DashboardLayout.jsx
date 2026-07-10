@@ -185,7 +185,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
                       </span>
                     )}
 
-                  {item.to === "/support/notifications" &&
+                  {item.to === "/support/notify" &&
                     supportUnreadCount > 0 && (
                       <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-black">
                         {supportUnreadCount > 99 ? "99+" : supportUnreadCount}

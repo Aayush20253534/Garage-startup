@@ -51,7 +51,22 @@ const STATUS_CONTENT = {
   },
 };
 
-export default function PushNotificationControl({ compact = false }) {
+const SUPPORT_STATUS_CONTENT = {
+  enabled: {
+    title: "Support app notifications enabled",
+    message: "New tickets, disputes, customer replies, and assignments can appear like normal app notifications.",
+  },
+  prompt: {
+    title: "Enable support app notifications",
+    message: "Receive new-ticket alerts even when the Rovauto support portal is closed.",
+  },
+  disabled: {
+    title: "Support app notifications are off",
+    message: "Enable them on this device to receive new-ticket alerts.",
+  },
+};
+
+export default function PushNotificationControl({ compact = false, scope = "user" }) {
   const [status, setStatus] = useState("checking");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -72,7 +87,7 @@ export default function PushNotificationControl({ compact = false }) {
     try {
       setLoading(true);
       setError("");
-      await enablePushNotifications();
+      await enablePushNotifications({ scope });
       setStatus("enabled");
     } catch (err) {
       setError(err.message || "Unable to enable app notifications.");
@@ -86,7 +101,7 @@ export default function PushNotificationControl({ compact = false }) {
     try {
       setLoading(true);
       setError("");
-      await disablePushNotifications();
+      await disablePushNotifications({ scope });
       setStatus("disabled");
     } catch (err) {
       setError(err.message || "Unable to disable app notifications.");
@@ -96,7 +111,11 @@ export default function PushNotificationControl({ compact = false }) {
     }
   };
 
-  const content = STATUS_CONTENT[status] || STATUS_CONTENT.unsupported;
+  const baseContent = STATUS_CONTENT[status] || STATUS_CONTENT.unsupported;
+  const content =
+    scope === "support" && SUPPORT_STATUS_CONTENT[status]
+      ? { ...baseContent, ...SUPPORT_STATUS_CONTENT[status] }
+      : baseContent;
   const Icon = content.icon;
   const canEnable = status === "prompt" || status === "disabled";
   const canDisable = status === "enabled";

@@ -631,6 +631,10 @@ const CustomerSupportTickets = lazyPage(
   () => import("@/pages/support/Tickets"),
   "CustomerSupportTickets",
 );
+const CustomerSupportNotify = lazyPage(
+  () => import("@/pages/support/Notify"),
+  "CustomerSupportNotify",
+);
 const CustomerSupportNotifications = lazyPage(
   () => import("@/pages/support/Notifications"),
   "CustomerSupportNotifications",
@@ -654,6 +658,7 @@ import {
   FiShield,
   FiCreditCard,
   FiBell,
+  FiSend,
   FiUser,
   FiInbox,
   FiBriefcase,
@@ -818,7 +823,8 @@ const adminItems = [
 const customerSupportItems = [
   { to: "/support", label: "Dashboard", icon: FiGrid },
   { to: "/support/tickets", label: "Support & Disputes", icon: FiHelpCircle },
-  { to: "/support/notifications", label: "Notifications", icon: FiBell },
+  { to: "/support/notify", label: "Received Alerts", icon: FiBell },
+  { to: "/support/notifications", label: "Send Notifications", icon: FiSend },
   { to: "/support/email", label: "Email", icon: FiMail },
 ];
 
@@ -1350,6 +1356,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <CustomerSupportTickets />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/support/notify"
+            element={
+              <ProtectedRoute>
+                <CustomerSupportNotify />
               </ProtectedRoute>
             }
           />

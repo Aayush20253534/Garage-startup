@@ -55,18 +55,31 @@ export const customerSupportApi = {
     return unwrap(await api.post("/customer-support/notifications/send", payload));
   },
 
-  async getNotifications() {
-    return unwrap(await api.get("/customer-support/notifications"));
+  async getNotifies() {
+    return unwrap(await api.get("/customer-support/notify"));
   },
 
-  async markNotificationRead(notificationId) {
+  async markNotifyRead(notificationId) {
     return unwrap(
-      await api.patch(`/customer-support/notifications/${notificationId}/read`),
+      await api.patch(`/customer-support/notify/${notificationId}/read`),
     );
   },
 
+  async markAllNotifiesRead() {
+    return unwrap(await api.patch("/customer-support/notify/read-all"));
+  },
+
+  // Compatibility aliases for older components.
+  async getNotifications() {
+    return this.getNotifies();
+  },
+
+  async markNotificationRead(notificationId) {
+    return this.markNotifyRead(notificationId);
+  },
+
   async markAllNotificationsRead() {
-    return unwrap(await api.patch("/customer-support/notifications/read-all"));
+    return this.markAllNotifiesRead();
   },
 
   async searchEmailUsers(params = {}) {

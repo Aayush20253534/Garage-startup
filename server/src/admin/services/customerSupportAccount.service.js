@@ -130,6 +130,10 @@ const updateAccount = async (accountId, data) => {
             claimedAt: null,
           },
         });
+
+        await tx.customerSupportPushSubscription.deleteMany({
+          where: { supportAccountId: accountId },
+        });
       }
 
       return updated;
@@ -154,13 +158,20 @@ const changePassword = async (accountId, password) => {
 
   if (!account) throw new ApiError(404, "Customer support account not found");
 
-  await prisma.customerSupportAccount.update({
-    where: { id: accountId },
-    data: {
-      password: await argon2.hash(password),
-      passwordChangedAt: new Date(),
-    },
-  });
+  const passwordHash = await argon2.hash(password);
+
+  await prisma.$transaction([
+    prisma.customerSupportAccount.update({
+      where: { id: accountId },
+      data: {
+        password: passwordHash,
+        passwordChangedAt: new Date(),
+      },
+    }),
+    prisma.customerSupportPushSubscription.deleteMany({
+      where: { supportAccountId: accountId },
+    }),
+  ]);
 
   return { changed: true };
 };

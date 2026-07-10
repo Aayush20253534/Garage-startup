@@ -203,6 +203,7 @@ const createTicket = async ({ user, data, files = [] }) => {
   await supportNotificationService.notifyAllActive({
     title: type === "DISPUTE" ? "New customer dispute" : "New support ticket",
     message: `${ticket.ticketCode}: ${ticket.subject}`,
+    type: type === "DISPUTE" ? "DISPUTE" : "SUPPORT_TICKET",
     link: `/support/tickets?ticket=${ticket.id}`,
     metadata: { ticketId: ticket.id, ticketCode: ticket.ticketCode, type },
   }).catch(() => null);

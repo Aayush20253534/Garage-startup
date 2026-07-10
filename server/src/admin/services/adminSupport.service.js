@@ -294,8 +294,12 @@ const updateTicket = async ({ ticketId, data }) => {
 
   if (changedAssignee && assignee) {
     await supportNotificationService.notifyAccount(assignee.id, {
-      title: "Support ticket assigned to you",
+      title:
+        updated.type === "DISPUTE"
+          ? "Customer dispute assigned to you"
+          : "Support ticket assigned to you",
       message: `${updated.ticketCode}: ${updated.subject}`,
+      type: updated.type === "DISPUTE" ? "DISPUTE" : "SUPPORT_TICKET",
       link: `/support/tickets?ticket=${updated.id}`,
       metadata: {
         ticketId: updated.id,

@@ -63,6 +63,11 @@ const normalizeSubscription = (input = {}) => {
   return { endpoint, p256dh, auth };
 };
 
+const normalizeDeviceDetails = ({ userAgent = null, deviceName = null }) => ({
+  userAgent: String(userAgent || "").trim().slice(0, 500) || null,
+  deviceName: String(deviceName || "").trim().slice(0, 120) || null,
+});
+
 const saveSubscription = async ({
   userId,
   subscription,
@@ -74,47 +79,107 @@ const saveSubscription = async ({
   }
 
   const normalized = normalizeSubscription(subscription);
-  const safeUserAgent = String(userAgent || "").trim().slice(0, 500) || null;
-  const safeDeviceName = String(deviceName || "").trim().slice(0, 120) || null;
+  const device = normalizeDeviceDetails({ userAgent, deviceName });
   const now = new Date();
 
-  return prisma.pushSubscription.upsert({
-    where: { endpoint: normalized.endpoint },
-    update: {
-      userId,
-      p256dh: normalized.p256dh,
-      auth: normalized.auth,
-      userAgent: safeUserAgent,
-      deviceName: safeDeviceName,
-      lastUsedAt: now,
-    },
-    create: {
-      userId,
-      ...normalized,
-      userAgent: safeUserAgent,
-      deviceName: safeDeviceName,
-      lastUsedAt: now,
-    },
-    select: {
-      id: true,
-      deviceName: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+  return prisma.$transaction(async (tx) => {
+    // A browser has one Push API subscription for this service worker. Moving
+    // an endpoint between account types prevents alerts leaking to a previous
+    // customer/support session on the same browser.
+    await tx.customerSupportPushSubscription.deleteMany({
+      where: { endpoint: normalized.endpoint },
+    });
+
+    return tx.pushSubscription.upsert({
+      where: { endpoint: normalized.endpoint },
+      update: {
+        userId,
+        p256dh: normalized.p256dh,
+        auth: normalized.auth,
+        ...device,
+        lastUsedAt: now,
+      },
+      create: {
+        userId,
+        ...normalized,
+        ...device,
+        lastUsedAt: now,
+      },
+      select: {
+        id: true,
+        deviceName: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   });
 };
 
-const removeSubscription = async ({ userId, endpoint }) => {
+const saveSupportSubscription = async ({
+  supportAccountId,
+  subscription,
+  userAgent = null,
+  deviceName = null,
+}) => {
+  if (!isWebPushConfigured()) {
+    throw new ApiError(503, "Web Push is not configured on the server");
+  }
+
+  const normalized = normalizeSubscription(subscription);
+  const device = normalizeDeviceDetails({ userAgent, deviceName });
+  const now = new Date();
+
+  return prisma.$transaction(async (tx) => {
+    await tx.pushSubscription.deleteMany({
+      where: { endpoint: normalized.endpoint },
+    });
+
+    return tx.customerSupportPushSubscription.upsert({
+      where: { endpoint: normalized.endpoint },
+      update: {
+        supportAccountId,
+        p256dh: normalized.p256dh,
+        auth: normalized.auth,
+        ...device,
+        lastUsedAt: now,
+      },
+      create: {
+        supportAccountId,
+        ...normalized,
+        ...device,
+        lastUsedAt: now,
+      },
+      select: {
+        id: true,
+        deviceName: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  });
+};
+
+const normalizeEndpoint = (endpoint) => {
   const safeEndpoint = String(endpoint || "").trim();
   if (!safeEndpoint) {
     throw new ApiError(400, "Push subscription endpoint is required");
   }
+  return safeEndpoint;
+};
 
+const removeSubscription = async ({ userId, endpoint }) => {
+  const safeEndpoint = normalizeEndpoint(endpoint);
   const result = await prisma.pushSubscription.deleteMany({
-    where: {
-      userId,
-      endpoint: safeEndpoint,
-    },
+    where: { userId, endpoint: safeEndpoint },
+  });
+
+  return { removed: result.count > 0 };
+};
+
+const removeSupportSubscription = async ({ supportAccountId, endpoint }) => {
+  const safeEndpoint = normalizeEndpoint(endpoint);
+  const result = await prisma.customerSupportPushSubscription.deleteMany({
+    where: { supportAccountId, endpoint: safeEndpoint },
   });
 
   return { removed: result.count > 0 };
@@ -126,21 +191,31 @@ const buildPayload = ({
   message,
   type = "SYSTEM",
   link = null,
-  metadata: _metadata = null,
+  metadata = null,
 }) => ({
   title: String(title || "Rovauto"),
   body: String(message || "You have a new Rovauto update."),
   icon: "/icon-192.png",
-  badge: "/icon-192.png",
-  tag: id ? `rovauto-${id}` : undefined,
+  badge: "/notification-badge-96.png",
+  tag: id ? `rovauto-${id}` : metadata?.ticketId ? `ticket-${metadata.ticketId}` : undefined,
   data: {
     url: link || "/",
     notificationId: id,
     type,
+    ...(metadata?.ticketId && { ticketId: metadata.ticketId }),
   },
 });
 
-const sendToStoredSubscriptions = async (subscriptions, notification) => {
+const getSubscriptionModel = (kind) =>
+  kind === "support"
+    ? prisma.customerSupportPushSubscription
+    : prisma.pushSubscription;
+
+const sendToStoredSubscriptions = async (
+  subscriptions,
+  notification,
+  { kind = "user" } = {},
+) => {
   if (!isWebPushConfigured() || subscriptions.length === 0) {
     return { sent: 0, failed: 0, removed: 0 };
   }
@@ -159,7 +234,11 @@ const sendToStoredSubscriptions = async (subscriptions, notification) => {
         payload,
         {
           TTL: 60 * 60,
-          urgency: notification.type === "BOOKING" ? "high" : "normal",
+          urgency: ["BOOKING", "SUPPORT_TICKET", "DISPUTE"].includes(
+            notification.type,
+          )
+            ? "high"
+            : "normal",
         },
       ),
     ),
@@ -186,20 +265,20 @@ const sendToStoredSubscriptions = async (subscriptions, notification) => {
     failed += 1;
     console.warn("[web-push] delivery failed", {
       subscriptionId: subscription.id,
-      userId: subscription.userId,
+      accountId: subscription.userId || subscription.supportAccountId || null,
+      accountType: kind === "support" ? "CUSTOMER_SUPPORT" : "USER",
       statusCode: statusCode || null,
       message: result.reason?.message || "Unknown Web Push error",
     });
   });
 
+  const model = getSubscriptionModel(kind);
   await Promise.all([
     expiredIds.length
-      ? prisma.pushSubscription.deleteMany({
-          where: { id: { in: expiredIds } },
-        })
+      ? model.deleteMany({ where: { id: { in: expiredIds } } })
       : Promise.resolve(),
     successfulIds.length
-      ? prisma.pushSubscription.updateMany({
+      ? model.updateMany({
           where: { id: { in: successfulIds } },
           data: { lastUsedAt: new Date() },
         })
@@ -233,19 +312,51 @@ const sendPushToUsers = async (userIds, notification) => {
   }
 
   const subscriptions = await prisma.pushSubscription.findMany({
-    where: {
-      userId: { in: uniqueUserIds },
-    },
+    where: { userId: { in: uniqueUserIds } },
   });
 
   return sendToStoredSubscriptions(subscriptions, notification);
+};
+
+const sendPushToSupportAccount = async (supportAccountId, notification) => {
+  if (!supportAccountId || !isWebPushConfigured()) {
+    return { sent: 0, failed: 0, removed: 0 };
+  }
+
+  const subscriptions = await prisma.customerSupportPushSubscription.findMany({
+    where: { supportAccountId },
+  });
+
+  return sendToStoredSubscriptions(subscriptions, notification, {
+    kind: "support",
+  });
+};
+
+const sendPushToSupportAccounts = async (supportAccountIds, notification) => {
+  const uniqueIds = [...new Set((supportAccountIds || []).filter(Boolean))];
+
+  if (uniqueIds.length === 0 || !isWebPushConfigured()) {
+    return { sent: 0, failed: 0, removed: 0 };
+  }
+
+  const subscriptions = await prisma.customerSupportPushSubscription.findMany({
+    where: { supportAccountId: { in: uniqueIds } },
+  });
+
+  return sendToStoredSubscriptions(subscriptions, notification, {
+    kind: "support",
+  });
 };
 
 module.exports = {
   getPublicConfig,
   isWebPushConfigured,
   removeSubscription,
+  removeSupportSubscription,
   saveSubscription,
+  saveSupportSubscription,
+  sendPushToSupportAccount,
+  sendPushToSupportAccounts,
   sendPushToUser,
   sendPushToUsers,
 };

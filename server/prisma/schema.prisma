@@ -96,7 +96,8 @@ model CustomerSupportAccount {
   updatedAt         DateTime                      @updatedAt
   assignedTickets   SupportTicket[]               @relation("CustomerSupportAssignedTickets")
   messages          SupportTicketMessage[]        @relation("SupportTicketSupportMessages")
-  notifications     CustomerSupportNotification[]
+  notifies          Notify[]
+  pushSubscriptions CustomerSupportPushSubscription[]
   emailLogs         CustomerSupportEmailLog[]
 
   @@index([isActive])
@@ -810,11 +811,12 @@ model SupportTicketAttachment {
   @@map("support_ticket_attachments")
 }
 
-model CustomerSupportNotification {
+model Notify {
   id               String                 @id @default(uuid())
   supportAccountId String
   title            String
   message          String
+  type             String                 @default("SYSTEM")
   link             String?
   isRead           Boolean                @default(false)
   metadata         Json?
@@ -823,7 +825,25 @@ model CustomerSupportNotification {
   supportAccount   CustomerSupportAccount @relation(fields: [supportAccountId], references: [id], onDelete: Cascade)
 
   @@index([supportAccountId, isRead, createdAt])
-  @@map("customer_support_notifications")
+  @@index([type, createdAt])
+  @@map("notify")
+}
+
+model CustomerSupportPushSubscription {
+  id               String                 @id @default(uuid())
+  supportAccountId String
+  endpoint         String                 @unique
+  p256dh           String
+  auth             String
+  userAgent        String?
+  deviceName       String?
+  lastUsedAt       DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  supportAccount   CustomerSupportAccount @relation(fields: [supportAccountId], references: [id], onDelete: Cascade)
+
+  @@index([supportAccountId])
+  @@map("customer_support_push_subscriptions")
 }
 
 model CustomerSupportEmailLog {

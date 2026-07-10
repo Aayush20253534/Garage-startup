@@ -15,6 +15,7 @@ import {
 } from "react-icons/fi";
 
 import { customerSupportApi } from "@/api/customerSupport";
+import PushNotificationControl from "@/components/PushNotificationControl";
 
 const formatLabel = (value) =>
   String(value || "")
@@ -63,7 +64,7 @@ export default function CustomerSupportDashboard() {
       [FiZap, stats.urgent || 0, "Urgent", "Urgent available or assigned cases"],
       [FiShield, stats.openDisputes || 0, "Open disputes", "Disputes needing investigation"],
       [FiCheckCircle, stats.resolvedToday || 0, "Resolved today", "My resolved support cases"],
-      [FiBell, stats.unreadNotifications || 0, "Unread notifications", "Queue and assignment updates"],
+      [FiBell, stats.unreadNotifications || 0, "Unread alerts", "Queue and assignment updates"],
       [FiMail, stats.emailsSentToday || 0, "Emails today", "Customer emails sent by me"],
     ],
     [stats],
@@ -94,6 +95,8 @@ export default function CustomerSupportDashboard() {
           </button>
         </div>
       </section>
+
+      <PushNotificationControl compact scope="support" />
 
       {error && (
         <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -163,10 +166,10 @@ export default function CustomerSupportDashboard() {
         <section className="rounded-2xl border border-line bg-white p-5 shadow-soft">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-ink">Latest notifications</h2>
+              <h2 className="text-lg font-bold text-ink">Latest alerts</h2>
               <p className="text-sm text-muted">Assignments and customer replies.</p>
             </div>
-            <Link to="/support/notifications" className="text-sm font-bold text-ink underline underline-offset-4">
+            <Link to="/support/notify" className="text-sm font-bold text-ink underline underline-offset-4">
               View all
             </Link>
           </div>
@@ -176,7 +179,7 @@ export default function CustomerSupportDashboard() {
               data.recentNotifications.map((item) => (
                 <Link
                   key={item.id}
-                  to={item.link || "/support/notifications"}
+                  to={item.link || "/support/notify"}
                   className={`rounded-xl border p-3 ${item.isRead ? "border-line" : "border-amber-200 bg-amber-50"}`}
                 >
                   <p className="text-sm font-bold text-ink">{item.title}</p>
@@ -185,7 +188,7 @@ export default function CustomerSupportDashboard() {
                 </Link>
               ))
             ) : (
-              <p className="rounded-xl bg-bg-soft p-4 text-sm text-muted">No notifications yet.</p>
+              <p className="rounded-xl bg-bg-soft p-4 text-sm text-muted">No received alerts yet.</p>
             )}
           </div>
         </section>

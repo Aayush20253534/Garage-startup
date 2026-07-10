@@ -8,6 +8,10 @@ const rules = require("../validations/customerSupport.validation");
 const router = express.Router();
 router.use(protectCustomerSupport);
 
+router.get("/push/public-key", controller.getPushPublicConfig);
+router.post("/push/subscriptions", controller.subscribePush);
+router.delete("/push/subscriptions", controller.unsubscribePush);
+
 router.get("/dashboard", controller.dashboard);
 router.get("/tickets", rules.listTickets, validate, controller.listTickets);
 router.get("/tickets/:ticketId", rules.ticketId, validate, controller.getTicket);
@@ -22,6 +26,17 @@ router.post(
   validate,
   controller.sendCustomerNotification,
 );
+router.get("/notify", controller.listNotifications);
+router.patch("/notify/read-all", controller.markAllNotificationsRead);
+router.patch(
+  "/notify/:notificationId/read",
+  rules.notificationId,
+  validate,
+  controller.markNotificationRead,
+);
+
+// Backward-compatible aliases for clients deployed before Notify was split
+// from the customer-notification sending page.
 router.get("/notifications", controller.listNotifications);
 router.patch("/notifications/read-all", controller.markAllNotificationsRead);
 router.patch(

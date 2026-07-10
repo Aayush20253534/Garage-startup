@@ -1,6 +1,16 @@
 import api from "@/api/axios";
 import { getRovautoServiceWorkerRegistration } from "@/utils/imageCache";
 
+const PUSH_SCOPES = {
+  user: "/push",
+  support: "/customer-support/push",
+};
+
+const normalizeScope = (scope = "user") =>
+  Object.prototype.hasOwnProperty.call(PUSH_SCOPES, scope) ? scope : "user";
+
+const getPushApiBase = (scope) => PUSH_SCOPES[normalizeScope(scope)];
+
 const isIosDevice = () => {
   if (typeof navigator === "undefined") return false;
 
@@ -52,7 +62,7 @@ export const getPushNotificationStatus = async () => {
   return Notification.permission === "granted" ? "disabled" : "prompt";
 };
 
-export const enablePushNotifications = async () => {
+export const enablePushNotifications = async ({ scope = "user" } = {}) => {
   if (isIosDevice() && !isStandalonePwa()) {
     throw new Error(
       "On iPhone or iPad, add Rovauto to the Home Screen first, then open the installed app and enable notifications.",
@@ -63,7 +73,8 @@ export const enablePushNotifications = async () => {
     throw new Error("This browser does not support app notifications.");
   }
 
-  const configResponse = await api.get("/push/public-key");
+  const base = getPushApiBase(scope);
+  const configResponse = await api.get(`${base}/public-key`);
   const config = configResponse.data?.data;
 
   if (!config?.enabled || !config?.publicKey) {
@@ -89,7 +100,7 @@ export const enablePushNotifications = async () => {
     });
   }
 
-  await api.post("/push/subscriptions", {
+  await api.post(`${base}/subscriptions`, {
     subscription: subscription.toJSON(),
     deviceName: getDeviceName(),
   });
@@ -97,7 +108,7 @@ export const enablePushNotifications = async () => {
   return subscription;
 };
 
-export const syncExistingPushSubscription = async () => {
+export const syncExistingPushSubscription = async ({ scope = "user" } = {}) => {
   if (!isPushNotificationSupported() || Notification.permission !== "granted") {
     return false;
   }
@@ -108,7 +119,8 @@ export const syncExistingPushSubscription = async () => {
   const subscription = await registration.pushManager.getSubscription();
   if (!subscription) return false;
 
-  await api.post("/push/subscriptions", {
+  const base = getPushApiBase(scope);
+  await api.post(`${base}/subscriptions`, {
     subscription: subscription.toJSON(),
     deviceName: getDeviceName(),
   });
@@ -118,6 +130,7 @@ export const syncExistingPushSubscription = async () => {
 
 export const disablePushNotifications = async ({
   ignoreServerErrors = false,
+  scope = "user",
 } = {}) => {
   if (!isPushNotificationSupported()) return false;
 
@@ -128,9 +141,10 @@ export const disablePushNotifications = async ({
   if (!subscription) return false;
 
   let serverError = null;
+  const base = getPushApiBase(scope);
 
   try {
-    await api.delete("/push/subscriptions", {
+    await api.delete(`${base}/subscriptions`, {
       data: { endpoint: subscription.endpoint },
     });
   } catch (error) {

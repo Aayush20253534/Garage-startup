@@ -3,9 +3,7 @@ import { Link } from "react-router-dom";
 import {
   FiAlertCircle,
   FiBell,
-  FiCheck,
   FiCheckCircle,
-  FiRefreshCw,
   FiSearch,
   FiSend,
 } from "react-icons/fi";
@@ -22,14 +20,6 @@ const NOTIFICATION_TYPES = [
   "SOS",
 ];
 
-const formatDate = (value) =>
-  value
-    ? new Intl.DateTimeFormat("en-IN", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(new Date(value))
-    : "—";
-
 const initialForm = {
   audience: "USER",
   userId: "",
@@ -41,44 +31,18 @@ const initialForm = {
 };
 
 export default function CustomerSupportNotifications() {
-  const [data, setData] = useState({ items: [], unreadCount: 0 });
-  const [loading, setLoading] = useState(true);
-  const [inboxError, setInboxError] = useState("");
-
   const [form, setForm] = useState(initialForm);
   const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState([]);
   const [searching, setSearching] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState("");
-  const [sendSuccess, setSendSuccess] = useState("");
-
-  const load = async () => {
-    try {
-      setLoading(true);
-      setInboxError("");
-      const result = await customerSupportApi.getNotifications();
-      setData(result || { items: [], unreadCount: 0 });
-      window.dispatchEvent(
-        new CustomEvent("rov:support-notifications-updated", {
-          detail: { unreadCount: result?.unreadCount || 0 },
-        }),
-      );
-    } catch (err) {
-      setInboxError(
-        err.response?.data?.message ||
-          err.message ||
-          "Unable to load support notifications",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const findCustomers = async (term = search) => {
     try {
       setSearching(true);
-      setSendError("");
+      setError("");
       const result = await customerSupportApi.searchEmailUsers({
         role: "CUSTOMER",
         search: term.trim(),
@@ -86,7 +50,7 @@ export default function CustomerSupportNotifications() {
       setCustomers(Array.isArray(result) ? result : []);
     } catch (err) {
       setCustomers([]);
-      setSendError(
+      setError(
         err.response?.data?.message || err.message || "Unable to find customers",
       );
     } finally {
@@ -95,7 +59,6 @@ export default function CustomerSupportNotifications() {
   };
 
   useEffect(() => {
-    void load();
     void findCustomers("");
   }, []);
 
@@ -105,8 +68,8 @@ export default function CustomerSupportNotifications() {
       [key]: value,
       ...(key === "audience" ? { userId: "", city: "" } : {}),
     }));
-    setSendError("");
-    setSendSuccess("");
+    setError("");
+    setSuccess("");
   };
 
   const sendNotification = async (event) => {
@@ -114,8 +77,8 @@ export default function CustomerSupportNotifications() {
 
     try {
       setSending(true);
-      setSendError("");
-      setSendSuccess("");
+      setError("");
+      setSuccess("");
 
       const result = await customerSupportApi.sendCustomerNotification({
         audience: form.audience,
@@ -128,7 +91,7 @@ export default function CustomerSupportNotifications() {
       });
 
       const sentCount = Number(result?.sent);
-      setSendSuccess(
+      setSuccess(
         form.audience === "CITY"
           ? `Notification sent to ${Number.isFinite(sentCount) ? sentCount : 0} customer${sentCount === 1 ? "" : "s"}.`
           : form.audience === "ALL"
@@ -142,7 +105,7 @@ export default function CustomerSupportNotifications() {
         link: "",
       }));
     } catch (err) {
-      setSendError(
+      setError(
         err.response?.data?.message ||
           err.message ||
           "Unable to send customer notification",
@@ -152,52 +115,29 @@ export default function CustomerSupportNotifications() {
     }
   };
 
-  const markRead = async (item) => {
-    if (!item.isRead) {
-      await customerSupportApi.markNotificationRead(item.id);
-      setData((current) => {
-        const unreadCount = Math.max((current.unreadCount || 0) - 1, 0);
-        window.dispatchEvent(
-          new CustomEvent("rov:support-notifications-updated", {
-            detail: { unreadCount },
-          }),
-        );
-        return {
-          items: current.items.map((entry) =>
-            entry.id === item.id ? { ...entry, isRead: true } : entry,
-          ),
-          unreadCount,
-        };
-      });
-    }
-  };
-
-  const markAll = async () => {
-    await customerSupportApi.markAllNotificationsRead();
-    setData((current) => ({
-      items: current.items.map((item) => ({ ...item, isRead: true })),
-      unreadCount: 0,
-    }));
-    window.dispatchEvent(
-      new CustomEvent("rov:support-notifications-updated", {
-        detail: { unreadCount: 0 },
-      }),
-    );
-  };
-
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
-          Customer communication
-        </p>
-        <h1 className="mt-1 flex items-center gap-2 text-2xl font-extrabold text-ink">
-          <FiBell /> Notifications
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          Send an in-app and Web Push notification to one customer, a city, or all
-          active customers. Your private support inbox appears below.
-        </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
+              Customer communication
+            </p>
+            <h1 className="mt-1 flex items-center gap-2 text-2xl font-extrabold text-ink">
+              <FiSend /> Send notifications
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm text-muted">
+              Send an in-app and Web Push message to one customer, customers in a
+              city, or every active customer.
+            </p>
+          </div>
+          <Link
+            to="/support/notify"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
+          >
+            <FiBell /> Open received alerts
+          </Link>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
@@ -208,14 +148,14 @@ export default function CustomerSupportNotifications() {
           </p>
         </div>
 
-        {sendError && (
+        {error && (
           <div className="mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            <FiAlertCircle className="mt-0.5 shrink-0" /> {sendError}
+            <FiAlertCircle className="mt-0.5 shrink-0" /> {error}
           </div>
         )}
-        {sendSuccess && (
+        {success && (
           <div className="mt-4 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
-            <FiCheckCircle className="mt-0.5 shrink-0" /> {sendSuccess}
+            <FiCheckCircle className="mt-0.5 shrink-0" /> {success}
           </div>
         )}
 
@@ -266,7 +206,7 @@ export default function CustomerSupportNotifications() {
           {form.audience === "USER" && (
             <div className="rounded-xl border border-line bg-bg-soft p-4">
               <label className="text-sm font-bold text-ink">Customer</label>
-              <div className="mt-2 flex gap-2">
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">
                   <FiSearch className="absolute left-3 top-3.5 text-muted" />
                   <input
@@ -347,88 +287,6 @@ export default function CustomerSupportNotifications() {
             </button>
           </div>
         </form>
-      </section>
-
-      {inboxError && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <FiAlertCircle className="mt-0.5 shrink-0" /> {inboxError}
-        </div>
-      )}
-
-      <section className="rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-bold text-ink">My support alerts</h2>
-            <p className="mt-1 text-sm text-muted">
-              New tickets, customer replies, and admin assignments.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => void load()}
-              disabled={loading}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-line px-4 text-sm font-bold text-ink disabled:opacity-50"
-            >
-              <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
-            </button>
-            <button
-              type="button"
-              onClick={() => void markAll()}
-              disabled={!data.unreadCount}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white disabled:opacity-40"
-            >
-              <FiCheck /> Mark all read
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-ink">Alert history</h3>
-          <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-bold text-ink">
-            {data.unreadCount || 0} unread
-          </span>
-        </div>
-
-        <div className="mt-3 grid gap-3">
-          {loading ? (
-            <p className="rounded-xl bg-bg-soft p-4 text-sm text-muted">
-              Loading alerts...
-            </p>
-          ) : (data.items || []).length ? (
-            data.items.map((item) => (
-              <Link
-                key={item.id}
-                to={item.link || "/support/notifications"}
-                onClick={() => void markRead(item)}
-                className={`rounded-xl border p-4 transition hover:border-ink ${
-                  item.isRead
-                    ? "border-line bg-white"
-                    : "border-amber-200 bg-amber-50"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-bold text-ink">{item.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-muted">
-                      {item.message}
-                    </p>
-                    <p className="mt-2 text-xs text-muted">
-                      {formatDate(item.createdAt)}
-                    </p>
-                  </div>
-                  {!item.isRead && (
-                    <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500" />
-                  )}
-                </div>
-              </Link>
-            ))
-          ) : (
-            <p className="rounded-xl bg-bg-soft p-4 text-sm text-muted">
-              No customer support alerts yet.
-            </p>
-          )}
-        </div>
       </section>
     </div>
   );

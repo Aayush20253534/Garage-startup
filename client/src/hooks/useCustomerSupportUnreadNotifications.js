@@ -18,7 +18,7 @@ export default function useCustomerSupportUnreadNotifications() {
     }
 
     try {
-      const result = await customerSupportApi.getNotifications();
+      const result = await customerSupportApi.getNotifies();
       const nextCount = Number(result?.unreadCount || 0);
       setUnreadCount(nextCount);
       return nextCount;
@@ -48,8 +48,13 @@ export default function useCustomerSupportUnreadNotifications() {
       refresh();
     };
 
+    const handleServiceWorkerMessage = (event) => {
+      if (event.data?.type === "ROVAUTO_PUSH_RECEIVED") refresh();
+    };
+
     window.addEventListener("focus", refresh);
     window.addEventListener("rov:support-notifications-updated", handleUpdated);
+    navigator.serviceWorker?.addEventListener("message", handleServiceWorkerMessage);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
@@ -58,6 +63,10 @@ export default function useCustomerSupportUnreadNotifications() {
       window.removeEventListener(
         "rov:support-notifications-updated",
         handleUpdated,
+      );
+      navigator.serviceWorker?.removeEventListener(
+        "message",
+        handleServiceWorkerMessage,
       );
       document.removeEventListener("visibilitychange", handleVisibility);
     };

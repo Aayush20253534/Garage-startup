@@ -130,14 +130,26 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "Rovauto";
 
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: payload.body || payload.message || "You have a new Rovauto update.",
-      icon: payload.icon || "/icon-192.png",
-      badge: payload.badge || "/icon-192.png",
-      tag: payload.tag || "rovauto-notification",
-      renotify: true,
-      data: payload.data || { url: "/" },
-    }),
+    Promise.all([
+      self.registration.showNotification(title, {
+        body: payload.body || payload.message || "You have a new Rovauto update.",
+        icon: payload.icon || "/icon-192.png",
+        badge: payload.badge || "/notification-badge-96.png",
+        tag: payload.tag || "rovauto-notification",
+        renotify: true,
+        data: payload.data || { url: "/" },
+      }),
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((clients) =>
+          clients.forEach((client) =>
+            client.postMessage({
+              type: "ROVAUTO_PUSH_RECEIVED",
+              payload,
+            }),
+          ),
+        ),
+    ]),
   );
 });
 
