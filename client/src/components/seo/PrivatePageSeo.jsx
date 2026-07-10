@@ -16,6 +16,7 @@ const PRIVATE_PATH_PREFIXES = [
   "/garage",
   "/admin",
   "/intern",
+  "/support",
   "/booking",
   "/sos",
 ];
@@ -38,6 +39,8 @@ export const isPrivateSeoPath = (pathname = "") => {
 
 export default function PrivatePageSeo() {
   const { pathname } = useLocation();
+  const isSupportPortal =
+    pathname === "/support" || pathname.startsWith("/support/");
 
   if (!isPrivateSeoPath(pathname)) {
     return null;
@@ -45,7 +48,7 @@ export default function PrivatePageSeo() {
 
   return (
     <Helmet prioritizeSeoTags>
-      <title>Secure Page | Rovauto</title>
+      <title>{isSupportPortal ? "Rovauto Support" : "Secure Page | Rovauto"}</title>
 
       <meta name="robots" content="noindex, nofollow, noarchive" />
       <meta

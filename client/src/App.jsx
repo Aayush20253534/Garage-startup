@@ -119,6 +119,34 @@ const getAccountPortal = (user) => {
   return "/login";
 };
 
+function PwaDocumentShellGuard() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const supportRoute =
+      location.pathname === "/support" ||
+      location.pathname.startsWith("/support/");
+    const supportShell =
+      document.documentElement.dataset.appShell === "support";
+
+    if (supportRoute === supportShell) return;
+
+    const target = `${location.pathname}${location.search}${location.hash}`;
+    const reloadKey = "rovauto:pwa-shell-reload";
+    const previous = sessionStorage.getItem(reloadKey);
+
+    if (previous === target) {
+      sessionStorage.removeItem(reloadKey);
+      return;
+    }
+
+    sessionStorage.setItem(reloadKey, target);
+    window.location.replace(target);
+  }, [location.hash, location.pathname, location.search]);
+
+  return null;
+}
+
 function ProtectedRoute({ children }) {
   const { user, garage, authLoading } = useApp();
   const location = useLocation();
@@ -842,6 +870,7 @@ const internItems = [
 function AppRoutes() {
   return (
     <>
+      <PwaDocumentShellGuard />
       <PrivatePageSeo />
       <Suspense fallback={<RouteFallback />}>
       <Routes>

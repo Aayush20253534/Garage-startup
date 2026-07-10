@@ -75,6 +75,31 @@
         ]
       },
       {
+        "source": "/support-sw.js",
+        "headers": [
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin-allow-popups"
+          },
+          {
+            "key": "Cross-Origin-Resource-Policy",
+            "value": "cross-origin"
+          },
+          {
+            "key": "Cross-Origin-Embedder-Policy",
+            "value": "unsafe-none"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+          },
+          {
+            "key": "Service-Worker-Allowed",
+            "value": "/support"
+          }
+        ]
+      },
+      {
         "source": "**",
         "headers": [
           {
@@ -105,6 +130,14 @@
       }
     ],
     "rewrites": [
+      {
+        "source": "/support",
+        "destination": "/support.html"
+      },
+      {
+        "source": "/support/**",
+        "destination": "/support.html"
+      },
       {
         "source": "**",
         "destination": "/index.html"

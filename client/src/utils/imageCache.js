@@ -28,37 +28,95 @@ export const getServiceImageUrls = (categories = []) =>
     ]),
   );
 
-export const getRovautoServiceWorkerRegistration = async () => {
+const isSupportPath = () =>
+  typeof window !== "undefined" &&
+  (window.location.pathname === "/support" ||
+    window.location.pathname.startsWith("/support/"));
+
+const getWorkerConfig = (portal = "auto") => {
+  const supportPortal = portal === "support" || (portal === "auto" && isSupportPath());
+
+  return supportPortal
+    ? {
+        scriptUrl: "/support-sw.js",
+        scope: "/support",
+      }
+    : {
+        scriptUrl: "/sw.js",
+        scope: "/",
+      };
+};
+
+const getRegistrationScriptUrl = (registration) =>
+  registration?.active?.scriptURL ||
+  registration?.waiting?.scriptURL ||
+  registration?.installing?.scriptURL ||
+  "";
+
+const waitForWorkerActivation = async (registration) => {
+  if (registration.active) return registration;
+
+  const worker = registration.installing || registration.waiting;
+  if (!worker) return registration;
+
+  await new Promise((resolve) => {
+    if (worker.state === "activated") {
+      resolve();
+      return;
+    }
+
+    const handleStateChange = () => {
+      if (worker.state === "activated" || worker.state === "redundant") {
+        worker.removeEventListener("statechange", handleStateChange);
+        resolve();
+      }
+    };
+
+    worker.addEventListener("statechange", handleStateChange);
+  });
+
+  return registration;
+};
+
+export const getRovautoServiceWorkerRegistration = async ({ portal = "auto" } = {}) => {
   if (!("serviceWorker" in navigator)) {
     throw new Error("Service workers are not supported by this browser.");
   }
 
-  const registrations = await navigator.serviceWorker.getRegistrations();
+  const config = getWorkerConfig(portal);
+  let registration = await navigator.serviceWorker.getRegistration(config.scope);
+  const registrationScope = registration
+    ? new URL(registration.scope).pathname.replace(/\/$/, "") || "/"
+    : null;
+  const expectedScope = config.scope.replace(/\/$/, "") || "/";
 
-  await Promise.all(
-    registrations
-      .filter((registration) => {
-        const scriptUrl =
-          registration.active?.scriptURL ||
-          registration.waiting?.scriptURL ||
-          registration.installing?.scriptURL ||
-          "";
+  // getRegistration(clientUrl) can return the broader root registration.
+  // Keep it intact and create a separate, more-specific support registration.
+  if (registration && registrationScope !== expectedScope) {
+    registration = null;
+  }
 
-        return scriptUrl && !scriptUrl.endsWith("/sw.js");
-      })
-      .map((registration) => registration.unregister()),
-  );
+  const currentScriptUrl = getRegistrationScriptUrl(registration);
 
-  const existing = await navigator.serviceWorker.getRegistration("/");
-  const registration =
-    existing ||
-    (await navigator.serviceWorker.register("/sw.js", {
-      scope: "/",
+  if (
+    registration &&
+    currentScriptUrl &&
+    !currentScriptUrl.endsWith(config.scriptUrl)
+  ) {
+    await registration.unregister();
+    registration = null;
+  }
+
+  if (!registration) {
+    registration = await navigator.serviceWorker.register(config.scriptUrl, {
+      scope: config.scope,
       updateViaCache: "none",
-    }));
+    });
+  }
 
   await registration.update().catch(() => {});
-  return navigator.serviceWorker.ready;
+  await waitForWorkerActivation(registration);
+  return registration;
 };
 
 export const registerImageCacheWorker = () => {

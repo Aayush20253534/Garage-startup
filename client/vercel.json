@@ -33,6 +33,19 @@
       ]
     },
     {
+      "source": "/support-sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/support"
+        }
+      ]
+    },
+    {
       "source": "/((?!api/v1/|assets/).*)",
       "headers": [
         {
@@ -52,6 +65,15 @@
           "value": "0"
         }
       ]
+    },
+    {
+      "source": "/(site|support).webmanifest",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate"
+        }
+      ]
     }
   ],
   "rewrites": [
@@ -60,7 +82,15 @@
       "destination": "https://rovauto.onrender.com/api/v1/:path*"
     },
     {
-      "source": "/((?!api/v1/|assets/|sw\\.js$|favicon\\.(?:ico|png)$|og-image\\.jpg$|robots\\.txt$|sitemap\\.xml$).*)",
+      "source": "/support",
+      "destination": "/support.html"
+    },
+    {
+      "source": "/support/:path*",
+      "destination": "/support.html"
+    },
+    {
+      "source": "/((?!api/v1/|assets/|support(?:/|$)|sw\\.js$|support-sw\\.js$|site\\.webmanifest$|support\\.webmanifest$|support-icon-(?:192|512)\\.png$|support-apple-touch-icon\\.png$|support-notification-badge-96\\.png$|favicon\\.(?:ico|png)$|favicon-48\\.png$|icon-(?:192|512)\\.png$|apple-touch-icon\\.png$|og-image\\.jpg$|robots\\.txt$|sitemap\\.xml$).*)",
       "destination": "/index.html"
     }
   ]

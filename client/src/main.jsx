@@ -14,6 +14,21 @@ import "./index.css";
 
 console.info("Rovauto frontend build:", __APP_BUILD_ID__);
 
+const isSupportShell =
+  document.documentElement.dataset.appShell === "support";
+
+if (isSupportShell) {
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    window.__ROVAUTO_SUPPORT_INSTALL_PROMPT__ = event;
+    window.dispatchEvent(new Event("rovauto-support-install-ready"));
+  });
+
+  window.addEventListener("appinstalled", () => {
+    window.__ROVAUTO_SUPPORT_INSTALL_PROMPT__ = null;
+  });
+}
+
 installChunkRecovery();
 installGlobalErrorReporting();
 registerImageCacheWorker();

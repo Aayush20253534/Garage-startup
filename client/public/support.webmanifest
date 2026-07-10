@@ -1,0 +1,54 @@
+{
+  "id": "/support-app",
+  "name": "Rovauto Support",
+  "short_name": "Rovauto Support",
+  "description": "Dedicated customer support workspace for Rovauto tickets, disputes and alerts.",
+  "start_url": "/support",
+  "scope": "/support",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/support-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/support-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/support-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Support dashboard",
+      "short_name": "Dashboard",
+      "url": "/support",
+      "icons": [{ "src": "/support-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Tickets and disputes",
+      "short_name": "Tickets",
+      "url": "/support/tickets",
+      "icons": [{ "src": "/support-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Received alerts",
+      "short_name": "Alerts",
+      "url": "/support/notify",
+      "icons": [{ "src": "/support-icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

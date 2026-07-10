@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { FiArrowRight, FiHeadphones } from "react-icons/fi";
 
 import Logo from "@/components/common/Logo";
+import SupportPwaInstall from "@/components/support/SupportPwaInstall";
 import { customerSupportApi } from "@/api/customerSupport";
 import { useApp } from "@/hooks/useApp";
 
@@ -104,6 +105,8 @@ export default function CustomerSupportLogin() {
             )}
           </button>
         </form>
+
+        <SupportPwaInstall compact />
 
         <p className="mt-5 text-center text-xs leading-5 text-muted">
           Password recovery is intentionally unavailable. Contact an admin to

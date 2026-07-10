@@ -16,6 +16,7 @@ import {
 
 import { customerSupportApi } from "@/api/customerSupport";
 import PushNotificationControl from "@/components/PushNotificationControl";
+import SupportPwaInstall from "@/components/support/SupportPwaInstall";
 
 const formatLabel = (value) =>
   String(value || "")
@@ -95,6 +96,8 @@ export default function CustomerSupportDashboard() {
           </button>
         </div>
       </section>
+
+      <SupportPwaInstall />
 
       <PushNotificationControl compact scope="support" />
 

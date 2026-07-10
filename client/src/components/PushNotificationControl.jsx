@@ -42,7 +42,7 @@ const STATUS_CONTENT = {
     icon: FiSmartphone,
     title: "Install Rovauto first",
     message:
-      "On iPhone or iPad, add Rovauto to the Home Screen, open the installed app, then enable notifications.",
+      "On iPhone or iPad, add this app to the Home Screen, open the installed app, then enable notifications.",
   },
   unsupported: {
     icon: FiBellOff,
@@ -73,7 +73,7 @@ export default function PushNotificationControl({ compact = false, scope = "user
 
   const refreshStatus = async () => {
     try {
-      setStatus(await getPushNotificationStatus());
+      setStatus(await getPushNotificationStatus({ scope }));
     } catch {
       setStatus("unsupported");
     }
@@ -81,7 +81,7 @@ export default function PushNotificationControl({ compact = false, scope = "user
 
   useEffect(() => {
     refreshStatus();
-  }, []);
+  }, [scope]);
 
   const handleEnable = async () => {
     try {

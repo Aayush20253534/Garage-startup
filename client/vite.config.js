@@ -23,6 +23,12 @@ export default defineConfig({
   build: {
     sourcemap: false,
     manifest: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        support: path.resolve(__dirname, "support.html"),
+      },
+    },
   },
 
   server: {
