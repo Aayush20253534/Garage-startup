@@ -70,7 +70,7 @@ export default function Partner() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               to="/garage/onboarding"
-              className="btn-dark inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+              className="btn-dark inline-flex !h-10 w-fit items-center justify-center gap-2 !rounded-md !px-4 !py-0 text-sm sm:w-auto"
             >
               Apply as a Garage Partner
               <FiArrowRight />
@@ -78,7 +78,7 @@ export default function Partner() {
 
             <Link
               to="/garage/login"
-              className="btn-ghost inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+              className="btn-ghost inline-flex !h-10 w-fit items-center justify-center gap-2 !rounded-md !px-4 !py-0 text-sm sm:w-auto"
             >
               Garage Login
               <FiArrowRight />
