@@ -4,6 +4,8 @@ import { useApp } from "@/hooks/useApp";
 import {
   FiNavigation,
   FiRefreshCw,
+  FiTool,
+  FiTruck,
 } from "react-icons/fi";
 
 const getServicesText = (booking) => {
@@ -22,6 +24,18 @@ const getGarageText = (booking) => {
   if (booking.status === "SEARCHING_GARAGE") return "Finding nearby garage";
 
   return "Garage not assigned yet";
+};
+
+const getVehicleText = (booking) => {
+  const vehicle = booking.vehicle;
+
+  if (!vehicle) return "Saved vehicle";
+
+  return (
+    `${vehicle.brand || ""} ${vehicle.model || ""}`.trim() ||
+    vehicle.registrationNumber ||
+    "Saved vehicle"
+  );
 };
 
 const getAmount = (booking) => {
@@ -83,7 +97,7 @@ export default function ActiveBookings() {
     return (
       <div>
         <h2 className="mb-6 text-2xl font-bold">Active Bookings</h2>
-        <div className="card-soft p-6 text-muted">
+        <div className="rounded-lg border border-line bg-white p-5 text-sm text-muted shadow-sm">
           Loading active bookings...
         </div>
       </div>
@@ -101,7 +115,7 @@ export default function ActiveBookings() {
           type="button"
           disabled={refreshing}
           onClick={() => loadBookings({ force: true })}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-white px-3.5 text-sm font-medium text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50"
         >
           <FiRefreshCw className={refreshing ? "animate-spin" : ""} />
           {refreshing ? "Refreshing..." : "Refresh"}
@@ -109,71 +123,107 @@ export default function ActiveBookings() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
           {error}
         </div>
       )}
 
-      <div className="grid gap-4">
+      <div className="space-y-3">
         {bookings.map((booking) => {
           const isAwaitingDeliveryAcceptance = Boolean(
             booking.deliveredAt && !booking.customerAcceptedAt,
           );
+          const statusText = isAwaitingDeliveryAcceptance
+            ? "DELIVERY READY"
+            : formatStatus(booking.status);
 
           return (
-            <div
+            <article
               key={booking.id}
-              className="card-soft grid gap-4 p-5 sm:flex sm:flex-wrap sm:items-center"
+              className="overflow-hidden rounded-lg border border-line bg-white shadow-sm transition hover:border-ink/15 hover:shadow-md"
             >
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:contents">
-                <div className="min-w-0 sm:flex-1">
-                  <div className="break-words text-xs leading-snug text-muted">
-                    #{booking.bookingCode}
+              <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="min-w-0 p-4 sm:p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="break-words text-xs font-medium leading-snug text-muted">
+                        #{booking.bookingCode || booking.id}
+                      </div>
+
+                      <h3 className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-ink">
+                        {getServicesText(booking)}
+                      </h3>
+                    </div>
+
+                    <span className="inline-flex h-7 w-fit shrink-0 items-center rounded-md border border-brand/30 bg-brand/10 px-2.5 text-[11px] font-bold text-ink">
+                      {statusText}
+                    </span>
                   </div>
 
-                  <div className="mt-1 line-clamp-2 font-semibold leading-snug">
-                    {getServicesText(booking)}
-                  </div>
+                  <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                    <div className="flex min-w-0 items-center gap-2 rounded-md bg-bg-soft px-3 py-2">
+                      <FiTruck className="h-4 w-4 shrink-0 text-muted" />
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                          Vehicle
+                        </p>
+                        <p className="truncate font-medium text-ink">
+                          {getVehicleText(booking)}
+                        </p>
+                      </div>
+                    </div>
 
-                  <div className="mt-1 text-sm text-muted">
-                    {getGarageText(booking)}
+                    <div className="flex min-w-0 items-center gap-2 rounded-md bg-bg-soft px-3 py-2">
+                      <FiTool className="h-4 w-4 shrink-0 text-muted" />
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                          Garage
+                        </p>
+                        <p className="truncate font-medium text-ink">
+                          {getGarageText(booking)}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="text-right font-bold sm:text-left">
-                  {getAmount(booking)}
-                </div>
+                <aside className="flex flex-col justify-center border-t border-line bg-bg-soft/50 p-4 sm:p-5 lg:border-l lg:border-t-0">
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-muted">
+                      Estimated amount
+                    </p>
+                    <p className="mt-1 text-lg font-bold text-ink">
+                      {getAmount(booking)}
+                    </p>
+                  </div>
+
+                  {isAwaitingDeliveryAcceptance ? (
+                    <Link
+                      to="/tracking"
+                      state={{ bookingId: booking.id }}
+                      className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-brand px-3.5 text-sm font-semibold text-black shadow-sm transition hover:bg-brand-dark"
+                    >
+                      <FiNavigation />
+                      Review Delivery
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/tracking"
+                      state={{ bookingId: booking.id }}
+                      className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-ink px-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ink-2"
+                    >
+                      <FiNavigation />
+                      Track
+                    </Link>
+                  )}
+                </aside>
               </div>
-
-              <span className="chip-brand w-fit max-w-full whitespace-nowrap">
-                {formatStatus(booking.status)}
-              </span>
-
-              {isAwaitingDeliveryAcceptance ? (
-                <Link
-                  to="/tracking"
-                  state={{ bookingId: booking.id }}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
-                >
-                  <FiNavigation />
-                  Review Delivery
-                </Link>
-              ) : (
-                <Link
-                  to="/tracking"
-                  state={{ bookingId: booking.id }}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-ink px-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ink-2 sm:w-auto"
-                >
-                  <FiNavigation />
-                  Track
-                </Link>
-              )}
-            </div>
+            </article>
           );
         })}
 
         {bookings.length === 0 && (
-          <div className="card-soft p-8 text-center text-muted">
+          <div className="rounded-lg border border-dashed border-line bg-white p-8 text-center text-sm text-muted shadow-sm">
             No active bookings right now.
           </div>
         )}
