@@ -173,6 +173,28 @@ export const adminApi = {
     );
   },
 
+  async getInternAccounts() {
+    return unwrap(await api.get("/admin/intern-accounts"));
+  },
+
+  async createInternAccount(payload) {
+    return unwrap(await api.post("/admin/intern-accounts", payload));
+  },
+
+  async updateInternAccount(accountId, payload) {
+    return unwrap(
+      await api.patch(`/admin/intern-accounts/${accountId}`, payload),
+    );
+  },
+
+  async changeInternPassword(accountId, password) {
+    return unwrap(
+      await api.patch(`/admin/intern-accounts/${accountId}/password`, {
+        password,
+      }),
+    );
+  },
+
   async getPayments(params = {}) {
     return unwrap(await api.get("/admin/payments", { params }));
   },

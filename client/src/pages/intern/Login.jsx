@@ -57,7 +57,7 @@ export default function InternLogin() {
           <div>
             <h1 className="text-2xl font-bold">Intern Login</h1>
             <p className="text-sm text-muted">
-              Use an account with INTERN role.
+              Use the Intern ID or email created by an administrator.
             </p>
           </div>
         </div>
@@ -78,7 +78,7 @@ export default function InternLogin() {
                 identifier: event.target.value,
               }))
             }
-            placeholder="Intern ID"
+            placeholder="Intern ID or email"
             autoComplete="username"
             className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
           />
@@ -112,6 +112,11 @@ export default function InternLogin() {
             )}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-xs leading-5 text-muted">
+          Intern accounts do not have self-registration or forgot-password access.
+          Contact an administrator for account or password changes.
+        </p>
       </div>
     </div>
   );

@@ -615,6 +615,10 @@ const AdminCustomerSupportAccounts = lazyPage(
   () => import("@/pages/admin/CustomerSupportAccounts"),
   "AdminCustomerSupportAccounts",
 );
+const AdminInternAccounts = lazyPage(
+  () => import("@/pages/admin/InternAccounts"),
+  "AdminInternAccounts",
+);
 const CustomerSupportLogin = lazyPage(
   () => import("@/pages/support/Login"),
   "CustomerSupportLogin",
@@ -661,6 +665,7 @@ import {
   FiMail,
   FiHelpCircle,
   FiHeadphones,
+  FiUserCheck,
 } from "react-icons/fi";
 
 class AppErrorBoundary extends Component {
@@ -806,6 +811,7 @@ const adminItems = [
   { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
   { to: "/admin/support-tickets", label: "Support & Disputes", icon: FiHelpCircle },
   { to: "/admin/customer-support-accounts", label: "Support Accounts", icon: FiHeadphones },
+  { to: "/admin/intern-accounts", label: "Intern Accounts", icon: FiUserCheck },
   { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon },
 ];
 
@@ -1233,6 +1239,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminCustomerSupportAccounts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/intern-accounts"
+            element={
+              <ProtectedRoute>
+                <AdminInternAccounts />
               </ProtectedRoute>
             }
           />
