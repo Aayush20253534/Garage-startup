@@ -67,17 +67,17 @@ export default function ReviewModal({
   const displayedRating = hoveredRating || rating;
 
   return (
-    <div className="fixed inset-0 z-[90] grid place-items-center bg-black/55 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
-        <div className="flex items-start justify-between gap-4">
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-black/50 px-4 py-6 backdrop-blur-sm">
+      <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-5 sm:px-6">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
+            <p className="inline-flex rounded-md border border-line bg-bg-soft px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
               Booking #{booking.bookingCode || booking.id}
             </p>
-            <h2 className="mt-2 text-2xl font-bold text-ink">
+            <h2 className="mt-3 text-2xl font-bold leading-tight text-ink sm:text-3xl">
               {review ? "Update your review" : "Rate your garage"}
             </h2>
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1 text-base text-muted">
               {booking.garage?.name || "Garage service"}
             </p>
           </div>
@@ -86,20 +86,28 @@ export default function ReviewModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-line text-muted transition hover:bg-bg-soft hover:text-ink disabled:opacity-50"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-muted shadow-sm transition hover:border-ink/20 hover:bg-bg-soft hover:text-ink disabled:opacity-50"
             aria-label="Close review form"
           >
             <FiX />
           </button>
         </div>
 
-        <form onSubmit={submitReview} className="mt-6 space-y-5">
-          <div>
-            <label className="text-sm font-semibold text-ink">
-              Star rating
-            </label>
+        <form onSubmit={submitReview} className="space-y-5 px-5 py-5 sm:px-6">
+          <div className="grid gap-3">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <label className="text-sm font-semibold text-ink">
+                Star rating
+              </label>
+              <p className="text-xs text-muted">
+                {rating
+                  ? `${rating} out of 5 selected`
+                  : "Choose between 1 and 5"}
+              </p>
+            </div>
+
             <div
-              className="mt-3 flex gap-2"
+              className="flex w-fit gap-1.5 rounded-lg border border-line bg-bg-soft p-1.5"
               onMouseLeave={() => setHoveredRating(0)}
             >
               {[1, 2, 3, 4, 5].map((value) => {
@@ -111,7 +119,7 @@ export default function ReviewModal({
                     type="button"
                     onClick={() => setRating(value)}
                     onMouseEnter={() => setHoveredRating(value)}
-                    className="rounded-xl p-1 text-3xl text-amber-400 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-brand/50"
+                    className="grid h-10 w-10 place-items-center rounded-md text-2xl text-amber-400 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-brand/50"
                     aria-label={`${value} star${value === 1 ? "" : "s"}`}
                   >
                     <FiStar fill={active ? "currentColor" : "none"} />
@@ -119,20 +127,20 @@ export default function ReviewModal({
                 );
               })}
             </div>
-            <p className="mt-2 text-xs text-muted">
-              {rating
-                ? `${rating} out of 5 stars selected`
-                : "Choose between 1 and 5 stars"}
-            </p>
           </div>
 
-          <div>
-            <label
-              htmlFor="review-comment"
-              className="text-sm font-semibold text-ink"
-            >
-              Review
-            </label>
+          <div className="grid gap-2">
+            <div className="flex items-end justify-between gap-3">
+              <label
+                htmlFor="review-comment"
+                className="text-sm font-semibold text-ink"
+              >
+                Review
+              </label>
+              <span className="text-xs text-muted">
+                {comment.length}/{MAX_COMMENT_LENGTH}
+              </span>
+            </div>
             <textarea
               id="review-comment"
               value={comment}
@@ -141,15 +149,12 @@ export default function ReviewModal({
               }
               rows={5}
               placeholder="Describe the service quality, communication, pickup, and delivery experience."
-              className="mt-2 w-full resize-none rounded-2xl border border-line px-4 py-3 text-sm outline-none transition focus:border-ink"
+              className="w-full resize-none rounded-lg border border-line bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-muted/80 focus:border-ink"
             />
-            <div className="mt-1 text-right text-xs text-muted">
-              {comment.length}/{MAX_COMMENT_LENGTH}
-            </div>
           </div>
 
           {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
@@ -159,14 +164,14 @@ export default function ReviewModal({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="btn-ghost"
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting || !rating}
-              className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-brand px-5 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting
                 ? "Saving..."

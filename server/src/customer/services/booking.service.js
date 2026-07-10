@@ -12,6 +12,9 @@ const garageRequestService = require("../../services/garageRequest.service");
 const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
 const cityService = require("../../services/city.service");
 const { calculatePlatformFee } = require("../../utils/platformFee");
+const {
+  ensureVehicleHasNoActiveBooking,
+} = require("./vehicleBookingGuard.service");
 
 const bookingInclude = {
   user: {
@@ -179,6 +182,8 @@ const createBooking = async (userId, data) => {
   if (!vehicle) {
     throw new ApiError(404, "Vehicle not found");
   }
+
+  await ensureVehicleHasNoActiveBooking(userId, vehicleId);
 
   const services = await prisma.service.findMany({
     where: {

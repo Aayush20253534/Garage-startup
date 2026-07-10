@@ -14,6 +14,26 @@ import {
 
 const inputClass =
   "h-10 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink";
+const ACTIVE_VEHICLE_BOOKING_STATUSES = [
+  "PENDING_PAYMENT",
+  "SEARCHING_GARAGE",
+  "GARAGE_ASSIGNED",
+  "CONFIRMED",
+  "IN_PROGRESS",
+];
+
+const getVehicleName = (vehicle) =>
+  `${vehicle?.brand || ""} ${vehicle?.model || ""}`.trim() ||
+  vehicle?.registrationNumber ||
+  "This vehicle";
+
+const getActiveBookingPath = (booking) =>
+  booking?.status === "PENDING_PAYMENT"
+    ? "/dashboard/pending-bookings"
+    : "/dashboard/bookings";
+
+const getActiveBookingLabel = (booking) =>
+  booking?.bookingCode || booking?.id || "active booking";
 
 export default function VehicleSelect() {
   const nav = useNavigate();
@@ -40,10 +60,15 @@ export default function VehicleSelect() {
   const [brandLoading, setBrandLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [defaultLoadingId, setDefaultLoadingId] = useState(null);
+  const [activeBookingsByVehicleId, setActiveBookingsByVehicleId] = useState({});
   const [error, setError] = useState("");
 
   const currentVehicles = Array.isArray(vehicles) ? vehicles : [];
   const hasVehicles = currentVehicles.length > 0;
+  const vehicleIdsKey = currentVehicles.map((item) => item.id).join(",");
+  const selectedActiveBooking = vehicle?.id
+    ? activeBookingsByVehicleId[vehicle.id]
+    : null;
 
   const syncVehicleState = (list = []) => {
     const safeList = Array.isArray(list) ? list : [];
@@ -114,12 +139,78 @@ export default function VehicleSelect() {
     }
   }, [showForm]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    if (!hasVehicles) {
+      setActiveBookingsByVehicleId({});
+
+      return () => {
+        mounted = false;
+      };
+    }
+
+    api
+      .get("/bookings", {
+        params: {
+          status: ACTIVE_VEHICLE_BOOKING_STATUSES.join(","),
+        },
+      })
+      .then((response) => {
+        if (!mounted) return;
+
+        const nextActiveBookings = {};
+
+        (response.data?.data || []).forEach((booking) => {
+          const bookedVehicleId = booking.vehicleId || booking.vehicle?.id;
+
+          if (bookedVehicleId) {
+            nextActiveBookings[bookedVehicleId] = booking;
+          }
+        });
+
+        setActiveBookingsByVehicleId(nextActiveBookings);
+      })
+      .catch(() => {
+        if (mounted) setActiveBookingsByVehicleId({});
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [hasVehicles, vehicleIdsKey]);
+
+  useEffect(() => {
+    if (!hasVehicles || !vehicle?.id || !activeBookingsByVehicleId[vehicle.id]) {
+      return;
+    }
+
+    const firstAvailableVehicle = currentVehicles.find(
+      (item) => !activeBookingsByVehicleId[item.id],
+    );
+
+    if (firstAvailableVehicle) {
+      setVehicle?.(firstAvailableVehicle);
+    }
+  }, [activeBookingsByVehicleId, hasVehicles, vehicle?.id, vehicleIdsKey]);
+
   const selectBrand = (selectedBrand) => {
     setBrand(selectedBrand);
     setModel(null);
   };
 
   const handleSetDefault = async (selectedVehicle) => {
+    const activeBooking = activeBookingsByVehicleId[selectedVehicle.id];
+
+    if (activeBooking) {
+      setError(
+        `${getVehicleName(selectedVehicle)} already has ${getActiveBookingLabel(
+          activeBooking,
+        )}. Complete or cancel it before booking this vehicle again.`,
+      );
+      return;
+    }
+
     try {
       setError("");
       setDefaultLoadingId(selectedVehicle.id);
@@ -143,8 +234,27 @@ export default function VehicleSelect() {
   };
 
   const continueToServices = () => {
-    if (!vehicle && currentVehicles.length > 0) {
-      syncVehicleState(currentVehicles);
+    let nextVehicle = vehicle;
+
+    if (!nextVehicle && currentVehicles.length > 0) {
+      nextVehicle =
+        currentVehicles.find((item) => !activeBookingsByVehicleId[item.id]) ||
+        currentVehicles[0];
+
+      setVehicle?.(nextVehicle);
+    }
+
+    const blockingBooking = nextVehicle?.id
+      ? activeBookingsByVehicleId[nextVehicle.id]
+      : selectedActiveBooking;
+
+    if (blockingBooking) {
+      setError(
+        `${getVehicleName(nextVehicle)} already has ${getActiveBookingLabel(
+          blockingBooking,
+        )}. Select another vehicle to book a new service.`,
+      );
+      return;
     }
 
     nav("/booking/services");
@@ -231,20 +341,43 @@ export default function VehicleSelect() {
             </div>
           )}
 
+          {selectedActiveBooking && (
+            <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-2">
+                <FiAlertCircle className="mt-0.5 shrink-0 text-amber-700" />
+                <span>
+                  {getVehicleName(vehicle)} already has{" "}
+                  {getActiveBookingLabel(selectedActiveBooking)}. Select
+                  another vehicle to book a new service.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => nav(getActiveBookingPath(selectedActiveBooking))}
+                className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-ink px-3 text-xs font-bold text-white transition hover:bg-ink-2"
+              >
+                View booking
+              </button>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {currentVehicles.map((item) => {
               const isActive = vehicle?.id === item.id || item.isDefault;
               const isSelecting = defaultLoadingId === item.id;
+              const activeBooking = activeBookingsByVehicleId[item.id];
 
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => handleSetDefault(item)}
-                  disabled={isSelecting}
+                  disabled={isSelecting || Boolean(activeBooking)}
                   className={[
                     "card-soft rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70",
-                    isActive
+                    activeBooking
+                      ? "border-amber-200 bg-amber-50"
+                      : isActive
                       ? "border-brand bg-brand-soft/30"
                       : "border-line bg-white",
                   ].join(" ")}
@@ -271,7 +404,12 @@ export default function VehicleSelect() {
                   </div>
 
                   <div className="mt-4 border-t border-line pt-4">
-                    {isActive ? (
+                    {activeBooking ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">
+                        <FiAlertCircle />
+                        Active booking
+                      </span>
+                    ) : isActive ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-xs font-bold text-black">
                         <FiCheck />
                         Selected
@@ -291,9 +429,13 @@ export default function VehicleSelect() {
             <button
               type="button"
               onClick={continueToServices}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark"
+              disabled={Boolean(selectedActiveBooking)}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Continue to Services <FiArrowRight />
+              {selectedActiveBooking
+                ? "Complete active booking first"
+                : "Continue to Services"}{" "}
+              <FiArrowRight />
             </button>
 
             <button

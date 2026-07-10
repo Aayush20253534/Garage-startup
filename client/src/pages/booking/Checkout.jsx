@@ -22,6 +22,7 @@ import { payForBooking } from "@/utils/bookingPayment";
 import { requireAvailableCityName } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 import {
+  FiAlertCircle,
   FiCheckCircle,
   FiCreditCard,
   FiPhone,
@@ -66,6 +67,29 @@ const isCartItemComingSoon = (item) =>
   toBoolean(item?.category?.isComingSoon);
 
 const INDIA_PHONE_REGEX = /^\+91[6-9]\d{9}$/;
+const ACTIVE_VEHICLE_BOOKING_STATUSES = [
+  "PENDING_PAYMENT",
+  "SEARCHING_GARAGE",
+  "GARAGE_ASSIGNED",
+  "CONFIRMED",
+  "IN_PROGRESS",
+];
+
+const getVehicleLabel = (vehicle) =>
+  `${vehicle?.brand || ""} ${vehicle?.model || ""}`.trim() ||
+  vehicle?.registrationNumber ||
+  "this vehicle";
+
+const getActiveBookingPath = (booking) =>
+  booking?.status === "PENDING_PAYMENT"
+    ? "/dashboard/pending-bookings"
+    : "/dashboard/bookings";
+
+const getActiveVehicleBookingMessage = (booking, vehicle) => {
+  const bookingLabel = booking?.bookingCode || booking?.id || "active booking";
+
+  return `${getVehicleLabel(vehicle)} already has an active booking (${bookingLabel}). Complete or cancel it before booking this vehicle again.`;
+};
 
 const normalizeIndianPhone = (value = "") => {
   let digits = String(value).replace(/\D/g, "");
@@ -97,6 +121,7 @@ export default function Checkout() {
   const [savingPhone, setSavingPhone] = useState(false);
   const [phoneDraft, setPhoneDraft] = useState(user?.phone || "");
   const [pendingBooking, setPendingBooking] = useState(null);
+  const [activeVehicleBooking, setActiveVehicleBooking] = useState(null);
   const [editingAddress, setEditingAddress] = useState(false);
   const [wallet, setWallet] = useState(null);
   const [useWallet, setUseWallet] = useState(false);
@@ -126,6 +151,10 @@ export default function Checkout() {
   const canSavePhone = INDIA_PHONE_REGEX.test(phoneToSave);
   const comingSoonItems = cart.filter(isCartItemComingSoon);
   const hasComingSoonItems = comingSoonItems.length > 0;
+  const blocksCurrentVehicleBooking =
+    Boolean(activeVehicleBooking?.id) &&
+    activeVehicleBooking.id !== pendingBooking?.id;
+  const activeVehicleBookingPath = getActiveBookingPath(activeVehicleBooking);
 
   useEffect(() => {
     setPhoneDraft(user?.phone || "");
@@ -153,6 +182,44 @@ export default function Checkout() {
       setUseWallet(false);
     }
   }, [useWallet, walletBalance]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!vehicle?.id || pendingBooking?.id) {
+      setActiveVehicleBooking(null);
+
+      return () => {
+        mounted = false;
+      };
+    }
+
+    api
+      .get("/bookings", {
+        params: {
+          status: ACTIVE_VEHICLE_BOOKING_STATUSES.join(","),
+        },
+      })
+      .then((response) => {
+        if (!mounted) return;
+
+        const bookings = response.data?.data || [];
+        const matchingBooking = bookings.find(
+          (booking) =>
+            booking.vehicleId === vehicle.id ||
+            booking.vehicle?.id === vehicle.id,
+        );
+
+        setActiveVehicleBooking(matchingBooking || null);
+      })
+      .catch(() => {
+        if (mounted) setActiveVehicleBooking(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [vehicle?.id, pendingBooking?.id]);
 
   useEffect(() => {
     if (!editingAddress) {
@@ -299,6 +366,13 @@ export default function Checkout() {
       return;
     }
 
+    if (blocksCurrentVehicleBooking) {
+      setError(
+        getActiveVehicleBookingMessage(activeVehicleBooking, vehicle),
+      );
+      return;
+    }
+
     if (cart.length === 0) {
       setError("Please add at least one service before checkout.");
       nav("/booking/services");
@@ -399,6 +473,37 @@ export default function Checkout() {
         {error && (
           <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
+          </div>
+        )}
+
+        {blocksCurrentVehicleBooking && (
+          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="flex items-start gap-3">
+              <FiAlertCircle
+                className="mt-0.5 shrink-0 text-lg text-amber-700"
+                aria-hidden="true"
+              />
+              <div>
+                <p className="font-semibold">
+                  This vehicle already has an active booking.
+                </p>
+                <p className="mt-1 leading-6 text-amber-800">
+                  Complete or cancel{" "}
+                  {activeVehicleBooking.bookingCode ||
+                    activeVehicleBooking.id ||
+                    "that booking"}{" "}
+                  before booking {getVehicleLabel(vehicle)} again. You can
+                  still book another saved vehicle.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => nav(activeVehicleBookingPath)}
+                  className="mt-3 inline-flex h-9 items-center justify-center rounded-lg bg-ink px-3 text-xs font-bold text-white transition hover:bg-ink-2"
+                >
+                  View active booking
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -644,6 +749,7 @@ export default function Checkout() {
             loading ||
             cart.length === 0 ||
             hasComingSoonItems ||
+            blocksCurrentVehicleBooking ||
             !hasSavedPhone
           }
           className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
@@ -657,11 +763,13 @@ export default function Checkout() {
               ? "Remove Coming Soon Services"
               : cart.length === 0
                 ? "Add services to continue"
-              : !hasSavedPhone
-                ? "Save phone to pay"
-                : cashfreePayNowAmount > 0
-                  ? `Pay ${formatRupees(cashfreePayNowAmount)} Now`
-                  : "Pay with wallet"}
+                : blocksCurrentVehicleBooking
+                  ? "Complete active booking first"
+                  : !hasSavedPhone
+                    ? "Save phone to pay"
+                    : cashfreePayNowAmount > 0
+                      ? `Pay ${formatRupees(cashfreePayNowAmount)} Now`
+                      : "Pay with wallet"}
         </button>
         <div className="mt-3 text-center text-xs text-muted">
           Pay only the platform fee now. The service amount is paid in cash at

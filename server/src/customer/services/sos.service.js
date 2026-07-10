@@ -2,6 +2,9 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const generateBookingCode = require("../../utils/bookingCode");
 const garageRequestService = require("../../services/garageRequest.service");
+const {
+  ensureVehicleHasNoActiveBooking,
+} = require("./vehicleBookingGuard.service");
 
 const BOOKING_STATUS = require("../../constants/bookingStatus");
 const REQUEST_TYPE = require("../../constants/requestType");
@@ -24,6 +27,8 @@ const createSosRequest = async (userId, data) => {
   if (!vehicle) {
     throw new ApiError(404, "Vehicle not found");
   }
+
+  await ensureVehicleHasNoActiveBooking(userId, vehicleId);
 
   const wallet = await prisma.wallet.findUnique({
     where: { userId },
