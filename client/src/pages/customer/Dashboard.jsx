@@ -321,7 +321,7 @@ function Dashboard() {
 
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold leading-5 text-slate-700 sm:whitespace-nowrap">
+                  <span className="block max-w-full text-sm font-semibold leading-5 text-slate-700">
                     {item.label}
                   </span>
 
