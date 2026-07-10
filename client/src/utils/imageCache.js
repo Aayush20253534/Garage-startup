@@ -28,6 +28,39 @@ export const getServiceImageUrls = (categories = []) =>
     ]),
   );
 
+export const getRovautoServiceWorkerRegistration = async () => {
+  if (!("serviceWorker" in navigator)) {
+    throw new Error("Service workers are not supported by this browser.");
+  }
+
+  const registrations = await navigator.serviceWorker.getRegistrations();
+
+  await Promise.all(
+    registrations
+      .filter((registration) => {
+        const scriptUrl =
+          registration.active?.scriptURL ||
+          registration.waiting?.scriptURL ||
+          registration.installing?.scriptURL ||
+          "";
+
+        return scriptUrl && !scriptUrl.endsWith("/sw.js");
+      })
+      .map((registration) => registration.unregister()),
+  );
+
+  const existing = await navigator.serviceWorker.getRegistration("/");
+  const registration =
+    existing ||
+    (await navigator.serviceWorker.register("/sw.js", {
+      scope: "/",
+      updateViaCache: "none",
+    }));
+
+  await registration.update().catch(() => {});
+  return navigator.serviceWorker.ready;
+};
+
 export const registerImageCacheWorker = () => {
   if (!("serviceWorker" in navigator) || !import.meta.env.PROD) {
     return;
@@ -35,27 +68,7 @@ export const registerImageCacheWorker = () => {
 
   window.addEventListener("load", async () => {
     try {
-      const registrations =
-        await navigator.serviceWorker.getRegistrations();
-
-      await Promise.all(
-        registrations
-          .filter((registration) => {
-            const scriptUrl =
-              registration.active?.scriptURL ||
-              registration.waiting?.scriptURL ||
-              registration.installing?.scriptURL ||
-              "";
-
-            return scriptUrl && !scriptUrl.endsWith("/sw.js");
-          })
-          .map((registration) => registration.unregister()),
-      );
-
-      await navigator.serviceWorker.register("/sw.js", {
-        scope: "/",
-        updateViaCache: "none",
-      });
+      await getRovautoServiceWorkerRegistration();
     } catch (error) {
       console.warn("Service worker registration failed:", error);
     }

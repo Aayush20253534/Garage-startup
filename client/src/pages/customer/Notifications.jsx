@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "@/api/axios";
 import { FiBell, FiCheckCircle } from "react-icons/fi";
+import PushNotificationControl from "@/components/PushNotificationControl";
 
 const formatTime = (date) => {
   if (!date) return "";
@@ -110,6 +111,8 @@ export default function Notifications() {
           </button>
         )}
       </div>
+
+      <PushNotificationControl />
 
       {error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">

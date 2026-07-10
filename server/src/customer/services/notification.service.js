@@ -1,6 +1,7 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { getCache, setCache, deletePattern } = require("../../utils/cache");
+const webPushService = require("../../services/webPush.service");
 
 const NOTIFICATIONS_CACHE_TTL = 60;
 
@@ -51,6 +52,19 @@ const getMyNotifications = async (userId) => {
   return visibleNotifications;
 };
 
+const sendPushToUsers = async (userIds, notification) => {
+  try {
+    return await webPushService.sendPushToUsers(userIds, notification);
+  } catch (error) {
+    console.warn("[web-push] unable to send notification", {
+      userCount: Array.isArray(userIds) ? userIds.length : 0,
+      message: error?.message || "Unknown Web Push error",
+    });
+
+    return { sent: 0, failed: 1, removed: 0 };
+  }
+};
+
 const createNotification = async ({
   userId = null,
   title,
@@ -58,6 +72,8 @@ const createNotification = async ({
   type = "SYSTEM",
   link = null,
   metadata = null,
+  pushTitle = null,
+  pushMessage = null,
 }) => {
   if (!title || !message) {
     throw new ApiError(400, "Title and message are required");
@@ -76,6 +92,11 @@ const createNotification = async ({
 
   if (userId) {
     await invalidateNotificationCache(userId);
+    await sendPushToUsers([userId], {
+      ...notification,
+      title: pushTitle || notification.title,
+      message: pushMessage || notification.message,
+    });
   }
 
   return notification;
@@ -210,4 +231,5 @@ module.exports = {
   markNotificationRead,
   markAllNotificationsRead,
   invalidateNotificationCache,
+  sendPushToUsers,
 };

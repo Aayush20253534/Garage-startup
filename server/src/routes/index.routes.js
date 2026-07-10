@@ -27,6 +27,7 @@ const dashboardRoutes = require("../customer/routes/dashboard.routes");
 const chatbotRoutes = require("../customer/routes/chatbot.routes");
 const activityRoutes = require("../customer/routes/activity.routes");
 const publicRoutes = require("./public.routes");
+const pushRoutes = require("./push.routes");
 const cityRoutes = require("./city.routes");
 const systemIssueReportRoutes = require("./systemIssue.routes");
 const mapsRoutes = require("../maps/routes/maps.routes");
@@ -66,6 +67,7 @@ router.use("/public", publicRoutes);
 router.use("/system-issues", systemIssueReportRoutes);
 router.use("/cities", cityRoutes);
 router.use("/maps", mapsRoutes);
+router.use("/push", pushRoutes);
 
 router.post(
   "/send-otp",

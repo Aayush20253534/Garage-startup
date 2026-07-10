@@ -18,6 +18,7 @@ import {
 import { setNotifications } from "@/store/garageSlice";
 import { useApp } from "@/hooks/useApp";
 import { garageApi } from "@/api/garage";
+import PushNotificationControl from "@/components/PushNotificationControl";
 
 const inputClass =
   "h-10 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink";
@@ -230,7 +231,10 @@ export default function GarageSettings() {
 
               {item.id === "notifications" && isOpen && (
                 <div className="border-t border-line p-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3">
+                    <PushNotificationControl compact />
+
+                    <div className="grid gap-3 sm:grid-cols-2">
                     <label className="flex items-center justify-between gap-3 rounded-xl bg-bg-soft p-4">
                       <div className="flex items-center gap-3">
                         <FiMessageSquare className="text-muted" />
@@ -269,6 +273,7 @@ export default function GarageSettings() {
                         className="h-5 w-5 accent-emerald-500"
                       />
                     </label>
+                    </div>
                   </div>
                 </div>
               )}

@@ -104,3 +104,91 @@ self.addEventListener("message", (event) => {
     ),
   );
 });
+
+const getPushPayload = (event) => {
+  if (!event.data) {
+    return {
+      title: "Rovauto",
+      body: "You have a new Rovauto update.",
+      data: { url: "/" },
+    };
+  }
+
+  try {
+    return event.data.json();
+  } catch {
+    return {
+      title: "Rovauto",
+      body: event.data.text() || "You have a new Rovauto update.",
+      data: { url: "/" },
+    };
+  }
+};
+
+self.addEventListener("push", (event) => {
+  const payload = getPushPayload(event);
+  const title = payload.title || "Rovauto";
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: payload.body || payload.message || "You have a new Rovauto update.",
+      icon: payload.icon || "/icon-192.png",
+      badge: payload.badge || "/favicon-48.png",
+      tag: payload.tag || "rovauto-notification",
+      renotify: true,
+      data: payload.data || { url: "/" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const requestedUrl = event.notification.data?.url || "/";
+  let targetUrl;
+
+  try {
+    const resolved = new URL(requestedUrl, self.location.origin);
+    targetUrl =
+      resolved.origin === self.location.origin
+        ? resolved.href
+        : new URL("/", self.location.origin).href;
+  } catch {
+    targetUrl = new URL("/", self.location.origin).href;
+  }
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then(async (windowClients) => {
+        const target = new URL(targetUrl);
+        const matchingClient = windowClients.find((client) => {
+          const clientUrl = new URL(client.url);
+          return (
+            clientUrl.origin === target.origin &&
+            clientUrl.pathname === target.pathname
+          );
+        });
+
+        if (matchingClient) {
+          if ("navigate" in matchingClient && matchingClient.url !== targetUrl) {
+            await matchingClient.navigate(targetUrl).catch(() => {});
+          }
+          return matchingClient.focus();
+        }
+
+        const sameOriginClient = windowClients.find(
+          (client) => new URL(client.url).origin === target.origin,
+        );
+
+        if (sameOriginClient) {
+          if ("navigate" in sameOriginClient) {
+            await sameOriginClient.navigate(targetUrl).catch(() => {});
+          }
+          return sameOriginClient.focus();
+        }
+
+        return self.clients.openWindow(targetUrl);
+      }),
+  );
+});

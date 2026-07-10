@@ -2,6 +2,10 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import api from "@/api/axios";
 import { garageApi } from "@/api/garage";
+import {
+  disablePushNotifications,
+  syncExistingPushSubscription,
+} from "@/utils/pushNotifications";
 import { getLocationStateFromUser } from "@/utils/address";
 import {
   clearCustomerState,
@@ -638,6 +642,12 @@ export function AppProvider({ children }) {
 
   const logoutGarage = async () => {
     try {
+      await disablePushNotifications({ ignoreServerErrors: true });
+    } catch {
+      // Logging out must continue even if this browser has no push subscription.
+    }
+
+    try {
       await garageApi.logout();
     } catch {
       // Local cleanup still happens if the server session is already gone.
@@ -647,6 +657,12 @@ export function AppProvider({ children }) {
   };
 
   const logout = async () => {
+    try {
+      await disablePushNotifications({ ignoreServerErrors: true });
+    } catch {
+      // Logging out must continue even if this browser has no push subscription.
+    }
+
     try {
       await api.post("/auth/logout");
     } catch {
@@ -901,6 +917,19 @@ export function AppProvider({ children }) {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    const hasPushEligibleSession =
+      user?.role === "CUSTOMER" || Boolean(garageUser);
+
+    if (!hasPushEligibleSession) return;
+
+    syncExistingPushSubscription().catch((error) => {
+      console.warn("Unable to sync Web Push subscription:", error);
+    });
+  }, [authLoading, user?.id, user?.role, garageUser?.id]);
 
   useEffect(() => {
     let lastRefreshAt = Date.now();

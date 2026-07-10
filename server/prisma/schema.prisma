@@ -25,6 +25,7 @@ model User {
   customerProfile      CustomerProfile?
   ownedGarages         Garage[]
   notifications        Notification[]
+  pushSubscriptions    PushSubscription[]
   otps                 Otp[]
   reviews              Review[]
   vehicles             Vehicle[]
@@ -720,6 +721,24 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+}
+
+
+model PushSubscription {
+  id         String   @id @default(uuid())
+  userId     String
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  deviceName String?
+  lastUsedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model GarageApplication {

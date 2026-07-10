@@ -402,6 +402,8 @@ const notifyVehicleHandoverOtp = async ({
       expiresAt: expiresAt?.toISOString?.() || expiresAt || null,
       purpose: "VEHICLE_HANDOVER",
     },
+    pushMessage:
+      "Your vehicle handover OTP is ready. Open Rovauto to view it securely.",
   });
 };
 

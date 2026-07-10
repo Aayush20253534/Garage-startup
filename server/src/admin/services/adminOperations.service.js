@@ -3,6 +3,7 @@ const ApiError = require("../../utils/apiError");
 const { deletePattern } = require("../../utils/cache");
 const { deleteFromCloudinary } = require("../../utils/cloudinaryUpload");
 const { Resend } = require("resend");
+const notificationService = require("../../customer/services/notification.service");
 
 let resend;
 if (process.env.RESEND_API_KEY) {
@@ -938,34 +939,44 @@ const sendNotification = async ({
     throw new ApiError(400, "Title and message are required");
 
   if (audience === "ALL") {
-    return prisma.notification.create({
-      data: {
-        userId: null,
-        title,
-        message,
-        type,
-        link,
-        metadata: { audience: "ALL" },
+    const users = await prisma.user.findMany({
+      where: {
+        role: "CUSTOMER",
+        isActive: true,
       },
+      select: { id: true },
     });
+
+    const notification = await notificationService.createNotification({
+      userId: null,
+      title,
+      message,
+      type,
+      link,
+      metadata: { audience: "ALL" },
+    });
+
+    const userIds = users.map((user) => user.id);
+    await Promise.all([
+      invalidateUsersNotificationCache(userIds),
+      notificationService.sendPushToUsers(userIds, notification),
+    ]);
+
+    return notification;
   }
 
   if (audience === "USER") {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new ApiError(404, "User not found");
 
-    const notification = await prisma.notification.create({
-      data: {
-        userId,
-        title,
-        message,
-        type,
-        link,
-        metadata: { audience: "USER" },
-      },
+    return notificationService.createNotification({
+      userId,
+      title,
+      message,
+      type,
+      link,
+      metadata: { audience: "USER" },
     });
-    await invalidateUsersNotificationCache([userId]);
-    return notification;
   }
 
   if (audience === "CITY") {
@@ -989,7 +1000,17 @@ const sendNotification = async ({
         metadata: { audience: "CITY", city },
       })),
     });
-    await invalidateUsersNotificationCache(users.map((user) => user.id));
+    const userIds = users.map((user) => user.id);
+    await Promise.all([
+      invalidateUsersNotificationCache(userIds),
+      notificationService.sendPushToUsers(userIds, {
+        title,
+        message,
+        type,
+        link,
+        metadata: { audience: "CITY", city },
+      }),
+    ]);
     return { sent: users.length, city };
   }
 
