@@ -13,6 +13,10 @@ const {
   createResetPasswordOtp,
 } = require("./otp.service");
 const { createAuthToken } = require("./token.service");
+const {
+  createUserSession,
+  revokeUserSession,
+} = require("./userSession.service");
 
 const PENDING_SIGNUP_EXPIRY_MS = 15 * 60 * 1000;
 const PASSWORD_REGEX =
@@ -121,6 +125,23 @@ const getAuthStaffById = async (staffId) => {
   return {
     ...staff,
     accountType: "STAFF",
+  };
+};
+
+const createUserAuthResult = async (
+  user,
+  sessionMetadata = {},
+  extra = {},
+) => {
+  const safeUser = toSafeUser(user);
+  const session = await createUserSession(user.id, sessionMetadata);
+  const token = createAuthToken(safeUser, { sessionId: session.id });
+  const authUser = await getAuthUserById(user.id);
+
+  return {
+    user: authUser,
+    token,
+    ...extra,
   };
 };
 
@@ -242,7 +263,10 @@ const signup = async ({
   };
 };
 
-const verifyOtp = async ({ email, phone, otp, role = "CUSTOMER" }) => {
+const verifyOtp = async (
+  { email, phone, otp, role = "CUSTOMER" },
+  sessionMetadata = {},
+) => {
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
   const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER"], "CUSTOMER");
@@ -290,14 +314,7 @@ const verifyOtp = async ({ email, phone, otp, role = "CUSTOMER" }) => {
     return createdUser;
   });
 
-  const safeUser = toSafeUser(user);
-  const token = createAuthToken(safeUser);
-  const authUser = await getAuthUserById(user.id);
-
-  return {
-    user: authUser,
-    token,
-  };
+  return createUserAuthResult(user, sessionMetadata);
 };
 
 const resendOtp = async ({ email, phone, role = "CUSTOMER" }) => {
@@ -366,7 +383,10 @@ const verifyPhoneNumberOtp = async ({ phone, otp }, userId = null) => {
   };
 };
 
-const login = async ({ identifier, password, role }) => {
+const login = async (
+  { identifier, password, role },
+  sessionMetadata = {},
+) => {
   const rawIdentifier = String(identifier || "").trim();
   const requestedRole = normalizeAuthRole(
     role,
@@ -462,14 +482,7 @@ const login = async ({ identifier, password, role }) => {
     throw new ApiError(403, "Please verify your email before login");
   }
 
-  const safeUser = toSafeUser(user);
-  const token = createAuthToken(safeUser);
-  const authUser = await getAuthUserById(user.id);
-
-  return {
-    user: authUser,
-    token,
-  };
+  return createUserAuthResult(user, sessionMetadata);
 };
 
 const getMe = async (accountId, accountType) => {
@@ -484,7 +497,10 @@ const getMe = async (accountId, accountType) => {
   throw new ApiError(401, "Invalid account session");
 };
 
-const googleAuth = async ({ idToken, role = "CUSTOMER" }) => {
+const googleAuth = async (
+  { idToken, role = "CUSTOMER" },
+  sessionMetadata = {},
+) => {
   const decodedToken = await verifyFirebaseIdToken(idToken);
   const cleanEmail = normalizeEmail(decodedToken.email);
   const cleanName =
@@ -540,15 +556,7 @@ const googleAuth = async ({ idToken, role = "CUSTOMER" }) => {
     });
   }
 
-  const safeUser = toSafeUser(user);
-  const token = createAuthToken(safeUser);
-  const authUser = await getAuthUserById(user.id);
-
-  return {
-    user: authUser,
-    token,
-    isNewUser,
-  };
+  return createUserAuthResult(user, sessionMetadata, { isNewUser });
 };
 
 const forgotPassword = async ({
@@ -727,6 +735,14 @@ const changePassword = async (
   };
 };
 
+const logout = async (accountId, accountType, sessionId) => {
+  if (accountType === "USER" && accountId && sessionId) {
+    await revokeUserSession(sessionId, accountId);
+  }
+
+  return { loggedOut: true };
+};
+
 module.exports = {
   signup,
   verifyOtp,
@@ -736,6 +752,7 @@ module.exports = {
   login,
   googleAuth,
   getMe,
+  logout,
   forgotPassword,
   resetPassword,
   changePassword,

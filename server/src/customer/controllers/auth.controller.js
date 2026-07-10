@@ -8,6 +8,10 @@ const {
   accessTokenClearCookieOptions,
 } = require("../../config/authCookie");
 
+const getSessionMetadata = (req) => ({
+  userAgent: req.get("user-agent") || "",
+});
+
 const preventAuthResponseCaching = (res) => {
   res.set("Cache-Control", "no-store");
   res.set("Pragma", "no-cache");
@@ -46,7 +50,10 @@ const signup = asyncHandler(async (req, res) => {
 });
 
 const verifyOtp = asyncHandler(async (req, res) => {
-  const result = await authService.verifyOtp(req.body);
+  const result = await authService.verifyOtp(
+    req.body,
+    getSessionMetadata(req),
+  );
 
   return sendAuthResponse(
     res,
@@ -87,13 +94,19 @@ const verifyPhoneOtp = asyncHandler(async (req, res) => {
 });
 
 const login = asyncHandler(async (req, res) => {
-  const result = await authService.login(req.body);
+  const result = await authService.login(
+    req.body,
+    getSessionMetadata(req),
+  );
 
   return sendAuthResponse(res, 200, "Login successful", result);
 });
 
 const googleAuth = asyncHandler(async (req, res) => {
-  const result = await authService.googleAuth(req.body);
+  const result = await authService.googleAuth(
+    req.body,
+    getSessionMetadata(req),
+  );
 
   return sendAuthResponse(
     res,
@@ -104,6 +117,12 @@ const googleAuth = asyncHandler(async (req, res) => {
 });
 
 const logout = asyncHandler(async (req, res) => {
+  const result = await authService.logout(
+    req.user?.id,
+    req.user?.accountType,
+    req.authSessionId,
+  );
+
   res.clearCookie(
     ACCESS_TOKEN_COOKIE_NAME,
     accessTokenClearCookieOptions,
@@ -114,9 +133,7 @@ const logout = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, "Logged out successfully", {
-        loggedOut: true,
-      }),
+      new ApiResponse(200, "Logged out successfully", result),
     );
 });
 

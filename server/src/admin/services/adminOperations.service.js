@@ -33,6 +33,64 @@ const userSelect = {
   },
 };
 
+const CUSTOMER_ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+const attachCustomerSessionStatus = async (customers = []) => {
+  const userIds = customers.map((customer) => customer.id);
+
+  if (!userIds.length) return customers;
+
+  const now = new Date();
+  const onlineCutoff = new Date(
+    now.getTime() - CUSTOMER_ONLINE_WINDOW_MS,
+  );
+
+  const [activeSessionGroups, latestSessionGroups] = await Promise.all([
+    prisma.userSession.groupBy({
+      by: ["userId"],
+      where: {
+        userId: { in: userIds },
+        revokedAt: null,
+        expiresAt: { gt: now },
+      },
+      _count: { id: true },
+      _max: { lastSeenAt: true },
+    }),
+    prisma.userSession.groupBy({
+      by: ["userId"],
+      where: { userId: { in: userIds } },
+      _max: { lastSeenAt: true },
+    }),
+  ]);
+
+  const activeByUserId = new Map(
+    activeSessionGroups.map((group) => [group.userId, group]),
+  );
+  const latestByUserId = new Map(
+    latestSessionGroups.map((group) => [
+      group.userId,
+      group._max.lastSeenAt,
+    ]),
+  );
+
+  return customers.map((customer) => {
+    const activeGroup = activeByUserId.get(customer.id);
+    const activeSessionCount = activeGroup?._count?.id || 0;
+    const activeLastSeenAt = activeGroup?._max?.lastSeenAt || null;
+
+    return {
+      ...customer,
+      isLoggedIn: activeSessionCount > 0,
+      isOnline:
+        activeSessionCount > 0 &&
+        activeLastSeenAt &&
+        activeLastSeenAt >= onlineCutoff,
+      activeSessionCount,
+      lastSeenAt: latestByUserId.get(customer.id) || null,
+    };
+  });
+};
+
 const listCustomers = async (query = {}) => {
   const where = {
     role: "CUSTOMER",
@@ -62,11 +120,13 @@ const listCustomers = async (query = {}) => {
     }),
   };
 
-  return prisma.user.findMany({
+  const customers = await prisma.user.findMany({
     where,
     select: userSelect,
     orderBy: { createdAt: "desc" },
   });
+
+  return attachCustomerSessionStatus(customers);
 };
 
 const listBookings = async (query = {}) => {

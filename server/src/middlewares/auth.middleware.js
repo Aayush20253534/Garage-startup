@@ -2,6 +2,11 @@ const prisma = require("../config/prisma");
 const ApiError = require("../utils/apiError");
 const { verifyToken } = require("../utils/jwt");
 const {
+  ensureLegacyUserSession,
+  getActiveUserSession,
+  touchUserSession,
+} = require("../customer/services/userSession.service");
+const {
   ACCESS_TOKEN_COOKIE_NAME,
   accessTokenClearCookieOptions,
 } = require("../config/authCookie");
@@ -146,6 +151,38 @@ const authenticateRequest = async (
       return next(new ApiError(403, "Account is disabled"));
     }
 
+    let authSessionId = null;
+
+    if (accountType === "USER") {
+      if (decoded.sessionId) {
+        const session = await getActiveUserSession(
+          decoded.sessionId,
+          account.id,
+        );
+
+        if (!session) {
+          clearAccessTokenCookie(res);
+
+          if (optional) {
+            return next();
+          }
+
+          return next(new ApiError(401, "Invalid or expired session"));
+        }
+
+        authSessionId = session.id;
+        await touchUserSession(session.id, account.id);
+      } else {
+        authSessionId = await ensureLegacyUserSession({
+          userId: account.id,
+          tokenExpiresAt: decoded.exp
+            ? new Date(decoded.exp * 1000)
+            : null,
+          userAgent: req.get("user-agent") || "",
+        });
+      }
+    }
+
     if (
       requiredAccountType &&
       account.accountType !== requiredAccountType
@@ -161,6 +198,7 @@ const authenticateRequest = async (
     }
 
     req.user = account;
+    req.authSessionId = authSessionId;
     return next();
   } catch {
     clearAccessTokenCookie(res);

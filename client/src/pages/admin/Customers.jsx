@@ -111,6 +111,24 @@ const getCustomerCity = (customer, cities = []) => {
   return fallbackTokens.length ? fallbackTokens.at(-2) || fallbackTokens.at(-1) : "-";
 };
 
+const formatLastSeen = (value) => {
+  if (!value) return "No activity recorded";
+
+  const timestamp = new Date(value);
+  const elapsedMs = Date.now() - timestamp.getTime();
+
+  if (!Number.isFinite(elapsedMs)) return "Unknown";
+  if (elapsedMs < 60 * 1000) return "just now";
+  if (elapsedMs < 60 * 60 * 1000) {
+    return `${Math.floor(elapsedMs / (60 * 1000))}m ago`;
+  }
+  if (elapsedMs < 24 * 60 * 60 * 1000) {
+    return `${Math.floor(elapsedMs / (60 * 60 * 1000))}h ago`;
+  }
+
+  return timestamp.toLocaleString();
+};
+
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
   const [cities, setCities] = useState([]);
@@ -129,6 +147,16 @@ export default function Customers() {
         displayAddress: getCustomerAddress(customer),
       })),
     [customers, cities]
+  );
+
+  const loggedInCount = useMemo(
+    () => customerRows.filter((customer) => customer.isLoggedIn).length,
+    [customerRows]
+  );
+
+  const onlineCount = useMemo(
+    () => customerRows.filter((customer) => customer.isOnline).length,
+    [customerRows]
   );
 
   const loadCities = async () => {
@@ -334,8 +362,26 @@ export default function Customers() {
       </section>
 
       <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
+          <div>
+            <p className="text-sm font-bold text-ink">Customer login activity</p>
+            <p className="mt-0.5 text-xs text-muted">
+              Online means the account used Rovauto within the last 5 minutes.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-semibold">
+            <span className="rounded-full bg-lime-100 px-2.5 py-1 text-ink">
+              {onlineCount} online
+            </span>
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700">
+              {loggedInCount} logged in
+            </span>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-[920px] text-sm">
             <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 {[
@@ -345,6 +391,7 @@ export default function Customers() {
                   "City",
                   "Bookings",
                   "Vehicles",
+                  "Login",
                   "Status",
                 ].map((heading) => (
                   <th
@@ -360,7 +407,7 @@ export default function Customers() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-6 text-sm text-muted">
+                  <td colSpan="8" className="px-4 py-6 text-sm text-muted">
                     Loading customers...
                   </td>
                 </tr>
@@ -397,6 +444,53 @@ export default function Customers() {
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-3">
+                      <div className="flex flex-col items-start gap-1">
+                        <span
+                          className={[
+                            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold",
+                            customer.isOnline
+                              ? "bg-lime-100 text-ink"
+                              : customer.isLoggedIn
+                                ? "bg-blue-50 text-blue-700"
+                                : "bg-bg-soft text-muted",
+                          ].join(" ")}
+                        >
+                          <span
+                            className={[
+                              "h-2 w-2 rounded-full",
+                              customer.isOnline
+                                ? "bg-green-500"
+                                : customer.isLoggedIn
+                                  ? "bg-blue-500"
+                                  : "bg-gray-400",
+                            ].join(" ")}
+                          />
+                          {customer.isOnline
+                            ? "Online now"
+                            : customer.isLoggedIn
+                              ? "Logged in"
+                              : "Logged out"}
+                        </span>
+
+                        <span
+                          className="text-[11px] text-muted"
+                          title={
+                            customer.lastSeenAt
+                              ? new Date(customer.lastSeenAt).toLocaleString()
+                              : undefined
+                          }
+                        >
+                          {customer.lastSeenAt
+                            ? `Last seen ${formatLastSeen(customer.lastSeenAt)}`
+                            : "No recorded session"}
+                          {customer.activeSessionCount > 1
+                            ? ` · ${customer.activeSessionCount} sessions`
+                            : ""}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-3">
                       <span
                         className={[
                           "rounded-full px-2.5 py-1 text-xs font-bold",
@@ -412,7 +506,7 @@ export default function Customers() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="px-4 py-6 text-sm text-muted">
+                  <td colSpan="8" className="px-4 py-6 text-sm text-muted">
                     No customers found.
                   </td>
                 </tr>

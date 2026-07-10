@@ -1,0 +1,146 @@
+const prisma = require("../../config/prisma");
+const { accessTokenCookieOptions } = require("../../config/authCookie");
+
+const SESSION_TOUCH_INTERVAL_MS = 60 * 1000;
+const MAX_USER_AGENT_LENGTH = 500;
+
+const getSessionExpiry = () =>
+  new Date(Date.now() + accessTokenCookieOptions.maxAge);
+
+const normalizeUserAgent = (userAgent) => {
+  const value = String(userAgent || "").trim();
+  return value ? value.slice(0, MAX_USER_AGENT_LENGTH) : null;
+};
+
+const createUserSession = async (userId, metadata = {}) => {
+  const now = new Date();
+
+  await prisma.userSession.deleteMany({
+    where: {
+      userId,
+      OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }],
+    },
+  });
+
+  return prisma.userSession.create({
+    data: {
+      userId,
+      userAgent: normalizeUserAgent(metadata.userAgent),
+      lastSeenAt: now,
+      expiresAt: getSessionExpiry(),
+    },
+  });
+};
+
+const getActiveUserSession = (sessionId, userId) =>
+  prisma.userSession.findFirst({
+    where: {
+      id: sessionId,
+      userId,
+      revokedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    select: {
+      id: true,
+      lastSeenAt: true,
+      expiresAt: true,
+    },
+  });
+
+const touchUserSession = async (sessionId, userId) => {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - SESSION_TOUCH_INTERVAL_MS);
+
+  await prisma.userSession.updateMany({
+    where: {
+      id: sessionId,
+      userId,
+      revokedAt: null,
+      expiresAt: { gt: now },
+      lastSeenAt: { lte: cutoff },
+    },
+    data: { lastSeenAt: now },
+  });
+};
+
+const ensureLegacyUserSession = async ({
+  userId,
+  tokenExpiresAt,
+  userAgent,
+}) => {
+  const id = `legacy-${userId}`;
+  const now = new Date();
+  const fallbackExpiry = getSessionExpiry();
+  const parsedExpiry = tokenExpiresAt ? new Date(tokenExpiresAt) : null;
+  const expiresAt =
+    parsedExpiry && parsedExpiry > now ? parsedExpiry : fallbackExpiry;
+  const normalizedUserAgent = normalizeUserAgent(userAgent);
+  const cutoff = new Date(now.getTime() - SESSION_TOUCH_INTERVAL_MS);
+
+  const existing = await prisma.userSession.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      expiresAt: true,
+      revokedAt: true,
+      lastSeenAt: true,
+      userAgent: true,
+    },
+  });
+
+  if (!existing) {
+    await prisma.userSession.create({
+      data: {
+        id,
+        userId,
+        userAgent: normalizedUserAgent,
+        lastSeenAt: now,
+        expiresAt,
+      },
+    });
+
+    return id;
+  }
+
+  if (
+    existing.revokedAt ||
+    existing.expiresAt <= now ||
+    existing.lastSeenAt <= cutoff ||
+    (!existing.userAgent && normalizedUserAgent)
+  ) {
+    await prisma.userSession.update({
+      where: { id },
+      data: {
+        userAgent: normalizedUserAgent || existing.userAgent,
+        lastSeenAt: now,
+        expiresAt,
+        revokedAt: null,
+      },
+    });
+  }
+
+  return id;
+};
+
+const revokeUserSession = async (sessionId, userId) => {
+  if (!sessionId || !userId) return;
+
+  await prisma.userSession.updateMany({
+    where: {
+      id: sessionId,
+      userId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+};
+
+module.exports = {
+  createUserSession,
+  ensureLegacyUserSession,
+  getActiveUserSession,
+  revokeUserSession,
+  touchUserSession,
+};

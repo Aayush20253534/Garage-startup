@@ -26,6 +26,7 @@ model User {
   ownedGarages         Garage[]
   notifications        Notification[]
   pushSubscriptions    PushSubscription[]
+  sessions             UserSession[]
   otps                 Otp[]
   reviews              Review[]
   vehicles             Vehicle[]
@@ -40,6 +41,22 @@ model User {
   @@unique([phone, role])
   @@index([email])
   @@index([phone])
+}
+
+model UserSession {
+  id         String    @id @default(uuid())
+  userId     String
+  userAgent  String?
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([lastSeenAt])
+  @@map("user_sessions")
 }
 
 model StaffAccount {

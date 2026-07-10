@@ -3,6 +3,7 @@ const express = require("express");
 const authController = require("../controllers/auth.controller");
 const validate = require("../../middlewares/validate.middleware");
 const {
+  optionalProtect,
   protect,
   protectUser,
 } = require("../../middlewares/auth.middleware");
@@ -105,7 +106,7 @@ router.post(
   authController.googleAuth,
 );
 
-router.post("/logout", authController.logout);
+router.post("/logout", optionalProtect, authController.logout);
 router.get("/me", protect, authController.me);
 
 router.post(
