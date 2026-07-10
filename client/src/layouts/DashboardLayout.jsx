@@ -124,7 +124,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   };
 
   return (
-    <div className="min-h-screen bg-bg-soft lg:flex">
+    <div className="min-h-screen overflow-x-hidden bg-bg-soft lg:flex">
       {open && (
         <button
           type="button"
@@ -231,7 +231,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         </div>
       </aside>
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-x-hidden">
         <header className="sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur-xl">
           <div className="flex h-16 items-center px-4 sm:px-6 lg:px-8">
             <button
@@ -252,7 +252,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22 }}
-          className="min-w-0 p-4 sm:p-6 lg:p-8"
+          className="w-full min-w-0 max-w-full overflow-x-hidden p-4 sm:p-6 lg:p-8"
         >
           <Outlet />
         </motion.main>

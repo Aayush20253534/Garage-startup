@@ -170,7 +170,7 @@ export default function InternAccounts() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 max-w-full space-y-6">
       <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -214,11 +214,11 @@ export default function InternAccounts() {
         </div>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map(({ label, value, icon: Icon }) => (
           <article
             key={label}
-            className="rounded-2xl border border-line bg-white p-5 shadow-soft"
+            className="min-w-0 rounded-2xl border border-line bg-white p-5 shadow-soft"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -235,14 +235,14 @@ export default function InternAccounts() {
         ))}
       </section>
 
-      <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
+      <section className="min-w-0 rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
           <FiPlus /> Create intern account
         </h2>
 
         <form
           onSubmit={createAccount}
-          className="mt-4 grid gap-3 xl:grid-cols-[1fr_0.9fr_1.2fr_1fr_auto]"
+          className="mt-4 grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-[1fr_0.9fr_1.2fr_1fr_auto]"
         >
           <input
             required
@@ -255,7 +255,7 @@ export default function InternAccounts() {
             }
             placeholder="Full name"
             autoComplete="off"
-            className="h-11 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+            className="h-11 min-w-0 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
           />
 
           <input
@@ -270,7 +270,7 @@ export default function InternAccounts() {
             placeholder="Intern ID"
             autoCapitalize="none"
             autoComplete="off"
-            className="h-11 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+            className="h-11 min-w-0 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
           />
 
           <input
@@ -284,7 +284,7 @@ export default function InternAccounts() {
             }
             placeholder="Email (optional)"
             autoComplete="off"
-            className="h-11 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+            className="h-11 min-w-0 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
           />
 
           <input
@@ -299,12 +299,12 @@ export default function InternAccounts() {
             }
             placeholder="Strong password"
             autoComplete="new-password"
-            className="h-11 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
+            className="h-11 min-w-0 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
           />
 
           <button
             disabled={saving}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-ink px-5 text-sm font-bold text-white transition hover:bg-ink/90 disabled:opacity-50"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-ink px-5 text-sm font-bold text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-50 md:col-span-2 2xl:col-span-1 2xl:w-auto"
           >
             <FiPlus /> Create
           </button>
@@ -322,7 +322,7 @@ export default function InternAccounts() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
         <div className="border-b border-line px-5 py-4 sm:px-6">
           <h2 className="text-lg font-bold text-ink">Managed intern accounts</h2>
           <p className="mt-1 text-sm text-muted">
@@ -330,7 +330,7 @@ export default function InternAccounts() {
           </p>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="max-w-full overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-bg-soft text-xs uppercase tracking-wide text-muted">
               <tr>
