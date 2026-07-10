@@ -20,6 +20,10 @@ export const adminApi = {
     return unwrap(await api.get("/admin/stats"));
   },
 
+  async getOperations() {
+    return unwrap(await api.get("/admin/operations"));
+  },
+
   async getApplications(status = "") {
     return unwrap(
       await api.get("/admin/garage-applications", {
@@ -101,8 +105,28 @@ export const adminApi = {
     return unwrap(await api.get("/admin/customers", { params }));
   },
 
+  async getCustomerProfile(userId) {
+    return unwrap(await api.get(`/admin/customers/${userId}/profile`));
+  },
+
   async getBookings(params = {}) {
     return unwrap(await api.get("/admin/bookings", { params }));
+  },
+
+  async getBooking(bookingId) {
+    return unwrap(await api.get(`/admin/bookings/${bookingId}`));
+  },
+
+  async updateBookingStatus(bookingId, payload) {
+    return unwrap(await api.patch(`/admin/bookings/${bookingId}/status`, payload));
+  },
+
+  async reassignBookingGarage(bookingId, payload) {
+    return unwrap(await api.patch(`/admin/bookings/${bookingId}/garage`, payload));
+  },
+
+  async addBookingNote(bookingId, note) {
+    return unwrap(await api.post(`/admin/bookings/${bookingId}/notes`, { note }));
   },
 
   async getPayments(params = {}) {

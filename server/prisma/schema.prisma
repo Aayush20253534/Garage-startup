@@ -479,12 +479,29 @@ model Booking {
   payment               Payment?
   review                Review?
   trackingPoints        BookingTrackingPoint[]
+  adminEvents           AdminBookingEvent[]
 
   @@index([userId])
   @@index([garageId])
   @@index([vehicleId])
   @@index([status])
   @@index([requestType])
+}
+
+model AdminBookingEvent {
+  id         String   @id @default(uuid())
+  bookingId  String
+  staffId    String
+  staffName  String
+  action     String
+  note       String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@index([staffId, createdAt])
+  @@map("admin_booking_events")
 }
 
 model BookingInspectionImage {

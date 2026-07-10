@@ -1,4 +1,4 @@
-const { body, query } = require("express-validator");
+const { body, param, query } = require("express-validator");
 
 const notificationTypes = [
   "BOOKING",
@@ -40,6 +40,47 @@ const paymentRecordStatuses = [
 
 const userRoles = ["CUSTOMER", "GARAGE_OWNER"];
 
+
+
+const bookingIdParamSchema = [
+  param("bookingId").isUUID().withMessage("Valid booking ID is required"),
+];
+
+const customerIdParamSchema = [
+  param("userId").isUUID().withMessage("Valid customer ID is required"),
+];
+
+const updateBookingStatusSchema = [
+  ...bookingIdParamSchema,
+  body("status")
+    .isIn(bookingStatuses)
+    .withMessage("Select a valid booking status"),
+  body("note")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage("Note cannot exceed 1000 characters"),
+];
+
+const reassignBookingGarageSchema = [
+  ...bookingIdParamSchema,
+  body("garageId").isUUID().withMessage("Select a valid garage"),
+  body("note")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage("Note cannot exceed 1000 characters"),
+];
+
+const addBookingNoteSchema = [
+  ...bookingIdParamSchema,
+  body("note")
+    .trim()
+    .notEmpty()
+    .withMessage("Note is required")
+    .isLength({ max: 1000 })
+    .withMessage("Note cannot exceed 1000 characters"),
+];
 
 const CLEAR_BOOKINGS_CONFIRMATION = "CLEAR ALL BOOKINGS";
 
@@ -184,11 +225,16 @@ const sendUserEmailSchema = [
 ];
 
 module.exports = {
+  addBookingNoteSchema,
+  bookingIdParamSchema,
   bookingQuerySchema,
   clearBookingsSchema,
   paymentQuerySchema,
+  customerIdParamSchema,
   customerQuerySchema,
+  reassignBookingGarageSchema,
   sendUserEmailSchema,
   sendNotificationSchema,
+  updateBookingStatusSchema,
   userEmailSearchSchema,
 };

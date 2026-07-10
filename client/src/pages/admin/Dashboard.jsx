@@ -1,18 +1,23 @@
 import { Link, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  FiActivity,
   FiAlertCircle,
   FiAlertTriangle,
   FiCalendar,
+  FiCheckCircle,
+  FiClock,
+  FiCreditCard,
   FiDollarSign,
   FiHome,
+  FiRefreshCw,
+  FiTool,
   FiUsers,
 } from "react-icons/fi";
 import { adminApi } from "@/api/admin";
 
 const formatDate = (date) => {
   if (!date) return "-";
-
   return new Intl.DateTimeFormat("en-IN", {
     day: "2-digit",
     month: "short",
@@ -20,141 +25,161 @@ const formatDate = (date) => {
   }).format(new Date(date));
 };
 
+const formatDateTime = (date) => {
+  if (!date) return "-";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date));
+};
+
 const formatCurrency = (amount) =>
-  `\u20b9${Number(amount || 0).toLocaleString("en-IN")}`;
+  `₹${Number(amount || 0).toLocaleString("en-IN")}`;
+
+const formatStatus = (status) => status?.replaceAll("_", " ") || "-";
+
+const getStatusClass = (status) => {
+  if (["COMPLETED", "CONFIRMED"].includes(status)) return "bg-lime-100 text-ink";
+  if (["CANCELLED", "EXPIRED"].includes(status)) return "bg-red-50 text-red-700";
+  if (["IN_PROGRESS", "GARAGE_ASSIGNED"].includes(status)) return "bg-blue-50 text-blue-700";
+  return "bg-amber-50 text-amber-800";
+};
 
 export default function AdminDashboard() {
   const { pathname } = useLocation();
   const portalRoot = pathname.startsWith("/intern") ? "/intern" : "/admin";
-  const [stats, setStats] = useState({
-    garages: 0,
-    activeGarages: 0,
-    pendingApplications: 0,
-    priceRanges: 0,
-    customers: 0,
-    bookings: 0,
-    totalServiceCost: 0,
-    customerPlatformFeeRevenue: 0,
-    garagePlatformFeeRevenue: 0,
-    totalPlatformRevenue: 0,
-    openSystemIssues: 0,
-    criticalSystemIssues: 0,
-  });
-
+  const [stats, setStats] = useState({});
+  const [operations, setOperations] = useState({ stats: {}, recentBookings: [], statusCounts: {} });
   const [recentApplications, setRecentApplications] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const load = async () => {
-      setError("");
-
-      try {
-        const dashboard = await adminApi.getStats();
-
-        setStats((current) => ({
-          ...current,
-          ...(dashboard.stats || {}),
-        }));
-
-        setRecentApplications(dashboard.recentApplications || []);
-      } catch (err) {
-        setError(
-          err.response?.data?.message || "Unable to load staff dashboard"
-        );
-      }
-    };
-
-    load();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [dashboard, liveOperations] = await Promise.all([
+        adminApi.getStats(),
+        adminApi.getOperations(),
+      ]);
+      setStats(dashboard.stats || {});
+      setRecentApplications(dashboard.recentApplications || []);
+      setOperations(liveOperations || { stats: {}, recentBookings: [], statusCounts: {} });
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load staff dashboard");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    load();
+    const interval = window.setInterval(load, 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, [load]);
 
   const totalPlatformRevenue =
     Number(stats.totalPlatformRevenue || 0) ||
     Number(stats.customerPlatformFeeRevenue || 0) +
       Number(stats.garagePlatformFeeRevenue || 0);
 
-  const cards = [
+  const operationCards = [
     {
-      icon: FiHome,
-      number: stats.garages,
-      label: "Total Garages",
-      caption: `${stats.activeGarages} active`,
+      icon: FiActivity,
+      value: operations.stats?.activeBookings || 0,
+      label: "Active bookings",
+      caption: "Assigned, confirmed or in service",
+      tone: "bg-blue-50 text-blue-700",
     },
     {
-      icon: FiHome,
-      number: stats.activeGarages,
-      label: "Active Garages",
-      caption: "Approved garages",
+      icon: FiClock,
+      value: operations.stats?.pendingGarageResponses || 0,
+      label: "Awaiting garage",
+      caption: "Searching for an accepting garage",
+      tone: "bg-amber-50 text-amber-800",
     },
     {
-      icon: FiCalendar,
-      number: stats.bookings,
-      label: "Bookings",
-      caption: "Total bookings",
-    },
-    {
-      icon: FiDollarSign,
-      number: formatCurrency(totalPlatformRevenue),
-      label: "Total Platform Revenue",
-      caption: "Customer + garage fees",
-    },
-    {
-      icon: FiDollarSign,
-      number: formatCurrency(stats.customerPlatformFeeRevenue),
-      label: "Customer Platform Fee",
-      caption: "Paid checkout fees",
-    },
-    {
-      icon: FiDollarSign,
-      number: formatCurrency(stats.garagePlatformFeeRevenue),
-      label: "Garage Platform Fee",
-      caption: "Garage wallet deductions",
-    },
-    {
-      icon: FiDollarSign,
-      number: formatCurrency(stats.totalServiceCost),
-      label: "Garage Service Cost",
-      caption: "Cash payable to garages, not revenue",
-    },
-    {
-      icon: FiUsers,
-      number: stats.customers,
-      label: "Customers",
-      caption: "Registered users",
-    },
-    {
-      icon: FiDollarSign,
-      number: stats.priceRanges,
-      label: "Price Ranges",
-      caption: "Configured ranges",
-    },
-    {
-      icon: FiCalendar,
-      number: stats.pendingApplications,
-      label: "Pending Applications",
-      caption: "Needs review",
+      icon: FiTool,
+      value: operations.stats?.vehiclesInService || 0,
+      label: "Vehicles in service",
+      caption: "Currently marked in progress",
+      tone: "bg-lime-100 text-ink",
     },
     {
       icon: FiAlertTriangle,
-      number: stats.openSystemIssues,
-      label: "System Issues",
-      caption: `${stats.criticalSystemIssues || 0} critical`,
+      value: operations.stats?.delayedBookings || 0,
+      label: "Needs attention",
+      caption: "Stale search or overdue schedule",
+      tone: "bg-red-50 text-red-700",
+    },
+    {
+      icon: FiCheckCircle,
+      value: operations.stats?.completedToday || 0,
+      label: "Completed today",
+      caption: "Finished since midnight",
+      tone: "bg-lime-100 text-ink",
+    },
+    {
+      icon: FiCreditCard,
+      value: operations.stats?.failedPayments || 0,
+      label: "Failed payments",
+      caption: `${operations.stats?.pendingPayments || 0} payment(s) still pending`,
+      tone: "bg-red-50 text-red-700",
+    },
+    {
+      icon: FiAlertCircle,
+      value: operations.stats?.unresolvedComplaints || 0,
+      label: "Open complaints",
+      caption: "Customer cases awaiting resolution",
+      tone: "bg-amber-50 text-amber-800",
+    },
+    {
+      icon: FiAlertTriangle,
+      value: stats.openSystemIssues || 0,
+      label: "System issues",
+      caption: `${stats.criticalSystemIssues || 0} critical issue(s)`,
+      tone: "bg-red-50 text-red-700",
       to: `${portalRoot}/system-issues`,
     },
   ];
 
+  const businessCards = [
+    { icon: FiHome, value: stats.activeGarages || 0, label: "Active garages" },
+    { icon: FiUsers, value: stats.customers || 0, label: "Customers" },
+    { icon: FiCalendar, value: stats.bookings || 0, label: "All bookings" },
+    { icon: FiDollarSign, value: formatCurrency(totalPlatformRevenue), label: "Platform revenue" },
+  ];
+
+  const totalStatusCount = useMemo(
+    () => Object.values(operations.statusCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0),
+    [operations.statusCounts],
+  );
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5 overflow-x-hidden">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mx-auto max-w-7xl space-y-5 overflow-x-hidden">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-ink">Dashboard</h2>
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+            <p className="text-xs font-bold uppercase tracking-wider text-muted">Live operations</p>
+          </div>
+          <h2 className="mt-1 text-2xl font-bold text-ink">Admin command centre</h2>
           <p className="mt-1 text-sm text-muted">
-            Overview of Rovauto platform activity.
+            Current booking activity, payment problems and daily platform performance.
           </p>
         </div>
 
-        <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium text-muted">
-          {new Date().toLocaleDateString()}
-        </div>
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:opacity-60"
+        >
+          <FiRefreshCw className={loading ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
       {error && (
@@ -164,133 +189,154 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => {
-          const Icon = card.icon;
+      <section>
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-ink">What needs attention now</h3>
+            <p className="text-sm text-muted">Automatically refreshes every minute.</p>
+          </div>
+          <Link to={`${portalRoot}/bookings`} className="text-sm font-bold text-ink hover:underline">
+            Manage bookings →
+          </Link>
+        </div>
 
-          const content = (
-            <>
-              <div className="flex items-start justify-between gap-3">
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl ${
-                    card.to
-                      ? "bg-red-50 text-red-700"
-                      : "bg-lime-100 text-ink"
-                  }`}
-                >
-                  <Icon />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {operationCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Link
+                key={card.label}
+                to={card.to || `${portalRoot}/bookings`}
+                className="rounded-2xl border border-line bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className={`grid h-11 w-11 place-items-center rounded-xl text-lg ${card.tone}`}>
+                    <Icon />
+                  </span>
+                  <span className="text-3xl font-bold text-ink">{card.value}</span>
                 </div>
+                <p className="mt-4 font-bold text-ink">{card.label}</p>
+                <p className="mt-1 text-xs text-muted">{card.caption}</p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
-                <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-semibold text-muted">
-                  {card.caption}
-                </span>
-              </div>
-
-              <div className="mt-4 text-3xl font-bold text-ink">
-                {card.number}
-              </div>
-
-              <p className="mt-1 text-sm text-muted">{card.label}</p>
-            </>
-          );
-
-          return card.to ? (
-            <Link
-              key={card.label}
-              to={card.to}
-              className="card-soft rounded-2xl p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-            >
-              {content}
-            </Link>
-          ) : (
-            <div
-              key={card.label}
-              className="card-soft rounded-2xl p-4 shadow-sm transition hover:shadow-md"
-            >
-              {content}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.8fr)]">
+        <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-line px-4 py-3">
+            <div>
+              <h3 className="font-bold text-ink">Recent active bookings</h3>
+              <p className="mt-0.5 text-xs text-muted">Most recently updated operational jobs.</p>
             </div>
-          );
-        })}
+            <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-bold text-muted">
+              {operations.recentBookings?.length || 0}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
+                <tr>
+                  {['Booking', 'Customer', 'Garage', 'Status', 'Updated'].map((heading) => (
+                    <th key={heading} className="px-4 py-3 font-bold">{heading}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {operations.recentBookings?.length ? operations.recentBookings.map((booking) => (
+                  <tr key={booking.id} className="border-t border-line hover:bg-bg-soft/70">
+                    <td className="px-4 py-3 font-bold text-ink">#{booking.bookingCode}</td>
+                    <td className="px-4 py-3 text-muted">{booking.user?.name || '-'}</td>
+                    <td className="px-4 py-3 text-muted">{booking.garage?.name || 'Unassigned'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${getStatusClass(booking.status)}`}>
+                        {formatStatus(booking.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted">{formatDateTime(booking.updatedAt)}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan="5" className="px-4 py-8 text-center text-muted">No active bookings right now.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-line bg-white p-4 shadow-sm">
+          <h3 className="font-bold text-ink">Booking status mix</h3>
+          <p className="mt-1 text-xs text-muted">All {totalStatusCount} bookings by current status.</p>
+          <div className="mt-4 grid gap-3">
+            {Object.entries(operations.statusCounts || {})
+              .sort((a, b) => Number(b[1]) - Number(a[1]))
+              .map(([status, count]) => {
+                const width = totalStatusCount ? Math.max(4, (Number(count) / totalStatusCount) * 100) : 0;
+                return (
+                  <div key={status}>
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="font-semibold text-muted">{formatStatus(status)}</span>
+                      <span className="font-bold text-ink">{count}</span>
+                    </div>
+                    <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-bg-soft">
+                      <div className="h-full rounded-full bg-ink" style={{ width: `${width}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </section>
       </div>
+
+      <section>
+        <h3 className="mb-3 text-lg font-bold text-ink">Business overview</h3>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {businessCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className="card-soft rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-lime-100 text-ink"><Icon /></span>
+                  <span className="text-2xl font-bold text-ink">{card.value}</span>
+                </div>
+                <p className="mt-3 text-sm font-semibold text-muted">{card.label}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
         <div className="flex items-center justify-between border-b border-line p-4">
           <div>
-            <h3 className="text-lg font-bold text-ink">
-              Recent Garage Applications
-            </h3>
-            <p className="mt-1 text-sm text-muted">
-              Pending garage owners waiting for review.
-            </p>
+            <h3 className="text-lg font-bold text-ink">Recent garage applications</h3>
+            <p className="mt-1 text-sm text-muted">Pending garage owners waiting for review.</p>
           </div>
-
-          <span className="rounded-full bg-lime-100 px-3 py-1 text-xs font-bold text-ink">
-            {recentApplications.length}
-          </span>
+          <span className="rounded-full bg-lime-100 px-3 py-1 text-xs font-bold text-ink">{recentApplications.length}</span>
         </div>
 
         {recentApplications.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  {["Garage", "Owner", "City", "Phone", "Created"].map(
-                    (heading) => (
-                      <th
-                        key={heading}
-                        className="whitespace-nowrap px-4 py-3 font-bold"
-                      >
-                        {heading}
-                      </th>
-                    )
-                  )}
-                </tr>
+                <tr>{["Garage", "Owner", "City", "Phone", "Created"].map((heading) => <th key={heading} className="px-4 py-3 font-bold">{heading}</th>)}</tr>
               </thead>
-
               <tbody>
                 {recentApplications.map((application) => (
-                  <tr
-                    key={application.id}
-                    className="border-t border-line transition hover:bg-bg-soft/70"
-                  >
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
-                      {application.garageName || "-"}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">
-                      {application.ownerName || "-"}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">
-                      {application.city || "-"}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">
-                      {application.phone || "-"}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">
-                      {formatDate(application.createdAt)}
-                    </td>
+                  <tr key={application.id} className="border-t border-line hover:bg-bg-soft/70">
+                    <td className="px-4 py-3 font-semibold text-ink">{application.garageName || "-"}</td>
+                    <td className="px-4 py-3 text-muted">{application.ownerName || "-"}</td>
+                    <td className="px-4 py-3 text-muted">{application.city || "-"}</td>
+                    <td className="px-4 py-3 text-muted">{application.phone || "-"}</td>
+                    <td className="px-4 py-3 text-muted">{formatDate(application.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-bg-soft text-xl text-muted">
-              <FiHome />
-            </div>
-
-            <h4 className="font-semibold text-ink">
-              Nothing waiting for approval
-            </h4>
-
-            <p className="mt-1 text-sm text-muted">
-              New garage applications will appear here.
-            </p>
-          </div>
+          <div className="px-4 py-10 text-center text-sm text-muted">Nothing waiting for approval.</div>
         )}
       </section>
     </div>

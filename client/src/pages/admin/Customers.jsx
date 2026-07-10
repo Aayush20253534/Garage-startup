@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
 import { cityApi } from "@/api/cities";
 import CitySelect from "@/components/common/CitySelect";
+import CustomerActivityProfileModal from "@/components/admin/CustomerActivityProfileModal";
 import { resetCityAvailabilityCache } from "@/utils/cityAvailability";
 import {
   FiCheckCircle,
+  FiEye,
   FiMapPin,
   FiPlus,
   FiRefreshCw,
@@ -141,6 +143,7 @@ export default function Customers() {
   const [citySaving, setCitySaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
 
   const customerRows = useMemo(
     () =>
@@ -397,6 +400,7 @@ export default function Customers() {
                   "Login",
                   "Devices",
                   "Status",
+                  "Profile",
                 ].map((heading) => (
                   <th
                     key={heading}
@@ -411,7 +415,7 @@ export default function Customers() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="px-4 py-6 text-sm text-muted">
+                  <td colSpan="10" className="px-4 py-6 text-sm text-muted">
                     Loading customers...
                   </td>
                 </tr>
@@ -523,11 +527,23 @@ export default function Customers() {
                         {customer.isActive ? "Active" : "Disabled"}
                       </span>
                     </td>
+
+
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCustomerId(customer.id)}
+                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-white px-3 text-xs font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
+                      >
+                        <FiEye />
+                        View profile
+                      </button>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="9" className="px-4 py-6 text-sm text-muted">
+                  <td colSpan="10" className="px-4 py-6 text-sm text-muted">
                     No customers found.
                   </td>
                 </tr>
@@ -536,6 +552,13 @@ export default function Customers() {
           </table>
         </div>
       </section>
+
+      {selectedCustomerId && (
+        <CustomerActivityProfileModal
+          userId={selectedCustomerId}
+          onClose={() => setSelectedCustomerId("")}
+        />
+      )}
     </div>
   );
 }

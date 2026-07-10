@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { adminApi } from "@/api/admin";
 import { mapsApi } from "@/api/maps";
 import StaticMapPreview from "@/components/maps/StaticMapPreview";
+import BookingManagementModal from "@/components/admin/BookingManagementModal";
 import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
 import {
   FiAlertCircle,
   FiCalendar,
+  FiEye,
   FiMap,
   FiNavigation,
   FiRefreshCw,
@@ -83,6 +85,7 @@ export default function Bookings({
   const [optimizing, setOptimizing] = useState(false);
   const [optimization, setOptimization] = useState(null);
   const [showOptimization, setShowOptimization] = useState(false);
+  const [selectedBookingId, setSelectedBookingId] = useState("");
 
   const isAdmin =
     user?.accountType === "STAFF" &&
@@ -351,6 +354,7 @@ export default function Bookings({
                   "Status",
                   "Amount",
                   "Created",
+                  "Actions",
                 ].map((heading) => (
                   <th
                     key={heading}
@@ -366,7 +370,7 @@ export default function Bookings({
               {loading ? (
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan="8"
                     className="px-4 py-6 text-sm text-muted"
                   >
                     Loading bookings...
@@ -424,12 +428,23 @@ export default function Bookings({
                           ).toLocaleDateString()
                         : "-"}
                     </td>
+
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBookingId(booking.id)}
+                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-white px-3 text-xs font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
+                      >
+                        <FiEye />
+                        View & manage
+                      </button>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan="8"
                     className="px-4 py-6 text-sm text-muted"
                   >
                     No bookings found.
@@ -558,6 +573,23 @@ export default function Bookings({
             </div>
           </section>
         </div>
+      )}
+
+      {selectedBookingId && (
+        <BookingManagementModal
+          bookingId={selectedBookingId}
+          isAdmin={isAdmin}
+          onClose={() => setSelectedBookingId("")}
+          onUpdated={(updatedBooking) => {
+            setBookings((current) =>
+              current.map((booking) =>
+                booking.id === updatedBooking.id
+                  ? { ...booking, ...updatedBooking }
+                  : booking,
+              ),
+            );
+          }}
+        />
       )}
 
       {showBulkActions && showClearDialog && isAdmin && (

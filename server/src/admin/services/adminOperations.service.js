@@ -4,6 +4,7 @@ const { deletePattern } = require("../../utils/cache");
 const { deleteFromCloudinary } = require("../../utils/cloudinaryUpload");
 const { Resend } = require("resend");
 const notificationService = require("../../customer/services/notification.service");
+const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 
 let resend;
 if (process.env.RESEND_API_KEY) {
@@ -160,27 +161,98 @@ const listCustomers = async (query = {}) => {
   return attachCustomerSessionStatus(customers);
 };
 
+const bookingInclude = {
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+    },
+  },
+  vehicle: true,
+  garage: {
+    include: {
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+  },
+  payment: true,
+  services: {
+    include: {
+      service: {
+        include: {
+          category: true,
+        },
+      },
+    },
+  },
+};
+
 const listBookings = async (query = {}) => {
+  const search = String(query.search || "").trim();
   const where = {
     ...(query.status && { status: query.status }),
     ...(query.garageId && { garageId: query.garageId }),
     ...(query.userId && { userId: query.userId }),
-    ...(query.search && {
+    ...(search && {
       OR: [
-        { bookingCode: { contains: query.search, mode: "insensitive" } },
+        { bookingCode: { contains: search, mode: "insensitive" } },
+        { customerAddress: { contains: search, mode: "insensitive" } },
         {
           user: {
-            is: { name: { contains: query.search, mode: "insensitive" } },
+            is: { name: { contains: search, mode: "insensitive" } },
           },
         },
         {
           user: {
-            is: { email: { contains: query.search, mode: "insensitive" } },
+            is: { email: { contains: search, mode: "insensitive" } },
+          },
+        },
+        {
+          user: {
+            is: { phone: { contains: search, mode: "insensitive" } },
           },
         },
         {
           garage: {
-            is: { name: { contains: query.search, mode: "insensitive" } },
+            is: { name: { contains: search, mode: "insensitive" } },
+          },
+        },
+        {
+          garage: {
+            is: { city: { contains: search, mode: "insensitive" } },
+          },
+        },
+        {
+          garage: {
+            is: { phone: { contains: search, mode: "insensitive" } },
+          },
+        },
+        {
+          vehicle: {
+            is: { brand: { contains: search, mode: "insensitive" } },
+          },
+        },
+        {
+          vehicle: {
+            is: { model: { contains: search, mode: "insensitive" } },
+          },
+        },
+        {
+          vehicle: {
+            is: {
+              registrationNumber: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
           },
         },
       ],
@@ -189,16 +261,526 @@ const listBookings = async (query = {}) => {
 
   return prisma.booking.findMany({
     where,
-    include: {
-      user: { select: { id: true, name: true, email: true, phone: true } },
-      vehicle: true,
-      garage: true,
-      payment: true,
-      services: { include: { service: { include: { category: true } } } },
-    },
+    include: bookingInclude,
     orderBy: { createdAt: "desc" },
-    take: 200,
+    take: 300,
   });
+};
+
+const getStartOfToday = () => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const getOperationsDashboard = async () => {
+  const now = new Date();
+  const startOfToday = getStartOfToday();
+  const staleSearchCutoff = new Date(now.getTime() - 30 * 60 * 1000);
+  const activeStatuses = ["GARAGE_ASSIGNED", "CONFIRMED", "IN_PROGRESS"];
+  const operationalStatuses = [
+    "SEARCHING_GARAGE",
+    "GARAGE_ASSIGNED",
+    "CONFIRMED",
+    "IN_PROGRESS",
+  ];
+
+  const [
+    activeBookings,
+    pendingGarageResponses,
+    vehiclesInService,
+    delayedBookings,
+    completedToday,
+    failedPayments,
+    pendingPayments,
+    unresolvedComplaints,
+    recentBookings,
+    statusGroups,
+  ] = await Promise.all([
+    prisma.booking.count({ where: { status: { in: activeStatuses } } }),
+    prisma.booking.count({ where: { status: "SEARCHING_GARAGE" } }),
+    prisma.booking.count({ where: { status: "IN_PROGRESS" } }),
+    prisma.booking.count({
+      where: {
+        status: { in: operationalStatuses },
+        OR: [
+          {
+            status: "SEARCHING_GARAGE",
+            createdAt: { lte: staleSearchCutoff },
+          },
+          {
+            searchExpiresAt: { lt: now },
+          },
+          {
+            scheduledDate: { lt: startOfToday },
+          },
+        ],
+      },
+    }),
+    prisma.booking.count({
+      where: {
+        status: "COMPLETED",
+        updatedAt: { gte: startOfToday },
+      },
+    }),
+    prisma.payment.count({ where: { status: "FAILED" } }),
+    prisma.payment.count({ where: { status: "CREATED" } }),
+    prisma.complaint.count({ where: { status: { in: ["OPEN", "IN_REVIEW"] } } }),
+    prisma.booking.findMany({
+      where: { status: { in: operationalStatuses } },
+      include: bookingInclude,
+      orderBy: { updatedAt: "desc" },
+      take: 10,
+    }),
+    prisma.booking.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
+  ]);
+
+  return {
+    generatedAt: now,
+    stats: {
+      activeBookings,
+      pendingGarageResponses,
+      vehiclesInService,
+      delayedBookings,
+      completedToday,
+      failedPayments,
+      pendingPayments,
+      unresolvedComplaints,
+    },
+    statusCounts: statusGroups.reduce((result, row) => {
+      result[row.status] = row._count._all;
+      return result;
+    }, {}),
+    recentBookings,
+  };
+};
+
+const buildBookingTimeline = (booking) => {
+  const events = [];
+  const add = (date, title, detail = "", type = "SYSTEM", metadata = null) => {
+    if (!date) return;
+    events.push({
+      id: `${type}:${title}:${new Date(date).toISOString()}:${events.length}`,
+      date,
+      title,
+      detail,
+      type,
+      metadata,
+    });
+  };
+
+  add(booking.createdAt, "Booking created", `Status: ${booking.status}`, "BOOKING");
+
+  if (booking.payment) {
+    add(
+      booking.payment.createdAt,
+      "Payment initiated",
+      `₹${Number(booking.payment.amount || 0).toLocaleString("en-IN")}`,
+      "PAYMENT",
+    );
+    if (booking.payment.updatedAt && booking.payment.updatedAt > booking.payment.createdAt) {
+      add(
+        booking.payment.updatedAt,
+        `Payment ${String(booking.payment.status || "updated").toLowerCase()}`,
+        booking.payment.cashfreePaymentId || booking.payment.cashfreeOrderId || "",
+        "PAYMENT",
+      );
+    }
+  }
+
+  for (const request of booking.broadcasts || []) {
+    add(
+      request.sentAt || request.createdAt,
+      `Request sent to ${request.garage?.name || "garage"}`,
+      "",
+      "GARAGE_REQUEST",
+    );
+    add(
+      request.acceptedAt,
+      `${request.garage?.name || "Garage"} accepted request`,
+      request.garageResponseNote || "",
+      "GARAGE_REQUEST",
+    );
+    add(
+      request.rejectedAt,
+      `${request.garage?.name || "Garage"} rejected request`,
+      request.garageResponseNote || "",
+      "GARAGE_REQUEST",
+    );
+    add(
+      request.expiredAt,
+      `Request to ${request.garage?.name || "garage"} expired`,
+      "",
+      "GARAGE_REQUEST",
+    );
+  }
+
+  add(booking.acceptedAt, "Garage assigned", booking.garage?.name || "", "BOOKING");
+  add(booking.handoverOtpVerifiedAt, "Vehicle handover verified", "", "BOOKING");
+  add(booking.trackingStartedAt, "Service tracking started", "", "BOOKING");
+  add(booking.deliveredAt, "Garage marked vehicle delivered", "", "BOOKING");
+  add(booking.customerAcceptedAt, "Customer accepted delivery", "", "BOOKING");
+  add(booking.expiredAt, "Booking expired", "", "BOOKING");
+
+  for (const event of booking.adminEvents || []) {
+    add(
+      event.createdAt,
+      event.action === "NOTE"
+        ? "Internal admin note"
+        : event.action === "STATUS_CHANGED"
+          ? "Status changed by admin"
+          : event.action === "GARAGE_REASSIGNED"
+            ? "Garage reassigned by admin"
+            : "Admin action",
+      event.note || "",
+      "ADMIN",
+      {
+        ...event.metadata,
+        staffName: event.staffName,
+        action: event.action,
+      },
+    );
+  }
+
+  return events.sort((a, b) => new Date(b.date) - new Date(a.date));
+};
+
+const getBookingDetails = async (bookingId) => {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      ...bookingInclude,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          customerProfile: true,
+          locations: {
+            orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+          },
+        },
+      },
+      broadcasts: {
+        include: {
+          garage: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+              phone: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+      complaints: {
+        orderBy: { createdAt: "desc" },
+      },
+      inspectionImages: {
+        orderBy: [{ phase: "asc" }, { order: "asc" }],
+      },
+      review: true,
+      adminEvents: {
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+
+  if (!booking) {
+    throw new ApiError(404, "Booking not found");
+  }
+
+  return {
+    ...booking,
+    timeline: buildBookingTimeline(booking),
+  };
+};
+
+const createAdminBookingEvent = async (tx, {
+  bookingId,
+  staff,
+  action,
+  note = "",
+  metadata = undefined,
+}) => tx.adminBookingEvent.create({
+  data: {
+    bookingId,
+    staffId: staff.id,
+    staffName: staff.name || staff.loginId || staff.role || "Staff",
+    action,
+    note: String(note || "").trim().slice(0, 1000) || null,
+    metadata,
+  },
+});
+
+const updateBookingStatus = async ({ bookingId, status, note, staff }) => {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      id: true,
+      userId: true,
+      bookingCode: true,
+      status: true,
+      garageId: true,
+      trackingStartedAt: true,
+      trackingEndedAt: true,
+      deliveredAt: true,
+      expiredAt: true,
+    },
+  });
+
+  if (!booking) throw new ApiError(404, "Booking not found");
+  if (status === "GARAGE_ASSIGNED" && !booking.garageId) {
+    throw new ApiError(400, "Assign a garage before setting GARAGE_ASSIGNED");
+  }
+
+  const now = new Date();
+  const data = { status };
+  if (status === "IN_PROGRESS" && !booking.trackingStartedAt) {
+    data.trackingStartedAt = now;
+  }
+  if (status === "COMPLETED") {
+    data.deliveredAt = booking.deliveredAt || now;
+    data.trackingEndedAt = booking.trackingEndedAt || now;
+  }
+  if (status === "EXPIRED") data.expiredAt = booking.expiredAt || now;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.booking.update({ where: { id: bookingId }, data });
+    await createAdminBookingEvent(tx, {
+      bookingId,
+      staff,
+      action: "STATUS_CHANGED",
+      note,
+      metadata: { fromStatus: booking.status, toStatus: status },
+    });
+  });
+
+  await invalidateCustomerCache(booking.userId);
+  await notificationService.createNotification({
+    userId: booking.userId,
+    type: "BOOKING",
+    title: "Booking status updated",
+    message: `Booking ${booking.bookingCode} is now ${status.replaceAll("_", " ").toLowerCase()}.`,
+    link: "/dashboard/bookings",
+    metadata: { bookingId, status, updatedByAdmin: true },
+  }).catch((error) => {
+    console.warn("[admin-booking] status notification failed", {
+      bookingId,
+      message: error?.message || "Unknown notification error",
+    });
+  });
+
+  return getBookingDetails(bookingId);
+};
+
+const reassignBookingGarage = async ({ bookingId, garageId, note, staff }) => {
+  const [booking, garage] = await Promise.all([
+    prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        userId: true,
+        bookingCode: true,
+        garageId: true,
+        garage: { select: { name: true } },
+      },
+    }),
+    prisma.garage.findFirst({
+      where: { id: garageId, isActive: true },
+      select: { id: true, name: true, city: true },
+    }),
+  ]);
+
+  if (!booking) throw new ApiError(404, "Booking not found");
+  if (!garage) throw new ApiError(404, "Active garage not found");
+
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    if (booking.garageId && booking.garageId !== garageId) {
+      await tx.garageBroadcastRequest.updateMany({
+        where: { bookingId, garageId: booking.garageId, status: "ACCEPTED" },
+        data: { status: "EXPIRED", expiredAt: now },
+      });
+    }
+
+    await tx.garageBroadcastRequest.upsert({
+      where: { bookingId_garageId: { bookingId, garageId } },
+      create: {
+        bookingId,
+        garageId,
+        status: "ACCEPTED",
+        acceptedAt: now,
+        garageResponseNote: "Assigned by admin",
+      },
+      update: {
+        status: "ACCEPTED",
+        acceptedAt: now,
+        rejectedAt: null,
+        expiredAt: null,
+        garageResponseNote: "Assigned by admin",
+      },
+    });
+
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        garageId,
+        status: "GARAGE_ASSIGNED",
+        acceptedAt: now,
+        searchExpiresAt: null,
+        expiredAt: null,
+      },
+    });
+
+    await createAdminBookingEvent(tx, {
+      bookingId,
+      staff,
+      action: "GARAGE_REASSIGNED",
+      note,
+      metadata: {
+        fromGarageId: booking.garageId,
+        fromGarageName: booking.garage?.name || null,
+        toGarageId: garage.id,
+        toGarageName: garage.name,
+      },
+    });
+  });
+
+  await invalidateCustomerCache(booking.userId);
+  await notificationService.createNotification({
+    userId: booking.userId,
+    type: "BOOKING",
+    title: "Garage assigned",
+    message: `${garage.name} has been assigned to booking ${booking.bookingCode}.`,
+    link: "/dashboard/bookings",
+    metadata: { bookingId, garageId, updatedByAdmin: true },
+  }).catch((error) => {
+    console.warn("[admin-booking] garage notification failed", {
+      bookingId,
+      message: error?.message || "Unknown notification error",
+    });
+  });
+
+  return getBookingDetails(bookingId);
+};
+
+const addBookingAdminNote = async ({ bookingId, note, staff }) => {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { id: true },
+  });
+  if (!booking) throw new ApiError(404, "Booking not found");
+
+  await createAdminBookingEvent(prisma, {
+    bookingId,
+    staff,
+    action: "NOTE",
+    note,
+  });
+
+  return getBookingDetails(bookingId);
+};
+
+const getCustomerProfile = async (userId) => {
+  const now = new Date();
+  const customer = await prisma.user.findFirst({
+    where: { id: userId, role: "CUSTOMER" },
+    select: {
+      ...userSelect,
+      wallet: true,
+      vehicles: { orderBy: { createdAt: "desc" } },
+      bookings: {
+        include: bookingInclude,
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      },
+      complaints: {
+        include: {
+          booking: { select: { id: true, bookingCode: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      },
+      customerActivities: {
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      },
+      sessions: {
+        orderBy: { lastSeenAt: "desc" },
+        take: 30,
+      },
+      walletTransactions: {
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      },
+      notifications: {
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      },
+    },
+  });
+
+  if (!customer) throw new ApiError(404, "Customer not found");
+
+  const [
+    statusGroups,
+    serviceSpend,
+    platformFeeSpend,
+    reviewCount,
+    complaintCount,
+  ] = await Promise.all([
+    prisma.booking.groupBy({
+      by: ["status"],
+      where: { userId },
+      _count: { _all: true },
+    }),
+    prisma.booking.aggregate({
+      where: {
+        userId,
+        status: "COMPLETED",
+      },
+      _sum: { totalServiceAmount: true },
+    }),
+    prisma.payment.aggregate({
+      where: {
+        booking: { is: { userId } },
+        status: "PAID",
+      },
+      _sum: { amount: true },
+    }),
+    prisma.review.count({ where: { userId } }),
+    prisma.complaint.count({ where: { userId } }),
+  ]);
+
+  const [withSessionStatus] = await attachCustomerSessionStatus([customer]);
+  const sessions = (customer.sessions || []).map((session) => ({
+    ...session,
+    isActive: !session.revokedAt && session.expiresAt > now,
+  }));
+
+  return {
+    ...withSessionStatus,
+    sessions,
+    summary: {
+      bookingStatusCounts: statusGroups.reduce((result, row) => {
+        result[row.status] = row._count._all;
+        return result;
+      }, {}),
+      completedServiceSpend: serviceSpend._sum.totalServiceAmount || 0,
+      platformFeeSpend: platformFeeSpend._sum.amount || 0,
+      totalSpend:
+        Number(serviceSpend._sum.totalServiceAmount || 0) +
+        Number(platformFeeSpend._sum.amount || 0),
+      complaintCount,
+      reviewCount,
+    },
+  };
 };
 
 
@@ -1255,12 +1837,18 @@ const clearAllBookings = async ({
 };
 
 module.exports = {
+  addBookingAdminNote,
   clearAllBookings,
+  getBookingDetails,
+  getCustomerProfile,
   getDashboardStats,
+  getOperationsDashboard,
   listPayments,
   listBookings,
   listCustomers,
+  reassignBookingGarage,
   searchEmailUsers,
   sendUserEmail,
   sendNotification,
+  updateBookingStatus,
 };

@@ -16,6 +16,63 @@ const listBookings = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Bookings fetched successfully", bookings));
 });
 
+
+const getOperationsDashboard = asyncHandler(async (req, res) => {
+  const result = await service.getOperationsDashboard();
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Live operations fetched successfully", result));
+});
+
+const getBookingDetails = asyncHandler(async (req, res) => {
+  const booking = await service.getBookingDetails(req.params.bookingId);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Booking details fetched successfully", booking));
+});
+
+const updateBookingStatus = asyncHandler(async (req, res) => {
+  const booking = await service.updateBookingStatus({
+    bookingId: req.params.bookingId,
+    status: req.body.status,
+    note: req.body.note,
+    staff: req.user,
+  });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Booking status updated successfully", booking));
+});
+
+const reassignBookingGarage = asyncHandler(async (req, res) => {
+  const booking = await service.reassignBookingGarage({
+    bookingId: req.params.bookingId,
+    garageId: req.body.garageId,
+    note: req.body.note,
+    staff: req.user,
+  });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Booking garage updated successfully", booking));
+});
+
+const addBookingAdminNote = asyncHandler(async (req, res) => {
+  const booking = await service.addBookingAdminNote({
+    bookingId: req.params.bookingId,
+    note: req.body.note,
+    staff: req.user,
+  });
+  return res
+    .status(201)
+    .json(new ApiResponse(201, "Internal note added successfully", booking));
+});
+
+const getCustomerProfile = asyncHandler(async (req, res) => {
+  const customer = await service.getCustomerProfile(req.params.userId);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Customer profile fetched successfully", customer));
+});
+
 const listPayments = asyncHandler(async (req, res) => {
   const payments = await service.listPayments(req.query);
   return res
@@ -81,12 +138,18 @@ const sendUserEmail = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  addBookingAdminNote,
   clearAllBookings,
+  getBookingDetails,
+  getCustomerProfile,
   getDashboardStats,
+  getOperationsDashboard,
   listBookings,
   listCustomers,
   listPayments,
+  reassignBookingGarage,
   searchEmailUsers,
   sendUserEmail,
   sendNotification,
+  updateBookingStatus,
 };
