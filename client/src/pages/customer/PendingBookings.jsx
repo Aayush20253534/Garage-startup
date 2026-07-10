@@ -229,7 +229,7 @@ export default function PendingBookings() {
           type="button"
           onClick={() => loadPendingBookings({ force: true })}
           disabled={refreshing}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-white px-4 text-sm font-medium text-ink shadow-sm transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-9 w-fit self-start items-center justify-center gap-2 rounded-md border border-line bg-white px-3.5 text-sm font-medium text-ink shadow-sm transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto sm:px-4"
         >
           <FiRefreshCw className={refreshing ? "animate-spin" : ""} />
           {refreshing ? "Refreshing..." : "Refresh"}
