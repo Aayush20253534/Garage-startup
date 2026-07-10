@@ -131,7 +131,7 @@ const buildPayload = ({
   title: String(title || "Rovauto"),
   body: String(message || "You have a new Rovauto update."),
   icon: "/icon-192.png",
-  badge: "/favicon-48.png",
+  badge: "/notification-badge-96.png",
   tag: id ? `rovauto-${id}` : undefined,
   data: {
     url: link || "/",
