@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { FiArrowRight, FiArrowLeft } from "react-icons/fi";
-import Logo from "@/components/common/Logo";
 import ImageUpload from "@/components/garage/ImageUpload";
 
 export default function OnboardingStep3({ data, onChange, onNext, onBack }) {
@@ -50,14 +49,25 @@ export default function OnboardingStep3({ data, onChange, onNext, onBack }) {
               onChange={(images) => onChange({ ...data, images })}
             />
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full py-4 text-lg"
-            >
-              {loading ? "Continuing..." : "Continue"}
-              <FiArrowRight className="w-5 h-5" />
-            </button>
+            <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
+              <button
+                type="button"
+                onClick={onBack}
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FiArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Continuing..." : "Continue"}
+                <FiArrowRight className="h-4 w-4" />
+              </button>
+            </div>
           </form>
         </motion.div>
       </div>

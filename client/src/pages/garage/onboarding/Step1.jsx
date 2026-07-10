@@ -138,10 +138,10 @@ export default function OnboardingStep1({ data, onChange, onNext }) {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full py-4 text-lg mt-4"
+              className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Continuing..." : "Continue"}
-              <FiArrowRight className="w-5 h-5" />
+              <FiArrowRight className="h-4 w-4" />
             </button>
           </form>
         </motion.div>

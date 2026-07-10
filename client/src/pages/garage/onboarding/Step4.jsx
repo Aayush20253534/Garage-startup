@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { FiCheckCircle, FiAlertCircle } from "react-icons/fi";
+import { FiAlertCircle, FiArrowLeft, FiCheckCircle } from "react-icons/fi";
 import { garageApi } from "@/api/garage";
 import api from "@/api/axios";
 
@@ -18,7 +18,7 @@ const getPhoneDigits = (value) => {
   return digits.slice(0, 10);
 };
 
-export default function OnboardingStep4({ data, onChange }) {
+export default function OnboardingStep4({ data, onChange, onBack }) {
   const [loading, setLoading] = useState(false);
   const [complete, setComplete] = useState(false);
   const [error, setError] = useState("");
@@ -121,7 +121,10 @@ export default function OnboardingStep4({ data, onChange }) {
             Your garage application is pending admin review. After approval,
             recharge Rs. 100 or more to activate your listing.
           </p>
-          <Link to="/garage/login" className="btn-primary w-full">
+          <Link
+            to="/garage/login"
+            className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark"
+          >
             Go to Garage Login
           </Link>
         </motion.div>
@@ -154,10 +157,10 @@ export default function OnboardingStep4({ data, onChange }) {
               <button
                 type="button"
                 onClick={() => onChange({ ...data, garageType: "MULTI_BRAND" })}
-                className={`p-6 rounded-2xl border-2 text-center transition-all ${
+                className={`rounded-lg border p-5 text-center shadow-sm transition ${
                   data.garageType === "MULTI_BRAND"
                     ? "border-brand bg-brand-soft"
-                    : "border-line hover:border-ink-2"
+                    : "border-line bg-white hover:border-ink/25 hover:bg-bg-soft"
                 }`}
               >
                 <h3 className="font-bold text-lg mb-1">Multi-Brand</h3>
@@ -172,10 +175,10 @@ export default function OnboardingStep4({ data, onChange }) {
                     brands: data.brands.slice(0, 1),
                   })
                 }
-                className={`p-6 rounded-2xl border-2 text-center transition-all ${
+                className={`rounded-lg border p-5 text-center shadow-sm transition ${
                   data.garageType === "AUTHORIZED"
                     ? "border-brand bg-brand-soft"
-                    : "border-line hover:border-ink-2"
+                    : "border-line bg-white hover:border-ink/25 hover:bg-bg-soft"
                 }`}
               >
                 <h3 className="font-bold text-lg mb-1">Authorized</h3>
@@ -203,10 +206,10 @@ export default function OnboardingStep4({ data, onChange }) {
                       key={brand.id || brand.name}
                       type="button"
                       onClick={() => toggleBrand(brand.name)}
-                      className={`p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center gap-2 ${
+                      className={`flex min-h-[112px] flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center shadow-sm transition ${
                         data.brands.includes(brand.name)
                           ? "border-brand bg-brand-soft"
-                          : "border-line hover:border-ink-2"
+                          : "border-line bg-white hover:border-ink/25 hover:bg-bg-soft"
                       }`}
                     >
                       {logo ? (
@@ -230,17 +233,27 @@ export default function OnboardingStep4({ data, onChange }) {
               )}
             </div>
 
-            <button
-              type="submit"
-              disabled={loading || brandsLoading || data.brands.length === 0}
-              className="btn-primary w-full py-4 text-lg"
-            >
-              {loading ? "Submitting..." : "Submit Application"}
-            </button>
+            <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
+              <button
+                type="button"
+                onClick={onBack}
+                disabled={loading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FiArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading || brandsLoading || data.brands.length === 0}
+                className="inline-flex h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Submitting..." : "Submit Application"}
+              </button>
+            </div>
           </form>
         </motion.div>
       </div>
     </div>
   );
 }
-

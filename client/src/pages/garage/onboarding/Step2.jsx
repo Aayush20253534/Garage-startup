@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { FiArrowRight, FiMapPin, FiTarget } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiMapPin, FiTarget } from "react-icons/fi";
 import LocationPicker from "@/components/maps/LocationPicker";
 import { mapsApi } from "@/api/maps";
 import CitySelect from "@/components/common/CitySelect";
@@ -27,7 +27,7 @@ const getValidatedLocation = (validated, fallbackLocation) => {
   return fallbackLocation;
 };
 
-export default function OnboardingStep2({ data, onChange, onNext }) {
+export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
   const [loading, setLoading] = useState(false);
   const [locationError, setLocationError] = useState("");
   const [validationResult, setValidationResult] = useState(null);
@@ -299,12 +299,22 @@ export default function OnboardingStep2({ data, onChange, onNext }) {
             )}
 
             <button
+              type="button"
+              onClick={onBack}
+              disabled={loading}
+              className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiArrowLeft className="h-4 w-4" />
+              Back
+            </button>
+
+            <button
               type="submit"
               disabled={loading}
-              className="btn-primary mt-6 w-full py-4 text-base disabled:opacity-60"
+              className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Checking location…" : "Save and continue"}
-              <FiArrowRight />
+              {loading ? "Checking location..." : "Save and continue"}
+              <FiArrowRight className="h-4 w-4" />
             </button>
           </aside>
         </form>
