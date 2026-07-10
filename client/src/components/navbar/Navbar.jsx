@@ -231,19 +231,19 @@ export default function Navbar() {
               end={item.to === "/"}
               className={({ isActive }) =>
                 [
-                  "relative rounded-full px-3 py-2 text-sm font-semibold transition",
+                  "relative inline-flex h-10 items-center justify-center rounded-full px-3 text-sm font-semibold leading-none transition-colors",
                   isActive ? "text-ink" : "text-ink/70 hover:text-ink",
                 ].join(" ")
               }
             >
               {({ isActive }) => (
                 <>
-                  {item.label}
+                  <span className="relative z-10">{item.label}</span>
 
                   {isActive && (
                     <motion.span
                       layoutId="nav-pill"
-                      className="absolute inset-0 -z-10 rounded-full bg-bg-soft"
+                      className="pointer-events-none absolute inset-0 z-0 rounded-full bg-bg-soft"
                       transition={{
                         type: "spring",
                         stiffness: 420,
