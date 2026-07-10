@@ -4,12 +4,15 @@ const ApiResponse = require("../../utils/apiResponse");
 const authService = require("../services/auth.service");
 const {
   ACCESS_TOKEN_COOKIE_NAME,
+  DEVICE_ID_COOKIE_NAME,
   accessTokenCookieOptions,
   accessTokenClearCookieOptions,
+  deviceIdCookieOptions,
 } = require("../../config/authCookie");
 
 const getSessionMetadata = (req) => ({
   userAgent: req.get("user-agent") || "",
+  deviceId: req.cookies?.[DEVICE_ID_COOKIE_NAME] || "",
 });
 
 const preventAuthResponseCaching = (res) => {
@@ -22,13 +25,23 @@ const sendAuthResponse = (res, statusCode, message, result) => {
     throw new ApiError(500, "Authentication token was not generated");
   }
 
-  const { token, ...safeResult } = result;
+  const { token, deviceId, ...safeResult } = result;
 
   res.cookie(
     ACCESS_TOKEN_COOKIE_NAME,
     token,
     accessTokenCookieOptions,
   );
+
+  if (deviceId) {
+    // Keep a stable, HttpOnly browser identifier so repeat logins from the
+    // same device are counted as one device instead of one device per session.
+    res.cookie(
+      DEVICE_ID_COOKIE_NAME,
+      deviceId,
+      deviceIdCookieOptions,
+    );
+  }
 
   preventAuthResponseCaching(res);
 

@@ -133,7 +133,7 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(title, {
       body: payload.body || payload.message || "You have a new Rovauto update.",
       icon: payload.icon || "/icon-192.png",
-      badge: payload.badge || "/notification-badge-96.png",
+      badge: payload.badge || "/icon-192.png",
       tag: payload.tag || "rovauto-notification",
       renotify: true,
       data: payload.data || { url: "/" },

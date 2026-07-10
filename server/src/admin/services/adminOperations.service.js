@@ -35,6 +35,20 @@ const userSelect = {
 
 const CUSTOMER_ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
+const getSessionDeviceKey = (session) => {
+  if (session.deviceId) return `device:${session.deviceId}`;
+
+  const normalizedUserAgent = String(session.userAgent || "")
+    .trim()
+    .toLowerCase();
+
+  // Sessions created before stable device IDs were introduced are grouped by
+  // browser signature. This gives existing accounts a useful best-effort count.
+  if (normalizedUserAgent) return `legacy-ua:${normalizedUserAgent}`;
+
+  return `session:${session.id}`;
+};
+
 const attachCustomerSessionStatus = async (customers = []) => {
   const userIds = customers.map((customer) => customer.id);
 
@@ -45,38 +59,53 @@ const attachCustomerSessionStatus = async (customers = []) => {
     now.getTime() - CUSTOMER_ONLINE_WINDOW_MS,
   );
 
-  const [activeSessionGroups, latestSessionGroups] = await Promise.all([
-    prisma.userSession.groupBy({
-      by: ["userId"],
-      where: {
-        userId: { in: userIds },
-        revokedAt: null,
-        expiresAt: { gt: now },
-      },
-      _count: { id: true },
-      _max: { lastSeenAt: true },
-    }),
-    prisma.userSession.groupBy({
-      by: ["userId"],
-      where: { userId: { in: userIds } },
-      _max: { lastSeenAt: true },
-    }),
-  ]);
+  const sessions = await prisma.userSession.findMany({
+    where: { userId: { in: userIds } },
+    select: {
+      id: true,
+      userId: true,
+      userAgent: true,
+      deviceId: true,
+      lastSeenAt: true,
+      expiresAt: true,
+      revokedAt: true,
+    },
+  });
 
-  const activeByUserId = new Map(
-    activeSessionGroups.map((group) => [group.userId, group]),
-  );
-  const latestByUserId = new Map(
-    latestSessionGroups.map((group) => [
-      group.userId,
-      group._max.lastSeenAt,
-    ]),
-  );
+  const sessionsByUserId = new Map();
+
+  for (const session of sessions) {
+    const list = sessionsByUserId.get(session.userId) || [];
+    list.push(session);
+    sessionsByUserId.set(session.userId, list);
+  }
 
   return customers.map((customer) => {
-    const activeGroup = activeByUserId.get(customer.id);
-    const activeSessionCount = activeGroup?._count?.id || 0;
-    const activeLastSeenAt = activeGroup?._max?.lastSeenAt || null;
+    const customerSessions = sessionsByUserId.get(customer.id) || [];
+    const knownDevices = new Set();
+    const activeDevices = new Set();
+    let activeSessionCount = 0;
+    let activeLastSeenAt = null;
+    let lastSeenAt = null;
+
+    for (const session of customerSessions) {
+      const deviceKey = getSessionDeviceKey(session);
+      knownDevices.add(deviceKey);
+
+      if (!lastSeenAt || session.lastSeenAt > lastSeenAt) {
+        lastSeenAt = session.lastSeenAt;
+      }
+
+      const isActive = !session.revokedAt && session.expiresAt > now;
+      if (!isActive) continue;
+
+      activeSessionCount += 1;
+      activeDevices.add(deviceKey);
+
+      if (!activeLastSeenAt || session.lastSeenAt > activeLastSeenAt) {
+        activeLastSeenAt = session.lastSeenAt;
+      }
+    }
 
     return {
       ...customer,
@@ -86,7 +115,9 @@ const attachCustomerSessionStatus = async (customers = []) => {
         activeLastSeenAt &&
         activeLastSeenAt >= onlineCutoff,
       activeSessionCount,
-      lastSeenAt: latestByUserId.get(customer.id) || null,
+      activeDeviceCount: activeDevices.size,
+      knownDeviceCount: knownDevices.size,
+      lastSeenAt,
     };
   });
 };

@@ -47,6 +47,7 @@ model UserSession {
   id         String    @id @default(uuid())
   userId     String
   userAgent  String?
+  deviceId   String?
   lastSeenAt DateTime  @default(now())
   expiresAt  DateTime
   revokedAt  DateTime?
@@ -55,6 +56,7 @@ model UserSession {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
+  @@index([userId, deviceId])
   @@index([lastSeenAt])
   @@map("user_sessions")
 }

@@ -99,12 +99,16 @@ export default function AdminLogin() {
             className="rounded-xl border border-line px-4 py-3 outline-none focus:border-ink"
           />
 
-          <button disabled={loading} className="btn-primary mt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
             {loading ? (
               "Logging in..."
             ) : (
               <>
-                Login <FiArrowRight />
+                Login <FiArrowRight className="h-4 w-4" />
               </>
             )}
           </button>

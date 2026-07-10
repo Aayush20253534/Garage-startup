@@ -141,6 +141,7 @@ const createUserAuthResult = async (
   return {
     user: authUser,
     token,
+    deviceId: session.deviceId,
     ...extra,
   };
 };

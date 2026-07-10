@@ -129,6 +129,9 @@ const formatLastSeen = (value) => {
   return timestamp.toLocaleString();
 };
 
+const formatDeviceCount = (count) =>
+  `${count || 0} ${count === 1 ? "device" : "devices"}`;
+
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
   const [cities, setCities] = useState([]);
@@ -229,7 +232,7 @@ export default function Customers() {
         <div>
           <h2 className="text-2xl font-bold text-ink">Customers</h2>
           <p className="mt-1 text-sm text-muted">
-            Search, filter, and inspect registered customer accounts.
+            Search, filter, and inspect customer accounts, sessions, and devices.
           </p>
         </div>
 
@@ -366,7 +369,7 @@ export default function Customers() {
           <div>
             <p className="text-sm font-bold text-ink">Customer login activity</p>
             <p className="mt-0.5 text-xs text-muted">
-              Online means the account used Rovauto within the last 5 minutes.
+              Online means the account used Rovauto within the last 5 minutes. Device totals include previous logins.
             </p>
           </div>
 
@@ -381,7 +384,7 @@ export default function Customers() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-sm">
+          <table className="w-full min-w-[1020px] text-sm">
             <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 {[
@@ -392,6 +395,7 @@ export default function Customers() {
                   "Bookings",
                   "Vehicles",
                   "Login",
+                  "Devices",
                   "Status",
                 ].map((heading) => (
                   <th
@@ -407,7 +411,7 @@ export default function Customers() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="px-4 py-6 text-sm text-muted">
+                  <td colSpan="9" className="px-4 py-6 text-sm text-muted">
                     Loading customers...
                   </td>
                 </tr>
@@ -483,9 +487,26 @@ export default function Customers() {
                           {customer.lastSeenAt
                             ? `Last seen ${formatLastSeen(customer.lastSeenAt)}`
                             : "No recorded session"}
-                          {customer.activeSessionCount > 1
+                          {customer.activeSessionCount >
+                          customer.activeDeviceCount
                             ? ` · ${customer.activeSessionCount} sessions`
                             : ""}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <div className="flex flex-col items-start gap-1">
+                        <span
+                          className="rounded-lg border border-line bg-white px-2.5 py-1 text-xs font-bold text-ink"
+                          title="Unique devices or browsers recorded for this customer"
+                        >
+                          {formatDeviceCount(customer.knownDeviceCount)}
+                        </span>
+                        <span className="text-[11px] text-muted">
+                          {customer.activeDeviceCount
+                            ? `${customer.activeDeviceCount} active`
+                            : "No active devices"}
                         </span>
                       </div>
                     </td>
@@ -506,7 +527,7 @@ export default function Customers() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" className="px-4 py-6 text-sm text-muted">
+                  <td colSpan="9" className="px-4 py-6 text-sm text-muted">
                     No customers found.
                   </td>
                 </tr>
