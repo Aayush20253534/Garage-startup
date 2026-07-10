@@ -217,10 +217,15 @@ const updateTicket = async ({ ticketId, data }) => {
   });
   if (!existing) throw new ApiError(404, "Support ticket not found");
 
+  const statusWasProvided = Object.prototype.hasOwnProperty.call(data, "status");
   const nextStatus = data.status || existing.status;
   const resolving = ["RESOLVED", "CLOSED"].includes(nextStatus);
   const hasResolutionNote = Object.prototype.hasOwnProperty.call(data, "resolutionNote");
   const hasResolutionOutcome = Object.prototype.hasOwnProperty.call(data, "resolutionOutcome");
+  const hasRefundAmount = Object.prototype.hasOwnProperty.call(data, "refundAmount");
+  const mustValidateResolution =
+    (statusWasProvided && resolving) ||
+    (resolving && (hasResolutionNote || hasResolutionOutcome || hasRefundAmount));
   const effectiveResolutionNote = hasResolutionNote
     ? sanitizeText(data.resolutionNote, 3000)
     : sanitizeText(existing.resolutionNote, 3000);
@@ -228,10 +233,10 @@ const updateTicket = async ({ ticketId, data }) => {
     ? data.resolutionOutcome || null
     : existing.resolutionOutcome;
 
-  if (resolving && !effectiveResolutionNote) {
+  if (mustValidateResolution && !effectiveResolutionNote) {
     throw new ApiError(400, "A resolution note is required before resolving a ticket");
   }
-  if (existing.type === "DISPUTE" && resolving && !effectiveResolutionOutcome) {
+  if (existing.type === "DISPUTE" && mustValidateResolution && !effectiveResolutionOutcome) {
     throw new ApiError(400, "Select a dispute resolution outcome");
   }
 
