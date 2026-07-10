@@ -1,5 +1,6 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
+const { deleteGaragesDeep } = require("../../admin/services/garageDeletion.service");
 const {
   GARAGE_MINIMUM_ACTIVATION_RECHARGE,
 } = require("../constants");
@@ -245,6 +246,32 @@ const updateGarageOwnerProfile = async (userId, payload = {}) => {
   return getGarageOwnerProfile(userId);
 };
 
+const deleteGarageOwnerAccount = async (userId) => {
+  const garages = await prisma.garage.findMany({
+    where: { ownerId: userId },
+    select: { id: true },
+  });
+
+  if (!garages.length) {
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    return {
+      deletedGarages: 0,
+      deletedApplications: 0,
+      deletedBookings: 0,
+      deletedOwnerUsers: 1,
+    };
+  }
+
+  const result = await deleteGaragesDeep({
+    garageIds: garages.map((garage) => garage.id),
+  });
+
+  return result;
+};
+
 const activateGarageIfEligible = async (tx, garageId) => {
   const garage = await tx.garage.findUnique({
     where: { id: garageId },
@@ -274,6 +301,7 @@ const activateGarageIfEligible = async (tx, garageId) => {
 
 module.exports = {
   activateGarageIfEligible,
+  deleteGarageOwnerAccount,
   getGarageForOwner,
   getGarageOwnerProfile,
   getGarageOwnerServices,

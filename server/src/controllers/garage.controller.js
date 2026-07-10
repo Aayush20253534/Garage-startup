@@ -2,6 +2,10 @@ const asyncHandler = require("../utils/asyncHandler");
 const ApiResponse = require("../utils/apiResponse");
 const garageService = require("../services/garage.service");
 const garageOwnerService = require("../garage/services/garageOwner.service");
+const {
+  ACCESS_TOKEN_COOKIE_NAME,
+  accessTokenClearCookieOptions,
+} = require("../config/authCookie");
 
 const getGarages = asyncHandler(async (req, res) => {
   const garages = await garageService.getGarages(req.query);
@@ -43,6 +47,21 @@ const updateMyGarage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Garage profile updated successfully", garage));
 });
 
+const deleteMyGarageAccount = asyncHandler(async (req, res) => {
+  const result = await garageOwnerService.deleteGarageOwnerAccount(req.user.id);
+
+  res.clearCookie(
+    ACCESS_TOKEN_COOKIE_NAME,
+    accessTokenClearCookieOptions,
+  );
+  res.set("Cache-Control", "no-store");
+  res.set("Pragma", "no-cache");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Garage account deleted successfully", result));
+});
+
 const getGarageById = asyncHandler(async (req, res) => {
   const garage = await garageService.getGarageById(req.params.id);
 
@@ -60,6 +79,7 @@ const getGarageServices = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  deleteMyGarageAccount,
   getGarages,
   getNearbyGarages,
   getMyGarage,

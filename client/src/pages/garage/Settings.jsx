@@ -40,6 +40,7 @@ export default function GarageSettings() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
   const settingsItems = [
@@ -139,8 +140,21 @@ export default function GarageSettings() {
 
   const handleDeleteAccount = async () => {
     setActionLoading(true);
-    await logoutGarage();
-    navigate("/");
+    setDeleteError("");
+
+    try {
+      await garageApi.deleteAccount();
+      await logoutGarage();
+      navigate("/");
+    } catch (err) {
+      setDeleteError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to delete this garage account",
+      );
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -168,7 +182,10 @@ export default function GarageSettings() {
                 onClick={() => {
                   if (isDanger) {
                     if (item.id === "logout") setShowLogoutModal(true);
-                    if (item.id === "delete") setShowDeleteModal(true);
+                    if (item.id === "delete") {
+                      setDeleteError("");
+                      setShowDeleteModal(true);
+                    }
                     return;
                   }
 
@@ -401,6 +418,13 @@ export default function GarageSettings() {
                 undo buttons, but not for this.
               </p>
             </div>
+
+            {deleteError && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <FiAlertCircle className="shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button

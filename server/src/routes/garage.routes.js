@@ -36,6 +36,13 @@ router.put(
   garageController.updateMyGarage,
 );
 
+router.delete(
+  "/me",
+  protect,
+  authorizeRoles("GARAGE_OWNER"),
+  garageController.deleteMyGarageAccount,
+);
+
 router.get("/:id", garageController.getGarageById);
 router.get("/:id/services", garageController.getGarageServices);
 

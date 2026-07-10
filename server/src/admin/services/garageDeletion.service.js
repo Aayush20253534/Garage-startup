@@ -1,6 +1,8 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { deleteFromCloudinary } = require("../../utils/cloudinaryUpload");
+const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
+const invalidatePublicCache = require("../../utils/invalidatePublicCache");
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const normalizePhone = (phone) => String(phone || "").trim();
@@ -100,6 +102,12 @@ const deleteGaragesDeep = async ({ garageIds = [], email = "", deleteAllApplicat
 
   const applicationWhere = buildApplicationWhere(garages, deleteAllApplications);
   const ownerIds = unique(garages.map((garage) => garage.ownerId));
+  const affectedBookings = ids.length
+    ? await prisma.booking.findMany({
+        where: { garageId: { in: ids } },
+        select: { id: true, userId: true },
+      })
+    : [];
 
   const [garageImages, garageVideos, inspectionImages, applicationImages] =
     await Promise.all([
@@ -160,6 +168,13 @@ const deleteGaragesDeep = async ({ garageIds = [], email = "", deleteAllApplicat
       deleteFromCloudinary(asset.publicId, asset.resourceType).catch(() => null),
     ),
   );
+
+  await Promise.all([
+    invalidatePublicCache(),
+    ...unique(affectedBookings.map((booking) => booking.userId)).map(
+      invalidateCustomerCache,
+    ),
+  ]);
 
   return result;
 };

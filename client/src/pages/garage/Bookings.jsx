@@ -131,7 +131,7 @@ export default function GarageBookings() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 overflow-x-hidden">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-line pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink sm:text-3xl">
             Bookings
@@ -145,7 +145,7 @@ export default function GarageBookings() {
           type="button"
           onClick={() => loadBookings()}
           disabled={loading || refreshing}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-9 w-fit self-start items-center justify-center gap-2 rounded-md border border-line bg-white px-3.5 text-sm font-medium text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto"
         >
           <FiRefreshCw
             className={loading || refreshing ? "animate-spin" : ""}
@@ -154,7 +154,7 @@ export default function GarageBookings() {
         </button>
       </div>
 
-      <section className="card-soft rounded-2xl p-3 shadow-sm">
+      <section className="rounded-lg border border-line bg-white p-2 shadow-sm">
         <div className="flex gap-2 overflow-x-auto pb-1">
           {statusFilters.map((filter) => (
             <button
@@ -162,7 +162,7 @@ export default function GarageBookings() {
               type="button"
               onClick={() => setActiveFilter(filter)}
               className={[
-                "h-9 shrink-0 rounded-full px-4 text-xs font-bold transition sm:text-sm",
+                "h-8 shrink-0 rounded-md px-3 text-xs font-semibold transition sm:text-sm",
                 activeFilter === filter
                   ? "bg-brand text-black"
                   : "bg-bg-soft text-muted hover:bg-line hover:text-ink",
@@ -183,7 +183,7 @@ export default function GarageBookings() {
 
       <section className="grid gap-3">
         {loading ? (
-          <div className="card-soft rounded-2xl p-5 text-sm text-muted">
+          <div className="rounded-lg border border-line bg-white p-5 text-sm text-muted shadow-sm">
             Loading bookings...
           </div>
         ) : safeBookings.length > 0 ? (
@@ -198,7 +198,7 @@ export default function GarageBookings() {
             />
           ))
         ) : (
-          <div className="card-soft rounded-2xl p-5 text-sm text-muted">
+          <div className="rounded-lg border border-dashed border-line bg-white p-8 text-center text-sm text-muted shadow-sm">
             No bookings found.
           </div>
         )}
