@@ -32,7 +32,10 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const isStaffPortal = isAdminPortal || isInternPortal;
   const hasDedicatedPortalBrand = isStaffPortal || isCustomerSupportPortal;
   const usesFixedPortalShell =
-    isCustomerSupportPortal || isCustomerPortal || isGaragePortal;
+    isStaffPortal ||
+    isCustomerSupportPortal ||
+    isCustomerPortal ||
+    isGaragePortal;
 
   const { openIssueCount } = useOpenSystemIssueCount({
     enabled: isStaffPortal,
