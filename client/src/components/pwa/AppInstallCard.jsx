@@ -3,6 +3,7 @@ import {
   FiCheckCircle,
   FiDownload,
   FiMoreVertical,
+  FiRefreshCw,
   FiShare,
   FiSmartphone,
 } from "react-icons/fi";
@@ -34,7 +35,8 @@ export default function AppInstallCard({
     new URLSearchParams(window.location.search).get("pwa") === pwaId;
 
   const [installed, setInstalled] = useState(() =>
-    Boolean(localStorage.getItem(installedStorageKey)) ||
+    (Boolean(localStorage.getItem(installedStorageKey)) &&
+      !window[promptKey]) ||
     (isStandalone() && (!pwaId || hasMatchingStartMarker())),
   );
   const [showHelp, setShowHelp] = useState(false);
@@ -46,8 +48,14 @@ export default function AppInstallCard({
       setInstalled(true);
     }
 
-    const handlePromptReady = () => {
-      setInstallPrompt(window[promptKey] || null);
+    const syncInstallPrompt = () => {
+      const prompt = window[promptKey] || null;
+      setInstallPrompt(prompt);
+
+      if (prompt && !isStandalone()) {
+        localStorage.removeItem(installedStorageKey);
+        setInstalled(false);
+      }
     };
     const handleInstalled = () => {
       window[promptKey] = null;
@@ -67,13 +75,19 @@ export default function AppInstallCard({
       }
     };
 
-    window.addEventListener(promptEvent, handlePromptReady);
+    window.addEventListener(promptEvent, syncInstallPrompt);
+    window.addEventListener("focus", syncInstallPrompt);
     window.addEventListener("appinstalled", handleInstalled);
+    document.addEventListener("visibilitychange", syncInstallPrompt);
     media?.addEventListener?.("change", handleDisplayMode);
 
+    syncInstallPrompt();
+
     return () => {
-      window.removeEventListener(promptEvent, handlePromptReady);
+      window.removeEventListener(promptEvent, syncInstallPrompt);
+      window.removeEventListener("focus", syncInstallPrompt);
       window.removeEventListener("appinstalled", handleInstalled);
+      document.removeEventListener("visibilitychange", syncInstallPrompt);
       media?.removeEventListener?.("change", handleDisplayMode);
     };
   }, [installedStorageKey, promptEvent, promptKey, pwaId]);
@@ -99,10 +113,23 @@ export default function AppInstallCard({
         window[promptKey] = null;
         localStorage.setItem(installedStorageKey, "1");
         setInstallPrompt(null);
+        setInstalled(true);
       }
     } finally {
       setInstalling(false);
     }
+  };
+
+  const reinstall = async () => {
+    localStorage.removeItem(installedStorageKey);
+    setInstalled(false);
+
+    if (installPrompt) {
+      await install();
+      return;
+    }
+
+    setShowHelp(true);
   };
 
   if (installed) {
@@ -113,16 +140,32 @@ export default function AppInstallCard({
           compact ? "p-3.5" : "p-4 sm:p-5",
         ].join(" ")}
       >
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700">
-            <FiCheckCircle />
-          </span>
-          <div className="min-w-0">
-            <p className="font-bold text-emerald-900">{appName} is installed</p>
-            <p className="mt-1 text-sm leading-5 text-emerald-800">
-              Open it from its app icon for the best full-screen experience.
-            </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700">
+              <FiCheckCircle />
+            </span>
+            <div className="min-w-0">
+              <p className="font-bold text-emerald-900">
+                {appName} is installed
+              </p>
+              <p className="mt-1 text-sm leading-5 text-emerald-800">
+                Open it from its app icon for the best full-screen experience.
+              </p>
+            </div>
           </div>
+
+          {!isStandalone() && (
+            <button
+              type="button"
+              onClick={() => void reinstall()}
+              disabled={installing}
+              className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            >
+              {installPrompt ? <FiDownload /> : <FiRefreshCw />}
+              {installing ? "Opening..." : "Install again"}
+            </button>
+          )}
         </div>
       </section>
     );
