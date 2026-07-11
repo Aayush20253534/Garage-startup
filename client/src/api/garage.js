@@ -1,5 +1,6 @@
 import api from "@/api/axios";
 import { verifyCurrentSession } from "@/utils/authSession";
+import { normalizeMediaCollection } from "@/utils/mediaUrl";
 
 const unwrap = (response) => response.data?.data ?? response.data;
 const GARAGE_MINIMUM_ACTIVATION_BALANCE = 100;
@@ -10,7 +11,7 @@ export const normalizeGarage = (garage) => {
   const wallet = garage.wallet || {};
   const activation = garage.activation || {};
   const owner = garage.owner || {};
-  const images = Array.isArray(garage.images) ? garage.images : [];
+  const images = normalizeMediaCollection(garage.images);
 
   const reviews = Array.isArray(garage.reviews)
     ? garage.reviews
@@ -54,6 +55,7 @@ export const normalizeGarage = (garage) => {
     ratingCount,
     reviews,
     recentReviews: reviews,
+    images,
     isOnboardingComplete: Boolean(garage.isVerified),
     activation: {
       minimumBalance: minimumActivationAmount,

@@ -15,6 +15,7 @@ import CitySelect from "@/components/common/CitySelect";
 import ImageUpload from "@/components/garage/ImageUpload";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
+import { normalizeMediaCollection, resolveMediaUrl } from "@/utils/mediaUrl";
 
 const inputClass =
   "h-10 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink";
@@ -36,7 +37,68 @@ const getSupportedBrands = (garage) => {
   }
 };
 
-const getGarageImageUrl = (image) => image?.imageUrl || image?.url || "";
+const getGarageImageUrl = (image) => resolveMediaUrl(image);
+
+const withImageRetryToken = (imageUrl) => {
+  try {
+    const retryUrl = new URL(imageUrl, window.location.origin);
+    retryUrl.searchParams.set("rovauto_image_retry", Date.now().toString());
+    return retryUrl.href;
+  } catch {
+    return imageUrl;
+  }
+};
+
+function GaragePhoto({ image, index }) {
+  const imageUrl = getGarageImageUrl(image);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [imageUrl]);
+
+  const handleError = (event) => {
+    const element = event.currentTarget;
+
+    // A previous garage PWA worker could retain an opaque failed response.
+    // Retry once with a unique URL so the request reaches the network.
+    if (element.dataset.retryAttempted !== "true") {
+      element.dataset.retryAttempted = "true";
+      element.src = withImageRetryToken(imageUrl);
+      return;
+    }
+
+    setFailed(true);
+  };
+
+  if (!imageUrl || failed) {
+    return (
+      <div className="grid aspect-square place-items-center rounded-xl border border-dashed border-line bg-bg-soft p-3 text-center text-xs font-semibold text-muted">
+        Photo unavailable
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={imageUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="group block aspect-square overflow-hidden rounded-xl border border-line bg-bg-soft"
+      aria-label={`Open garage photo ${index + 1}`}
+    >
+      <img
+        src={imageUrl}
+        alt={`Garage photo ${index + 1}`}
+        loading={index < 5 ? "eager" : "lazy"}
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={handleError}
+        className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+      />
+    </a>
+  );
+}
 
 export default function GarageProfile() {
   const { garage } = useSelector((state) => state.garage);
@@ -93,7 +155,10 @@ export default function GarageProfile() {
   }, [garage, editingDetails]);
 
   const activation = garage?.activation || {};
-  const uploadedImages = Array.isArray(garage?.images) ? garage.images : [];
+  const uploadedImages = useMemo(
+    () => normalizeMediaCollection(garage?.images),
+    [garage?.images],
+  );
   const supportedBrands = getSupportedBrands(garage);
 
   const minimumActivationAmount =
@@ -350,13 +415,12 @@ export default function GarageProfile() {
         </div>
 
         {uploadedImages.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {uploadedImages.map((image, index) => (
-              <img
+              <GaragePhoto
                 key={image.id || getGarageImageUrl(image) || index}
-                src={getGarageImageUrl(image)}
-                alt="Garage"
-                className="aspect-square rounded-xl object-cover"
+                image={image}
+                index={index}
               />
             ))}
           </div>

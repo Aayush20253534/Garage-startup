@@ -1,5 +1,6 @@
-const GARAGE_IMAGE_CACHE = "rovauto-garage-cloudinary-images-v1";
-const CLOUDINARY_HOSTS = ["res.cloudinary.com"];
+const GARAGE_IMAGE_CACHE = "rovauto-garage-cloudinary-images-v2";
+const isCloudinaryHost = (hostname) =>
+  hostname === "res.cloudinary.com" || hostname.endsWith(".cloudinary.com");
 
 const isCloudinaryImage = (request) => {
   if (request.method !== "GET") return false;
@@ -7,27 +8,37 @@ const isCloudinaryImage = (request) => {
   try {
     const url = new URL(request.url);
     return (
-      CLOUDINARY_HOSTS.includes(url.hostname) &&
-      (request.destination === "image" || /\.(avif|gif|jpe?g|png|webp)$/i.test(url.pathname))
+      isCloudinaryHost(url.hostname) &&
+      (request.destination === "image" ||
+        /\.(avif|gif|jpe?g|png|webp)$/i.test(url.pathname))
     );
   } catch {
     return false;
   }
 };
 
-const cacheImage = async (request) => {
-  const cache = await caches.open(GARAGE_IMAGE_CACHE);
-  const cached = await cache.match(request);
-  const networkRequest = fetch(request)
-    .then((response) => {
-      if (response && (response.ok || response.type === "opaque")) {
-        void cache.put(request, response.clone());
-      }
-      return response;
-    })
-    .catch(() => cached);
+const fetchAndCacheImage = async (request, cache) => {
+  const response = await fetch(request, { cache: "no-store" });
 
-  return cached || networkRequest;
+  if (response && (response.ok || response.type === "opaque")) {
+    await cache.put(request, response.clone());
+  }
+
+  return response;
+};
+
+const networkFirstImage = async (request) => {
+  const cache = await caches.open(GARAGE_IMAGE_CACHE);
+
+  try {
+    // Always try the current Cloudinary asset first. The older cache-first
+    // worker could keep an opaque failed response and repeatedly show a
+    // broken image even after the asset became available.
+    return await fetchAndCacheImage(request, cache);
+  } catch {
+    const cached = await cache.match(request);
+    return cached || Response.error();
+  }
 };
 
 self.addEventListener("install", () => {
@@ -55,7 +66,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (isCloudinaryImage(event.request)) {
-    event.respondWith(cacheImage(event.request));
+    event.respondWith(networkFirstImage(event.request));
   }
 });
 
@@ -73,16 +84,10 @@ self.addEventListener("message", (event) => {
               new Request(url, {
                 mode: "no-cors",
                 credentials: "omit",
+                cache: "no-store",
               }),
           )
-          .map((request) =>
-            fetch(request).then((response) => {
-              if (response && (response.ok || response.type === "opaque")) {
-                return cache.put(request, response);
-              }
-              return null;
-            }),
-          ),
+          .map((request) => fetchAndCacheImage(request, cache)),
       ),
     ),
   );
@@ -134,7 +139,8 @@ self.addEventListener("notificationclick", (event) => {
     const resolved = new URL(requestedUrl, self.location.origin);
     targetUrl =
       resolved.origin === self.location.origin &&
-      (resolved.pathname === "/garage" || resolved.pathname.startsWith("/garage/"))
+      (resolved.pathname === "/garage" ||
+        resolved.pathname.startsWith("/garage/"))
         ? resolved.href
         : new URL("/garage", self.location.origin).href;
   } catch {
@@ -150,7 +156,8 @@ self.addEventListener("notificationclick", (event) => {
           const clientUrl = new URL(client.url);
           return (
             clientUrl.origin === target.origin &&
-            (clientUrl.pathname === "/garage" || clientUrl.pathname.startsWith("/garage/"))
+            (clientUrl.pathname === "/garage" ||
+              clientUrl.pathname.startsWith("/garage/"))
           );
         });
 

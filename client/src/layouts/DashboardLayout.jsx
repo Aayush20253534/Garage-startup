@@ -23,9 +23,12 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     pathname === "/support" || pathname.startsWith("/support/");
   const isCustomerPortal =
     pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  const isGaragePortal =
+    pathname === "/garage" || pathname.startsWith("/garage/");
   const isStaffPortal = isAdminPortal || isInternPortal;
   const hasDedicatedPortalBrand = isStaffPortal || isCustomerSupportPortal;
-  const usesFixedPortalShell = isCustomerSupportPortal || isCustomerPortal;
+  const usesFixedPortalShell =
+    isCustomerSupportPortal || isCustomerPortal || isGaragePortal;
 
   const { openIssueCount } = useOpenSystemIssueCount({
     enabled: isStaffPortal,
@@ -33,7 +36,6 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const isGaragePortal = pathname.startsWith("/garage");
   const showCustomerAssistant =
     !isGaragePortal && !isStaffPortal && !isCustomerSupportPortal;
   const account = isGaragePortal ? garage : user;

@@ -1,8 +1,9 @@
-const CLOUDINARY_HOST = "res.cloudinary.com";
+const isCloudinaryHost = (hostname) =>
+  hostname === "res.cloudinary.com" || hostname.endsWith(".cloudinary.com");
 
 const isCloudinaryUrl = (url) => {
   try {
-    return new URL(url).hostname === CLOUDINARY_HOST;
+    return isCloudinaryHost(new URL(url).hostname);
   } catch {
     return false;
   }
