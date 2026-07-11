@@ -5,7 +5,6 @@ const ApiError = require("../utils/apiError");
 const calculateDistanceKm = require("../utils/distance");
 const { getCache, setCache } = require("../utils/cache");
 const { addGarageWhatsappLink, createWhatsappLink } = require("../utils/whatsapp");
-const { addServicePriceRange } = require("../utils/pricing");
 const googleMapsService = require("../maps/services/googleMaps.service");
 
 const GARAGE_LIST_TTL = 5 * 60;
@@ -336,12 +335,7 @@ const addThumbnail = (garage) => ({
 
 const serializeGarageService = (garageService) => {
   const { price, ...rest } = garageService;
-  return {
-    ...rest,
-    service: garageService.service
-      ? addServicePriceRange(garageService.service)
-      : garageService.service,
-  };
+  return rest;
 };
 
 const serializeGarage = (garage) =>
@@ -379,12 +373,8 @@ const serializePublicService = (service) => {
     id: service.id,
     name: service.name,
     description: service.description,
-    basePrice: service.basePrice,
-    minPrice: service.minPrice,
-    maxPrice: service.maxPrice,
     durationMin: service.durationMin,
     isComingSoon: service.isComingSoon,
-    priceRange: service.priceRange,
     category: service.category
       ? {
           id: service.category.id,

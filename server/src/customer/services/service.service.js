@@ -221,19 +221,6 @@ const getServices = async (query = {}, options = {}) => {
         ],
       }),
 
-      ...(minPrice && {
-        OR: [
-          { basePrice: { gte: Number(minPrice) } },
-          { minPrice: { gte: Number(minPrice) } },
-        ],
-      }),
-
-      ...(maxPrice && {
-        OR: [
-          { basePrice: { lte: Number(maxPrice) } },
-          { maxPrice: { lte: Number(maxPrice) } },
-        ],
-      }),
     },
     include: {
       category: true,
@@ -244,7 +231,24 @@ const getServices = async (query = {}, options = {}) => {
     orderBy: { name: "asc" },
   });
 
-  const result = await applyContextualPriceRanges(services, context);
+  const contextualServices = await applyContextualPriceRanges(services, context);
+  const minPriceValue = Number(minPrice);
+  const maxPriceValue = Number(maxPrice);
+  const hasMinPrice = minPrice !== undefined && minPrice !== "" && Number.isFinite(minPriceValue);
+  const hasMaxPrice = maxPrice !== undefined && maxPrice !== "" && Number.isFinite(maxPriceValue);
+
+  // Price filtering only has a meaningful result once city/vehicle pricing
+  // has been resolved from CityServicePriceRange. Anonymous catalogue requests
+  // continue to return services without inventing a global service price.
+  const result = context && (hasMinPrice || hasMaxPrice)
+    ? contextualServices.filter((service) => {
+        const range = service.priceRange;
+        if (!range) return false;
+        if (hasMinPrice && Number(range.min) < minPriceValue) return false;
+        if (hasMaxPrice && Number(range.max) > maxPriceValue) return false;
+        return true;
+      })
+    : contextualServices;
 
   if (cacheKey) await setCache(cacheKey, result, 30 * 60);
 

@@ -109,19 +109,7 @@ const getGarageOwnerProfile = async (userId) => {
   };
 };
 
-const serializeGarageService = (garageService) => {
-  const service = garageService.service;
-  return {
-    ...garageService,
-    service: service
-      ? {
-          ...service,
-          minPrice: service.minPrice ?? service.basePrice ?? null,
-          maxPrice: service.maxPrice ?? service.basePrice ?? null,
-        }
-      : service,
-  };
-};
+const serializeGarageService = (garageService) => garageService;
 
 const getGarageOwnerServices = async (userId) => {
   const garage = await getGarageForOwner(userId);

@@ -43,9 +43,6 @@ const bookingListInclude = {
         select: {
           id: true,
           name: true,
-          basePrice: true,
-          minPrice: true,
-          maxPrice: true,
           durationMin: true,
         },
       },

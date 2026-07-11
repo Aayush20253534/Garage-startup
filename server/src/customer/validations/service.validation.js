@@ -18,21 +18,6 @@ const createServiceSchema = [
     .isLength({ max: 2000 })
     .withMessage("Description cannot exceed 2000 characters"),
 
-  body("basePrice")
-    .optional({ nullable: true, checkFalsy: true })
-    .isInt({ min: 1 })
-    .withMessage("Base price must be a positive integer"),
-
-  body("minPrice")
-    .optional({ nullable: true, checkFalsy: true })
-    .isInt({ min: 1 })
-    .withMessage("Minimum price must be a positive integer"),
-
-  body("maxPrice")
-    .optional({ nullable: true, checkFalsy: true })
-    .isInt({ min: 1 })
-    .withMessage("Maximum price must be a positive integer"),
-
   body("durationMin")
     .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 1 })
@@ -63,21 +48,6 @@ const updateServiceSchema = [
     .trim()
     .isLength({ max: 2000 })
     .withMessage("Description cannot exceed 2000 characters"),
-
-  body("basePrice")
-    .optional({ nullable: true, checkFalsy: true })
-    .isInt({ min: 1 })
-    .withMessage("Base price must be a positive integer"),
-
-  body("minPrice")
-    .optional({ nullable: true, checkFalsy: true })
-    .isInt({ min: 1 })
-    .withMessage("Minimum price must be a positive integer"),
-
-  body("maxPrice")
-    .optional({ nullable: true, checkFalsy: true })
-    .isInt({ min: 1 })
-    .withMessage("Maximum price must be a positive integer"),
 
   body("durationMin")
     .optional({ nullable: true, checkFalsy: true })
