@@ -69,6 +69,17 @@ export const resolveMediaUrl = (media) => {
   }
 };
 
+export const getGarageImageDeliveryUrl = (media) => {
+  const imageId =
+    typeof media === "object" && media !== null
+      ? String(media.id || "").trim()
+      : "";
+
+  if (!imageId || imageId.startsWith("media-")) return "";
+
+  return `${getApiBaseUrl()}/garages/media/${encodeURIComponent(imageId)}`;
+};
+
 export const normalizeMediaCollection = (items = []) =>
   (Array.isArray(items) ? items : [])
     .map((item, index) => {

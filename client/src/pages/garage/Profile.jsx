@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   FiAlertCircle,
   FiCheckCircle,
@@ -15,7 +15,12 @@ import CitySelect from "@/components/common/CitySelect";
 import ImageUpload from "@/components/garage/ImageUpload";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
-import { normalizeMediaCollection, resolveMediaUrl } from "@/utils/mediaUrl";
+import { setGarage } from "@/store/garageSlice";
+import {
+  getGarageImageDeliveryUrl,
+  normalizeMediaCollection,
+  resolveMediaUrl,
+} from "@/utils/mediaUrl";
 
 const inputClass =
   "h-10 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink";
@@ -39,10 +44,14 @@ const getSupportedBrands = (garage) => {
 
 const getGarageImageUrl = (image) => resolveMediaUrl(image);
 
-const withImageRetryToken = (imageUrl) => {
+const PHOTO_RETRY_DELAYS_MS = [800, 2000, 5000];
+
+const withImageRetryToken = (imageUrl, token) => {
+  if (!imageUrl || !token) return imageUrl;
+
   try {
     const retryUrl = new URL(imageUrl, window.location.origin);
-    retryUrl.searchParams.set("rovauto_image_retry", Date.now().toString());
+    retryUrl.searchParams.set("rovauto_image_retry", token);
     return retryUrl.href;
   } catch {
     return imageUrl;
@@ -50,28 +59,72 @@ const withImageRetryToken = (imageUrl) => {
 };
 
 function GaragePhoto({ image, index }) {
-  const imageUrl = getGarageImageUrl(image);
+  const directImageUrl = getGarageImageUrl(image);
+  const deliveryImageUrl = getGarageImageDeliveryUrl(image);
+  const sourceUrls = useMemo(
+    () => [...new Set([directImageUrl, deliveryImageUrl].filter(Boolean))],
+    [deliveryImageUrl, directImageUrl],
+  );
+  const sourceKey = sourceUrls.join("|");
+  const retryTimerRef = useRef(null);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const [retryRound, setRetryRound] = useState(0);
+  const [retryToken, setRetryToken] = useState("");
+  const [waitingForRetry, setWaitingForRetry] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    if (retryTimerRef.current) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+
+    setSourceIndex(0);
+    setRetryRound(0);
+    setRetryToken("");
+    setWaitingForRetry(false);
     setFailed(false);
-  }, [imageUrl]);
 
-  const handleError = (event) => {
-    const element = event.currentTarget;
+    return () => {
+      if (retryTimerRef.current) {
+        window.clearTimeout(retryTimerRef.current);
+      }
+    };
+  }, [sourceKey]);
 
-    // A previous garage PWA worker could retain an opaque failed response.
-    // Retry once with a unique URL so the request reaches the network.
-    if (element.dataset.retryAttempted !== "true") {
-      element.dataset.retryAttempted = "true";
-      element.src = withImageRetryToken(imageUrl);
+  const currentUrl = sourceUrls[sourceIndex] || "";
+  const imageSrc = withImageRetryToken(currentUrl, retryToken);
+  const openUrl = directImageUrl || deliveryImageUrl;
+
+  const handleLoad = () => {
+    setWaitingForRetry(false);
+    setFailed(false);
+  };
+
+  const handleError = () => {
+    if (sourceIndex < sourceUrls.length - 1) {
+      setSourceIndex((current) => current + 1);
+      return;
+    }
+
+    if (retryRound < PHOTO_RETRY_DELAYS_MS.length) {
+      const nextRound = retryRound + 1;
+      const delay = PHOTO_RETRY_DELAYS_MS[retryRound];
+
+      setWaitingForRetry(true);
+      retryTimerRef.current = window.setTimeout(() => {
+        setSourceIndex(0);
+        setRetryRound(nextRound);
+        setRetryToken(`${nextRound}-${Date.now()}`);
+        setWaitingForRetry(false);
+      }, delay);
       return;
     }
 
     setFailed(true);
   };
 
-  if (!imageUrl || failed) {
+  if (!imageSrc || failed) {
     return (
       <div className="grid aspect-square place-items-center rounded-xl border border-dashed border-line bg-bg-soft p-3 text-center text-xs font-semibold text-muted">
         Photo unavailable
@@ -79,20 +132,29 @@ function GaragePhoto({ image, index }) {
     );
   }
 
+  if (waitingForRetry) {
+    return (
+      <div className="grid aspect-square animate-pulse place-items-center rounded-xl border border-line bg-bg-soft p-3 text-center text-xs font-semibold text-muted">
+        Loading photo...
+      </div>
+    );
+  }
+
   return (
     <a
-      href={imageUrl}
+      href={openUrl}
       target="_blank"
       rel="noreferrer"
       className="group block aspect-square overflow-hidden rounded-xl border border-line bg-bg-soft"
       aria-label={`Open garage photo ${index + 1}`}
     >
       <img
-        src={imageUrl}
+        key={imageSrc}
+        src={imageSrc}
         alt={`Garage photo ${index + 1}`}
         loading={index < 5 ? "eager" : "lazy"}
         decoding="async"
-        referrerPolicy="no-referrer"
+        onLoad={handleLoad}
         onError={handleError}
         className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
       />
@@ -101,6 +163,7 @@ function GaragePhoto({ image, index }) {
 }
 
 export default function GarageProfile() {
+  const dispatch = useDispatch();
   const { garage } = useSelector((state) => state.garage);
   const { garageToken, refreshGarage, fetchVehicleMeta } = useApp();
 
@@ -220,8 +283,25 @@ export default function GarageProfile() {
     setSuccess("");
 
     try {
-      await garageApi.uploadPhotos(garageToken, garage.id, photoFiles);
-      await refreshGarage(garageToken);
+      const uploadedGarage = await garageApi.uploadPhotos(
+        garageToken,
+        garage.id,
+        photoFiles,
+      );
+      const optimisticGarage = {
+        ...garage,
+        ...uploadedGarage,
+        activation: {
+          ...(garage?.activation || {}),
+          ...(uploadedGarage?.activation || {}),
+        },
+        images: uploadedGarage?.images || [],
+        wallet: uploadedGarage?.wallet || garage?.wallet,
+      };
+
+      localStorage.setItem("garage", JSON.stringify(optimisticGarage));
+      dispatch(setGarage(optimisticGarage));
+      await refreshGarage({ force: true });
 
       setPhotoFiles([]);
       setEditingPhotos(false);

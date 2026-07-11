@@ -13,6 +13,8 @@ const garagePhotoUpload = upload.createUpload({
   allowedMimeTypes: upload.IMAGE_MIME_TYPES,
 });
 
+router.get("/media/:imageId", garageMediaController.getGarageImageContent);
+
 router.post(
   "/:garageId/media",
   protect,

@@ -739,9 +739,16 @@ export function AppProvider({ children }) {
     return request;
   };
 
-  const refreshGarage = async () => {
+  const refreshGarage = async (options = {}) => {
+    const forceRefresh =
+      typeof options === "object" && options !== null && options.force === true;
+
     if (garageRequestRef.current) {
-      return garageRequestRef.current;
+      if (!forceRefresh) {
+        return garageRequestRef.current;
+      }
+
+      await garageRequestRef.current.catch(() => null);
     }
 
     let request;

@@ -19,6 +19,24 @@ const validateImageFile = (file) => {
   }
 };
 
+const getGarageImageRecord = async (imageId) => {
+  const image = await prisma.garageImage.findUnique({
+    where: { id: imageId },
+    select: {
+      id: true,
+      imageUrl: true,
+      publicId: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!image) {
+    throw new ApiError(404, "Garage photo not found");
+  }
+
+  return image;
+};
+
 const uploadGarageMedia = async (garageId, files, user) => {
   const images = files.images || [];
   const thumbnail = files.thumbnail || [];
@@ -71,6 +89,13 @@ const uploadGarageMedia = async (garageId, files, user) => {
       "image"
     );
 
+    if (!uploaded?.secure_url || !uploaded?.public_id) {
+      throw new ApiError(
+        502,
+        "Cloud image upload did not return a usable photo URL",
+      );
+    }
+
     uploadedImages.push(uploaded);
   }
 
@@ -108,5 +133,6 @@ const uploadGarageMedia = async (garageId, files, user) => {
 };
 
 module.exports = {
+  getGarageImageRecord,
   uploadGarageMedia,
 };

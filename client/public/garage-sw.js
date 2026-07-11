@@ -1,45 +1,4 @@
-const GARAGE_IMAGE_CACHE = "rovauto-garage-cloudinary-images-v2";
-const isCloudinaryHost = (hostname) =>
-  hostname === "res.cloudinary.com" || hostname.endsWith(".cloudinary.com");
-
-const isCloudinaryImage = (request) => {
-  if (request.method !== "GET") return false;
-
-  try {
-    const url = new URL(request.url);
-    return (
-      isCloudinaryHost(url.hostname) &&
-      (request.destination === "image" ||
-        /\.(avif|gif|jpe?g|png|webp)$/i.test(url.pathname))
-    );
-  } catch {
-    return false;
-  }
-};
-
-const fetchAndCacheImage = async (request, cache) => {
-  const response = await fetch(request, { cache: "no-store" });
-
-  if (response && (response.ok || response.type === "opaque")) {
-    await cache.put(request, response.clone());
-  }
-
-  return response;
-};
-
-const networkFirstImage = async (request) => {
-  const cache = await caches.open(GARAGE_IMAGE_CACHE);
-
-  try {
-    // Always try the current Cloudinary asset first. The older cache-first
-    // worker could keep an opaque failed response and repeatedly show a
-    // broken image even after the asset became available.
-    return await fetchAndCacheImage(request, cache);
-  } catch {
-    const cached = await cache.match(request);
-    return cached || Response.error();
-  }
-};
+const GARAGE_IMAGE_CACHE_PREFIX = "rovauto-garage-cloudinary-images-";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -52,11 +11,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter(
-              (key) =>
-                key.startsWith("rovauto-garage-cloudinary-images-") &&
-                key !== GARAGE_IMAGE_CACHE,
-            )
+            .filter((key) => key.startsWith(GARAGE_IMAGE_CACHE_PREFIX))
             .map((key) => caches.delete(key)),
         ),
       )
@@ -64,30 +19,22 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-self.addEventListener("fetch", (event) => {
-  if (isCloudinaryImage(event.request)) {
-    event.respondWith(networkFirstImage(event.request));
-  }
-});
-
+/*
+ * Garage photos deliberately bypass the service-worker cache. Cross-origin
+ * image responses are opaque, so a temporary Cloudinary 404 cannot be
+ * distinguished from a successful response and could otherwise be retained
+ * as a permanently broken image. The browser cache and the API delivery
+ * endpoint handle garage-photo caching safely.
+ */
 self.addEventListener("message", (event) => {
   if (event.data?.type !== "WARM_IMAGE_CACHE") return;
 
-  const urls = Array.isArray(event.data.urls) ? event.data.urls : [];
   event.waitUntil(
-    caches.open(GARAGE_IMAGE_CACHE).then((cache) =>
-      Promise.allSettled(
-        urls
-          .filter(Boolean)
-          .map(
-            (url) =>
-              new Request(url, {
-                mode: "no-cors",
-                credentials: "omit",
-                cache: "no-store",
-              }),
-          )
-          .map((request) => fetchAndCacheImage(request, cache)),
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys
+          .filter((key) => key.startsWith(GARAGE_IMAGE_CACHE_PREFIX))
+          .map((key) => caches.delete(key)),
       ),
     ),
   );
