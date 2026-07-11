@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { FUEL_TYPES } from "@/data/vehicles";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
+import SafeImage from "@/components/common/SafeImage";
+import { getOptimizedImageUrl } from "@/utils/imageCache";
 import {
   FiAlertCircle,
   FiArrowRight,
@@ -94,7 +96,7 @@ export default function VehicleSelect() {
       const mappedBrands = backendBrands.map((item) => ({
         ...item,
         icon: null,
-        image: item.logoUrl || null,
+        image: getOptimizedImageUrl(item.logoUrl, { width: 192 }),
         models: item.models || [],
       }));
 
@@ -518,19 +520,24 @@ export default function VehicleSelect() {
                           : "border-line bg-white hover:border-ink",
                       ].join(" ")}
                     >
-                      {b.image ? (
-                        <img
-                          src={b.image}
-                          alt={b.name}
-                          className="mb-3 h-10 max-w-24 object-contain"
-                        />
-                      ) : Icon ? (
-                        <Icon className="mb-3 h-10 w-10" />
-                      ) : (
-                        <div className="mb-3 grid h-10 w-10 place-items-center rounded-xl bg-brand font-bold text-ink">
-                          {b.name.charAt(0)}
-                        </div>
-                      )}
+                      <SafeImage
+                        src={b.image}
+                        alt={b.name}
+                        width="192"
+                        height="80"
+                        loading="lazy"
+                        decoding="async"
+                        className="mb-3 h-10 max-w-24 object-contain"
+                        fallback={
+                          Icon ? (
+                            <Icon className="mb-3 h-10 w-10" />
+                          ) : (
+                            <div className="mb-3 grid h-10 w-10 place-items-center rounded-xl bg-brand font-bold text-ink">
+                              {b.name.charAt(0)}
+                            </div>
+                          )
+                        }
+                      />
 
                       <div className="w-full truncate text-sm font-bold text-ink">
                         {b.name}
@@ -629,19 +636,23 @@ export default function VehicleSelect() {
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                   <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand p-2">
-                    {brand.image ? (
-                      <img
-                        src={brand.image}
-                        alt={brand.name}
-                        className="h-8 w-8 object-contain"
-                      />
-                    ) : brand.icon ? (
-                      <brand.icon className="h-8 w-8 text-ink" />
-                    ) : (
-                      <span className="font-bold text-ink">
-                        {brand.name.charAt(0)}
-                      </span>
-                    )}
+                    <SafeImage
+                      src={brand.image}
+                      alt={brand.name}
+                      width="128"
+                      height="128"
+                      decoding="async"
+                      className="h-8 w-8 object-contain"
+                      fallback={
+                        brand.icon ? (
+                          <brand.icon className="h-8 w-8 text-ink" />
+                        ) : (
+                          <span className="font-bold text-ink">
+                            {brand.name.charAt(0)}
+                          </span>
+                        )
+                      }
+                    />
                   </span>
 
                   <div className="min-w-0 flex-1">

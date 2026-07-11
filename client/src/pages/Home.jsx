@@ -13,6 +13,7 @@ import {
 } from "react-icons/fi";
 import { CATEGORY_UI } from "@/data/services";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
+import SafeImage from "@/components/common/SafeImage";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import Seo, { SITE_ICON, SITE_URL } from "@/components/seo/Seo";
@@ -391,25 +392,24 @@ export default function Home() {
                           : "hover:-translate-y-1 hover:border-brand/60 hover:shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
                       }`}
                     >
-                      {image ? (
-                        <img
-                          src={image}
-                          alt={category.name}
-                          width="640"
-                          height="512"
-                          loading="lazy"
-                          decoding="async"
-                          className={`absolute inset-0 h-full w-full object-cover transition duration-500 ease-out ${
-                            categoryComingSoon
-                              ? "scale-105 blur-sm grayscale"
-                              : "group-hover:scale-[1.07]"
-                          }`}
-                        />
-                      ) : (
-                        <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-slate-800 to-slate-950 text-4xl text-white/70">
-                          <FiTool />
-                        </div>
-                      )}
+                      <SafeImage
+                        src={image}
+                        alt={category.name}
+                        width="640"
+                        height="512"
+                        loading="lazy"
+                        decoding="async"
+                        className={`absolute inset-0 h-full w-full object-cover transition duration-500 ease-out ${
+                          categoryComingSoon
+                            ? "scale-105 blur-sm grayscale"
+                            : "group-hover:scale-[1.07]"
+                        }`}
+                        fallback={
+                          <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-slate-800 to-slate-950 text-4xl text-white/70">
+                            <FiTool />
+                          </div>
+                        }
+                      />
 
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/5 transition duration-300 group-hover:from-black/95 group-hover:via-black/30" />
 
@@ -573,7 +573,7 @@ export default function Home() {
                   >
                     {image && (
                       <div className="relative mb-3 aspect-[16/9] w-full overflow-hidden rounded-xl bg-bg-soft sm:mb-4 sm:h-40 sm:aspect-auto">
-                        <img
+                        <SafeImage
                           src={image}
                           alt={`${service.name} vehicle service`}
                           width="640"
@@ -585,6 +585,11 @@ export default function Home() {
                               ? "scale-105 blur-sm grayscale"
                               : "group-hover:scale-105"
                           }`}
+                          fallback={
+                            <div className="grid h-full w-full place-items-center text-3xl text-muted">
+                              <FiTool />
+                            </div>
+                          }
                         />
 
                         {comingSoon && <ComingSoonOverlay />}

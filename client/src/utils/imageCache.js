@@ -1,3 +1,5 @@
+import { resolveMediaUrl } from "@/utils/mediaUrl";
+
 const isCloudinaryHost = (hostname) =>
   hostname === "res.cloudinary.com" || hostname.endsWith(".cloudinary.com");
 
@@ -12,14 +14,67 @@ const isCloudinaryUrl = (url) => {
 const uniqueCloudinaryUrls = (urls = []) =>
   [...new Set(urls.filter(Boolean).filter(isCloudinaryUrl))];
 
-export const getServiceThumbnailUrl = (service) =>
-  service?.thumbnail?.url ||
-  service?.media?.find((item) => item.isThumbnail)?.url ||
-  service?.media?.[0]?.url ||
+export const getOptimizedImageUrl = (
+  media,
+  { width = 640, height, crop = "limit" } = {},
+) => {
+  const resolvedUrl = resolveMediaUrl(media);
+
+  if (!resolvedUrl || !isCloudinaryUrl(resolvedUrl)) {
+    return resolvedUrl;
+  }
+
+  try {
+    const url = new URL(resolvedUrl);
+    const uploadMarker = "/image/upload/";
+
+    if (!url.pathname.includes(uploadMarker)) {
+      return resolvedUrl;
+    }
+
+    const numericWidth = Number(width);
+    const numericHeight = Number(height);
+    const transformation = [
+      "f_auto",
+      "q_auto",
+      crop ? `c_${crop}` : null,
+      Number.isFinite(numericWidth) && numericWidth > 0
+        ? `w_${Math.round(numericWidth)}`
+        : null,
+      Number.isFinite(numericHeight) && numericHeight > 0
+        ? `h_${Math.round(numericHeight)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(",");
+
+    url.pathname = url.pathname.replace(
+      uploadMarker,
+      `${uploadMarker}${transformation}/`,
+    );
+
+    return url.href;
+  } catch {
+    return resolvedUrl;
+  }
+};
+
+const getServiceThumbnail = (service) =>
+  service?.thumbnail ||
+  service?.media?.find((item) => item?.isThumbnail) ||
+  service?.media?.[0] ||
   "";
 
+export const getServiceThumbnailUrl = (service) =>
+  getOptimizedImageUrl(getServiceThumbnail(service), {
+    width: 640,
+  });
+
 export const getCategoryThumbnailUrl = (category) =>
-  category?.thumbnailUrl || "";
+  getOptimizedImageUrl(
+    category?.thumbnailUrl || category?.thumbnail || category?.imageUrl || "",
+    { width: 640 },
+  );
 
 export const getServiceImageUrls = (categories = []) =>
   uniqueCloudinaryUrls(
@@ -168,20 +223,16 @@ export const registerImageCacheWorker = () => {
 };
 
 export const warmImageCache = (urls = []) => {
-  const imageUrls = uniqueCloudinaryUrls(urls);
-
-  if (imageUrls.length === 0) {
+  if (typeof Image === "undefined") {
     return;
   }
 
-  if (navigator.serviceWorker?.controller) {
-    navigator.serviceWorker.controller.postMessage({
-      type: "WARM_IMAGE_CACHE",
-      urls: imageUrls,
-    });
-  }
+  const imageUrls = uniqueCloudinaryUrls(urls);
 
-  imageUrls.slice(0, 12).forEach((url) => {
+  // Let Cloudinary's CDN and the browser HTTP cache handle persistence.
+  // Preload only a few likely-visible images instead of storing opaque
+  // cross-origin responses in the service-worker Cache API.
+  imageUrls.slice(0, 6).forEach((url) => {
     const image = new Image();
     image.decoding = "async";
     image.src = url;

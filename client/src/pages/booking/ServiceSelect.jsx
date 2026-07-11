@@ -4,6 +4,7 @@ import { CATEGORY_UI } from "@/data/services";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
+import SafeImage from "@/components/common/SafeImage";
 import {
   formatServicePriceRange,
   formatRupeeRange,
@@ -207,19 +208,22 @@ export default function ServiceSelect() {
                 className="card-soft flex flex-col gap-5 p-5 sm:flex-row sm:items-start"
               >
                 <div className="relative h-36 w-full shrink-0 overflow-hidden rounded-2xl bg-bg-soft sm:h-32 sm:w-40">
-                  {serviceImage ? (
-                    <img
-                      src={serviceImage}
-                      alt={service.name}
-                      className={`h-full w-full object-cover transition ${
-                        comingSoon ? "scale-105 blur-sm grayscale" : ""
-                      }`}
-                    />
-                  ) : (
-                    <div className="grid h-full w-full place-items-center text-3xl text-muted">
-                      <FiSettings />
-                    </div>
-                  )}
+                  <SafeImage
+                    src={serviceImage}
+                    alt={service.name}
+                    width="640"
+                    height="420"
+                    loading="lazy"
+                    decoding="async"
+                    className={`h-full w-full object-cover transition ${
+                      comingSoon ? "scale-105 blur-sm grayscale" : ""
+                    }`}
+                    fallback={
+                      <div className="grid h-full w-full place-items-center text-3xl text-muted">
+                        <FiSettings />
+                      </div>
+                    }
+                  />
 
                   {comingSoon && <ComingSoonOverlay compact />}
                 </div>

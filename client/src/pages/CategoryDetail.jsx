@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { CATEGORY_UI } from "@/data/services";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
+import SafeImage from "@/components/common/SafeImage";
 import api from "@/api/axios";
 import { FiStar, FiArrowLeft, FiX, FiTool } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
@@ -215,23 +216,22 @@ export default function CategoryDetail() {
             >
               <div className="flex flex-col gap-5 md:flex-row">
                 <div className="relative h-40 w-full flex-shrink-0 overflow-hidden rounded-2xl bg-bg-soft md:h-44 md:w-56">
-                  {serviceImage ? (
-                    <img
-                      src={serviceImage}
-                      alt={`${pkg.name} vehicle service`}
-                      width="640"
-                      height="420"
-                      loading="lazy"
-                      decoding="async"
-                      className={`h-full w-full object-cover transition ${
-                        comingSoon ? "scale-105 blur-sm grayscale" : ""
-                      }`}
-                    />
-                  ) : (
-                    <div className="grid h-full w-full place-items-center text-4xl text-muted">
-                      <Icon />
-                    </div>
-                  )}
+                  <SafeImage
+                    src={serviceImage}
+                    alt={`${pkg.name} vehicle service`}
+                    width="640"
+                    height="420"
+                    loading="lazy"
+                    decoding="async"
+                    className={`h-full w-full object-cover transition ${
+                      comingSoon ? "scale-105 blur-sm grayscale" : ""
+                    }`}
+                    fallback={
+                      <div className="grid h-full w-full place-items-center text-4xl text-muted">
+                        <Icon />
+                      </div>
+                    }
+                  />
 
                   {comingSoon && <ComingSoonOverlay />}
                 </div>
@@ -353,25 +353,24 @@ export default function CategoryDetail() {
               </div>
 
               <div className="relative mb-5 h-44 w-full overflow-hidden rounded-2xl bg-bg-soft">
-                {getServiceThumbnailUrl(selectedPackage) ? (
-                  <img
-                    src={getServiceThumbnailUrl(selectedPackage)}
-                    alt={`${selectedPackage.name} service details`}
-                    width="960"
-                    height="540"
-                    loading="lazy"
-                    decoding="async"
-                    className={`h-full w-full object-cover transition ${
-                      selectedPackageComingSoon
-                        ? "scale-105 blur-sm grayscale"
-                        : ""
-                    }`}
-                  />
-                ) : (
-                  <div className="grid h-full w-full place-items-center text-3xl text-muted">
-                    <Icon />
-                  </div>
-                )}
+                <SafeImage
+                  src={getServiceThumbnailUrl(selectedPackage)}
+                  alt={`${selectedPackage.name} service details`}
+                  width="960"
+                  height="540"
+                  loading="lazy"
+                  decoding="async"
+                  className={`h-full w-full object-cover transition ${
+                    selectedPackageComingSoon
+                      ? "scale-105 blur-sm grayscale"
+                      : ""
+                  }`}
+                  fallback={
+                    <div className="grid h-full w-full place-items-center text-3xl text-muted">
+                      <Icon />
+                    </div>
+                  }
+                />
 
                 {selectedPackageComingSoon && <ComingSoonOverlay />}
               </div>

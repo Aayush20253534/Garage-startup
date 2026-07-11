@@ -8,6 +8,7 @@ import {
 } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
+import SafeImage from "@/components/common/SafeImage";
 import {
   getCategoryThumbnailUrl,
   getServiceImageUrls,
@@ -208,31 +209,28 @@ export default function Services() {
                 </div>
 
                 <div className="relative mt-auto h-32 w-full overflow-hidden rounded-2xl bg-bg-soft">
-                  {image ? (
-                    <img
-                      src={image}
-                      alt={`${category.name} vehicle service category`}
-                      width="640"
-                      height="360"
-                      loading="lazy"
-                      decoding="async"
-                      className={`h-full w-full object-cover transition duration-300 ${
-                        comingSoon
-                          ? "scale-105 blur-sm grayscale"
-                          : "hover:scale-105"
-                      }`}
-                    />
-                  ) : (
-                    <div
-                      className={`grid h-full w-full place-items-center text-3xl text-muted ${
-                        comingSoon
-                          ? "blur-[1px] grayscale"
-                          : ""
-                      }`}
-                    >
-                      <Icon />
-                    </div>
-                  )}
+                  <SafeImage
+                    src={image}
+                    alt={`${category.name} vehicle service category`}
+                    width="640"
+                    height="360"
+                    loading="lazy"
+                    decoding="async"
+                    className={`h-full w-full object-cover transition duration-300 ${
+                      comingSoon
+                        ? "scale-105 blur-sm grayscale"
+                        : "hover:scale-105"
+                    }`}
+                    fallback={
+                      <div
+                        className={`grid h-full w-full place-items-center text-3xl text-muted ${
+                          comingSoon ? "blur-[1px] grayscale" : ""
+                        }`}
+                      >
+                        <Icon />
+                      </div>
+                    }
+                  />
 
                   {comingSoon && (
                     <ComingSoonOverlay compact />
