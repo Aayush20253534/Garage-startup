@@ -172,28 +172,11 @@ const createService = async (payload) => {
 
   await getCategory(payload.categoryId);
 
-  const minPrice = Number(payload.minPrice);
-  const maxPrice = Number(payload.maxPrice);
-  const basePrice =
-    payload.basePrice === undefined || payload.basePrice === ""
-      ? minPrice
-      : Number(payload.basePrice);
-
-  if (Number.isNaN(minPrice) || Number.isNaN(maxPrice)) {
-    throw new ApiError(400, "Valid minPrice and maxPrice are required");
-  }
-  if (maxPrice < minPrice) {
-    throw new ApiError(400, "maxPrice must be greater than or equal to minPrice");
-  }
-
   const service = await prisma.service.create({
     data: {
       categoryId: payload.categoryId,
       name,
       description: normalizeText(payload.description) || null,
-      basePrice,
-      minPrice,
-      maxPrice,
       isActive: parseBoolean(payload.isActive, true),
       isComingSoon: parseBoolean(payload.isComingSoon, false),
     },
@@ -205,25 +188,10 @@ const createService = async (payload) => {
 };
 
 const updateService = async (serviceId, payload) => {
-  const existing = await getService(serviceId);
+  await getService(serviceId);
 
   if (payload.categoryId !== undefined) {
     await getCategory(payload.categoryId);
-  }
-
-  const nextMin =
-    payload.minPrice !== undefined ? Number(payload.minPrice) : existing.minPrice;
-  const nextMax =
-    payload.maxPrice !== undefined ? Number(payload.maxPrice) : existing.maxPrice;
-
-  if (
-    (payload.minPrice !== undefined || payload.maxPrice !== undefined) &&
-    (Number.isNaN(Number(nextMin)) || Number.isNaN(Number(nextMax)))
-  ) {
-    throw new ApiError(400, "Valid minPrice and maxPrice are required");
-  }
-  if (nextMin !== null && nextMax !== null && Number(nextMax) < Number(nextMin)) {
-    throw new ApiError(400, "maxPrice must be greater than or equal to minPrice");
   }
 
   const data = {};
@@ -236,11 +204,6 @@ const updateService = async (serviceId, payload) => {
   if (payload.description !== undefined) {
     data.description = normalizeText(payload.description) || null;
   }
-  if (payload.basePrice !== undefined) {
-    data.basePrice = payload.basePrice === "" ? null : Number(payload.basePrice);
-  }
-  if (payload.minPrice !== undefined) data.minPrice = Number(payload.minPrice);
-  if (payload.maxPrice !== undefined) data.maxPrice = Number(payload.maxPrice);
   if (payload.isActive !== undefined) {
     data.isActive = parseBoolean(payload.isActive, true);
   }

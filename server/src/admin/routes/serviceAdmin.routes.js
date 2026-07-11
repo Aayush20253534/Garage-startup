@@ -25,8 +25,8 @@ const thumbnailUpload = upload.createUpload({
 router.use(protect);
 router.use(authorizeRoles("ADMIN", "INTERN"));
 
-// Interns may inspect the catalogue but only admins can mutate prices,
-// categories, services, or media.
+// Interns may inspect the catalogue but only admins can mutate categories,
+// services, or media. Pricing is managed through city service price ranges.
 router.get("/categories", categoryQuerySchema, validate, controller.listCategories);
 router.post(
   "/categories",

@@ -30,15 +30,10 @@ const emptyServiceForm = {
   categoryId: "",
   name: "",
   description: "",
-  basePrice: "",
-  minPrice: "",
-  maxPrice: "",
   isActive: true,
   isComingSoon: false,
   thumbnail: null,
 };
-
-const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
 
 const fieldClass =
   "h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition placeholder:text-muted focus:border-ink";
@@ -313,27 +308,8 @@ export default function AdminServices() {
     setError("");
     setSuccess("");
 
-    const minPrice = Number(serviceForm.minPrice);
-    const maxPrice = Number(serviceForm.maxPrice);
-    const basePrice =
-      serviceForm.basePrice === "" ? minPrice : Number(serviceForm.basePrice);
-
     if (!serviceForm.categoryId || !serviceForm.name.trim()) {
       setError("Select a category and enter a service name.");
-      return;
-    }
-
-    if (
-      Number.isNaN(minPrice) ||
-      Number.isNaN(maxPrice) ||
-      Number.isNaN(basePrice)
-    ) {
-      setError("Enter valid service prices.");
-      return;
-    }
-
-    if (maxPrice < minPrice) {
-      setError("Max price cannot be less than min price.");
       return;
     }
 
@@ -344,9 +320,6 @@ export default function AdminServices() {
         categoryId: serviceForm.categoryId,
         name: serviceForm.name.trim(),
         description: serviceForm.description.trim() || null,
-        basePrice,
-        minPrice,
-        maxPrice,
         isActive: serviceForm.isActive,
         isComingSoon: serviceForm.isComingSoon,
       };
@@ -382,9 +355,6 @@ export default function AdminServices() {
       categoryId: service.categoryId || service.category?.id || "",
       name: service.name || "",
       description: service.description || "",
-      basePrice: service.basePrice ?? "",
-      minPrice: service.minPrice ?? "",
-      maxPrice: service.maxPrice ?? "",
       isActive: Boolean(service.isActive),
       isComingSoon: isServiceComingSoon(service),
       thumbnail: null,
@@ -613,7 +583,7 @@ export default function AdminServices() {
           </h3>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <select
             required
             value={serviceForm.categoryId}
@@ -640,44 +610,6 @@ export default function AdminServices() {
               setServiceForm({ ...serviceForm, name: event.target.value })
             }
             placeholder="Service name"
-            className={fieldClass}
-          />
-
-          <input
-            type="number"
-            min="0"
-            value={serviceForm.basePrice}
-            onChange={(event) =>
-              setServiceForm({
-                ...serviceForm,
-                basePrice: event.target.value,
-              })
-            }
-            placeholder="Base price"
-            className={fieldClass}
-          />
-
-          <input
-            required
-            type="number"
-            min="0"
-            value={serviceForm.minPrice}
-            onChange={(event) =>
-              setServiceForm({ ...serviceForm, minPrice: event.target.value })
-            }
-            placeholder="Min price"
-            className={fieldClass}
-          />
-
-          <input
-            required
-            type="number"
-            min="0"
-            value={serviceForm.maxPrice}
-            onChange={(event) =>
-              setServiceForm({ ...serviceForm, maxPrice: event.target.value })
-            }
-            placeholder="Max price"
             className={fieldClass}
           />
 
@@ -992,9 +924,6 @@ export default function AdminServices() {
                             {service.description || "No service description."}
                           </p>
 
-                          <div className="mt-1 text-sm font-semibold text-ink">
-                            {money(service.minPrice)} - {money(service.maxPrice)}
-                          </div>
                         </div>
 
                         {!isIntern && (
