@@ -36,7 +36,6 @@ const getServicePrice = (garageService) => {
     service.priceRange?.max,
     service.estimatedMinPrice,
     service.estimatedMaxPrice,
-    service.basePrice,
     service.price,
   ].some((value) => value !== undefined && value !== null);
 

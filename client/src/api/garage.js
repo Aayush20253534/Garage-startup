@@ -136,7 +136,6 @@ export const mapGarageRequestToBooking = (request) => {
         item.estimatedMaxPrice ??
         item.estimatedPrice ??
         item.price ??
-        item.service?.basePrice ??
         0,
       minPrice: item.estimatedMinPrice ?? item.estimatedPrice ?? null,
       maxPrice: item.estimatedMaxPrice ?? item.estimatedPrice ?? null,

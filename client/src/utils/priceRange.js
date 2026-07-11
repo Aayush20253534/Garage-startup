@@ -21,8 +21,6 @@ export const getServiceMinPrice = (service = {}) =>
   toNumber(
     service.priceRange?.min ??
       service.estimatedMinPrice ??
-      service.minPrice ??
-      service.basePrice ??
       service.price,
     0,
   );
@@ -30,7 +28,7 @@ export const getServiceMinPrice = (service = {}) =>
 export const getServiceMaxPrice = (service = {}) => {
   const min = getServiceMinPrice(service);
   const explicitMax =
-    service.priceRange?.max ?? service.estimatedMaxPrice ?? service.maxPrice;
+    service.priceRange?.max ?? service.estimatedMaxPrice;
 
   if (explicitMax !== undefined && explicitMax !== null) {
     return toNumber(explicitMax, min + DEFAULT_SERVICE_RANGE_DELTA);
