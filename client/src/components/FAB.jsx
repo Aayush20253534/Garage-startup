@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { FiX, FiMessageCircle, FiPhone, FiMessageSquare } from "react-icons/fi";
 
 const ChatbotPopup = lazy(() => import("./ChatbotPopup"));
@@ -7,6 +8,7 @@ const SUPPORT_PHONE = "8619955850";
 const SUPPORT_PHONE_WITH_COUNTRY = `+91${SUPPORT_PHONE}`;
 
 export default function FAB() {
+  const { pathname } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
@@ -25,8 +27,16 @@ export default function FAB() {
     setIsOpen(false);
   };
 
+  const isCustomerPortal =
+    pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div
+      className={[
+        "fixed right-4 z-40 sm:right-6",
+        isCustomerPortal ? "bottom-24 lg:bottom-6" : "bottom-6",
+      ].join(" ")}
+    >
       {/* Options Menu */}
       {isOpen && (
         <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-2xl p-4 w-56 flex flex-col gap-3">

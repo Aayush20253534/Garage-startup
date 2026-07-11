@@ -148,7 +148,7 @@ function Dashboard() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl p-6">
+      <div className="mx-auto max-w-[1400px] py-6">
         <div className="flex items-center space-x-2 text-sm text-muted">
           <FiRefreshCcw className="animate-spin" />
           <span>Loading dashboard...</span>
@@ -227,9 +227,9 @@ function Dashboard() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 bg-gradient-to-b from-slate-50 via-white to-brand/5 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1400px] space-y-4 sm:space-y-6">
       {/* Header Section */}
-      <section className="rounded-2xl border border-white/70 bg-white/90 p-5 shadow-sm ring-1 ring-black/[0.03] backdrop-blur">
+      <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-ink">
@@ -241,11 +241,11 @@ function Dashboard() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-3 lg:justify-end">
             {pendingBookingsCount > 0 && (
               <Link
                 to="/dashboard/pending-bookings"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-medium text-red-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-red-100"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 shadow-sm transition hover:bg-red-100 sm:w-auto"
               >
                 <FiAlertCircle />
                 Pay Pending
@@ -254,7 +254,7 @@ function Dashboard() {
 
             <Link
               to="/dashboard/payments"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-ink shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:bg-bg-soft sm:w-auto"
             >
               <FiCreditCard />
               Wallet: {formatRupees(wallet?.balance || 0)}
@@ -262,7 +262,7 @@ function Dashboard() {
 
             <Link
               to="/booking/vehicle"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:brightness-95"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-bold text-black shadow-sm transition hover:brightness-95 sm:w-auto"
             >
               {hasVehicles ? "Book Service" : "Add Vehicle"}
             </Link>
@@ -271,7 +271,7 @@ function Dashboard() {
               type="button"
               disabled={loading}
               onClick={() => loadDashboard({ force: true })}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-ink shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-line bg-white text-ink shadow-sm transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50 sm:w-11"
               aria-label="Refresh dashboard"
             >
               <FiRefreshCcw
@@ -286,7 +286,7 @@ function Dashboard() {
 
       {/* Alert / Setup Banner */}
       {!hasVehicles && (
-        <section className="flex flex-col gap-4 rounded-2xl border border-brand/25 bg-gradient-to-r from-brand/10 via-white to-brand/5 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <section className="flex flex-col gap-4 rounded-2xl border border-brand/25 bg-gradient-to-r from-brand/10 via-white to-brand/5 p-5 shadow-soft sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-ink">
               Vehicle setup required
@@ -308,14 +308,14 @@ function Dashboard() {
       )}
 
       {/* Stats Grid */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {statCards.map((item) => {
           const Icon = item.icon;
 
           return (
             <div
               key={item.label}
-              className={`group relative min-h-[170px] overflow-hidden rounded-2xl border ${item.tone} p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
+              className={`group relative min-w-0 overflow-hidden rounded-2xl border ${item.tone} p-3 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-4`}
             >
               <div
                 className={`absolute inset-x-0 top-0 h-0.5 ${item.accent}`}
@@ -324,23 +324,23 @@ function Dashboard() {
 
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <span className="block max-w-full text-sm font-semibold leading-5 text-slate-700 lg:min-h-10">
+                  <span className="block text-xs font-bold leading-5 text-slate-700 sm:text-sm">
                     {item.label}
                   </span>
 
-                  <div className="mt-5 text-3xl font-bold tracking-tight text-ink">
+                  <div className="mt-3 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
                     {item.number}
                   </div>
                 </div>
 
                 <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${item.iconTone} shadow-sm transition-transform group-hover:scale-105`}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.iconTone} shadow-sm transition-transform group-hover:scale-105 sm:h-11 sm:w-11`}
                 >
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
 
-              <div className="mt-5 truncate text-sm font-medium text-slate-600">
+              <div className="mt-3 line-clamp-2 text-xs font-medium leading-5 text-slate-600 sm:text-sm">
                 {item.sub}
               </div>
             </div>
@@ -349,10 +349,10 @@ function Dashboard() {
       </section>
 
       {/* Main Content Area */}
-      <section className="grid gap-6 lg:grid-cols-3">
+      <section className="grid gap-4 xl:grid-cols-[1.45fr_0.75fr]">
         {/* Active Service Column */}
-        <div className="space-y-4 lg:col-span-2">
-          <div className="rounded-2xl border border-white/70 bg-white/90 p-5 shadow-sm ring-1 ring-black/[0.02]">
+        <div className="min-w-0 space-y-4">
+          <div className="rounded-2xl border border-line bg-white p-5 shadow-soft">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <h3 className="text-base font-semibold text-ink">
@@ -435,8 +435,8 @@ function Dashboard() {
         </div>
 
         {/* Quick Actions / Activity Sidebar */}
-        <div className="space-y-4">
-          <div className="flex h-full max-h-[400px] flex-col rounded-2xl border border-white/70 bg-white/90 p-5 shadow-sm ring-1 ring-black/[0.02]">
+        <div className="min-w-0 space-y-4">
+          <div className="rounded-2xl border border-line bg-white p-5 shadow-soft">
             <div className="mb-4">
               <h3 className="text-base font-semibold text-ink">
                 Activity & Shortcuts
@@ -446,10 +446,10 @@ function Dashboard() {
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-2">
-              <ul className="space-y-3">
+            <div>
+              <ul className="space-y-2">
                 {recentActivities.length > 0
-                  ? recentActivities.map((activity) => (
+                  ? recentActivities.slice(0, 5).map((activity) => (
                       <li key={activity.id}>
                         <Link
                           to={activity.path || "/dashboard"}
@@ -458,10 +458,10 @@ function Dashboard() {
                           <FiCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted transition-colors group-hover:text-brand-dark" />
 
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-ink">
+                            <p className="line-clamp-2 text-sm font-semibold text-ink">
                               {activity.title}
                             </p>
-                            <p className="truncate text-xs text-muted">
+                            <p className="line-clamp-2 text-xs leading-5 text-muted">
                               {activity.detail || "System Update"}
                             </p>
                             <p className="mt-0.5 text-[10px] text-muted">

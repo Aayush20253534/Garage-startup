@@ -10,6 +10,7 @@ export default function SupportPwaInstall({ compact = false }) {
       promptEvent="rovauto-support-install-ready"
       installedStorageKey="rovauto_support_pwa_installed"
       compact={compact}
+      dark={false}
     />
   );
 }

@@ -21,8 +21,11 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const isInternPortal = pathname.startsWith("/intern");
   const isCustomerSupportPortal =
     pathname === "/support" || pathname.startsWith("/support/");
+  const isCustomerPortal =
+    pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   const isStaffPortal = isAdminPortal || isInternPortal;
   const hasDedicatedPortalBrand = isStaffPortal || isCustomerSupportPortal;
+  const usesFixedPortalShell = isCustomerSupportPortal || isCustomerPortal;
 
   const { openIssueCount } = useOpenSystemIssueCount({
     enabled: isStaffPortal,
@@ -63,6 +66,24 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     () => (Array.isArray(items) ? items : []),
     [items],
   );
+
+  const mobileItems = useMemo(() => {
+    if (isCustomerPortal) {
+      const preferredPaths = [
+        "/dashboard",
+        "/dashboard/vehicles",
+        "/booking/vehicle",
+        "/dashboard/bookings",
+        "/dashboard/notifications",
+      ];
+
+      return preferredPaths
+        .map((path) => visibleItems.find((item) => item.to === path))
+        .filter(Boolean);
+    }
+
+    return visibleItems.slice(0, 5);
+  }, [isCustomerPortal, visibleItems]);
 
   const closeSidebar = () => {
     setOpen(false);
@@ -206,7 +227,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     <div
       className={[
         "min-h-screen overflow-x-hidden bg-bg-soft",
-        isCustomerSupportPortal ? "lg:block" : "lg:flex",
+        usesFixedPortalShell ? "lg:block" : "lg:flex",
       ].join(" ")}
     >
       {open && (
@@ -221,7 +242,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
       <aside
         className={[
           "fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-line bg-white shadow-xl transition-transform duration-300",
-          isCustomerSupportPortal
+          usesFixedPortalShell
             ? "lg:fixed lg:top-0 lg:z-30 lg:h-screen lg:w-[264px] lg:translate-x-0 lg:shadow-none"
             : "lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0 lg:shadow-none",
           open ? "translate-x-0" : "-translate-x-full",
@@ -274,7 +295,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
       <div
         className={[
           "min-w-0 flex-1 overflow-x-hidden",
-          isCustomerSupportPortal ? "lg:ml-[264px]" : "",
+          usesFixedPortalShell ? "lg:ml-[264px]" : "",
         ].join(" ")}
       >
         <header className="sticky top-0 z-20 border-b border-line bg-white/95 backdrop-blur-xl">
@@ -310,7 +331,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           transition={{ duration: 0.2 }}
           className={[
             "w-full min-w-0 max-w-full overflow-x-hidden",
-            isCustomerSupportPortal
+            usesFixedPortalShell
               ? "mx-auto max-w-[1600px] px-3 pb-28 pt-4 sm:px-5 sm:pt-5 lg:px-7 lg:pb-8 lg:pt-7 xl:px-8"
               : "p-4 sm:p-6 lg:p-8",
           ].join(" ")}
@@ -319,14 +340,18 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         </motion.main>
       </div>
 
-      {isCustomerSupportPortal && (
+      {(isCustomerSupportPortal || isCustomerPortal) && (
         <nav
-          aria-label="Support portal navigation"
+          aria-label={
+            isCustomerSupportPortal
+              ? "Support portal navigation"
+              : "Customer portal navigation"
+          }
           className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-2 pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:hidden"
           style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
         >
           <div className="mx-auto flex max-w-lg gap-1">
-            {visibleItems.slice(0, 5).map((item) =>
+            {mobileItems.map((item) =>
               renderNavItem(item, { mobile: true }),
             )}
           </div>

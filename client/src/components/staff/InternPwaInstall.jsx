@@ -11,6 +11,7 @@ export default function InternPwaInstall({ compact = false }) {
       installedStorageKey="rovauto_intern_pwa_installed"
       pwaId="intern"
       compact={compact}
+      dark={false}
     />
   );
 }

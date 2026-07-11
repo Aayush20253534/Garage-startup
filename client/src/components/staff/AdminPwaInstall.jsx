@@ -11,6 +11,7 @@ export default function AdminPwaInstall({ compact = false }) {
       installedStorageKey="rovauto_admin_pwa_installed"
       pwaId="admin"
       compact={compact}
+      dark={false}
     />
   );
 }
