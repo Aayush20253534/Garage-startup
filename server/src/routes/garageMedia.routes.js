@@ -7,14 +7,21 @@ const garageMediaController = require("../controllers/garageMedia.controller");
 
 const router = express.Router();
 
+const garagePhotoUpload = upload.createUpload({
+  fileSize: 1024 * 1024,
+  files: 15,
+  allowedMimeTypes: upload.IMAGE_MIME_TYPES,
+});
+
 router.post(
   "/:garageId/media",
   protect,
   authorizeRoles("GARAGE_OWNER", "ADMIN"),
-  upload.fields([
+  garagePhotoUpload.fields([
     { name: "thumbnail", maxCount: 1 },
     { name: "images", maxCount: 14 },
   ]),
+  upload.validateUploadedFiles,
   garageMediaController.uploadGarageMedia
 );
 

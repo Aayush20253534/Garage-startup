@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const axios = require("axios");
 const ApiError = require("../../utils/apiError");
+const { getCache, setCache } = require("../../utils/cache");
 
 const PLACES_AUTOCOMPLETE_URL =
   "https://places.googleapis.com/v1/places:autocomplete";
@@ -31,6 +32,20 @@ const SUPPORTED_BOUNDS = [
 let routeOptimizationTokenCache = null;
 
 const normalizeText = (value) => String(value || "").trim();
+
+const stableCacheKey = (scope, value) => {
+  const hash = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(value))
+    .digest("hex");
+
+  return `maps:${scope}:${hash}`;
+};
+
+const getMapsCacheTtl = (name, fallback) => {
+  const configured = Number(process.env[name]);
+  return Number.isFinite(configured) && configured > 0 ? configured : fallback;
+};
 
 const getRegionCodes = () => {
   const configured = normalizeText(
@@ -215,6 +230,16 @@ const autocompletePlaces = async ({
     };
   }
 
+  const cacheKey = stableCacheKey("autocomplete", {
+    input: cleanInput.toLowerCase(),
+    latitude: isCoordinate(latitude) ? Number(latitude).toFixed(4) : null,
+    longitude: isCoordinate(longitude) ? Number(longitude).toFixed(4) : null,
+    regionCodes: getRegionCodes(),
+    language: process.env.GOOGLE_MAPS_LANGUAGE || "en",
+  });
+  const cachedSuggestions = await getCache(cacheKey);
+  if (cachedSuggestions) return cachedSuggestions;
+
   try {
     const response = await axios.post(PLACES_AUTOCOMPLETE_URL, body, {
       timeout: getTimeoutMs(),
@@ -226,7 +251,7 @@ const autocompletePlaces = async ({
       },
     });
 
-    return (response.data?.suggestions || [])
+    const suggestions = (response.data?.suggestions || [])
       .map((suggestion) => suggestion.placePrediction)
       .filter(Boolean)
       .map((prediction) => ({
@@ -237,6 +262,14 @@ const autocompletePlaces = async ({
         types: prediction.types || [],
         distanceMeters: prediction.distanceMeters ?? null,
       }));
+
+    await setCache(
+      cacheKey,
+      suggestions,
+      getMapsCacheTtl("GOOGLE_PLACES_AUTOCOMPLETE_CACHE_SECONDS", 60),
+    );
+
+    return suggestions;
   } catch (error) {
     throw parseGoogleError(error, "Unable to load address suggestions");
   }
@@ -245,6 +278,14 @@ const autocompletePlaces = async ({
 const getPlaceDetails = async ({ placeId, sessionToken }) => {
   const cleanPlaceId = normalizeText(placeId);
   if (!cleanPlaceId) throw new ApiError(400, "Place ID is required");
+
+  const cacheKey = stableCacheKey("place-details", {
+    placeId: cleanPlaceId,
+    regionCode: getPrimaryRegionCode(),
+    language: process.env.GOOGLE_MAPS_LANGUAGE || "en",
+  });
+  const cachedPlace = await getCache(cacheKey);
+  if (cachedPlace) return cachedPlace;
 
   try {
     const response = await axios.get(
@@ -279,7 +320,7 @@ const getPlaceDetails = async ({ placeId, sessionToken }) => {
       throw new ApiError(400, "Select an address within the service area");
     }
 
-    return {
+    const result = {
       placeId: place.id || cleanPlaceId,
       formattedAddress: place.formattedAddress || "",
       fullAddress: place.formattedAddress || "",
@@ -292,6 +333,14 @@ const getPlaceDetails = async ({ placeId, sessionToken }) => {
       types: place.types || [],
       attribution: "Google Maps",
     };
+
+    await setCache(
+      cacheKey,
+      result,
+      getMapsCacheTtl("GOOGLE_PLACE_DETAILS_CACHE_SECONDS", 6 * 60 * 60),
+    );
+
+    return result;
   } catch (error) {
     throw parseGoogleError(error, "Unable to load place details");
   }
@@ -306,6 +355,16 @@ const validateAddress = async ({ addressLines = [], locality, administrativeArea
   if (!lines.length) {
     throw new ApiError(400, "At least one address line is required");
   }
+
+  const cacheKey = stableCacheKey("address-validation", {
+    lines,
+    locality: normalizeText(locality),
+    administrativeArea: normalizeText(administrativeArea),
+    postalCode: normalizeText(postalCode),
+    regionCode: getPrimaryRegionCode(),
+  });
+  const cachedValidation = await getCache(cacheKey);
+  if (cachedValidation) return cachedValidation;
 
   try {
     const response = await axios.post(
@@ -331,19 +390,19 @@ const validateAddress = async ({ addressLines = [], locality, administrativeArea
       },
     );
 
-    const result = response.data?.result || {};
-    const verdict = result.verdict || {};
-    const postalAddress = result.address?.postalAddress || {};
-    const geocode = result.geocode || {};
+    const validationResult = response.data?.result || {};
+    const verdict = validationResult.verdict || {};
+    const postalAddress = validationResult.address?.postalAddress || {};
+    const geocode = validationResult.geocode || {};
     const location = geocode.location && isWithinSupportedBounds(geocode.location)
       ? normalizeCoordinate(geocode.location, "validated address")
       : null;
 
-    return {
+    const result = {
       responseId: response.data?.responseId || null,
-      formattedAddress: result.address?.formattedAddress || lines.join(", "),
+      formattedAddress: validationResult.address?.formattedAddress || lines.join(", "),
       postalAddress,
-      addressComponents: result.address?.addressComponents || [],
+      addressComponents: validationResult.address?.addressComponents || [],
       location,
       placeId: geocode.placeId || null,
       plusCode: geocode.plusCode || null,
@@ -361,6 +420,14 @@ const validateAddress = async ({ addressLines = [], locality, administrativeArea
         !Boolean(verdict.hasUnconfirmedComponents),
       attribution: "Google Maps Address Validation",
     };
+
+    await setCache(
+      cacheKey,
+      result,
+      getMapsCacheTtl("GOOGLE_ADDRESS_VALIDATION_CACHE_SECONDS", 60 * 60),
+    );
+
+    return result;
   } catch (error) {
     throw parseGoogleError(error, "Unable to validate this address");
   }

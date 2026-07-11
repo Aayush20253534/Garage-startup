@@ -22,6 +22,7 @@ const DEFAULT_NETWORK_RETRIES = toPositiveNumber(
   1,
 );
 const RETRYABLE_METHODS = new Set(["get", "head", "options"]);
+const UNSAFE_METHODS = new Set(["post", "put", "patch", "delete"]);
 const RETRYABLE_NETWORK_CODES = new Set([
   "ECONNABORTED",
   "ERR_NETWORK",
@@ -69,8 +70,36 @@ const SUPPORT_SESSION_ROLE_KEY = "rov_support_session_role";
 const SUPPORT_SESSION_ACCOUNT_TYPE_KEY = "rov_support_session_account_type";
 const SUPPORT_USER_KEY = "rov_support_user";
 const SESSION_EXPIRED_EVENT = "rovauto:session-expired";
+const CSRF_COOKIE_NAME = "rovautoCsrf";
+const CSRF_HEADER_NAME = "X-CSRF-Token";
 const SESSION_ERROR_PATTERN =
   /authentication token missing|authentication required|invalid account session|account no longer exists|invalid or expired token|invalid or expired session|session expired/i;
+
+const readCookie = (name) => {
+  if (typeof document === "undefined") return "";
+
+  return document.cookie
+    .split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(`${name}=`))
+    ?.slice(name.length + 1) || "";
+};
+
+const ensureCsrfToken = async () => {
+  const current = readCookie(CSRF_COOKIE_NAME);
+  if (current) return decodeURIComponent(current);
+
+  await axios.get(`${apiBaseUrl}/csrf-token`, {
+    withCredentials: true,
+    timeout: API_TIMEOUT_MS,
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const issued = readCookie(CSRF_COOKIE_NAME);
+  return issued ? decodeURIComponent(issued) : "";
+};
 
 const api = axios.create({
   baseURL: apiBaseUrl,
@@ -82,13 +111,34 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
     // Let the browser set the multipart boundary for FormData requests.
     if (config.data instanceof FormData) {
       if (typeof config.headers?.delete === "function") {
         config.headers.delete("Content-Type");
       } else if (config.headers) {
         delete config.headers["Content-Type"];
+      }
+    }
+
+    const method = String(config.method || "get").toLowerCase();
+    const requestUrl = String(config.url || "");
+
+    if (
+      UNSAFE_METHODS.has(method) &&
+      !requestUrl.includes("/csrf-token")
+    ) {
+      const csrfToken = await ensureCsrfToken();
+
+      if (csrfToken) {
+        if (typeof config.headers?.set === "function") {
+          config.headers.set(CSRF_HEADER_NAME, csrfToken);
+        } else {
+          config.headers = {
+            ...(config.headers || {}),
+            [CSRF_HEADER_NAME]: csrfToken,
+          };
+        }
       }
     }
 

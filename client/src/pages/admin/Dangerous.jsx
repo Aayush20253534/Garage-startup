@@ -126,13 +126,14 @@ const getDangerousErrorMessage = async (err, fallback = "Command failed") => {
 
 function DangerousCommandCard({ command, onRun, running, result }) {
   const [confirmation, setConfirmation] = useState("");
+  const [password, setPassword] = useState("");
   const [payload, setPayload] = useState(() => getDefaultPayload(command));
   const classes = toneClass[command.tone] || toneClass.danger;
   const requiresUserTarget = command.fields?.includes("targetType");
   const requiresGarageTarget = command.fields?.includes("garageTargetType");
   const requiresCustomerEmail = command.fields?.includes("customerEmail");
   const expected = command.confirmation;
-  const canRun = confirmation === expected && !running;
+  const canRun = confirmation === expected && password.length > 0 && !running;
   const isDownloadAction = command.action === "download";
 
   const updatePayload = (key, value) => {
@@ -246,7 +247,7 @@ function DangerousCommandCard({ command, onRun, running, result }) {
         </div>
       )}
 
-      <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+      <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_0.8fr_auto] lg:items-end">
         <label className="block text-sm font-semibold text-ink">
           Confirmation text
           <input
@@ -260,10 +261,25 @@ function DangerousCommandCard({ command, onRun, running, result }) {
           </span>
         </label>
 
+        <label className="block text-sm font-semibold text-ink">
+          Admin password
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className={`${controlClass} mt-2`}
+            placeholder="Re-enter password"
+            autoComplete="current-password"
+          />
+          <span className="mt-2 block text-xs text-muted">
+            Required before destructive actions.
+          </span>
+        </label>
+
         <button
           type="button"
           disabled={!canRun}
-          onClick={() => onRun(command, { confirmation, payload })}
+          onClick={() => onRun(command, { confirmation, password, payload })}
           className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-5 text-sm font-bold transition disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 ${classes.button}`}
         >
           {running ? (

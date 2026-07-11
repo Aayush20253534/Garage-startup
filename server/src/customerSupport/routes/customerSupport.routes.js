@@ -2,10 +2,19 @@ const express = require("express");
 
 const controller = require("../controllers/customerSupport.controller");
 const { protectCustomerSupport } = require("../../middlewares/auth.middleware");
+const rateLimit = require("../../middlewares/rateLimit.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const rules = require("../validations/customerSupport.validation");
 
 const router = express.Router();
+
+const supportOutboundRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  fallbackMax: 5,
+  keyGenerator: (req) => `support-outbound:${req.user?.id || req.ip}`,
+});
+
 router.use(protectCustomerSupport);
 
 router.get("/push/public-key", controller.getPushPublicConfig);
@@ -22,6 +31,7 @@ router.patch("/tickets/:ticketId", rules.update, validate, controller.updateTick
 
 router.post(
   "/notifications/send",
+  supportOutboundRateLimit,
   rules.sendNotification,
   validate,
   controller.sendCustomerNotification,
@@ -47,7 +57,13 @@ router.patch(
 );
 
 router.get("/email-users", rules.emailSearch, validate, controller.searchEmailUsers);
-router.post("/emails", rules.sendEmail, validate, controller.sendUserEmail);
+router.post(
+  "/emails",
+  supportOutboundRateLimit,
+  rules.sendEmail,
+  validate,
+  controller.sendUserEmail,
+);
 router.get("/emails/history", controller.listEmailLogs);
 
 module.exports = router;

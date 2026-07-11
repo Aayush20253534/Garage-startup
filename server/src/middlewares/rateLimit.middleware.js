@@ -83,6 +83,7 @@ const applyRateLimitHeaders = (res, bucket, max) => {
 const rateLimit = ({
   windowMs = 60 * 1000,
   max = 30,
+  fallbackMax = null,
   keyGenerator = (req) => req.ip,
   name = "global",
 } = {}) => {
@@ -96,6 +97,7 @@ const rateLimit = ({
   return async (req, res, next) => {
     const key = `${keyPrefix}:${normalizeKeyPart(keyGenerator(req))}`;
     let bucket = null;
+    let usingMemoryFallback = false;
 
     try {
       bucket = await incrementRedisBucket(key, windowMs);
@@ -105,11 +107,17 @@ const rateLimit = ({
 
     if (!bucket) {
       bucket = incrementMemoryBucket(key, windowMs);
+      usingMemoryFallback = true;
     }
 
-    applyRateLimitHeaders(res, bucket, max);
+    const activeMax =
+      usingMemoryFallback && Number.isFinite(Number(fallbackMax))
+        ? Math.max(1, Number(fallbackMax))
+        : max;
 
-    if (bucket.count > max) {
+    applyRateLimitHeaders(res, bucket, activeMax);
+
+    if (bucket.count > activeMax) {
       return next(new ApiError(429, "Too many requests. Please try again later."));
     }
 

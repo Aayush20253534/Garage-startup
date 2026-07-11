@@ -58,6 +58,43 @@ const createUserSession = async (userId, metadata = {}) => {
   });
 };
 
+const createAccountSession = async ({
+  model,
+  accountField,
+  accountId,
+  metadata = {},
+}) => {
+  const now = new Date();
+  const deviceId = resolveDeviceId(metadata.deviceId);
+  const userAgent = normalizeUserAgent(metadata.userAgent);
+
+  return prisma[model].create({
+    data: {
+      [accountField]: accountId,
+      userAgent,
+      deviceId,
+      lastSeenAt: now,
+      expiresAt: getSessionExpiry(),
+    },
+  });
+};
+
+const createStaffSession = (staffAccountId, metadata = {}) =>
+  createAccountSession({
+    model: "staffSession",
+    accountField: "staffAccountId",
+    accountId: staffAccountId,
+    metadata,
+  });
+
+const createCustomerSupportSession = (supportAccountId, metadata = {}) =>
+  createAccountSession({
+    model: "customerSupportSession",
+    accountField: "supportAccountId",
+    accountId: supportAccountId,
+    metadata,
+  });
+
 const getActiveUserSession = (sessionId, userId) =>
   prisma.userSession.findFirst({
     where: {
@@ -72,6 +109,37 @@ const getActiveUserSession = (sessionId, userId) =>
       expiresAt: true,
     },
   });
+
+const getActiveAccountSession = (model, accountField, sessionId, accountId) =>
+  prisma[model].findFirst({
+    where: {
+      id: sessionId,
+      [accountField]: accountId,
+      revokedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    select: {
+      id: true,
+      lastSeenAt: true,
+      expiresAt: true,
+    },
+  });
+
+const getActiveStaffSession = (sessionId, staffAccountId) =>
+  getActiveAccountSession(
+    "staffSession",
+    "staffAccountId",
+    sessionId,
+    staffAccountId,
+  );
+
+const getActiveCustomerSupportSession = (sessionId, supportAccountId) =>
+  getActiveAccountSession(
+    "customerSupportSession",
+    "supportAccountId",
+    sessionId,
+    supportAccountId,
+  );
 
 const touchUserSession = async (sessionId, userId) => {
   const now = new Date();
@@ -88,6 +156,38 @@ const touchUserSession = async (sessionId, userId) => {
     data: { lastSeenAt: now },
   });
 };
+
+const touchAccountSession = async (model, accountField, sessionId, accountId) => {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - SESSION_TOUCH_INTERVAL_MS);
+
+  await prisma[model].updateMany({
+    where: {
+      id: sessionId,
+      [accountField]: accountId,
+      revokedAt: null,
+      expiresAt: { gt: now },
+      lastSeenAt: { lte: cutoff },
+    },
+    data: { lastSeenAt: now },
+  });
+};
+
+const touchStaffSession = (sessionId, staffAccountId) =>
+  touchAccountSession(
+    "staffSession",
+    "staffAccountId",
+    sessionId,
+    staffAccountId,
+  );
+
+const touchCustomerSupportSession = (sessionId, supportAccountId) =>
+  touchAccountSession(
+    "customerSupportSession",
+    "supportAccountId",
+    sessionId,
+    supportAccountId,
+  );
 
 const ensureLegacyUserSession = async ({
   userId,
@@ -163,10 +263,94 @@ const revokeUserSession = async (sessionId, userId) => {
   });
 };
 
+const revokeAccountSession = async (model, accountField, sessionId, accountId) => {
+  if (!sessionId || !accountId) return;
+
+  await prisma[model].updateMany({
+    where: {
+      id: sessionId,
+      [accountField]: accountId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+};
+
+const revokeStaffSession = (sessionId, staffAccountId) =>
+  revokeAccountSession(
+    "staffSession",
+    "staffAccountId",
+    sessionId,
+    staffAccountId,
+  );
+
+const revokeCustomerSupportSession = (sessionId, supportAccountId) =>
+  revokeAccountSession(
+    "customerSupportSession",
+    "supportAccountId",
+    sessionId,
+    supportAccountId,
+  );
+
+const revokeAllUserSessions = async (userId) => {
+  if (!userId) return;
+
+  await prisma.userSession.updateMany({
+    where: {
+      userId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+};
+
+const revokeAllStaffSessions = async (staffAccountId) => {
+  if (!staffAccountId) return;
+
+  await prisma.staffSession.updateMany({
+    where: {
+      staffAccountId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+};
+
+const revokeAllCustomerSupportSessions = async (supportAccountId) => {
+  if (!supportAccountId) return;
+
+  await prisma.customerSupportSession.updateMany({
+    where: {
+      supportAccountId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+};
+
 module.exports = {
+  createCustomerSupportSession,
+  createStaffSession,
   createUserSession,
   ensureLegacyUserSession,
+  getActiveCustomerSupportSession,
+  getActiveStaffSession,
   getActiveUserSession,
+  revokeAllCustomerSupportSessions,
+  revokeAllStaffSessions,
+  revokeAllUserSessions,
+  revokeCustomerSupportSession,
+  revokeStaffSession,
   revokeUserSession,
+  touchCustomerSupportSession,
+  touchStaffSession,
   touchUserSession,
 };

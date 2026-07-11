@@ -3,6 +3,7 @@ const os = require("os");
 const path = require("path");
 const { spawn } = require("child_process");
 const { Client } = require("pg");
+const argon2 = require("argon2");
 
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
@@ -268,6 +269,33 @@ const assertConfirmation = ({ command, confirmation }) => {
   }
 };
 
+const assertAdminStepUp = async ({ requestedById, password }) => {
+  if (!requestedById || !password) {
+    throw new ApiError(403, "Admin password confirmation is required");
+  }
+
+  const admin = await prisma.staffAccount.findFirst({
+    where: {
+      id: requestedById,
+      role: "ADMIN",
+      isActive: true,
+    },
+    select: {
+      id: true,
+      password: true,
+    },
+  });
+
+  if (!admin) {
+    throw new ApiError(403, "Admin access required");
+  }
+
+  const validPassword = await argon2.verify(admin.password, password);
+  if (!validPassword) {
+    throw new ApiError(403, "Admin password confirmation failed");
+  }
+};
+
 const assertCommand = (command) => {
   const metadata = COMMAND_BY_NAME.get(command);
 
@@ -504,7 +532,12 @@ const runSqliteImport = ({ sqliteBin, dbPath, sqlPath }) =>
     input.pipe(child.stdin);
   });
 
-const createSqliteBackupFile = async ({ command, confirmation } = {}) => {
+const createSqliteBackupFile = async ({
+  command,
+  confirmation,
+  password,
+  requestedById = null,
+} = {}) => {
   const metadata = assertCommand(command);
 
   if (metadata.action !== "download") {
@@ -512,6 +545,7 @@ const createSqliteBackupFile = async ({ command, confirmation } = {}) => {
   }
 
   assertConfirmation({ command, confirmation });
+  await assertAdminStepUp({ requestedById, password });
 
   const fileStamp = new Date().toISOString().replace(/[:.]/g, "-");
   const baseName = `rovauto-db-backup-${fileStamp}`;
@@ -1759,7 +1793,13 @@ const nukePlatform = async () => {
   };
 };
 
-const runCommand = async ({ command, confirmation, payload = {}, requestedById = null } = {}) => {
+const runCommand = async ({
+  command,
+  confirmation,
+  password,
+  payload = {},
+  requestedById = null,
+} = {}) => {
   const metadata = assertCommand(command);
 
   if (metadata.action === "download") {
@@ -1767,6 +1807,7 @@ const runCommand = async ({ command, confirmation, payload = {}, requestedById =
   }
 
   assertConfirmation({ command, confirmation });
+  await assertAdminStepUp({ requestedById, password });
 
   let result;
 

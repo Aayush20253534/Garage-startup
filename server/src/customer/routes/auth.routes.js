@@ -32,6 +32,7 @@ const router = express.Router();
 const otpVerifyRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  fallbackMax: 4,
   keyGenerator: (req) =>
     `${req.ip}:${req.body?.phone || req.body?.email || "otp"}`,
 });
@@ -39,6 +40,7 @@ const otpVerifyRateLimit = rateLimit({
 const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  fallbackMax: 4,
   keyGenerator: (req) =>
     `${req.ip}:${req.body?.identifier || "login"}`,
 });
@@ -46,6 +48,7 @@ const loginRateLimit = rateLimit({
 const passwordResetRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
+  fallbackMax: 2,
   keyGenerator: (req) =>
     `${req.ip}:${req.body?.email || "password-reset"}`,
 });

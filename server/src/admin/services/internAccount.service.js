@@ -132,10 +132,26 @@ const updateAccount = async (accountId, data) => {
   }
 
   try {
-    return await prisma.staffAccount.update({
-      where: { id: accountId },
-      data: updateData,
-      select: accountSelect,
+    return await prisma.$transaction(async (tx) => {
+      const updated = await tx.staffAccount.update({
+        where: { id: accountId },
+        data: updateData,
+        select: accountSelect,
+      });
+
+      if (updateData.isActive === false) {
+        await tx.staffSession.updateMany({
+          where: {
+            staffAccountId: accountId,
+            revokedAt: null,
+          },
+          data: {
+            revokedAt: new Date(),
+          },
+        });
+      }
+
+      return updated;
     });
   } catch (error) {
     const conflictError = toConflictError(error);
@@ -151,13 +167,24 @@ const changePassword = async (accountId, password) => {
 
   await getIntern(accountId);
 
-  await prisma.staffAccount.update({
-    where: { id: accountId },
-    data: {
-      password: await argon2.hash(password),
-      passwordChangedAt: new Date(),
-    },
-  });
+  await prisma.$transaction([
+    prisma.staffAccount.update({
+      where: { id: accountId },
+      data: {
+        password: await argon2.hash(password),
+        passwordChangedAt: new Date(),
+      },
+    }),
+    prisma.staffSession.updateMany({
+      where: {
+        staffAccountId: accountId,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    }),
+  ]);
 
   return { changed: true };
 };

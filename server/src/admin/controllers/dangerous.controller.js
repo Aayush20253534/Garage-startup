@@ -28,6 +28,7 @@ const runDangerousCommand = asyncHandler(async (req, res) => {
   const result = await service.runCommand({
     command: req.params.command,
     confirmation: req.body.confirmation,
+    password: req.body.password,
     payload: req.body.payload || {},
     requestedById: req.user.id,
   });
@@ -41,6 +42,8 @@ const downloadDbBackup = asyncHandler(async (req, res, next) => {
   const { filePath, filename, cleanupPaths } = await service.createSqliteBackupFile({
     command: req.params.command,
     confirmation: req.body.confirmation,
+    password: req.body.password,
+    requestedById: req.user.id,
   });
 
   res.status(200);

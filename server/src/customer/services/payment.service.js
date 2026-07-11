@@ -1103,6 +1103,10 @@ const verifyCashfreeWebhookSignature = (req) => {
     String(process.env.CASHFREE_WEBHOOK_SIGNATURE_REQUIRED || "true").toLowerCase(),
   );
 
+  if (!required && process.env.NODE_ENV === "production") {
+    throw new ApiError(500, "Cashfree webhook signatures cannot be disabled in production");
+  }
+
   if (!required) return;
 
   const secret = getCashfreeWebhookSecret();
@@ -1118,6 +1122,22 @@ const verifyCashfreeWebhookSignature = (req) => {
 
   if (!timestamp || !signature) {
     throw new ApiError(400, "Missing Cashfree webhook signature headers");
+  }
+
+  const rawTimestamp = Number(timestamp);
+  const timestampMs = rawTimestamp > 1_000_000_000_000
+    ? rawTimestamp
+    : rawTimestamp * 1000;
+  const maxAgeMs = Math.max(
+    60 * 1000,
+    Number(process.env.CASHFREE_WEBHOOK_MAX_AGE_MS || 5 * 60 * 1000),
+  );
+
+  if (
+    !Number.isFinite(timestampMs) ||
+    Math.abs(Date.now() - timestampMs) > maxAgeMs
+  ) {
+    throw new ApiError(401, "Stale Cashfree webhook signature");
   }
 
   const expectedSignature = crypto

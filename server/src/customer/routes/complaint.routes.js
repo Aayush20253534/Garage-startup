@@ -12,11 +12,18 @@ const {
 
 const router = express.Router();
 
+const complaintImageUpload = upload.createUpload({
+  fileSize: 10 * 1024 * 1024,
+  files: 10,
+  allowedMimeTypes: upload.IMAGE_MIME_TYPES,
+});
+
 router.use(protect);
 
 router.post(
   "/",
-  upload.array("images", 10),
+  complaintImageUpload.array("images", 10),
+  upload.validateUploadedFiles,
   createComplaintValidation,
   validate,
   complaintController.createComplaint

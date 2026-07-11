@@ -17,6 +17,19 @@ const geocodeRateLimit = rateLimit({
   keyGenerator: (req) => `garage-application-geocode:${req.ip}`,
 });
 
+const submitApplicationRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  fallbackMax: 1,
+  keyGenerator: (req) => `garage-application-submit:${req.ip}`,
+});
+
+const applicationImageUpload = upload.createUpload({
+  fileSize: 2 * 1024 * 1024,
+  files: 15,
+  allowedMimeTypes: upload.IMAGE_MIME_TYPES,
+});
+
 router.get(
   "/geocode",
   geocodeRateLimit,
@@ -27,7 +40,9 @@ router.get(
 
 router.post(
   "/",
-  upload.array("images", 15),
+  submitApplicationRateLimit,
+  applicationImageUpload.array("images", 15),
+  upload.validateUploadedFiles,
   submitGarageApplicationSchema,
   validate,
   applicationController.submitApplication

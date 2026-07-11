@@ -152,6 +152,41 @@ const readNumber = (key, fallback = null) => {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 };
 
+const readSessionJson = (key, fallback = null) => {
+  try {
+    const value = sessionStorage.getItem(key) || localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const readSessionNumber = (key, fallback = null) => {
+  const value = Number(sessionStorage.getItem(key) || localStorage.getItem(key));
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+};
+
+const setSessionCache = (key, value) => {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    localStorage.setItem(key, value);
+    return;
+  }
+
+  localStorage.removeItem(key);
+};
+
+const removeSessionCache = (key) => {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    // Ignore storage access failures and still clear persistent fallback.
+  }
+
+  localStorage.removeItem(key);
+};
+
 const getLocationIdentity = (value) => {
   if (!value) return null;
 
@@ -323,10 +358,10 @@ export function AppProvider({ children }) {
   const profileRequestRef = useRef(null);
 
   const [dashboardCache, setDashboardCache] = useState(() =>
-    readJson("rov_dashboard", null),
+    readSessionJson("rov_dashboard", null),
   );
   const [dashboardFetchedAt, setDashboardFetchedAt] = useState(() =>
-    readNumber("rov_dashboard_time", null),
+    readSessionNumber("rov_dashboard_time", null),
   );
 
   const [serviceCategoriesCache, setServiceCategoriesCache] = useState(() =>
@@ -344,45 +379,45 @@ export function AppProvider({ children }) {
   );
 
   const [vehiclesCache, setVehiclesCache] = useState(() =>
-    readJson("rov_vehicles_cache", null),
+    readSessionJson("rov_vehicles_cache", null),
   );
   const [vehiclesFetchedAt, setVehiclesFetchedAt] = useState(() =>
-    readNumber("rov_vehicles_cache_time", null),
+    readSessionNumber("rov_vehicles_cache_time", null),
   );
 
   const [activeBookingsCache, setActiveBookingsCache] = useState(() =>
-    readJson("rov_active_bookings", null),
+    readSessionJson("rov_active_bookings", null),
   );
   const [activeBookingsFetchedAt, setActiveBookingsFetchedAt] = useState(() =>
-    readNumber("rov_active_bookings_time", null),
+    readSessionNumber("rov_active_bookings_time", null),
   );
 
   const [serviceHistoryCache, setServiceHistoryCache] = useState(() =>
-    readJson("rov_service_history", null),
+    readSessionJson("rov_service_history", null),
   );
   const [serviceHistoryFetchedAt, setServiceHistoryFetchedAt] = useState(() =>
-    readNumber("rov_service_history_time", null),
+    readSessionNumber("rov_service_history_time", null),
   );
 
   const [profileCache, setProfileCache] = useState(() =>
-    readJson("rov_profile", null),
+    readSessionJson("rov_profile", null),
   );
   const [profileFetchedAt, setProfileFetchedAt] = useState(() =>
-    readNumber("rov_profile_time", null),
+    readSessionNumber("rov_profile_time", null),
   );
 
   const clearDashboardCache = () => {
     setDashboardCache(null);
     setDashboardFetchedAt(null);
-    localStorage.removeItem("rov_dashboard");
-    localStorage.removeItem("rov_dashboard_time");
+    removeSessionCache("rov_dashboard");
+    removeSessionCache("rov_dashboard_time");
   };
 
   const saveDashboardCache = (data, fetchedAt) => {
     setDashboardCache(data);
     setDashboardFetchedAt(fetchedAt);
-    localStorage.setItem("rov_dashboard", JSON.stringify(data));
-    localStorage.setItem("rov_dashboard_time", String(fetchedAt));
+    setSessionCache("rov_dashboard", JSON.stringify(data));
+    setSessionCache("rov_dashboard_time", String(fetchedAt));
   };
 
   const clearServiceCategoriesCache = () => {
@@ -416,57 +451,57 @@ export function AppProvider({ children }) {
   const clearVehiclesCache = () => {
     setVehiclesCache(null);
     setVehiclesFetchedAt(null);
-    localStorage.removeItem("rov_vehicles_cache");
-    localStorage.removeItem("rov_vehicles_cache_time");
+    removeSessionCache("rov_vehicles_cache");
+    removeSessionCache("rov_vehicles_cache_time");
   };
 
   const saveVehiclesCache = (data, fetchedAt) => {
     setVehiclesCache(data);
     setVehiclesFetchedAt(fetchedAt);
-    localStorage.setItem("rov_vehicles_cache", JSON.stringify(data));
-    localStorage.setItem("rov_vehicles_cache_time", String(fetchedAt));
+    setSessionCache("rov_vehicles_cache", JSON.stringify(data));
+    setSessionCache("rov_vehicles_cache_time", String(fetchedAt));
   };
 
   const clearActiveBookingsCache = () => {
     setActiveBookingsCache(null);
     setActiveBookingsFetchedAt(null);
-    localStorage.removeItem("rov_active_bookings");
-    localStorage.removeItem("rov_active_bookings_time");
+    removeSessionCache("rov_active_bookings");
+    removeSessionCache("rov_active_bookings_time");
   };
 
   const saveActiveBookingsCache = (data, fetchedAt) => {
     setActiveBookingsCache(data);
     setActiveBookingsFetchedAt(fetchedAt);
-    localStorage.setItem("rov_active_bookings", JSON.stringify(data));
-    localStorage.setItem("rov_active_bookings_time", String(fetchedAt));
+    setSessionCache("rov_active_bookings", JSON.stringify(data));
+    setSessionCache("rov_active_bookings_time", String(fetchedAt));
   };
 
   const clearServiceHistoryCache = () => {
     setServiceHistoryCache(null);
     setServiceHistoryFetchedAt(null);
-    localStorage.removeItem("rov_service_history");
-    localStorage.removeItem("rov_service_history_time");
+    removeSessionCache("rov_service_history");
+    removeSessionCache("rov_service_history_time");
   };
 
   const saveServiceHistoryCache = (data, fetchedAt) => {
     setServiceHistoryCache(data);
     setServiceHistoryFetchedAt(fetchedAt);
-    localStorage.setItem("rov_service_history", JSON.stringify(data));
-    localStorage.setItem("rov_service_history_time", String(fetchedAt));
+    setSessionCache("rov_service_history", JSON.stringify(data));
+    setSessionCache("rov_service_history_time", String(fetchedAt));
   };
 
   const clearProfileCache = () => {
     setProfileCache(null);
     setProfileFetchedAt(null);
-    localStorage.removeItem("rov_profile");
-    localStorage.removeItem("rov_profile_time");
+    removeSessionCache("rov_profile");
+    removeSessionCache("rov_profile_time");
   };
 
   const saveProfileCache = (data, fetchedAt) => {
     setProfileCache(data);
     setProfileFetchedAt(fetchedAt);
-    localStorage.setItem("rov_profile", JSON.stringify(data));
-    localStorage.setItem("rov_profile_time", String(fetchedAt));
+    setSessionCache("rov_profile", JSON.stringify(data));
+    setSessionCache("rov_profile_time", String(fetchedAt));
   };
 
   const clearBookingCaches = () => {

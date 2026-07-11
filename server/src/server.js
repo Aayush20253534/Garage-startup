@@ -1,5 +1,9 @@
 require("dotenv/config");
 
+const { validateEnvironment } = require("./config/env");
+
+validateEnvironment();
+
 const app = require("./app");
 const prisma = require("./config/prisma");
 const systemIssueReporter = require("./services/systemIssueReporter.service");

@@ -15,6 +15,12 @@ const {
 
 const router = express.Router();
 
+const inspectionPhotoUpload = upload.createUpload({
+  fileSize: 1024 * 1024,
+  files: 5,
+  allowedMimeTypes: upload.IMAGE_MIME_TYPES,
+});
+
 router.use(protect);
 router.use(authorizeRoles("GARAGE_OWNER", "ADMIN"));
 
@@ -31,7 +37,8 @@ router.post(
 
 router.post(
   "/:requestId/verify-handover-otp",
-  upload.array("images", 5),
+  inspectionPhotoUpload.array("images", 5),
+  upload.validateUploadedFiles,
   verifyHandoverOtpSchema,
   validate,
   garageRequestController.verifyHandoverOtp
@@ -39,7 +46,8 @@ router.post(
 
 router.post(
   "/:requestId/mark-delivered",
-  upload.array("images", 5),
+  inspectionPhotoUpload.array("images", 5),
+  upload.validateUploadedFiles,
   markDeliveredSchema,
   validate,
   garageRequestController.markDelivered

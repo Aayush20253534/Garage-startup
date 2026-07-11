@@ -21,6 +21,12 @@ const runDangerousCommandSchema = [
       `Type ${getExpectedConfirmation(req.params.command)} to continue`,
     ),
 
+  body("password")
+    .isString()
+    .withMessage("Admin password is required")
+    .isLength({ min: 1, max: 256 })
+    .withMessage("Admin password is required"),
+
   body("payload")
     .optional({ nullable: true })
     .isObject()

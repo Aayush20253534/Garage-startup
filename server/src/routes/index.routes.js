@@ -64,6 +64,7 @@ const router = express.Router();
 const publicOtpRateLimit = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
+  fallbackMax: 4,
   keyGenerator: (req) => `${req.ip}:${req.body?.phone || "otp"}`,
 });
 

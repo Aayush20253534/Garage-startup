@@ -11,11 +11,18 @@ const {
 
 const router = express.Router();
 
+const supportTicketImageUpload = upload.createUpload({
+  fileSize: 10 * 1024 * 1024,
+  files: 5,
+  allowedMimeTypes: upload.IMAGE_MIME_TYPES,
+});
+
 router.get("/bookings", controller.listRecentBookings);
 router.get("/my", controller.listMyTickets);
 router.post(
   "/",
-  upload.array("images", 5),
+  supportTicketImageUpload.array("images", 5),
+  upload.validateUploadedFiles,
   createTicketValidation,
   validate,
   controller.createTicket,

@@ -16,7 +16,11 @@ const {
 } = require("../validations/serviceAdmin.validation");
 
 const router = express.Router();
-const thumbnailUpload = upload.single("thumbnail");
+const thumbnailUpload = upload.createUpload({
+  fileSize: 2 * 1024 * 1024,
+  files: 1,
+  allowedMimeTypes: upload.IMAGE_MIME_TYPES,
+}).single("thumbnail");
 
 router.use(protect);
 router.use(authorizeRoles("ADMIN", "INTERN"));
@@ -34,6 +38,7 @@ router.delete(
 router.post(
   "/categories/:categoryId/thumbnail",
   thumbnailUpload,
+  upload.validateUploadedFiles,
   categoryIdSchema,
   validate,
   controller.uploadCategoryThumbnail
@@ -47,6 +52,6 @@ router.delete(
   validate,
   controller.deactivateService,
 );
-router.post("/:serviceId/thumbnail", thumbnailUpload, serviceIdSchema, validate, controller.uploadThumbnail);
+router.post("/:serviceId/thumbnail", thumbnailUpload, upload.validateUploadedFiles, serviceIdSchema, validate, controller.uploadThumbnail);
 
 module.exports = router;

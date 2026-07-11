@@ -20,7 +20,8 @@ const router = express.Router();
 
 const publicPlacesLimit = rateLimit({
   windowMs: 60 * 1000,
-  max: 40,
+  max: 20,
+  fallbackMax: 8,
   keyGenerator: (req) => `maps-places:${req.ip}`,
 });
 

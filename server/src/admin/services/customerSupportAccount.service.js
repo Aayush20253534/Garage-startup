@@ -134,6 +134,16 @@ const updateAccount = async (accountId, data) => {
         await tx.customerSupportPushSubscription.deleteMany({
           where: { supportAccountId: accountId },
         });
+
+        await tx.customerSupportSession.updateMany({
+          where: {
+            supportAccountId: accountId,
+            revokedAt: null,
+          },
+          data: {
+            revokedAt: new Date(),
+          },
+        });
       }
 
       return updated;
@@ -170,6 +180,15 @@ const changePassword = async (accountId, password) => {
     }),
     prisma.customerSupportPushSubscription.deleteMany({
       where: { supportAccountId: accountId },
+    }),
+    prisma.customerSupportSession.updateMany({
+      where: {
+        supportAccountId: accountId,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
     }),
   ]);
 

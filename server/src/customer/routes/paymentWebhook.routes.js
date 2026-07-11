@@ -8,6 +8,7 @@ const router = express.Router();
 const webhookRateLimit = rateLimit({
   windowMs: 60 * 1000,
   max: 120,
+  fallbackMax: 30,
   keyGenerator: (req) => `cashfree-webhook:${req.ip}`,
 });
 

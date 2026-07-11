@@ -285,6 +285,7 @@ const changePassword = asyncHandler(async (req, res) => {
     req.user.id,
     req.user.accountType,
     req.body,
+    req.authSessionId,
   );
 
   return res

@@ -1,6 +1,8 @@
 const ACCESS_TOKEN_COOKIE_NAME = "accessToken";
 const SUPPORT_ACCESS_TOKEN_COOKIE_NAME = "supportAccessToken";
 const DEVICE_ID_COOKIE_NAME = "rovautoDeviceId";
+const CSRF_COOKIE_NAME = "rovautoCsrf";
+const CSRF_HEADER_NAME = "x-csrf-token";
 
 const DEFAULT_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const DEVICE_ID_COOKIE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
@@ -40,12 +42,26 @@ const deviceIdCookieOptions = Object.freeze({
   maxAge: DEVICE_ID_COOKIE_MAX_AGE_MS,
 });
 
+const csrfCookieOptions = Object.freeze({
+  ...sharedCookieOptions,
+  httpOnly: false,
+  maxAge: DEFAULT_COOKIE_MAX_AGE_MS,
+});
+
+const csrfClearCookieOptions = Object.freeze({
+  ...csrfCookieOptions,
+});
+
 module.exports = {
   ACCESS_TOKEN_COOKIE_NAME,
+  CSRF_COOKIE_NAME,
+  CSRF_HEADER_NAME,
   SUPPORT_ACCESS_TOKEN_COOKIE_NAME,
   DEVICE_ID_COOKIE_NAME,
   accessTokenCookieOptions,
   accessTokenClearCookieOptions,
+  csrfCookieOptions,
+  csrfClearCookieOptions,
   supportAccessTokenCookieOptions,
   supportAccessTokenClearCookieOptions,
   deviceIdCookieOptions,

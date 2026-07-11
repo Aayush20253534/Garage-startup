@@ -7,6 +7,10 @@ const cookieParser = require("cookie-parser");
 
 const routes = require("./routes/index.routes");
 const errorMiddleware = require("./middlewares/error.middleware");
+const {
+  csrfProtection,
+  getCsrfToken,
+} = require("./middlewares/csrf.middleware");
 
 const app = express();
 
@@ -118,6 +122,7 @@ const corsOptions = {
   allowedHeaders: [
     "Content-Type",
     "X-Requested-With",
+    "X-CSRF-Token",
     "Accept",
     "Origin",
   ],
@@ -156,6 +161,8 @@ app.use(
   }),
 );
 
+app.use(csrfProtection);
+
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
@@ -175,6 +182,8 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.get("/api/v1/csrf-token", getCsrfToken);
 
 app.use("/api/v1", routes);
 

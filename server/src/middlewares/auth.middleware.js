@@ -3,7 +3,11 @@ const ApiError = require("../utils/apiError");
 const { verifyToken } = require("../utils/jwt");
 const {
   ensureLegacyUserSession,
+  getActiveCustomerSupportSession,
+  getActiveStaffSession,
   getActiveUserSession,
+  touchCustomerSupportSession,
+  touchStaffSession,
   touchUserSession,
 } = require("../customer/services/userSession.service");
 const {
@@ -117,6 +121,7 @@ const getActiveAccount = async (accountId, accountType) => {
         isPhoneVerified: true,
         isOnboarded: true,
         createdAt: true,
+        passwordChangedAt: true,
       },
     });
 
@@ -188,7 +193,6 @@ const authenticateRequest = async (
     }
 
     if (
-      accountType !== "USER" &&
       account.passwordChangedAt &&
       decoded.iat &&
       account.passwordChangedAt.getTime() > decoded.iat * 1000 + 1000
@@ -232,6 +236,62 @@ const authenticateRequest = async (
           userAgent: req.get("user-agent") || "",
         });
       }
+    } else if (accountType === "STAFF") {
+      if (!decoded.sessionId) {
+        clearAccessTokenCookie(res, tokenCookieName);
+
+        if (optional) {
+          return next();
+        }
+
+        return next(new ApiError(401, "Invalid or expired session"));
+      }
+
+      const session = await getActiveStaffSession(
+        decoded.sessionId,
+        account.id,
+      );
+
+      if (!session) {
+        clearAccessTokenCookie(res, tokenCookieName);
+
+        if (optional) {
+          return next();
+        }
+
+        return next(new ApiError(401, "Invalid or expired session"));
+      }
+
+      authSessionId = session.id;
+      await touchStaffSession(session.id, account.id);
+    } else if (accountType === "CUSTOMER_SUPPORT") {
+      if (!decoded.sessionId) {
+        clearAccessTokenCookie(res, tokenCookieName);
+
+        if (optional) {
+          return next();
+        }
+
+        return next(new ApiError(401, "Invalid or expired session"));
+      }
+
+      const session = await getActiveCustomerSupportSession(
+        decoded.sessionId,
+        account.id,
+      );
+
+      if (!session) {
+        clearAccessTokenCookie(res, tokenCookieName);
+
+        if (optional) {
+          return next();
+        }
+
+        return next(new ApiError(401, "Invalid or expired session"));
+      }
+
+      authSessionId = session.id;
+      await touchCustomerSupportSession(session.id, account.id);
     }
 
     if (

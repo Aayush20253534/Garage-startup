@@ -17,6 +17,7 @@ model User {
   isPhoneVerified      Boolean               @default(false)
   isOnboarded          Boolean               @default(false)
   isActive             Boolean               @default(true)
+  passwordChangedAt    DateTime?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   bookings             Booking[]
@@ -76,6 +77,7 @@ model StaffAccount {
   passwordChangedAt DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  sessions          StaffSession[]
   assignedSupportTickets SupportTicket[] @relation("AssignedSupportTickets")
   supportTicketMessages SupportTicketMessage[] @relation("SupportTicketStaffMessages")
 
@@ -98,11 +100,48 @@ model CustomerSupportAccount {
   messages          SupportTicketMessage[]        @relation("SupportTicketSupportMessages")
   notifies          Notify[]
   pushSubscriptions CustomerSupportPushSubscription[]
+  sessions          CustomerSupportSession[]
   emailLogs         CustomerSupportEmailLog[]
 
   @@index([isActive])
   @@index([lastLoginAt])
   @@map("customer_support_accounts")
+}
+
+model StaffSession {
+  id             String       @id @default(uuid())
+  staffAccountId String
+  userAgent      String?
+  deviceId       String?
+  lastSeenAt     DateTime     @default(now())
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  staffAccount   StaffAccount @relation(fields: [staffAccountId], references: [id], onDelete: Cascade)
+
+  @@index([staffAccountId, expiresAt])
+  @@index([staffAccountId, deviceId])
+  @@index([lastSeenAt])
+  @@map("staff_sessions")
+}
+
+model CustomerSupportSession {
+  id               String                 @id @default(uuid())
+  supportAccountId String
+  userAgent        String?
+  deviceId         String?
+  lastSeenAt       DateTime               @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  supportAccount   CustomerSupportAccount @relation(fields: [supportAccountId], references: [id], onDelete: Cascade)
+
+  @@index([supportAccountId, expiresAt])
+  @@index([supportAccountId, deviceId])
+  @@index([lastSeenAt])
+  @@map("customer_support_sessions")
 }
 
 model CustomerActivity {

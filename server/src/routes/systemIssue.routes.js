@@ -12,7 +12,8 @@ const router = express.Router();
 
 const reportRateLimit = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 10,
+  fallbackMax: 3,
   keyGenerator: (req) => `system-issue:${req.ip}`,
 });
 

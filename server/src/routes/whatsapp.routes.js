@@ -18,7 +18,9 @@ const verifyMetaSignature = (req) => {
   const appSecret = process.env.WHATSAPP_APP_SECRET || process.env.META_APP_SECRET;
   const signature = req.get("x-hub-signature-256");
 
-  if (!appSecret || !signature || !req.rawBody) return true;
+  if (!appSecret || !signature || !req.rawBody) {
+    return process.env.NODE_ENV !== "production";
+  }
 
   const expected =
     "sha256=" +

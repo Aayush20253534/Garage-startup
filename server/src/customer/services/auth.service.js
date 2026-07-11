@@ -14,7 +14,11 @@ const {
 } = require("./otp.service");
 const { createAuthToken } = require("./token.service");
 const {
+  createCustomerSupportSession,
+  createStaffSession,
   createUserSession,
+  revokeCustomerSupportSession,
+  revokeStaffSession,
   revokeUserSession,
 } = require("./userSession.service");
 
@@ -469,11 +473,16 @@ const login = async (
     });
 
     const safeAccount = toSafeCustomerSupport(updatedAccount);
-    const token = createAuthToken(safeAccount);
+    const session = await createCustomerSupportSession(
+      updatedAccount.id,
+      sessionMetadata,
+    );
+    const token = createAuthToken(safeAccount, { sessionId: session.id });
 
     return {
       user: safeAccount,
       token,
+      deviceId: session.deviceId,
     };
   }
 
@@ -517,12 +526,14 @@ const login = async (
     });
 
     const safeStaff = toSafeStaff(updatedStaff);
-    const token = createAuthToken(safeStaff);
+    const session = await createStaffSession(updatedStaff.id, sessionMetadata);
+    const token = createAuthToken(safeStaff, { sessionId: session.id });
     const authStaff = await getAuthStaffById(updatedStaff.id);
 
     return {
       user: authStaff,
       token,
+      deviceId: session.deviceId,
     };
   }
 
@@ -732,6 +743,16 @@ const resetPassword = async ({
       where: { id: user.id },
       data: {
         password: hashedPassword,
+        passwordChangedAt: new Date(),
+      },
+    }),
+    prisma.userSession.updateMany({
+      where: {
+        userId: user.id,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
       },
     }),
   ]);
@@ -745,6 +766,7 @@ const changePassword = async (
   accountId,
   accountType,
   { currentPassword, newPassword },
+  currentSessionId = null,
 ) => {
   if (!currentPassword || !newPassword) {
     throw new ApiError(
@@ -788,20 +810,44 @@ const changePassword = async (
   const hashedPassword = await argon2.hash(newPassword);
 
   if (accountType === "STAFF") {
-    await prisma.staffAccount.update({
-      where: { id: accountId },
-      data: {
-        password: hashedPassword,
-        passwordChangedAt: new Date(),
-      },
-    });
+    await prisma.$transaction([
+      prisma.staffAccount.update({
+        where: { id: accountId },
+        data: {
+          password: hashedPassword,
+          passwordChangedAt: new Date(),
+        },
+      }),
+      prisma.staffSession.updateMany({
+        where: {
+          staffAccountId: accountId,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      }),
+    ]);
   } else {
-    await prisma.user.update({
-      where: { id: accountId },
-      data: {
-        password: hashedPassword,
-      },
-    });
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: accountId },
+        data: {
+          password: hashedPassword,
+          passwordChangedAt: new Date(),
+        },
+      }),
+      prisma.userSession.updateMany({
+        where: {
+          userId: accountId,
+          revokedAt: null,
+          ...(currentSessionId ? { id: { not: currentSessionId } } : {}),
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      }),
+    ]);
   }
 
   return {
@@ -812,6 +858,14 @@ const changePassword = async (
 const logout = async (accountId, accountType, sessionId) => {
   if (accountType === "USER" && accountId && sessionId) {
     await revokeUserSession(sessionId, accountId);
+  }
+
+  if (accountType === "STAFF" && accountId && sessionId) {
+    await revokeStaffSession(sessionId, accountId);
+  }
+
+  if (accountType === "CUSTOMER_SUPPORT" && accountId && sessionId) {
+    await revokeCustomerSupportSession(sessionId, accountId);
   }
 
   return { loggedOut: true };
