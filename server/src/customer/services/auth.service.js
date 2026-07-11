@@ -21,6 +21,14 @@ const {
   revokeStaffSession,
   revokeUserSession,
 } = require("./userSession.service");
+const {
+  createChallenge: createStaffLoginChallenge,
+  verifyChallenge: verifyStaffLoginChallenge,
+  resendChallenge: resendStaffLoginChallenge,
+} = require("./staffTwoFactor.service");
+const {
+  getPasswordChangeSessionRevocation,
+} = require("../security/passwordSessionRevocation");
 
 const PENDING_SIGNUP_EXPIRY_MS = 15 * 60 * 1000;
 const PASSWORD_REGEX =
@@ -490,23 +498,12 @@ const login = async (
       throw new ApiError(401, INVALID_LOGIN_MESSAGE, "INVALID_CREDENTIALS");
     }
 
-    const updatedAccount = await prisma.customerSupportAccount.update({
-      where: { id: supportAccount.id },
-      data: { lastLoginAt: new Date() },
+    return createStaffLoginChallenge({
+      accountId: supportAccount.id,
+      accountType: "CUSTOMER_SUPPORT",
+      role: CUSTOMER_SUPPORT_ROLE,
+      email: supportAccount.email,
     });
-
-    const safeAccount = toSafeCustomerSupport(updatedAccount);
-    const session = await createCustomerSupportSession(
-      updatedAccount.id,
-      sessionMetadata,
-    );
-    const token = createAuthToken(safeAccount, { sessionId: session.id });
-
-    return {
-      user: safeAccount,
-      token,
-      deviceId: session.deviceId,
-    };
   }
 
   if (STAFF_ROLES.includes(requestedRole)) {
@@ -535,21 +532,12 @@ const login = async (
       throw new ApiError(401, INVALID_LOGIN_MESSAGE, "INVALID_CREDENTIALS");
     }
 
-    const updatedStaff = await prisma.staffAccount.update({
-      where: { id: staff.id },
-      data: { lastLoginAt: new Date() },
+    return createStaffLoginChallenge({
+      accountId: staff.id,
+      accountType: "STAFF",
+      role: staff.role,
+      email: staff.email,
     });
-
-    const safeStaff = toSafeStaff(updatedStaff);
-    const session = await createStaffSession(updatedStaff.id, sessionMetadata);
-    const token = createAuthToken(safeStaff, { sessionId: session.id });
-    const authStaff = await getAuthStaffById(updatedStaff.id);
-
-    return {
-      user: authStaff,
-      token,
-      deviceId: session.deviceId,
-    };
   }
 
   const cleanIdentifier = rawIdentifier.startsWith("+")
@@ -579,6 +567,70 @@ const login = async (
 
   return createUserAuthResult(user, sessionMetadata);
 };
+
+const verifyStaffLoginOtp = async (
+  { challengeId, otp },
+  sessionMetadata = {},
+) => {
+  const challenge = await verifyStaffLoginChallenge({ challengeId, otp });
+
+  if (challenge.accountType === "CUSTOMER_SUPPORT") {
+    const account = await prisma.customerSupportAccount.findUnique({
+      where: { id: challenge.accountId },
+    });
+
+    if (!account || !account.isActive || challenge.role !== CUSTOMER_SUPPORT_ROLE) {
+      throw new ApiError(401, "Staff account is no longer available");
+    }
+
+    const updatedAccount = await prisma.customerSupportAccount.update({
+      where: { id: account.id },
+      data: { lastLoginAt: new Date() },
+    });
+    const safeAccount = toSafeCustomerSupport(updatedAccount);
+    const session = await createCustomerSupportSession(
+      updatedAccount.id,
+      sessionMetadata,
+    );
+    const token = createAuthToken(safeAccount, { sessionId: session.id });
+
+    return {
+      user: safeAccount,
+      token,
+      deviceId: session.deviceId,
+    };
+  }
+
+  if (challenge.accountType === "STAFF") {
+    const staff = await prisma.staffAccount.findUnique({
+      where: { id: challenge.accountId },
+    });
+
+    if (!staff || !staff.isActive || staff.role !== challenge.role) {
+      throw new ApiError(401, "Staff account is no longer available");
+    }
+
+    const updatedStaff = await prisma.staffAccount.update({
+      where: { id: staff.id },
+      data: { lastLoginAt: new Date() },
+    });
+    const safeStaff = toSafeStaff(updatedStaff);
+    const session = await createStaffSession(updatedStaff.id, sessionMetadata);
+    const token = createAuthToken(safeStaff, { sessionId: session.id });
+    const authStaff = await getAuthStaffById(updatedStaff.id);
+
+    return {
+      user: authStaff,
+      token,
+      deviceId: session.deviceId,
+    };
+  }
+
+  throw new ApiError(400, "Invalid login challenge");
+};
+
+const resendStaffLoginOtp = async ({ challengeId }) =>
+  resendStaffLoginChallenge(challengeId);
 
 const getMe = async (accountId, accountType) => {
   if (accountType === "CUSTOMER_SUPPORT") {
@@ -815,7 +867,17 @@ const changePassword = async (
     throw new ApiError(401, "Current password is incorrect");
   }
 
+  const isSamePassword = await argon2.verify(account.password, newPassword);
+  if (isSamePassword) {
+    throw new ApiError(400, "New password cannot be same as current password");
+  }
+
   const hashedPassword = await argon2.hash(newPassword);
+  const sessionRevocation = getPasswordChangeSessionRevocation({
+    accountType,
+    accountId,
+    currentSessionId,
+  });
 
   if (accountType === "STAFF") {
     await prisma.$transaction([
@@ -827,10 +889,7 @@ const changePassword = async (
         },
       }),
       prisma.staffSession.updateMany({
-        where: {
-          staffAccountId: accountId,
-          revokedAt: null,
-        },
+        where: sessionRevocation.where,
         data: {
           revokedAt: new Date(),
         },
@@ -846,11 +905,7 @@ const changePassword = async (
         },
       }),
       prisma.userSession.updateMany({
-        where: {
-          userId: accountId,
-          revokedAt: null,
-          ...(currentSessionId ? { id: { not: currentSessionId } } : {}),
-        },
+        where: sessionRevocation.where,
         data: {
           revokedAt: new Date(),
         },
@@ -886,6 +941,8 @@ module.exports = {
   sendPhoneOtp,
   verifyPhoneNumberOtp,
   login,
+  verifyStaffLoginOtp,
+  resendStaffLoginOtp,
   googleAuth,
   getMe,
   logout,

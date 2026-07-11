@@ -47,8 +47,22 @@ const updateMyGarage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Garage profile updated successfully", garage));
 });
 
+const requestGarageAccountDeletionOtp = asyncHandler(async (req, res) => {
+  const result = await garageOwnerService.requestGarageAccountDeletionOtp(
+    req.user.id,
+  );
+
+  res.set("Cache-Control", "no-store");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Account deletion OTP sent", result));
+});
+
 const deleteMyGarageAccount = asyncHandler(async (req, res) => {
-  const result = await garageOwnerService.deleteGarageOwnerAccount(req.user.id);
+  const result = await garageOwnerService.deleteGarageOwnerAccount(
+    req.user.id,
+    req.body,
+  );
 
   res.clearCookie(
     ACCESS_TOKEN_COOKIE_NAME,
@@ -80,6 +94,7 @@ const getGarageServices = asyncHandler(async (req, res) => {
 
 module.exports = {
   deleteMyGarageAccount,
+  requestGarageAccountDeletionOtp,
   getGarages,
   getNearbyGarages,
   getMyGarage,

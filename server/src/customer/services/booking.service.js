@@ -1,5 +1,6 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
+const { buildOwnedResourceWhere } = require("../security/ownership");
 const generateBookingCode = require("../../utils/bookingCode");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const { getCache, setCache, deletePattern } = require("../../utils/cache");
@@ -395,10 +396,7 @@ const getPendingPaymentBookings = async (userId) => {
 
 const getBookingById = async (userId, bookingId) => {
   const ownedBooking = await prisma.booking.findFirst({
-    where: {
-      id: bookingId,
-      userId,
-    },
+    where: buildOwnedResourceWhere({ id: bookingId, userId }),
     select: {
       id: true,
       status: true,
@@ -422,10 +420,7 @@ const getBookingById = async (userId, bookingId) => {
   if (cached) return cached;
 
   const booking = await prisma.booking.findFirst({
-    where: {
-      id: bookingId,
-      userId,
-    },
+    where: buildOwnedResourceWhere({ id: bookingId, userId }),
     include: bookingInclude,
   });
 
@@ -534,10 +529,7 @@ const getRefundAmountForCancelledBooking = (booking) => {
 
 const cancelBooking = async (userId, bookingId) => {
   const booking = await prisma.booking.findFirst({
-    where: {
-      id: bookingId,
-      userId,
-    },
+    where: buildOwnedResourceWhere({ id: bookingId, userId }),
     include: { payment: true },
   });
 

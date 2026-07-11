@@ -3,16 +3,17 @@ const crypto = require("crypto");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiResponse = require("../utils/apiResponse");
 const {
-  getWhatsappPhoneNumberId,
-  getWhatsappProviderUrl,
+  isWhatsappConfigured,
 } = require("../services/garageWhatsapp.service");
 
 const router = express.Router();
 
 const getVerifyToken = () =>
-  process.env.WHATSAPP_VERIFY_TOKEN ||
-  process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ||
-  "rovauto_whatsapp_verify";
+  String(
+    process.env.WHATSAPP_VERIFY_TOKEN ||
+      process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ||
+      "",
+  ).trim();
 
 const verifyMetaSignature = (req) => {
   const appSecret = process.env.WHATSAPP_APP_SECRET || process.env.META_APP_SECRET;
@@ -38,7 +39,9 @@ router.get(
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
-    if (mode === "subscribe" && token === getVerifyToken()) {
+    const verifyToken = getVerifyToken();
+
+    if (verifyToken && mode === "subscribe" && token === verifyToken) {
       return res.status(200).send(challenge);
     }
 
@@ -109,10 +112,8 @@ router.get(
   asyncHandler(async (req, res) => {
     return res.status(200).json(
       new ApiResponse(200, "WhatsApp integration status", {
-        configured: Boolean(getWhatsappProviderUrl()),
-        phoneNumberId: getWhatsappPhoneNumberId() || null,
-        providerUrl: getWhatsappProviderUrl() || null,
-        webhookPath: "/api/v1/whatsapp/webhook",
+        configured: isWhatsappConfigured(),
+        webhookVerificationConfigured: Boolean(getVerifyToken()),
       }),
     );
   }),

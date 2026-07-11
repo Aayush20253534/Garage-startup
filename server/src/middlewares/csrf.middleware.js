@@ -13,7 +13,17 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 const createCsrfToken = () => crypto.randomBytes(32).toString("base64url");
 
-const getRequestPath = (req) => String(req.originalUrl || req.url || "");
+const getRequestPath = (req) => {
+  const rawPath = String(req.originalUrl || req.url || "");
+  const pathOnly = rawPath.split("?")[0] || "/";
+  return pathOnly.length > 1 ? pathOnly.replace(/\/+$/, "") : pathOnly;
+};
+
+const WEBHOOK_PATHS = new Set([
+  "/api/v1/webhooks/cashfree",
+  "/api/v1/webhooks/whatsapp/webhook",
+  "/api/v1/whatsapp/webhook",
+]);
 
 const seedCsrfCookie = (req, res) => {
   const existing = req.cookies?.[CSRF_COOKIE_NAME];
@@ -35,8 +45,7 @@ const hasAuthCookie = (req) =>
       req.cookies?.[SUPPORT_ACCESS_TOKEN_COOKIE_NAME],
   );
 
-const isWebhookPath = (req) =>
-  /^\/api\/v1\/(webhooks\/)?(cashfree|whatsapp)\b/i.test(getRequestPath(req));
+const isWebhookPath = (req) => WEBHOOK_PATHS.has(getRequestPath(req));
 
 const isValidCsrfPair = (cookieToken, headerToken) => {
   if (!cookieToken || !headerToken) return false;
@@ -86,4 +95,6 @@ module.exports = {
   csrfProtection,
   getCsrfToken,
   seedCsrfCookie,
+  getRequestPath,
+  isWebhookPath,
 };

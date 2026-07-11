@@ -16,6 +16,8 @@ const {
   sendPhoneOtpValidation,
   verifyPhoneOtpValidation,
   loginValidation,
+  staffOtpValidation,
+  staffOtpResendValidation,
   googleAuthValidation,
   forgotPasswordValidation,
   resetPasswordValidation,
@@ -43,6 +45,22 @@ const loginRateLimit = rateLimit({
   fallbackMax: 4,
   keyGenerator: (req) =>
     `${req.ip}:${req.body?.identifier || "login"}`,
+});
+
+const staffOtpVerifyRateLimit = rateLimit({
+  name: "staff-2fa-verify",
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  fallbackMax: 5,
+  keyGenerator: (req) => `${req.ip}:${req.body?.challengeId || "staff-2fa"}`,
+});
+
+const staffOtpResendRateLimit = rateLimit({
+  name: "staff-2fa-resend",
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  fallbackMax: 3,
+  keyGenerator: (req) => `${req.ip}:${req.body?.challengeId || "staff-2fa"}`,
 });
 
 const passwordResetRateLimit = rateLimit({
@@ -118,6 +136,22 @@ router.post(
   loginValidation,
   validate,
   authController.login,
+);
+
+router.post(
+  "/staff/verify-otp",
+  staffOtpVerifyRateLimit,
+  staffOtpValidation,
+  validate,
+  authController.verifyStaffLoginOtp,
+);
+
+router.post(
+  "/staff/resend-otp",
+  staffOtpResendRateLimit,
+  staffOtpResendValidation,
+  validate,
+  authController.resendStaffLoginOtp,
 );
 
 router.post(

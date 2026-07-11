@@ -1,3 +1,4 @@
+const argon2 = require("argon2");
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { deleteGaragesDeep } = require("../../admin/services/garageDeletion.service");
@@ -5,6 +6,10 @@ const {
   GARAGE_MINIMUM_ACTIVATION_RECHARGE,
 } = require("../constants");
 const geocodingService = require("../../customer/services/geocoding.service");
+const {
+  createDeleteAccountOtp,
+  verifyDeleteAccountOtp,
+} = require("../../customer/services/otp.service");
 
 const getGarageForOwner = async (userId, options = {}) => {
   const garage = await prisma.garage.findFirst({
@@ -243,7 +248,70 @@ const updateGarageOwnerProfile = async (userId, payload = {}) => {
   return getGarageOwnerProfile(userId);
 };
 
-const deleteGarageOwnerAccount = async (userId) => {
+const maskEmail = (email) => {
+  const [local = "", domain = ""] = String(email || "").toLowerCase().split("@");
+  if (!local || !domain) return "your registered email";
+  return `${local.slice(0, 2)}${"*".repeat(Math.max(3, local.length - 2))}@${domain}`;
+};
+
+const requestGarageAccountDeletionOtp = async (userId) => {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, role: "GARAGE_OWNER", isActive: true },
+    select: { id: true, email: true },
+  });
+
+  if (!user?.email) {
+    throw new ApiError(400, "This garage account does not have a registered email");
+  }
+
+  await createDeleteAccountOtp(user.id, user.email);
+
+  return {
+    sent: true,
+    maskedEmail: maskEmail(user.email),
+    expiresInSeconds: 300,
+  };
+};
+
+const verifyDeletionConfirmation = async (user, payload = {}) => {
+  const currentPassword = String(payload.currentPassword || "");
+  const otp = String(payload.otp || "").trim();
+
+  if (currentPassword) {
+    let valid = false;
+    try {
+      valid = await argon2.verify(user.password, currentPassword);
+    } catch {
+      valid = false;
+    }
+
+    if (!valid) {
+      throw new ApiError(401, "Current password is incorrect");
+    }
+
+    return true;
+  }
+
+  if (otp) {
+    await verifyDeleteAccountOtp(user.id, otp);
+    return true;
+  }
+
+  throw new ApiError(400, "Enter your current password or email OTP");
+};
+
+const deleteGarageOwnerAccount = async (userId, confirmation = {}) => {
+  const owner = await prisma.user.findFirst({
+    where: { id: userId, role: "GARAGE_OWNER", isActive: true },
+    select: { id: true, password: true },
+  });
+
+  if (!owner) {
+    throw new ApiError(404, "Garage owner account not found");
+  }
+
+  await verifyDeletionConfirmation(owner, confirmation);
+
   const garages = await prisma.garage.findMany({
     where: { ownerId: userId },
     select: { id: true },
@@ -299,6 +367,7 @@ const activateGarageIfEligible = async (tx, garageId) => {
 module.exports = {
   activateGarageIfEligible,
   deleteGarageOwnerAccount,
+  requestGarageAccountDeletionOtp,
   getGarageForOwner,
   getGarageOwnerProfile,
   getGarageOwnerServices,

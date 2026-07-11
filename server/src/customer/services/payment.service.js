@@ -1,5 +1,4 @@
 const prisma = require("../../config/prisma");
-const crypto = require("crypto");
 const systemIssueReporter = require("../../services/systemIssueReporter.service");
 const axios = require("axios");
 const {
@@ -15,6 +14,15 @@ const { deletePattern } = require("../../utils/cache");
 const {
   assertServiceHoursOpen,
 } = require("../../utils/serviceHours");
+const {
+  assertCashfreeOrderMatchesPayment,
+  getCashfreePayableAmount,
+} = require("../security/cashfreeVerification");
+const { buildOwnedResourceWhere } = require("../security/ownership");
+const {
+  getCashfreeOrderIdFromWebhook,
+  verifyCashfreeWebhookSignature,
+} = require("../security/cashfreeWebhook");
 
 const bookingInclude = {
   user: {
@@ -117,20 +125,6 @@ const getBookingPaymentAmount = (booking) => {
     toWholeRupee(booking?.payableAmount) ||
     1
   );
-};
-
-const getCashfreePayableAmount = (payment = {}) => {
-  const upiAmount = Math.round(Number(payment.upiAmountPaid));
-
-  if (Number.isFinite(upiAmount) && upiAmount > 0) {
-    return upiAmount;
-  }
-
-  if (toWholeRupee(payment.walletAmountUsed) > 0) {
-    return 0;
-  }
-
-  return toWholeRupee(payment.amount);
 };
 
 const getWalletPaymentSplit = async (userId, totalAmount, useWallet) => {
@@ -471,35 +465,6 @@ const getCashfreeNotifyUrl = () => {
   return `${baseUrl}/api/v1/webhooks/cashfree`;
 };
 
-const assertCashfreeOrderMatchesPayment = (
-  cashfreeOrder,
-  payment,
-) => {
-  const cashfreeAmount = Number(cashfreeOrder.order_amount);
-  const localCashfreeAmount = getCashfreePayableAmount(payment);
-  const cashfreeCurrency = String(
-    cashfreeOrder.order_currency || "",
-  ).toUpperCase();
-  const localCurrency = String(
-    payment.currency || "INR",
-  ).toUpperCase();
-
-  if (cashfreeOrder.order_id !== payment.cashfreeOrderId) {
-    throw new ApiError(400, "Cashfree order ID mismatch");
-  }
-
-  if (
-    !Number.isFinite(cashfreeAmount) ||
-    cashfreeAmount !== localCashfreeAmount
-  ) {
-    throw new ApiError(400, "Cashfree payment amount mismatch");
-  }
-
-  if (cashfreeCurrency !== localCurrency) {
-    throw new ApiError(400, "Cashfree payment currency mismatch");
-  }
-};
-
 const ensurePendingPaymentBooking = (booking) => {
   if (!booking) {
     throw new ApiError(404, "Booking not found");
@@ -782,10 +747,7 @@ const createPaymentOrder = async (userId, { bookingId, useWallet = false }) => {
   assertServiceHoursOpen();
 
   const booking = await prisma.booking.findFirst({
-    where: {
-      id: bookingId,
-      userId,
-    },
+    where: buildOwnedResourceWhere({ id: bookingId, userId }),
     include: {
       payment: true,
       user: {
@@ -991,10 +953,7 @@ const verifyPayment = async (
   }
 
   const booking = await prisma.booking.findFirst({
-    where: {
-      id: bookingId,
-      userId,
-    },
+    where: buildOwnedResourceWhere({ id: bookingId, userId }),
     include: {
       payment: true,
       services: true,
@@ -1056,10 +1015,7 @@ const verifyPayment = async (
 
 const cancelPaymentOrder = async (userId, { bookingId }) => {
   const booking = await prisma.booking.findFirst({
-    where: {
-      id: bookingId,
-      userId,
-    },
+    where: buildOwnedResourceWhere({ id: bookingId, userId }),
     include: {
       payment: true,
     },
@@ -1093,83 +1049,6 @@ const cancelPaymentOrder = async (userId, { bookingId }) => {
     message:
       "Payment attempt was cancelled. The booking is still pending payment and can be retried.",
   };
-};
-
-const getCashfreeWebhookSecret = () =>
-  process.env.CASHFREE_WEBHOOK_SECRET || process.env.CASHFREE_SECRET_KEY;
-
-const verifyCashfreeWebhookSignature = (req) => {
-  const required = !["0", "false", "no", "off"].includes(
-    String(process.env.CASHFREE_WEBHOOK_SIGNATURE_REQUIRED || "true").toLowerCase(),
-  );
-
-  if (!required && process.env.NODE_ENV === "production") {
-    throw new ApiError(500, "Cashfree webhook signatures cannot be disabled in production");
-  }
-
-  if (!required) return;
-
-  const secret = getCashfreeWebhookSecret();
-  const timestamp = req.get("x-webhook-timestamp");
-  const signature = req.get("x-webhook-signature");
-  const rawBody = Buffer.isBuffer(req.rawBody)
-    ? req.rawBody.toString("utf8")
-    : JSON.stringify(req.body || {});
-
-  if (!secret) {
-    throw new ApiError(500, "Cashfree webhook secret is not configured");
-  }
-
-  if (!timestamp || !signature) {
-    throw new ApiError(400, "Missing Cashfree webhook signature headers");
-  }
-
-  const rawTimestamp = Number(timestamp);
-  const timestampMs = rawTimestamp > 1_000_000_000_000
-    ? rawTimestamp
-    : rawTimestamp * 1000;
-  const maxAgeMs = Math.max(
-    60 * 1000,
-    Number(process.env.CASHFREE_WEBHOOK_MAX_AGE_MS || 5 * 60 * 1000),
-  );
-
-  if (
-    !Number.isFinite(timestampMs) ||
-    Math.abs(Date.now() - timestampMs) > maxAgeMs
-  ) {
-    throw new ApiError(401, "Stale Cashfree webhook signature");
-  }
-
-  const expectedSignature = crypto
-    .createHmac("sha256", secret)
-    .update(`${timestamp}${rawBody}`)
-    .digest("base64");
-
-  const expectedBuffer = Buffer.from(expectedSignature);
-  const signatureBuffer = Buffer.from(signature);
-
-  if (
-    expectedBuffer.length !== signatureBuffer.length ||
-    !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
-  ) {
-    throw new ApiError(401, "Invalid Cashfree webhook signature");
-  }
-};
-
-const getCashfreeOrderIdFromWebhook = (payload = {}) => {
-  const candidates = [
-    payload.order_id,
-    payload.cashfreeOrderId,
-    payload.data?.order_id,
-    payload.data?.order?.order_id,
-    payload.data?.payment?.order_id,
-    payload.order?.order_id,
-    payload.payment?.order_id,
-  ];
-
-  return candidates
-    .map((value) => String(value || "").trim())
-    .find(Boolean);
 };
 
 const handleCashfreeWebhook = async (req) => {
@@ -1311,6 +1190,7 @@ const getMyPayments = async (userId) => {
 };
 
 module.exports = {
+  assertCashfreeOrderMatchesPayment,
   cancelPaymentOrder,
   createPaymentOrder,
   getMyPayments,

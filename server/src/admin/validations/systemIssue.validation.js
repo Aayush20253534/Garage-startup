@@ -17,7 +17,7 @@ const issueQuerySchema = [
     .isIn(["FRONTEND", "BACKEND"]),
   query("actorType")
     .optional({ nullable: true, checkFalsy: true })
-    .isIn(["CUSTOMER", "GARAGE", "ADMIN", "PUBLIC", "SYSTEM"]),
+    .isIn(["CUSTOMER", "GARAGE", "ADMIN", "INTERN", "CUSTOMER_SUPPORT", "PUBLIC", "SYSTEM"]),
   query("page").optional({ nullable: true }).isInt({ min: 1 }),
   query("limit").optional({ nullable: true }).isInt({ min: 1, max: 100 }),
 ];

@@ -1,6 +1,7 @@
 const asyncHandler = require("../../utils/asyncHandler");
 const ApiResponse = require("../../utils/apiResponse");
 const customerService = require("../services/customer.service");
+const authService = require("../services/auth.service");
 
 const completeOnboarding = asyncHandler(async (req, res) => {
   const result = await customerService.completeOnboarding(req.user.id, req.body);
@@ -25,7 +26,12 @@ const updateProfile = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Profile updated successfully", profile));
 });
 const changePassword = asyncHandler(async (req, res) => {
-  const result = await customerService.changePassword(req.user.id, req.body);
+  const result = await authService.changePassword(
+    req.user.id,
+    req.user.accountType,
+    req.body,
+    req.authSessionId,
+  );
 
   return res
     .status(200)

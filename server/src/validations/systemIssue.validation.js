@@ -15,7 +15,7 @@ const reportSystemIssueSchema = [
     .isIn(["INFO", "WARNING", "ERROR", "CRITICAL"]),
   body("actorType")
     .optional({ nullable: true })
-    .isIn(["CUSTOMER", "GARAGE", "ADMIN", "PUBLIC", "SYSTEM"]),
+    .isIn(["CUSTOMER", "GARAGE", "ADMIN", "INTERN", "CUSTOMER_SUPPORT", "PUBLIC", "SYSTEM"]),
   body("route").optional({ nullable: true }).isString().isLength({ max: 500 }),
   body("method").optional({ nullable: true }).isString().isLength({ max: 12 }),
   body("endpoint").optional({ nullable: true }).isString().isLength({ max: 500 }),

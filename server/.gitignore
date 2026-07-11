@@ -40,6 +40,10 @@ build/
 coverage/
 
 # ==========================
+# Database backups (must remain off Git)
+backups/
+*.dump
+
 # Runtime Files
 # ==========================
 *.pid

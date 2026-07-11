@@ -7,7 +7,6 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-
     "prisma:generate": "prisma generate",
     "prisma:format": "prisma format",
     "prisma:validate": "prisma validate",
@@ -15,12 +14,10 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:status": "prisma migrate status",
     "prisma:studio": "prisma studio",
-
     "seed:admin": "node src/seed/seedAdmin.js",
     "seed:intern": "node src/seed/seedIntern.js",
     "seed:staff": "npm run seed:admin && npm run seed:intern",
     "seed:all": "npm run seed:staff",
-
     "db:delete-user": "node src/scripts/deleteUserData.js",
     "db:delete-active-bookings": "node src/scripts/deleteCustomerRecords.js --scope=active-bookings",
     "db:delete-payments": "node src/scripts/deleteCustomerRecords.js --scope=payments",
@@ -35,7 +32,12 @@
     "db:nuke-users": "node src/scripts/nukeUsersData.js",
     "db:approve-garage": "node src/scripts/approveGarageApplication.js",
     "db:activate-garage": "node src/scripts/activateGarage.js",
-    "push:generate-vapid-keys": "web-push generate-vapid-keys --json"
+    "push:generate-vapid-keys": "web-push generate-vapid-keys --json",
+    "test": "node --test test/security/*.test.js",
+    "test:security": "node --test test/security/*.test.js",
+    "db:backup": "node src/scripts/backupDatabase.js",
+    "db:recovery-drill": "node src/scripts/recoveryDrill.js",
+    "deploy:smoke": "node src/scripts/smokeDeployment.js"
   },
   "repository": {
     "type": "git",
@@ -87,7 +89,7 @@
     "nodemon": "^3.1.14"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=22.0.0",
     "npm": ">=10.0.0"
   },
   "overrides": {

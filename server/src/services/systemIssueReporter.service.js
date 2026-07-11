@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const prisma = require("../config/prisma");
+const { deriveSystemIssueActor } = require("./security/systemIssueActorRules");
 
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TITLE_LENGTH = 180;
@@ -83,49 +84,26 @@ const createFingerprint = ({
 };
 
 const getActorContext = async (req, payload = {}) => {
-  const account = req?.user || null;
-  let actorType = payload.actorType || "PUBLIC";
-  let userId = null;
-  let garageId = null;
+  const actor = deriveSystemIssueActor({
+    account: req?.user || null,
+    payloadActorType: payload.actorType,
+    hasRequest: Boolean(req),
+  });
 
-  if (account) {
-    userId = account.id;
-
-    if (
-      account.accountType === "STAFF" ||
-      ["ADMIN", "INTERN"].includes(account.role)
-    ) {
-      actorType =
-        account.role === "INTERN" ? "INTERN" : "ADMIN";
-    } else if (account.role === "GARAGE_OWNER") {
-      actorType = "GARAGE";
-
-      const garage = await prisma.garage.findFirst({
-        where: { ownerId: account.id },
-        select: { id: true },
-      });
-
-      garageId = garage?.id || null;
-    } else {
-      actorType = "CUSTOMER";
-    }
-  } else if (
-    ![
-      "CUSTOMER",
-      "GARAGE",
-      "ADMIN",
-      "INTERN",
-      "PUBLIC",
-      "SYSTEM",
-    ].includes(actorType)
-  ) {
-    actorType = "PUBLIC";
+  if (!actor.needsGarageLookup) {
+    const { needsGarageLookup, ...context } = actor;
+    return context;
   }
 
+  const garage = await prisma.garage.findFirst({
+    where: { ownerId: actor.userId },
+    select: { id: true },
+  });
+
   return {
-    actorType,
-    userId,
-    garageId,
+    actorType: actor.actorType,
+    userId: actor.userId,
+    garageId: garage?.id || null,
   };
 };
 
@@ -377,6 +355,7 @@ const captureFrontendReport = (req, payload) =>
   });
 
 module.exports = {
+  getActorContext,
   captureBackgroundError,
   captureFrontendReport,
   captureIssue,

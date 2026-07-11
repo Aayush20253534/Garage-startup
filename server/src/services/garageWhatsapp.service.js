@@ -573,6 +573,7 @@ module.exports = {
   getMapsLink,
   getWhatsappPhoneNumberId,
   getWhatsappProviderUrl,
+  isWhatsappConfigured,
   sendCustomerGarageDetailsWhatsapp,
   sendCustomerHandoverOtpWhatsapp,
   sendCustomerVehicleDeliveredWhatsapp,

@@ -6,9 +6,11 @@ const validate = require("../../middlewares/validate.middleware");
 const {
   onboardingValidation,
   updateProfileValidation,
-  changePasswordValidation,
   deleteAccountValidation,
 } = require("../validations/customer.validation");
+const {
+  changePasswordValidation,
+} = require("../validations/auth.validation");
 
 const router = express.Router();
 

@@ -86,6 +86,13 @@ const sendAuthResponse = (res, statusCode, message, result, { support = false } 
     .json(new ApiResponse(statusCode, message, safeResult));
 };
 
+const sendTwoFactorPendingResponse = (res, result) => {
+  preventAuthResponseCaching(res);
+  return res.status(202).json(
+    new ApiResponse(202, "Verification code sent to email", result),
+  );
+};
+
 const signup = asyncHandler(async (req, res) => {
   const result = await authService.signup(req.body);
 
@@ -144,6 +151,10 @@ const login = asyncHandler(async (req, res) => {
     getSessionMetadata(req),
   );
 
+  if (result?.requiresTwoFactor) {
+    return sendTwoFactorPendingResponse(res, result);
+  }
+
   return sendAuthResponse(res, 200, "Login successful", result);
 });
 
@@ -157,6 +168,10 @@ const supportLogin = asyncHandler(async (req, res) => {
     },
     getSessionMetadata(req),
   );
+
+  if (result?.requiresTwoFactor) {
+    return sendTwoFactorPendingResponse(res, result);
+  }
 
   // Older builds stored support sessions in the main accessToken cookie.
   // Remove only that legacy support token while preserving any real customer,
@@ -202,6 +217,34 @@ const supportMe = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, "Customer support account fetched successfully", account));
+});
+
+const verifyStaffLoginOtp = asyncHandler(async (req, res) => {
+  const result = await authService.verifyStaffLoginOtp(
+    req.body,
+    getSessionMetadata(req),
+  );
+
+  if (result?.user?.accountType === "CUSTOMER_SUPPORT") {
+    clearLegacySupportCookie(req, res);
+  }
+
+  return sendAuthResponse(
+    res,
+    200,
+    "Two-factor authentication successful",
+    result,
+    { support: result?.user?.accountType === "CUSTOMER_SUPPORT" },
+  );
+});
+
+const resendStaffLoginOtp = asyncHandler(async (req, res) => {
+  const result = await authService.resendStaffLoginOtp(req.body);
+  preventAuthResponseCaching(res);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Verification code resent", result));
 });
 
 const googleAuth = asyncHandler(async (req, res) => {
@@ -303,6 +346,8 @@ module.exports = {
   supportLogin,
   supportLogout,
   supportMe,
+  verifyStaffLoginOtp,
+  resendStaffLoginOtp,
   googleAuth,
   logout,
   me,

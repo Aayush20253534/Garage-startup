@@ -571,6 +571,93 @@ const createResetPasswordOtp = async (userId, email) => {
   return otp;
 };
 
+const createDeleteAccountOtp = async (userId, email) => {
+  const otp = generateOtp();
+  const cleanEmail = normalizeEmail(email);
+
+  await prisma.otp.deleteMany({
+    where: {
+      userId,
+      purpose: "DELETE_ACCOUNT",
+      usedAt: null,
+    },
+  });
+
+  const createdOtp = await prisma.otp.create({
+    data: {
+      userId,
+      otpHash: hashOtp(otp),
+      purpose: "DELETE_ACCOUNT",
+      expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
+    },
+  });
+
+  try {
+    await sendEmailOtp({
+      to: cleanEmail,
+      otp,
+      subject: "Confirm Rovauto garage account deletion",
+    });
+  } catch (error) {
+    await prisma.otp
+      .delete({ where: { id: createdOtp.id } })
+      .catch(() => {});
+    throw error;
+  }
+
+  return { email: cleanEmail };
+};
+
+const verifyDeleteAccountOtp = async (userId, otp) => {
+  const submittedOtp = String(otp || "").trim();
+
+  if (!/^\d{6}$/.test(submittedOtp)) {
+    throw new ApiError(400, "OTP must be 6 digits");
+  }
+
+  const record = await prisma.otp.findFirst({
+    where: {
+      userId,
+      purpose: "DELETE_ACCOUNT",
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!record) {
+    throw new ApiError(400, "Invalid or expired OTP");
+  }
+
+  if (record.attempts >= OTP_MAX_ATTEMPTS) {
+    await prisma.otp.delete({ where: { id: record.id } }).catch(() => {});
+    throw new ApiError(429, "Maximum OTP verification attempts exceeded");
+  }
+
+  if (record.otpHash !== hashOtp(submittedOtp)) {
+    await prisma.otp.update({
+      where: { id: record.id },
+      data: { attempts: { increment: 1 } },
+    });
+    throw new ApiError(400, "Invalid or expired OTP");
+  }
+
+  const consumed = await prisma.otp.updateMany({
+    where: {
+      id: record.id,
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    data: { usedAt: new Date() },
+  });
+
+  if (consumed.count !== 1) {
+    throw new ApiError(400, "Invalid or expired OTP");
+  }
+
+  return true;
+};
+
 module.exports = {
   OTP_MAX_ATTEMPTS,
   createSignupOtp,
@@ -579,4 +666,7 @@ module.exports = {
   verifyPhoneOtp,
   verifySignupOtp,
   createResetPasswordOtp,
+  createDeleteAccountOtp,
+  verifyDeleteAccountOtp,
+  sendEmailOtp,
 };

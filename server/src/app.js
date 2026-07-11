@@ -158,9 +158,12 @@ app.use(cors(corsOptions));
 app.use(compression());
 app.use(cookieParser());
 
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "1mb";
+const URLENCODED_BODY_LIMIT = process.env.URLENCODED_BODY_LIMIT || "256kb";
+
 app.use(
   express.json({
-    limit: "10mb",
+    limit: JSON_BODY_LIMIT,
 
     /*
      * Keeps the raw request body for validating webhook signatures,
@@ -175,7 +178,7 @@ app.use(
 app.use(
   express.urlencoded({
     extended: true,
-    limit: "10mb",
+    limit: URLENCODED_BODY_LIMIT,
   }),
 );
 

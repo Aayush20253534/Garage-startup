@@ -33,6 +33,14 @@ const requireOneOf = (names) => {
   );
 };
 
+
+const requireEmail = (name) => {
+  const value = clean(process.env[name]);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    throw new Error(`${name} must be a valid email address in production`);
+  }
+};
+
 const requireHttpsUrl = (name) => {
   const value = clean(process.env[name]);
 
@@ -63,12 +71,16 @@ const validateEnvironment = () => {
     "FIREBASE_CLIENT_EMAIL",
     "FIREBASE_PRIVATE_KEY",
     "RESEND_API_KEY",
+    "ADMIN_2FA_EMAIL",
+    "WHATSAPP_VERIFY_TOKEN",
+    "WHATSAPP_APP_SECRET",
     "WEB_PUSH_VAPID_PUBLIC_KEY",
     "WEB_PUSH_VAPID_PRIVATE_KEY",
   ]);
 
   requireOneOf(["EMAIL_FROM", "RESEND_FROM_EMAIL"]);
   requireOneOf(["CLIENT_URL", "FRONTEND_URL"]);
+  requireEmail("ADMIN_2FA_EMAIL");
 
   requireHttpsUrl("CASHFREE_NOTIFY_URL");
   requireHttpsUrl(clean(process.env.CLIENT_URL) ? "CLIENT_URL" : "FRONTEND_URL");
@@ -89,6 +101,11 @@ const validateEnvironment = () => {
     throw new Error(
       "CASHFREE_WEBHOOK_SIGNATURE_REQUIRED cannot be disabled in production",
     );
+  }
+
+
+  if (clean(process.env.EMAIL_OTP_DELIVERY).toLowerCase() !== "email") {
+    throw new Error("EMAIL_OTP_DELIVERY must be set to email in production");
   }
 
   if (clean(process.env.WHATSAPP_DEBUG_LOGS).toLowerCase() === "true") {

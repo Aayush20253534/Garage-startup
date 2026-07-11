@@ -258,43 +258,6 @@ const updateProfile = async (userId, data) => {
   return result;
 };
 
-const changePassword = async (userId, { currentPassword, newPassword }) => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
-
-  if (!user) {
-    throw new ApiError(404, "User not found");
-  }
-
-  const isPasswordValid = await argon2.verify(user.password, currentPassword);
-
-  if (!isPasswordValid) {
-    throw new ApiError(401, "Current password is incorrect");
-  }
-
-  const isSamePassword = await argon2.verify(user.password, newPassword);
-
-  if (isSamePassword) {
-    throw new ApiError(400, "New password cannot be same as current password");
-  }
-
-  const hashedPassword = await argon2.hash(newPassword);
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      password: hashedPassword,
-    },
-  });
-
-  await invalidateProfileCaches(userId);
-
-  return {
-    changed: true,
-  };
-};
-
 const deleteAccount = async (userId, { password }) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -328,6 +291,5 @@ module.exports = {
   completeOnboarding,
   getProfile,
   updateProfile,
-  changePassword,
   deleteAccount,
 };

@@ -157,6 +157,33 @@ const loginValidation = [
     .withMessage("Invalid account role"),
 ];
 
+const staffOtpValidation = [
+  body("challengeId")
+    .trim()
+    .notEmpty()
+    .withMessage("Login challenge is required")
+    .isUUID()
+    .withMessage("Invalid login challenge"),
+
+  body("otp")
+    .trim()
+    .notEmpty()
+    .withMessage("OTP is required")
+    .isLength({ min: 6, max: 6 })
+    .withMessage("OTP must be 6 digits")
+    .isNumeric()
+    .withMessage("OTP must contain only digits"),
+];
+
+const staffOtpResendValidation = [
+  body("challengeId")
+    .trim()
+    .notEmpty()
+    .withMessage("Login challenge is required")
+    .isUUID()
+    .withMessage("Invalid login challenge"),
+];
+
 const googleAuthValidation = [
   body("idToken")
     .trim()
@@ -238,6 +265,8 @@ module.exports = {
   sendPhoneOtpValidation,
   verifyPhoneOtpValidation,
   loginValidation,
+  staffOtpValidation,
+  staffOtpResendValidation,
   googleAuthValidation,
   forgotPasswordValidation,
   resetPasswordValidation,
