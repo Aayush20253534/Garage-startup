@@ -10,7 +10,6 @@ const {
   STAFF_OTP_EXPIRY_MS,
   STAFF_OTP_MAX_ATTEMPTS,
   STAFF_OTP_RESEND_COOLDOWN_MS,
-  maskEmail,
   resolveDeliveryEmail,
 } = require("../security/staffTwoFactorRules");
 
@@ -55,7 +54,6 @@ const createChallenge = async ({ accountId, accountType, role, email }) => {
   return {
     requiresTwoFactor: true,
     challengeId: challenge.id,
-    maskedEmail: maskEmail(deliveryEmail),
     expiresInSeconds: Math.floor(STAFF_OTP_EXPIRY_MS / 1000),
   };
 };
@@ -141,5 +139,4 @@ module.exports = {
   verifyChallenge,
   resendChallenge,
   resolveDeliveryEmail,
-  maskEmail,
 };

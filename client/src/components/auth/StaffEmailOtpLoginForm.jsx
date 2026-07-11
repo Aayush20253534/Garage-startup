@@ -41,7 +41,6 @@ export default function StaffEmailOtpLoginForm({
         );
         setChallenge(result);
         setOtp("");
-        setNotice(`A 6-digit code was sent to ${result.maskedEmail}.`);
         return;
       }
 
@@ -75,7 +74,7 @@ export default function StaffEmailOtpLoginForm({
       const result = await resendOtp(challenge.challengeId);
       setChallenge(result);
       setOtp("");
-      setNotice(`A new code was sent to ${result.maskedEmail}.`);
+      setNotice("A new verification code was sent.");
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -155,11 +154,6 @@ export default function StaffEmailOtpLoginForm({
           </>
         ) : (
           <>
-            <div className="rounded-xl border border-line bg-slate-50 p-4 text-sm leading-6 text-muted">
-              Password accepted. Enter the code sent to {challenge.maskedEmail}.
-              No staff session is created until this code is verified.
-            </div>
-
             <label className="grid gap-2 text-sm font-bold text-ink">
               Email verification code
               <div className="relative">

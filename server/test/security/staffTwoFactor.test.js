@@ -4,7 +4,6 @@ const assert = require("node:assert/strict");
 process.env.DATABASE_URL ||= "postgresql://test:test@127.0.0.1:5432/rovauto_test";
 
 const {
-  maskEmail,
   resolveDeliveryEmail,
   STAFF_OTP_MAX_ATTEMPTS,
 } = require("../../src/customer/security/staffTwoFactorRules");
@@ -28,7 +27,6 @@ test("intern and support OTP use their stored account email", () => {
   );
 });
 
-test("masked email does not expose the full mailbox name", () => {
-  assert.equal(maskEmail("security@rovauto.com"), "se******@rovauto.com");
+test("staff OTP verification limits remain enforced", () => {
   assert.equal(STAFF_OTP_MAX_ATTEMPTS, 5);
 });
