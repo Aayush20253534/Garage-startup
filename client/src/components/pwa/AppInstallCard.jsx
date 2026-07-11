@@ -25,7 +25,6 @@ export default function AppInstallCard({
   installedStorageKey,
   pwaId = "",
   compact = false,
-  dark = true,
 }) {
   const [installPrompt, setInstallPrompt] = useState(
     () => window[promptKey] || null,
@@ -174,10 +173,7 @@ export default function AppInstallCard({
   return (
     <section
       className={[
-        "rounded-2xl border shadow-soft",
-        dark
-          ? "border-slate-800 bg-slate-950 text-white"
-          : "border-line bg-white text-ink",
+        "rounded-2xl border border-line bg-white text-ink shadow-soft",
         compact ? "p-4" : "p-4 sm:p-5",
       ].join(" ")}
     >
@@ -193,12 +189,7 @@ export default function AppInstallCard({
           />
           <div className="min-w-0">
             <h3 className="font-bold">Install {appName}</h3>
-            <p
-              className={[
-                "mt-1 text-sm leading-5",
-                dark ? "text-slate-300" : "text-muted",
-              ].join(" ")}
-            >
+            <p className="mt-1 text-sm leading-5 text-muted">
               {description}
             </p>
           </div>
@@ -215,14 +206,7 @@ export default function AppInstallCard({
       </div>
 
       {(showHelp || (!installPrompt && device === "ios")) && (
-        <div
-          className={[
-            "mt-4 rounded-xl border p-3 text-sm leading-6",
-            dark
-              ? "border-white/15 bg-white/5 text-slate-200"
-              : "border-line bg-bg-soft text-muted",
-          ].join(" ")}
-        >
+        <div className="mt-4 rounded-xl border border-line bg-bg-soft p-3 text-sm leading-6 text-muted">
           {device === "ios" ? (
             <p className="flex items-start gap-2">
               <FiShare className="mt-1 shrink-0" />
