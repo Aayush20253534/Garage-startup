@@ -67,31 +67,19 @@ const HOME_STRUCTURED_DATA = [
   },
 ];
 
-const runWhenBrowserIsIdle = (callback) => {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-
-  if ("requestIdleCallback" in window) {
-    const idleId = window.requestIdleCallback(callback, { timeout: 1400 });
-    return () => window.cancelIdleCallback?.(idleId);
-  }
-
-  const timeoutId = window.setTimeout(callback, 450);
-  return () => window.clearTimeout(timeoutId);
-};
-
 const toBoolean = (value) =>
   value === true ||
   value === 1 ||
   value === "1" ||
   String(value).toLowerCase() === "true";
 
-const formatCount = (value, fallback) => {
+const formatCount = (value) => {
   const number = Number(value);
-  if (!Number.isFinite(number)) return fallback;
-  if (number >= 1000) return `${Math.floor(number / 1000)}K+`;
-  return String(number);
+  if (!Number.isFinite(number)) return null;
+
+  return new Intl.NumberFormat("en-IN").format(
+    Math.max(0, Math.trunc(number)),
+  );
 };
 
 export default function Home() {
@@ -101,8 +89,8 @@ export default function Home() {
   const [popularServices, setPopularServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [partnerStats, setPartnerStats] = useState({
-    garages: "Growing",
-    customers: "Growing",
+    garages: null,
+    customers: null,
   });
   const cityName = String(location?.city || "").trim();
   const garageSearch = cityName
@@ -117,25 +105,27 @@ export default function Home() {
   useEffect(() => {
     let mounted = true;
 
-    const cancelIdleTask = runWhenBrowserIsIdle(() => {
-      api
-        .get("/public/stats")
-        .then((response) => {
-          if (!mounted) return;
+    api
+      .get("/public/stats", {
+        skipSessionExpiryMessage: true,
+      })
+      .then((response) => {
+        if (!mounted) return;
 
-          const stats = response.data?.data || response.data || {};
+        const stats = response.data?.data || response.data || {};
 
-          setPartnerStats({
-            garages: formatCount(stats.garages, "Growing"),
-            customers: formatCount(stats.customers, "Growing"),
-          });
-        })
-        .catch(() => null);
-    });
+        setPartnerStats({
+          garages: formatCount(stats.garages),
+          customers: formatCount(stats.customers),
+        });
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setPartnerStats({ garages: null, customers: null });
+      });
 
     return () => {
       mounted = false;
-      cancelIdleTask();
     };
   }, []);
 
@@ -143,47 +133,47 @@ export default function Home() {
     let mounted = true;
     setLoading(true);
 
-    const cancelIdleTask = runWhenBrowserIsIdle(() => {
-      api
-        .get("/services/categories", {
-          params: user
-            ? {
-                ...(vehicle?.id && { vehicleId: vehicle.id }),
-                ...(location?.city && { city: location.city }),
-              }
-            : {},
-        })
-        .then((response) => {
-          if (!mounted) return;
+    api
+      .get("/services/categories", {
+        params: user
+          ? {
+              ...(vehicle?.id && { vehicleId: vehicle.id }),
+              ...(location?.city && { city: location.city }),
+            }
+          : {},
+        skipSessionExpiryMessage: true,
+      })
+      .then((response) => {
+        if (!mounted) return;
 
-          const serviceCategories = response.data?.data || [];
+        const serviceCategories = Array.isArray(response.data?.data)
+          ? response.data.data
+          : [];
 
-          const services = serviceCategories
-            .flatMap((category) =>
-              (category.services || []).map((service) => ({
-                ...service,
-                category,
-              }))
-            )
-            .slice(0, 6);
+        const services = serviceCategories
+          .flatMap((category) =>
+            (category.services || []).map((service) => ({
+              ...service,
+              category,
+            })),
+          )
+          .slice(0, 6);
 
-          setCategories(serviceCategories);
-          setPopularServices(services);
-          warmImageCache(getServiceImageUrls(serviceCategories));
-        })
-        .catch(() => {
-          if (!mounted) return;
-          setCategories([]);
-          setPopularServices([]);
-        })
-        .finally(() => {
-          if (mounted) setLoading(false);
-        });
-    });
+        setCategories(serviceCategories);
+        setPopularServices(services);
+        warmImageCache(getServiceImageUrls(serviceCategories));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setCategories([]);
+        setPopularServices([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
 
     return () => {
       mounted = false;
-      cancelIdleTask();
     };
   }, [user, vehicle?.id, location?.city]);
 
@@ -785,7 +775,7 @@ export default function Home() {
                     className="rounded-2xl border border-white/10 bg-white/5 p-5"
                   >
                     <div className="text-3xl font-bold text-brand">
-                      {number}
+                      {number ?? "—"}
                     </div>
 
                     <div className="mt-1 text-xs text-white/70">{label}</div>

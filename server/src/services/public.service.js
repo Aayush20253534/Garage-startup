@@ -12,6 +12,7 @@ const getStats = async () => {
     prisma.garage.count({
       where: {
         isVerified: true,
+        isActive: true,
       },
     }),
     prisma.user.count({

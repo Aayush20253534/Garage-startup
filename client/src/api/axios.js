@@ -72,6 +72,7 @@ const SUPPORT_USER_KEY = "rov_support_user";
 const SESSION_EXPIRED_EVENT = "rovauto:session-expired";
 const CSRF_COOKIE_NAME = "rovautoCsrf";
 const CSRF_HEADER_NAME = "X-CSRF-Token";
+let csrfTokenCache = "";
 const SESSION_ERROR_PATTERN =
   /authentication token missing|authentication required|invalid account session|account no longer exists|invalid or expired token|invalid or expired session|session expired/i;
 
@@ -85,11 +86,16 @@ const readCookie = (name) => {
     ?.slice(name.length + 1) || "";
 };
 
-const ensureCsrfToken = async () => {
-  const current = readCookie(CSRF_COOKIE_NAME);
-  if (current) return decodeURIComponent(current);
+const ensureCsrfToken = async ({ forceRefresh = false } = {}) => {
+  if (!forceRefresh && csrfTokenCache) return csrfTokenCache;
 
-  await axios.get(`${apiBaseUrl}/csrf-token`, {
+  const current = readCookie(CSRF_COOKIE_NAME);
+  if (!forceRefresh && current) {
+    csrfTokenCache = decodeURIComponent(current);
+    return csrfTokenCache;
+  }
+
+  const response = await axios.get(`${apiBaseUrl}/csrf-token`, {
     withCredentials: true,
     timeout: API_TIMEOUT_MS,
     headers: {
@@ -97,8 +103,18 @@ const ensureCsrfToken = async () => {
     },
   });
 
-  const issued = readCookie(CSRF_COOKIE_NAME);
-  return issued ? decodeURIComponent(issued) : "";
+  // When the API is hosted on api.rovauto.com and the frontend is on
+  // www.rovauto.com, the API cookie is intentionally not readable through
+  // document.cookie. The endpoint therefore also returns the same token in
+  // its JSON response so the frontend can send the matching CSRF header.
+  const issuedFromResponse = String(response.data?.data?.token || "").trim();
+  const issuedFromCookie = readCookie(CSRF_COOKIE_NAME);
+  const issued =
+    issuedFromResponse ||
+    (issuedFromCookie ? decodeURIComponent(issuedFromCookie) : "");
+
+  csrfTokenCache = issued;
+  return issued;
 };
 
 const api = axios.create({
@@ -150,6 +166,29 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    const status = error.response?.status;
+    const message = error.response?.data?.message || "";
+    const isCsrfFailure =
+      status === 403 && /invalid csrf token/i.test(String(message));
+
+    if (isCsrfFailure && !error.config?.__csrfRetry) {
+      csrfTokenCache = "";
+      const csrfToken = await ensureCsrfToken({ forceRefresh: true });
+
+      if (csrfToken) {
+        const retryConfig = {
+          ...error.config,
+          __csrfRetry: true,
+          headers: {
+            ...(error.config?.headers || {}),
+            [CSRF_HEADER_NAME]: csrfToken,
+          },
+        };
+
+        return api(retryConfig);
+      }
+    }
+
     if (shouldRetryNetworkError(error)) {
       const retryConfig = {
         ...error.config,
@@ -160,8 +199,6 @@ api.interceptors.response.use(
       return api(retryConfig);
     }
 
-    const status = error.response?.status;
-    const message = error.response?.data?.message || "";
     const isExpiredSession =
       status === 401 && SESSION_ERROR_PATTERN.test(message);
 
