@@ -3,6 +3,7 @@ import { getRovautoServiceWorkerRegistration } from "@/utils/imageCache";
 
 const PUSH_SCOPES = {
   user: "/push",
+  garage: "/push",
   support: "/customer-support/push",
 };
 
@@ -10,12 +11,24 @@ const normalizeScope = (scope = "user") =>
   Object.prototype.hasOwnProperty.call(PUSH_SCOPES, scope) ? scope : "user";
 
 const getPushApiBase = (scope) => PUSH_SCOPES[normalizeScope(scope)];
-const getWorkerPortal = (scope) =>
-  normalizeScope(scope) === "support" ? "support" : "user";
-const getWorkerScope = (scope) =>
-  normalizeScope(scope) === "support" ? "/support" : "/";
-const getAppName = (scope) =>
-  normalizeScope(scope) === "support" ? "Rovauto Support" : "Rovauto";
+const getWorkerPortal = (scope) => {
+  const normalized = normalizeScope(scope);
+  if (normalized === "support") return "support";
+  if (normalized === "garage") return "garage";
+  return "main";
+};
+const getWorkerScope = (scope) => {
+  const normalized = normalizeScope(scope);
+  if (normalized === "support") return "/support";
+  if (normalized === "garage") return "/garage";
+  return "/";
+};
+const getAppName = (scope) => {
+  const normalized = normalizeScope(scope);
+  if (normalized === "support") return "Rovauto Support";
+  if (normalized === "garage") return "Rovauto Garage";
+  return "Rovauto";
+};
 
 const getExactWorkerRegistration = async (scope) => {
   const expectedScope = getWorkerScope(scope).replace(/\/$/, "") || "/";
@@ -23,7 +36,8 @@ const getExactWorkerRegistration = async (scope) => {
 
   return (
     registrations.find((registration) => {
-      const pathname = new URL(registration.scope).pathname.replace(/\/$/, "") || "/";
+      const pathname =
+        new URL(registration.scope).pathname.replace(/\/$/, "") || "/";
       return pathname === expectedScope;
     }) || null
   );
@@ -50,6 +64,27 @@ const removeLegacySupportSubscriptionRecord = async (supportEndpoint) => {
     });
 };
 
+const removeLegacyGarageSubscriptionRecord = async (garageEndpoint) => {
+  const rootRegistration = await getExactWorkerRegistration("user");
+  const legacySubscription =
+    await rootRegistration?.pushManager.getSubscription();
+
+  if (
+    !legacySubscription?.endpoint ||
+    legacySubscription.endpoint === garageEndpoint
+  ) {
+    return;
+  }
+
+  await api
+    .delete(`${PUSH_SCOPES.garage}/subscriptions`, {
+      data: { endpoint: legacySubscription.endpoint },
+    })
+    .catch((error) => {
+      console.warn("Unable to remove legacy garage push endpoint:", error);
+    });
+};
+
 const isIosDevice = () => {
   if (typeof navigator === "undefined") return false;
 
@@ -70,7 +105,9 @@ const getDeviceName = (scope) => {
   const appName = getAppName(scope);
 
   if (isIosDevice()) return `${appName} · ${platform} Home Screen`;
-  if (/Android/i.test(navigator.userAgent)) return `${appName} · ${platform} Android`;
+  if (/Android/i.test(navigator.userAgent)) {
+    return `${appName} · ${platform} Android`;
+  }
   return `${appName} · ${platform} browser`;
 };
 
@@ -148,6 +185,8 @@ export const enablePushNotifications = async ({ scope = "user" } = {}) => {
 
   if (normalizeScope(scope) === "support") {
     await removeLegacySupportSubscriptionRecord(subscription.endpoint);
+  } else if (normalizeScope(scope) === "garage") {
+    await removeLegacyGarageSubscriptionRecord(subscription.endpoint);
   }
 
   await api.post(`${base}/subscriptions`, {
@@ -173,6 +212,8 @@ export const syncExistingPushSubscription = async ({ scope = "user" } = {}) => {
 
   if (normalizeScope(scope) === "support") {
     await removeLegacySupportSubscriptionRecord(subscription.endpoint);
+  } else if (normalizeScope(scope) === "garage") {
+    await removeLegacyGarageSubscriptionRecord(subscription.endpoint);
   }
 
   await api.post(`${base}/subscriptions`, {

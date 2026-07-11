@@ -29,6 +29,7 @@ export default defineConfig({
         support: path.resolve(__dirname, "support.html"),
         admin: path.resolve(__dirname, "admin.html"),
         intern: path.resolve(__dirname, "intern.html"),
+        garage: path.resolve(__dirname, "garage.html"),
       },
     },
   },

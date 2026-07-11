@@ -16,6 +16,7 @@ import {
   FiUser,
 } from "react-icons/fi";
 import BookingCard from "@/components/garage/BookingCard";
+import GaragePwaInstall from "@/components/garage/GaragePwaInstall";
 import { setBookings, setWallet } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { formatRupees } from "@/utils/priceRange";
@@ -314,6 +315,8 @@ export default function GarageDashboard() {
             </div>
           </div>
         </section>
+
+        <GaragePwaInstall compact />
 
         {/* Alerts */}
         {!garage?.isActive && (

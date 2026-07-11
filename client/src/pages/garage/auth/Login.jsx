@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import { FiMail, FiLock, FiArrowRight, FiAlertCircle } from "react-icons/fi";
 import { garageApi } from "@/api/garage";
+import GaragePwaInstall from "@/components/garage/GaragePwaInstall";
 
 export default function GarageLogin() {
   const [identifier, setIdentifier] = useState("");
@@ -123,6 +124,10 @@ export default function GarageLogin() {
               <FiArrowRight className="h-4 w-4" />
             </button>
           </form>
+
+          <div className="mt-6">
+            <GaragePwaInstall compact />
+          </div>
         </motion.div>
       </div>
     </div>

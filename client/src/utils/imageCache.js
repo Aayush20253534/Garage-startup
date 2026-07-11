@@ -45,6 +45,10 @@ const getPortalFromPath = () => {
     return "intern";
   }
 
+  if (pathname === "/garage" || pathname.startsWith("/garage/")) {
+    return "garage";
+  }
+
   return "main";
 };
 
@@ -64,6 +68,10 @@ const WORKER_CONFIG = {
   intern: {
     scriptUrl: "/intern-sw.js",
     scope: "/intern",
+  },
+  garage: {
+    scriptUrl: "/garage-sw.js",
+    scope: "/garage",
   },
 };
 

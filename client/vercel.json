@@ -72,6 +72,19 @@
       ]
     },
     {
+      "source": "/garage-sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/garage"
+        }
+      ]
+    },
+    {
       "source": "/((?!api/v1/|assets/).*)",
       "headers": [
         {
@@ -93,7 +106,7 @@
       ]
     },
     {
-      "source": "/(site|support|admin|intern).webmanifest",
+      "source": "/(site|support|admin|intern|garage).webmanifest",
       "headers": [
         {
           "key": "Cache-Control",
@@ -132,7 +145,15 @@
       "destination": "/intern.html"
     },
     {
-      "source": "/((?!api/v1/|assets/|support(?:/|$)|admin(?:/|$)|intern(?:/|$)|sw\\.js$|support-sw\\.js$|admin-sw\\.js$|intern-sw\\.js$|site\\.webmanifest$|support\\.webmanifest$|admin\\.webmanifest$|intern\\.webmanifest$|support-icon-(?:192|512|1024)\\.png$|support-icon-maskable-(?:512|1024)\\.png$|support-apple-touch-icon\\.png$|support-notification-badge-96\\.png$|admin-icon-(?:192|512|1024)\\.png$|admin-icon-maskable-(?:512|1024)\\.png$|admin-apple-touch-icon\\.png$|admin-notification-badge-96\\.png$|intern-icon-(?:192|512|1024)\\.png$|intern-icon-maskable-(?:512|1024)\\.png$|intern-apple-touch-icon\\.png$|intern-notification-badge-96\\.png$|admin\\.html$|intern\\.html$|support\\.html$|favicon\\.(?:ico|png)$|favicon-48\\.png$|icon-(?:192|512|1024)\\.png$|icon-maskable-(?:512|1024)\\.png$|apple-touch-icon\\.png$|og-image\\.jpg$|robots\\.txt$|sitemap\\.xml$).*)",
+      "source": "/garage",
+      "destination": "/garage.html"
+    },
+    {
+      "source": "/garage/:path*",
+      "destination": "/garage.html"
+    },
+    {
+      "source": "/((?!api/v1/|assets/|support(?:/|$)|admin(?:/|$)|intern(?:/|$)|garage(?:/|$)|sw\\.js$|support-sw\\.js$|admin-sw\\.js$|intern-sw\\.js$|garage-sw\\.js$|site\\.webmanifest$|support\\.webmanifest$|admin\\.webmanifest$|intern\\.webmanifest$|garage\\.webmanifest$|support-icon-(?:192|512|1024)\\.png$|support-icon-maskable-(?:512|1024)\\.png$|support-apple-touch-icon\\.png$|support-notification-badge-96\\.png$|admin-icon-(?:192|512|1024)\\.png$|admin-icon-maskable-(?:512|1024)\\.png$|admin-apple-touch-icon\\.png$|admin-notification-badge-96\\.png$|intern-icon-(?:192|512|1024)\\.png$|intern-icon-maskable-(?:512|1024)\\.png$|intern-apple-touch-icon\\.png$|intern-notification-badge-96\\.png$|garage-icon-(?:192|512|1024)\\.png$|garage-icon-maskable-(?:512|1024)\\.png$|garage-apple-touch-icon\\.png$|garage-notification-badge-96\\.png$|garage\\.html$|admin\\.html$|intern\\.html$|support\\.html$|favicon\\.(?:ico|png)$|favicon-48\\.png$|icon-(?:192|512|1024)\\.png$|icon-maskable-(?:512|1024)\\.png$|apple-touch-icon\\.png$|og-image\\.jpg$|robots\\.txt$|sitemap\\.xml$).*)",
       "destination": "/index.html"
     }
   ]

@@ -33,6 +33,10 @@ const INSTALL_PROMPT_CONFIG = {
     key: "__ROVAUTO_INTERN_INSTALL_PROMPT__",
     event: "rovauto-intern-install-ready",
   },
+  garage: {
+    key: "__ROVAUTO_GARAGE_INSTALL_PROMPT__",
+    event: "rovauto-garage-install-ready",
+  },
 };
 
 const installPromptConfig =

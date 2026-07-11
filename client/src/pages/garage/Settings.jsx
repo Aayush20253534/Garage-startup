@@ -232,7 +232,7 @@ export default function GarageSettings() {
               {item.id === "notifications" && isOpen && (
                 <div className="border-t border-line p-4">
                   <div className="grid gap-3">
-                    <PushNotificationControl compact />
+                    <PushNotificationControl compact scope="garage" />
 
                     <div className="grid gap-3 sm:grid-cols-2">
                     <label className="flex items-center justify-between gap-3 rounded-xl bg-bg-soft p-4">

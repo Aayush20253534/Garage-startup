@@ -1,0 +1,72 @@
+{
+  "id": "/garage-app",
+  "name": "Rovauto Garage",
+  "short_name": "Rovauto Garage",
+  "description": "Dedicated garage-partner workspace for managing Rovauto service jobs.",
+  "start_url": "/garage?pwa=garage",
+  "scope": "/garage",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "categories": ["business", "productivity", "automotive"],
+  "icons": [
+    {
+      "src": "/garage-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/garage-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/garage-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/garage-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/garage-icon-maskable-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Garage dashboard",
+      "short_name": "Dashboard",
+      "url": "/garage",
+      "icons": [{ "src": "/garage-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Manage jobs",
+      "short_name": "Jobs",
+      "url": "/garage/bookings",
+      "icons": [{ "src": "/garage-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Garage services",
+      "short_name": "Services",
+      "url": "/garage/services",
+      "icons": [{ "src": "/garage-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Garage wallet",
+      "short_name": "Wallet",
+      "url": "/garage/wallet",
+      "icons": [{ "src": "/garage-icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -51,6 +51,28 @@ const STATUS_CONTENT = {
   },
 };
 
+const GARAGE_STATUS_CONTENT = {
+  enabled: {
+    title: "Garage app notifications enabled",
+    message:
+      "New booking requests and job updates can appear like normal app notifications.",
+  },
+  prompt: {
+    title: "Enable garage app notifications",
+    message:
+      "Receive booking and service alerts even when Rovauto Garage is closed.",
+  },
+  disabled: {
+    title: "Garage app notifications are off",
+    message: "Enable them on this device to receive booking and job alerts.",
+  },
+  "install-required": {
+    title: "Install Rovauto Garage first",
+    message:
+      "On iPhone or iPad, add the garage app to the Home Screen, open it, then enable notifications.",
+  },
+};
+
 const SUPPORT_STATUS_CONTENT = {
   enabled: {
     title: "Support app notifications enabled",
@@ -112,10 +134,15 @@ export default function PushNotificationControl({ compact = false, scope = "user
   };
 
   const baseContent = STATUS_CONTENT[status] || STATUS_CONTENT.unsupported;
-  const content =
-    scope === "support" && SUPPORT_STATUS_CONTENT[status]
-      ? { ...baseContent, ...SUPPORT_STATUS_CONTENT[status] }
-      : baseContent;
+  const scopedContent =
+    scope === "support"
+      ? SUPPORT_STATUS_CONTENT
+      : scope === "garage"
+        ? GARAGE_STATUS_CONTENT
+        : null;
+  const content = scopedContent?.[status]
+    ? { ...baseContent, ...scopedContent[status] }
+    : baseContent;
   const Icon = content.icon;
   const canEnable = status === "prompt" || status === "disabled";
   const canDisable = status === "enabled";

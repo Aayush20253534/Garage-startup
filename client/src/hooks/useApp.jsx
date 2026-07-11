@@ -750,7 +750,10 @@ export function AppProvider({ children }) {
 
   const logoutGarage = async () => {
     try {
-      await disablePushNotifications({ ignoreServerErrors: true });
+      await disablePushNotifications({
+        ignoreServerErrors: true,
+        scope: "garage",
+      });
     } catch {
       // Logging out must continue even if this browser has no push subscription.
     }
@@ -1058,7 +1061,11 @@ export function AppProvider({ children }) {
     if (!hasPushEligibleSession) return;
 
     syncExistingPushSubscription({
-      scope: isCustomerSupport ? "support" : "user",
+      scope: isCustomerSupport
+        ? "support"
+        : garageUser
+          ? "garage"
+          : "user",
     }).catch((error) => {
       console.warn("Unable to sync Web Push subscription:", error);
     });

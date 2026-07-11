@@ -132,6 +132,10 @@ const getExpectedDocumentShell = (pathname) => {
     return "intern";
   }
 
+  if (pathname === "/garage" || pathname.startsWith("/garage/")) {
+    return "garage";
+  }
+
   return "main";
 };
 
