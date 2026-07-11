@@ -7,7 +7,10 @@ import {
   FiSearch,
 } from "react-icons/fi";
 import { mapsApi } from "@/api/maps";
-import { reverseGeocodeCoordinates } from "@/utils/address";
+import {
+  getAddressLineFromPlace,
+  reverseGeocodeCoordinates,
+} from "@/utils/address";
 import { requireAvailableCityName } from "@/utils/cityAvailability";
 import MapPanel from "./MapPanel";
 
@@ -121,8 +124,18 @@ export default function LocationPicker({
         suggestion.placeId,
         sessionTokenRef.current,
       );
+      const structuredAddress =
+        place.address && typeof place.address === "object" ? place.address : {};
+      const address = getAddressLineFromPlace({
+        address: structuredAddress.address,
+        formattedAddress: place.formattedAddress,
+        displayName: place.displayName,
+        fallback: suggestion.mainText || suggestion.text,
+        structuredAddress,
+      });
       const next = await attachAvailableCity({
-        ...place.address,
+        ...structuredAddress,
+        address,
         formattedAddress: place.formattedAddress,
         fullAddress: place.formattedAddress,
         latitude: place.latitude,

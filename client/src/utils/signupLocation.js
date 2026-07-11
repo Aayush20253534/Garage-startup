@@ -1,6 +1,7 @@
 import api from "@/api/axios";
 import {
   buildFullAddress,
+  getProfileAddress,
   getLocationAddress,
   hasUsableIndiaCoordinates,
   reverseGeocodeCoordinates,
@@ -69,13 +70,24 @@ export const requestSignupLocation = async () => {
   };
 };
 
-export const hasSavedUserLocation = (user) => {
+const hasCompleteLocation = (location) =>
+  hasUsableIndiaCoordinates(location) && Boolean(getLocationAddress(location));
+
+const hasProfileAddress = (user) =>
+  Boolean(String(getProfileAddress(user) || "").trim());
+
+export const hasSavedUserLocation = (user, currentLocation = null) => {
   const locations = Array.isArray(user?.locations) ? user.locations : [];
 
-  return locations.some(
-    (location) =>
-      hasUsableIndiaCoordinates(location) && Boolean(getLocationAddress(location)),
-  );
+  if (locations.some(hasCompleteLocation)) {
+    return true;
+  }
+
+  if (hasCompleteLocation(currentLocation)) {
+    return true;
+  }
+
+  return hasProfileAddress(user);
 };
 
 export const saveSignupLocationToProfile = async (signupLocation) => {

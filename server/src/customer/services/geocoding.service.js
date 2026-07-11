@@ -53,6 +53,46 @@ const uniqueParts = (parts = []) => {
     });
 };
 
+const PLUS_CODE_REGEX =
+  /^(?:[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3})(?:\s|$)/i;
+
+const normalizeAddressKey = (value) =>
+  normalizePart(value)
+    .toLowerCase()
+    .replace(/\b\d{5,6}\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const deriveAddressLine = ({
+  formattedAddress,
+  area,
+  city,
+  state,
+  pincode,
+  country,
+}) => {
+  const excluded = new Set(
+    [area, city, state, country, "India", "Bharat"]
+      .map(normalizeAddressKey)
+      .filter(Boolean),
+  );
+
+  const parts = normalizePart(formattedAddress)
+    .split(",")
+    .map((part) =>
+      normalizePart(part).replace(
+        pincode ? new RegExp(`\\b${String(pincode)}\\b`, "g") : /\b\d{5,6}\b/g,
+        "",
+      ),
+    )
+    .map(normalizePart)
+    .filter(Boolean)
+    .filter((part) => !excluded.has(normalizeAddressKey(part)));
+
+  const descriptiveParts = parts.filter((part) => !PLUS_CODE_REGEX.test(part));
+  return uniqueParts(descriptiveParts.length ? descriptiveParts : parts).join(", ");
+};
+
 const getGoogleApiKey = () => {
   const key = normalizePart(
     process.env.GOOGLE_MAPS_API_KEY ||
@@ -184,8 +224,17 @@ const parseGoogleAddress = (result = {}) => {
     uniqueParts([streetNumber, route]).join(" "),
   ]).join(", ");
 
+  const fallbackAddress = deriveAddressLine({
+    formattedAddress: result.formatted_address,
+    area,
+    city,
+    state,
+    pincode,
+    country,
+  });
+
   return {
-    address: street,
+    address: street || fallbackAddress,
     area,
     city,
     state,

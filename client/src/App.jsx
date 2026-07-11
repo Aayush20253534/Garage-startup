@@ -2,7 +2,6 @@ import { Component, lazy, Suspense, useEffect, useState } from "react";
 import { Link, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppProvider, useApp } from "@/hooks/useApp";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
-import { hasUsableIndiaCoordinates } from "@/utils/address";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import api from "@/api/axios";
@@ -257,14 +256,10 @@ function ProtectedRoute({ children }) {
 function AddressCheck({ children }) {
   const { user, location } = useApp();
   const routeLocation = useLocation();
-  const hasLiveLocation =
-    Boolean(location?.address || location?.fullAddress) &&
-    hasUsableIndiaCoordinates(location);
 
   if (
     user?.role === "CUSTOMER" &&
-    !hasSavedUserLocation(user) &&
-    !hasLiveLocation
+    !hasSavedUserLocation(user, location)
   ) {
     return (
       <Navigate to="/booking/address" state={{ from: routeLocation }} replace />

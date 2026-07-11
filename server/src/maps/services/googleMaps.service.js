@@ -33,6 +33,72 @@ let routeOptimizationTokenCache = null;
 
 const normalizeText = (value) => String(value || "").trim();
 
+const PLUS_CODE_REGEX =
+  /^(?:[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3})(?:\s|$)/i;
+
+const normalizeAddressKey = (value) =>
+  normalizeText(value)
+    .toLowerCase()
+    .replace(/\b\d{5,6}\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getPlaceDisplayName = (place = {}) =>
+  normalizeText(
+    typeof place.displayName === "string"
+      ? place.displayName
+      : place.displayName?.text,
+  );
+
+const deriveAddressLine = ({
+  formattedAddress,
+  displayName,
+  area,
+  city,
+  state,
+  pincode,
+  country,
+  plusCode,
+}) => {
+  const excluded = new Set(
+    [area, city, state, country, "India", "Bharat"]
+      .map(normalizeAddressKey)
+      .filter(Boolean),
+  );
+
+  const cleanDisplayName = normalizeText(displayName);
+  const cleanFormattedAddress = normalizeText(formattedAddress);
+  if (
+    cleanDisplayName &&
+    cleanDisplayName !== cleanFormattedAddress &&
+    !cleanDisplayName.includes(",") &&
+    !PLUS_CODE_REGEX.test(cleanDisplayName) &&
+    !excluded.has(normalizeAddressKey(cleanDisplayName))
+  ) {
+    return cleanDisplayName;
+  }
+
+  const parts = cleanFormattedAddress
+    .split(",")
+    .map((part) =>
+      normalizeText(part).replace(
+        pincode ? new RegExp(`\\b${String(pincode)}\\b`, "g") : /\b\d{5,6}\b/g,
+        "",
+      ),
+    )
+    .map(normalizeText)
+    .filter(Boolean)
+    .filter((part) => !excluded.has(normalizeAddressKey(part)));
+
+  const descriptiveParts = parts.filter((part) => !PLUS_CODE_REGEX.test(part));
+  if (descriptiveParts.length) return [...new Set(descriptiveParts)].join(", ");
+  if (parts.length) return [...new Set(parts)].join(", ");
+
+  return normalizeText(
+    plusCode?.compoundCode || plusCode?.globalCode || plusCode,
+  );
+};
+
 const stableCacheKey = (scope, value) => {
   const hash = crypto
     .createHash("sha256")
@@ -187,8 +253,19 @@ const parsePlaceAddress = (place = {}) => {
     .filter(Boolean)
     .join(", ");
 
+  const fallbackAddress = deriveAddressLine({
+    formattedAddress: place.formattedAddress,
+    displayName: getPlaceDisplayName(place),
+    area,
+    city,
+    state,
+    pincode,
+    country,
+    plusCode: place.plusCode,
+  });
+
   return {
-    address: street,
+    address: street || fallbackAddress,
     area,
     city,
     state,
@@ -285,7 +362,23 @@ const getPlaceDetails = async ({ placeId, sessionToken }) => {
     language: process.env.GOOGLE_MAPS_LANGUAGE || "en",
   });
   const cachedPlace = await getCache(cacheKey);
-  if (cachedPlace) return cachedPlace;
+  if (cachedPlace) {
+    const repairedAddress = parsePlaceAddress({
+      formattedAddress: cachedPlace.formattedAddress,
+      displayName: cachedPlace.displayName,
+      addressComponents: cachedPlace.addressComponents,
+      plusCode: cachedPlace.plusCode,
+    });
+
+    return {
+      ...cachedPlace,
+      address: {
+        ...repairedAddress,
+        ...(cachedPlace.address || {}),
+        address: cachedPlace.address?.address || repairedAddress.address,
+      },
+    };
+  }
 
   try {
     const response = await axios.get(
@@ -300,7 +393,7 @@ const getPlaceDetails = async ({ placeId, sessionToken }) => {
         headers: {
           "X-Goog-Api-Key": getApiKey(),
           "X-Goog-FieldMask":
-            "id,formattedAddress,location,addressComponents,viewport,plusCode,types",
+            "id,displayName,formattedAddress,location,addressComponents,viewport,plusCode,types",
         },
       },
     );
@@ -322,6 +415,7 @@ const getPlaceDetails = async ({ placeId, sessionToken }) => {
 
     const result = {
       placeId: place.id || cleanPlaceId,
+      displayName: getPlaceDisplayName(place),
       formattedAddress: place.formattedAddress || "",
       fullAddress: place.formattedAddress || "",
       latitude: location.latitude,

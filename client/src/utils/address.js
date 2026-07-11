@@ -14,6 +14,9 @@ const normalizeKey = (value) =>
 const ADMIN_AREA_HINT_REGEX =
   /\b(province|pradesh|state|district|zone|anchal|division|region)\b/i;
 
+const PLUS_CODE_REGEX =
+  /^(?:[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3})(?:\s|$)/i;
+
 const looksLikeStateOrRegion = (value = "") =>
   ADMIN_AREA_HINT_REGEX.test(String(value || ""));
 
@@ -50,6 +53,87 @@ const uniqueParts = (parts = []) => {
     seen.add(key);
     return true;
   });
+};
+
+const removePincode = (value = "", pincode = "") => {
+  const clean = String(value || "").trim();
+  if (!clean) return "";
+
+  if (pincode) {
+    return clean.replace(new RegExp(`\\b${String(pincode)}\\b`, "g"), "").trim();
+  }
+
+  return clean.replace(/\b\d{5,6}\b/g, "").trim();
+};
+
+const isAdministrativeAddressPart = (part = "", structuredAddress = {}) => {
+  const key = normalizeKey(part);
+  if (!key) return true;
+
+  const administrativeParts = [
+    structuredAddress.area,
+    structuredAddress.city,
+    structuredAddress.state,
+    structuredAddress.country,
+  ]
+    .map(normalizeKey)
+    .filter(Boolean);
+
+  return (
+    ["india", "bharat"].includes(key) || administrativeParts.includes(key)
+  );
+};
+
+/**
+ * Returns a useful first address line for Google places that do not provide a
+ * street number/route (campuses, landmarks, apartment complexes and plus-code
+ * locations are common examples). A meaningful landmark is preferred over a
+ * bare plus code, while the plus code remains the final fallback.
+ */
+export const getAddressLineFromPlace = ({
+  address = "",
+  formattedAddress = "",
+  displayName = "",
+  fallback = "",
+  structuredAddress = {},
+} = {}) => {
+  const explicitAddress = String(address || "").trim();
+  if (explicitAddress) return explicitAddress;
+
+  const cleanDisplayName = String(displayName || "").trim();
+  const cleanFormattedAddress = String(formattedAddress || "").trim();
+  if (
+    cleanDisplayName &&
+    cleanDisplayName !== cleanFormattedAddress &&
+    !cleanDisplayName.includes(",") &&
+    !PLUS_CODE_REGEX.test(cleanDisplayName) &&
+    !isAdministrativeAddressPart(cleanDisplayName, structuredAddress)
+  ) {
+    return cleanDisplayName;
+  }
+
+  const formattedParts = compactParts(cleanFormattedAddress.split(","))
+    .map((part) => removePincode(part, structuredAddress.pincode))
+    .filter(Boolean)
+    .filter((part) => !isAdministrativeAddressPart(part, structuredAddress));
+
+  const descriptiveParts = formattedParts.filter(
+    (part) => !PLUS_CODE_REGEX.test(part),
+  );
+
+  if (descriptiveParts.length) {
+    return uniqueParts(descriptiveParts).join(", ");
+  }
+
+  const cleanFallback = String(fallback || "").trim();
+  if (
+    cleanFallback &&
+    !isAdministrativeAddressPart(cleanFallback, structuredAddress)
+  ) {
+    return cleanFallback;
+  }
+
+  return uniqueParts(formattedParts).join(", ");
 };
 
 export const SERVICE_AREA_COORDINATE_BOUNDS = [
@@ -160,7 +244,16 @@ export const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
   );
 
   const normalized = {
-    address: structuredAddress.address || fallback.address || "",
+    address: getAddressLineFromPlace({
+      address: structuredAddress.address,
+      formattedAddress: result.fullAddress || result.displayName || "",
+      displayName: result.displayName || "",
+      fallback: fallback.address,
+      structuredAddress: {
+        ...fallback,
+        ...structuredAddress,
+      },
+    }),
     area: structuredAddress.area || fallback.area || "",
     city:
       structuredAddress.city ||
