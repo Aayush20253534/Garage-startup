@@ -8,11 +8,24 @@ const authorizeRoles = (...allowedRoles) => {
 
     if (!allowedRoles.includes(req.user.role)) {
       return next(
-        new ApiError(403, "You are not allowed to access this resource")
+        new ApiError(403, "You are not allowed to access this resource"),
       );
     }
 
-    next();
+    if (
+      req.user.role === "GARAGE_OWNER" &&
+      !req.user.passwordChangedAt
+    ) {
+      return next(
+        new ApiError(
+          403,
+          "Change your temporary password before using the garage portal.",
+          "GARAGE_PASSWORD_CHANGE_REQUIRED",
+        ),
+      );
+    }
+
+    return next();
   };
 };
 

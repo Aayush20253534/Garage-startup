@@ -167,14 +167,35 @@ export const garageApi = {
       }),
     );
 
-    await verifyCurrentSession({ expectedRole: "GARAGE_OWNER" });
+    const sessionUser = await verifyCurrentSession({
+      expectedRole: "GARAGE_OWNER",
+    });
 
-    if (!result?.user) {
+    const user = sessionUser || result?.user;
+
+    if (!user) {
       throw new Error("Invalid garage login response");
     }
 
-    if (!["GARAGE_OWNER", "ADMIN"].includes(result.user.role)) {
+    if (!["GARAGE_OWNER", "ADMIN"].includes(user.role)) {
       throw new Error("This account is not a garage owner account");
+    }
+
+    // A newly approved garage keeps the phone-number temporary password, but
+    // cannot enter the portal until it creates a private password.
+    if (user.mustChangePassword) {
+      return {
+        user,
+        garage: {
+          ownerName: user.name,
+          name: user.name || "Garage",
+          email: user.email || "",
+          phone: user.phone || "",
+          role: user.role,
+          mustChangePassword: true,
+          isFirstLogin: true,
+        },
+      };
     }
 
     // Login sets an HttpOnly cookie. The profile request proves that the
@@ -182,7 +203,7 @@ export const garageApi = {
     const garage = await this.getProfile();
 
     return {
-      user: result.user,
+      user,
       garage,
     };
   },

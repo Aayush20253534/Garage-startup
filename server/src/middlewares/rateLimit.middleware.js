@@ -86,6 +86,7 @@ const rateLimit = ({
   fallbackMax = null,
   keyGenerator = (req) => req.ip,
   name = "global",
+  message = "Too many requests. Please try again later.",
 } = {}) => {
   const keyPrefix = [
     process.env.RATE_LIMIT_KEY_PREFIX || "rate-limit",
@@ -118,7 +119,12 @@ const rateLimit = ({
     applyRateLimitHeaders(res, bucket, activeMax);
 
     if (bucket.count > activeMax) {
-      return next(new ApiError(429, "Too many requests. Please try again later."));
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((bucket.resetAt - Date.now()) / 1000),
+      );
+      res.setHeader("Retry-After", String(retryAfterSeconds));
+      return next(new ApiError(429, message, "RATE_LIMITED"));
     }
 
     return next();

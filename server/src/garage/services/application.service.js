@@ -215,6 +215,7 @@ const approveApplication = async (applicationId, adminNote) => {
             name: application.ownerName,
             phone: application.phone,
             password: defaultPasswordHash,
+            passwordChangedAt: null,
             role: "GARAGE_OWNER",
             isActive: true,
             isEmailVerified: true,
@@ -226,6 +227,7 @@ const approveApplication = async (applicationId, adminNote) => {
             email: application.email,
             phone: application.phone,
             password: defaultPasswordHash,
+            passwordChangedAt: null,
             role: "GARAGE_OWNER",
             isActive: true,
             isEmailVerified: true,
@@ -292,7 +294,7 @@ const approveApplication = async (applicationId, adminNote) => {
     };
   });
 
-  const approvalMessage = `${result.application.adminNote}\n\nYour account has been created/verified.\n\nYour default password is your 10-digit mobile number: ${result.defaultPassword}\n\nYou can change it anytime from Forgot Password on the garage login page.`;
+  const approvalMessage = `${result.application.adminNote}\n\nYour account has been created/verified.\n\nYour temporary password is your 10-digit mobile number: ${result.defaultPassword}\n\nFor security, the garage portal will require you to create a new password immediately after your first login.`;
 
   await sendGarageApplicationEmail({
     to: result.owner.email,

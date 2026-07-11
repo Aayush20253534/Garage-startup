@@ -447,6 +447,12 @@ export default function Garages() {
         </div>
       )}
 
+      {isIntern && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
+          Intern access is read-only. Only admins can approve applications, delete garages, or change assigned services.
+        </div>
+      )}
+
       {tab === "applications" ? (
         <div className="space-y-4">
           <section className="card-soft rounded-xl p-4 shadow-sm">
@@ -614,7 +620,8 @@ export default function Garages() {
                     </span>
                   </div>
 
-                  {application.status !== "APPROVED" &&
+                  {!isIntern &&
+                    application.status !== "APPROVED" &&
                     application.status !== "DENIED" && (
                       <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(280px,1fr)_auto]">
                         <input
@@ -1058,6 +1065,7 @@ export default function Garages() {
               </section>
             )}
 
+            {!isIntern && (
             <form
               onSubmit={saveGarageService}
               className="card-soft grid gap-3 rounded-xl p-4 shadow-sm xl:grid-cols-[1fr_1.2fr_0.9fr_0.9fr_auto]"
@@ -1148,6 +1156,7 @@ export default function Garages() {
                 Save
               </button>
             </form>
+            )}
 
             <section className="card-soft overflow-hidden rounded-xl shadow-sm">
               <div className="overflow-x-auto">
@@ -1193,6 +1202,9 @@ export default function Garages() {
                           </td>
 
                           <td className="px-4 py-3">
+                            {isIntern ? (
+                              <span className="text-xs font-semibold text-muted">Read only</span>
+                            ) : (
                             <div className="flex justify-end gap-2">
                               <button
                                 type="button"
@@ -1210,6 +1222,7 @@ export default function Garages() {
                                 <FiTrash2 />
                               </button>
                             </div>
+                            )}
                           </td>
                         </tr>
                       ))

@@ -15,13 +15,11 @@ const sendGarageApplicationEmail = async ({ to, subject, message }) => {
     `;
 
   if (!resend || !process.env.EMAIL_FROM) {
-    console.log("=================================");
-    console.log("ROVAUTO GARAGE APPLICATION EMAIL PREVIEW");
-    console.log("To:", to);
-    console.log("Subject:", subject);
-    console.log("Message:", message);
-    console.log("HTML:", html.trim());
-    console.log("=================================");
+    // Never print recipient data or message bodies here. Approval emails can
+    // contain a temporary password and must not be copied into deployment logs.
+    console.warn(
+      "[garage-email] Email delivery is not configured; message was not sent.",
+    );
     return false;
   }
 

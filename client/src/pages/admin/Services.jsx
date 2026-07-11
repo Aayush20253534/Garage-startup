@@ -506,6 +506,12 @@ export default function AdminServices() {
         </div>
       )}
 
+      {isIntern ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
+          Intern access is read-only. An admin must create or change categories and services.
+        </div>
+      ) : (
+        <>
       <form
         onSubmit={saveCategory}
         className="card-soft rounded-2xl p-4 shadow-sm"
@@ -748,6 +754,8 @@ export default function AdminServices() {
           </div>
         </div>
       </form>
+        </>
+      )}
 
       <section className="card-soft rounded-2xl p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
@@ -854,6 +862,7 @@ export default function AdminServices() {
                   </div>
                 </div>
 
+                {!isIntern && (
                 <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
                   <button
                     type="button"
@@ -912,6 +921,7 @@ export default function AdminServices() {
                     </button>
                   )}
                 </div>
+                )}
               </div>
 
               <div className="grid gap-2 p-4">
@@ -987,6 +997,7 @@ export default function AdminServices() {
                           </div>
                         </div>
 
+                        {!isIntern && (
                         <div className="flex flex-wrap gap-2 sm:justify-end">
                           <button
                             type="button"
@@ -1052,6 +1063,7 @@ export default function AdminServices() {
                             </button>
                           )}
                         </div>
+                        )}
                       </div>
                     );
                   })

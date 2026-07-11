@@ -4,12 +4,13 @@ const prisma = require("../config/prisma");
 const ApiError = require("../utils/apiError");
 const calculateDistanceKm = require("../utils/distance");
 const { getCache, setCache } = require("../utils/cache");
-const { addGarageWhatsappLink } = require("../utils/whatsapp");
+const { addGarageWhatsappLink, createWhatsappLink } = require("../utils/whatsapp");
 const { addServicePriceRange } = require("../utils/pricing");
 const googleMapsService = require("../maps/services/googleMaps.service");
 
 const GARAGE_LIST_TTL = 5 * 60;
 const GARAGE_DETAIL_TTL = 5 * 60;
+const PUBLIC_GARAGE_CACHE_VERSION = "v2";
 const PUBLIC_GARAGE_RADIUS_KM = Math.max(1, Number(process.env.PUBLIC_GARAGE_RADIUS_KM || 10));
 const GARAGE_GEO_LOOKUP_RADIUS_KM = Math.max(1, Number(process.env.GARAGE_GEO_LOOKUP_RADIUS_KM || 50));
 
@@ -63,13 +64,11 @@ const garageIncludeForDetails = {
     include: {
       user: {
         select: {
-          id: true,
           name: true,
         },
       },
     },
   },
-  wallet: true,
 };
 
 const isGarageOpenNow = (garage) => {
@@ -271,7 +270,11 @@ const attachDistanceAndOrder = (garages = [], distanceRows = []) => {
     });
 };
 
-const fetchGaragesByDistanceRows = async (distanceRows = [], include = garageIncludeForList) => {
+const fetchGaragesByDistanceRows = async (
+  distanceRows = [],
+  include = garageIncludeForList,
+  serializer = serializePublicGarage,
+) => {
   const ids = distanceRows.map((row) => row.id).filter(Boolean);
   if (!ids.length) return [];
 
@@ -280,7 +283,7 @@ const fetchGaragesByDistanceRows = async (distanceRows = [], include = garageInc
     include,
   });
 
-  return attachDistanceAndOrder(garages.map(serializeGarage), distanceRows);
+  return attachDistanceAndOrder(garages.map(serializer), distanceRows);
 };
 
 const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
@@ -335,15 +338,128 @@ const serializeGarageService = (garageService) => {
   const { price, ...rest } = garageService;
   return {
     ...rest,
-    service: garageService.service ? addServicePriceRange(garageService.service) : garageService.service,
+    service: garageService.service
+      ? addServicePriceRange(garageService.service)
+      : garageService.service,
   };
 };
 
 const serializeGarage = (garage) =>
   addGarageWhatsappLink({
     ...addThumbnail(garage),
-    services: garage.services ? garage.services.map(serializeGarageService) : garage.services,
+    services: garage.services
+      ? garage.services.map(serializeGarageService)
+      : garage.services,
   });
+
+const serializePublicImage = (image) => ({
+  imageUrl: image.imageUrl,
+  order: image.order,
+  isThumbnail: image.isThumbnail,
+});
+
+const serializePublicVideo = (video) => ({
+  videoUrl: video.videoUrl,
+  order: video.order,
+  durationSeconds: video.durationSeconds,
+});
+
+const serializePublicReview = (review) => ({
+  id: review.id,
+  rating: review.rating,
+  comment: review.comment,
+  createdAt: review.createdAt,
+  user: review.user ? { name: review.user.name } : null,
+});
+
+const serializePublicService = (service) => {
+  if (!service) return null;
+
+  return {
+    id: service.id,
+    name: service.name,
+    description: service.description,
+    basePrice: service.basePrice,
+    minPrice: service.minPrice,
+    maxPrice: service.maxPrice,
+    durationMin: service.durationMin,
+    isComingSoon: service.isComingSoon,
+    priceRange: service.priceRange,
+    category: service.category
+      ? {
+          id: service.category.id,
+          name: service.category.name,
+          description: service.category.description,
+          thumbnailUrl: service.category.thumbnailUrl,
+          isComingSoon: service.category.isComingSoon,
+        }
+      : null,
+    media: Array.isArray(service.media)
+      ? service.media.map((item) => ({
+          mediaType: item.mediaType,
+          url: item.url,
+          order: item.order,
+          isThumbnail: item.isThumbnail,
+          durationSeconds: item.durationSeconds,
+        }))
+      : [],
+  };
+};
+
+const serializePublicGarageService = (garageService) => {
+  const serialized = serializeGarageService(garageService);
+
+  return {
+    serviceId: serialized.serviceId,
+    vehicleBrand: serialized.vehicleBrand,
+    vehicleModel: serialized.vehicleModel,
+    isActive: serialized.isActive,
+    service: serializePublicService(serialized.service),
+  };
+};
+
+const serializePublicGarage = (garage) => {
+  const images = Array.isArray(garage.images)
+    ? garage.images.map(serializePublicImage)
+    : [];
+  const videos = Array.isArray(garage.videos)
+    ? garage.videos.map(serializePublicVideo)
+    : [];
+  const services = Array.isArray(garage.services)
+    ? garage.services.map(serializePublicGarageService)
+    : [];
+  const reviews = Array.isArray(garage.reviews)
+    ? garage.reviews.map(serializePublicReview)
+    : undefined;
+  const thumbnail = images.find((image) => image.isThumbnail) || images[0] || null;
+
+  return {
+    id: garage.id,
+    name: garage.name,
+    description: garage.description,
+    address: garage.address,
+    city: garage.city,
+    area: garage.area,
+    latitude: garage.latitude,
+    longitude: garage.longitude,
+    placeId: garage.placeId,
+    workingRadiusKm: garage.workingRadiusKm,
+    garageType: garage.garageType,
+    supportedBrands: garage.supportedBrands,
+    isVerified: garage.isVerified,
+    isActive: garage.isActive,
+    ratingAvg: garage.ratingAvg,
+    ratingCount: garage.ratingCount,
+    openingTime: garage.openingTime,
+    closingTime: garage.closingTime,
+    images,
+    videos,
+    services,
+    ...(reviews && { reviews }),
+    thumbnail,
+    whatsappLink: createWhatsappLink(garage.whatsappNo || garage.phone),
+  };
+};
 
 
 const addDrivingMetrics = async ({ latitude, longitude, garages = [] }) => {
@@ -499,7 +615,7 @@ const getGarages = async (query = {}) => {
 
   const cacheKey = geoSearch
     ? null
-    : `garages:list:${serializeGarageQuery({
+    : `garages:public:${PUBLIC_GARAGE_CACHE_VERSION}:list:${serializeGarageQuery({
         search,
         city,
         area,
@@ -522,7 +638,7 @@ const getGarages = async (query = {}) => {
     garages = garages.filter(isGarageOpenNow);
   }
 
-  let result = garages.map(serializeGarage);
+  let result = garages.map(serializePublicGarage);
 
   if (geoSearch) {
     result = result
@@ -665,10 +781,14 @@ const findNearbyEligibleGarages = async ({
   });
 
   let garages = distanceRows
-    ? await fetchGaragesByDistanceRows(distanceRows, {
-        ...garageIncludeForList,
-        wallet: true,
-      })
+    ? await fetchGaragesByDistanceRows(
+        distanceRows,
+        {
+          ...garageIncludeForList,
+          wallet: true,
+        },
+        serializeGarage,
+      )
     : await prisma.garage.findMany({
         where: {
           isActive: true,
@@ -735,7 +855,7 @@ const findNearbyEligibleGarages = async ({
 };
 
 const getGarageById = async (garageId) => {
-  const cacheKey = `garages:detail:${garageId}`;
+  const cacheKey = `garages:public:${PUBLIC_GARAGE_CACHE_VERSION}:detail:${garageId}`;
 
   const cached = await getCache(cacheKey);
   if (cached) return cached;
@@ -752,7 +872,7 @@ const getGarageById = async (garageId) => {
     throw new ApiError(404, "Garage not found");
   }
 
-  const result = serializeGarage(garage);
+  const result = serializePublicGarage(garage);
 
   await setCache(cacheKey, result, GARAGE_DETAIL_TTL);
 
@@ -760,7 +880,7 @@ const getGarageById = async (garageId) => {
 };
 
 const getGarageServices = async (garageId) => {
-  const cacheKey = `garages:${garageId}:services`;
+  const cacheKey = `garages:public:${PUBLIC_GARAGE_CACHE_VERSION}:${garageId}:services`;
 
   const cached = await getCache(cacheKey);
   if (cached) return cached;
@@ -796,7 +916,7 @@ const getGarageServices = async (garageId) => {
     },
   });
 
-  const result = services.map(serializeGarageService);
+  const result = services.map(serializePublicGarageService);
 
   await setCache(cacheKey, result, GARAGE_DETAIL_TTL);
 

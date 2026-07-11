@@ -44,10 +44,7 @@ const getGarageOwnerProfile = async (userId) => {
         include: {
           user: {
             select: {
-              id: true,
               name: true,
-              email: true,
-              phone: true,
             },
           },
           booking: {

@@ -29,6 +29,30 @@ const PASSWORD_MESSAGE =
   "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol";
 const PASSWORD_RESET_REQUEST_MESSAGE =
   "If an active account exists for this email, a password reset OTP has been sent.";
+const INVALID_LOGIN_MESSAGE =
+  "Invalid email, phone, login ID, or password";
+
+let dummyPasswordHashPromise = null;
+
+const getDummyPasswordHash = () => {
+  if (!dummyPasswordHashPromise) {
+    dummyPasswordHashPromise = argon2.hash(
+      crypto.randomBytes(32).toString("hex"),
+    );
+  }
+
+  return dummyPasswordHashPromise;
+};
+
+const verifyLoginPassword = async (passwordHash, password) => {
+  const hash = passwordHash || (await getDummyPasswordHash());
+
+  try {
+    return await argon2.verify(hash, password);
+  } catch {
+    return false;
+  }
+};
 
 const USER_ROLES = ["CUSTOMER", "GARAGE_OWNER"];
 const STAFF_ROLES = ["ADMIN", "INTERN"];
@@ -58,6 +82,8 @@ const toSafeUser = (user) => ({
   isEmailVerified: user.isEmailVerified,
   isPhoneVerified: user.isPhoneVerified,
   isOnboarded: user.isOnboarded,
+  mustChangePassword:
+    user.role === "GARAGE_OWNER" && !user.passwordChangedAt,
 });
 
 const toSafeStaff = (staff) => ({
@@ -100,6 +126,7 @@ const getAuthUserById = async (userId) => {
       isPhoneVerified: true,
       isOnboarded: true,
       isActive: true,
+      passwordChangedAt: true,
       customerProfile: true,
       vehicles: {
         orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
@@ -115,9 +142,13 @@ const getAuthUserById = async (userId) => {
     throw new ApiError(404, "User not found");
   }
 
+  const { passwordChangedAt, ...safeUser } = user;
+
   return {
-    ...user,
+    ...safeUser,
     accountType: "USER",
+    mustChangePassword:
+      user.role === "GARAGE_OWNER" && !passwordChangedAt,
   };
 };
 
@@ -450,21 +481,13 @@ const login = async (
       where: { email: cleanEmail },
     });
 
-    if (!supportAccount) {
-      throw new ApiError(401, "Invalid credentials");
-    }
-
-    if (!supportAccount.isActive) {
-      throw new ApiError(403, "Account is disabled");
-    }
-
-    const isPasswordValid = await argon2.verify(
-      supportAccount.password,
+    const isPasswordValid = await verifyLoginPassword(
+      supportAccount?.password,
       password,
     );
 
-    if (!isPasswordValid) {
-      throw new ApiError(401, "Invalid credentials");
+    if (!supportAccount || !supportAccount.isActive || !isPasswordValid) {
+      throw new ApiError(401, INVALID_LOGIN_MESSAGE, "INVALID_CREDENTIALS");
     }
 
     const updatedAccount = await prisma.customerSupportAccount.update({
@@ -503,21 +526,13 @@ const login = async (
       },
     });
 
-    if (!staff) {
-      throw new ApiError(401, "Invalid credentials");
-    }
-
-    if (!staff.isActive) {
-      throw new ApiError(403, "Account is disabled");
-    }
-
-    const isPasswordValid = await argon2.verify(
-      staff.password,
+    const isPasswordValid = await verifyLoginPassword(
+      staff?.password,
       password,
     );
 
-    if (!isPasswordValid) {
-      throw new ApiError(401, "Invalid credentials");
+    if (!staff || !staff.isActive || !isPasswordValid) {
+      throw new ApiError(401, INVALID_LOGIN_MESSAGE, "INVALID_CREDENTIALS");
     }
 
     const updatedStaff = await prisma.staffAccount.update({
@@ -548,25 +563,18 @@ const login = async (
     },
   });
 
-  if (!user) {
-    throw new ApiError(401, "Invalid credentials");
-  }
-
-  if (!user.isActive) {
-    throw new ApiError(403, "Account is disabled");
-  }
-
-  const isPasswordValid = await argon2.verify(
-    user.password,
+  const isPasswordValid = await verifyLoginPassword(
+    user?.password,
     password,
   );
 
-  if (!isPasswordValid) {
-    throw new ApiError(401, "Invalid credentials");
-  }
-
-  if (!user.isEmailVerified) {
-    throw new ApiError(403, "Please verify your email before login");
+  if (
+    !user ||
+    !user.isActive ||
+    !user.isEmailVerified ||
+    !isPasswordValid
+  ) {
+    throw new ApiError(401, INVALID_LOGIN_MESSAGE, "INVALID_CREDENTIALS");
   }
 
   return createUserAuthResult(user, sessionMetadata);

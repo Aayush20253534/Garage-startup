@@ -16,21 +16,30 @@ const otpKeyGenerator = (req) => {
 };
 
 const otpCooldownRateLimit = rateLimit({
+  name: "otp-cooldown",
   windowMs: 60 * 1000,
-  max: 100,
+  max: 1,
+  fallbackMax: 1,
   keyGenerator: otpKeyGenerator,
+  message: "Please wait 60 seconds before requesting another OTP.",
 });
 
 const otpHourlyRateLimit = rateLimit({
+  name: "otp-hourly",
   windowMs: 60 * 60 * 1000,
-  max: 500,
+  max: 5,
+  fallbackMax: 3,
   keyGenerator: otpKeyGenerator,
+  message: "Too many OTP requests. Please try again in an hour.",
 });
 
 const otpDailyRateLimit = rateLimit({
+  name: "otp-daily",
   windowMs: 24 * 60 * 60 * 1000,
-  max: 1000,
+  max: 10,
+  fallbackMax: 6,
   keyGenerator: otpKeyGenerator,
+  message: "Daily OTP request limit reached. Please try again tomorrow.",
 });
 
 const otpSendRateLimits = [

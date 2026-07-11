@@ -292,6 +292,11 @@ export default function Revenue() {
         </div>
       )}
 
+      {isIntern ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
+          Intern access is read-only. An admin must change cities or service price ranges.
+        </div>
+      ) : (
       <form
         onSubmit={submit}
         className="card-soft rounded-2xl p-4 shadow-sm"
@@ -403,6 +408,7 @@ export default function Revenue() {
           </div>
         </div>
       </form>
+      )}
 
       <section className="card-soft rounded-2xl p-4 shadow-sm">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -414,8 +420,9 @@ export default function Revenue() {
                   <button
                     key={city.id}
                     type="button"
-                    onClick={() => toggleCity(city)}
-                    title="Click to toggle city status"
+                    onClick={() => !isIntern && toggleCity(city)}
+                    disabled={isIntern}
+                    title={isIntern ? "Intern access is read-only" : "Click to toggle city status"}
                     className={[
                       "rounded-full border px-3 py-1 text-xs font-semibold transition",
                       city.isActive
@@ -434,6 +441,7 @@ export default function Revenue() {
             </div>
           </div>
 
+          {!isIntern && (
           <form
             onSubmit={addCity}
             className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_88px]"
@@ -466,6 +474,7 @@ export default function Revenue() {
               {citySaving ? "..." : "Add"}
             </button>
           </form>
+          )}
         </div>
       </section>
 
@@ -578,6 +587,8 @@ export default function Revenue() {
 
                       <td className="whitespace-nowrap px-4 py-3">
                         <div className="flex justify-end gap-2">
+                          {!isIntern ? (
+                          <>
                           <button
                             type="button"
                             onClick={() => editRange(range)}
@@ -587,15 +598,17 @@ export default function Revenue() {
                             <FiEdit3 />
                           </button>
 
-                          {!isIntern && (
-                            <button
-                              type="button"
-                              onClick={() => deleteRange(range)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
-                              aria-label="Delete price range"
-                            >
-                              <FiTrash2 />
-                            </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteRange(range)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
+                            aria-label="Delete price range"
+                          >
+                            <FiTrash2 />
+                          </button>
+                          </>
+                          ) : (
+                            <span className="text-xs font-semibold text-muted">Read only</span>
                           )}
                         </div>
                       </td>

@@ -14,8 +14,29 @@ const router = express.Router();
 
 router.get("/", controller.listPublicCities);
 
-router.get("/admin", protect, authorizeRoles("ADMIN", "INTERN"), cityQuerySchema, validate, controller.listAdminCities);
-router.post("/admin", protect, authorizeRoles("ADMIN", "INTERN"), createCitySchema, validate, controller.createCity);
-router.patch("/admin/:cityId", protect, authorizeRoles("ADMIN", "INTERN"), updateCitySchema, validate, controller.updateCity);
+router.get(
+  "/admin",
+  protect,
+  authorizeRoles("ADMIN", "INTERN"),
+  cityQuerySchema,
+  validate,
+  controller.listAdminCities,
+);
+router.post(
+  "/admin",
+  protect,
+  authorizeRoles("ADMIN"),
+  createCitySchema,
+  validate,
+  controller.createCity,
+);
+router.patch(
+  "/admin/:cityId",
+  protect,
+  authorizeRoles("ADMIN"),
+  updateCitySchema,
+  validate,
+  controller.updateCity,
+);
 
 module.exports = router;

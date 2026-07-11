@@ -19,6 +19,8 @@ router.use(protect);
 router.use(authorizeRoles("ADMIN", "INTERN"));
 
 router.get("/", garageQuerySchema, validate, controller.listGarages);
+router.get("/services", assignableServiceQuerySchema, validate, controller.listAssignableServices);
+router.get("/:garageId", garageIdSchema, validate, controller.getGarage);
 router.delete(
   "/",
   authorizeRoles("ADMIN"),
@@ -26,9 +28,19 @@ router.delete(
   validate,
   controller.deleteGarages,
 );
-router.get("/services", assignableServiceQuerySchema, validate, controller.listAssignableServices);
-router.get("/:garageId", garageIdSchema, validate, controller.getGarage);
-router.post("/:garageId/services", upsertGarageServiceSchema, validate, controller.upsertGarageService);
-router.delete("/:garageId/services/:serviceId", serviceIdSchema, validate, controller.removeGarageService);
+router.post(
+  "/:garageId/services",
+  authorizeRoles("ADMIN"),
+  upsertGarageServiceSchema,
+  validate,
+  controller.upsertGarageService,
+);
+router.delete(
+  "/:garageId/services/:serviceId",
+  authorizeRoles("ADMIN"),
+  serviceIdSchema,
+  validate,
+  controller.removeGarageService,
+);
 
 module.exports = router;

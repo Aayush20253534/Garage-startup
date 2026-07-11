@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -6,6 +7,7 @@ const compression = require("compression");
 const cookieParser = require("cookie-parser");
 
 const routes = require("./routes/index.routes");
+const ApiError = require("./utils/apiError");
 const errorMiddleware = require("./middlewares/error.middleware");
 const {
   csrfProtection,
@@ -13,6 +15,24 @@ const {
 } = require("./middlewares/csrf.middleware");
 
 const app = express();
+
+const isProduction = process.env.NODE_ENV === "production";
+const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/i;
+
+/*
+ * Give every request a correlation ID. Clients can share this value with
+ * support while detailed failures stay in server-side logs.
+ */
+app.use((req, res, next) => {
+  const incomingId = String(req.get("x-request-id") || "").trim();
+  const requestId = /^[A-Za-z0-9_-]{8,64}$/.test(incomingId)
+    ? incomingId
+    : crypto.randomUUID();
+
+  req.requestId = requestId;
+  res.setHeader("X-Request-ID", requestId);
+  next();
+});
 
 /*
  * Required when the backend runs behind Render or another reverse proxy.
@@ -39,48 +59,45 @@ const normalizeOrigin = (origin) =>
     .trim()
     .replace(/\/+$/, "");
 
-const environmentOrigins = String(process.env.ALLOWED_ORIGINS || "")
+const configuredOrigins = String(process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map(normalizeOrigin)
   .filter(Boolean);
 
+const productionOrigins = [
+  "https://rovauto.com",
+  "https://www.rovauto.com",
+  "https://rovauto-d5f9c.firebaseapp.com",
+  "https://rovauto-d5f9c.web.app",
+  process.env.FIREBASE_HOSTING_URL,
+  process.env.FIREBASE_AUTH_DOMAIN &&
+    `https://${process.env.FIREBASE_AUTH_DOMAIN}`,
+  process.env.VITE_FIREBASE_AUTH_DOMAIN &&
+    `https://${process.env.VITE_FIREBASE_AUTH_DOMAIN}`,
+  process.env.CLIENT_URL,
+  process.env.FRONTEND_URL,
+  ...configuredOrigins,
+];
+
+const developmentOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:8080",
+  "http://127.0.0.1:8080",
+  "http://localhost:8081",
+  "http://127.0.0.1:8081",
+  "http://localhost:8082",
+  "http://127.0.0.1:8082",
+];
+
 const allowedOrigins = new Set(
   [
-    /*
-     * Production frontend domains.
-     */
-    "https://rovauto.com",
-    "https://www.rovauto.com",
-    "https://rovauto-d5f9c.firebaseapp.com",
-    "https://rovauto-d5f9c.web.app",
-    process.env.FIREBASE_HOSTING_URL,
-    process.env.FIREBASE_AUTH_DOMAIN &&
-      `https://${process.env.FIREBASE_AUTH_DOMAIN}`,
-    process.env.VITE_FIREBASE_AUTH_DOMAIN &&
-      `https://${process.env.VITE_FIREBASE_AUTH_DOMAIN}`,
-
-    /*
-     * Local Vite development.
-     */
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-
-    /*
-     * Optional local ports retained for your existing setup.
-     */
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost:8081",
-    "http://127.0.0.1:8081",
-    "http://localhost:8082",
-    "http://127.0.0.1:8082",
-
-    process.env.CLIENT_URL,
-    process.env.FRONTEND_URL,
-    ...environmentOrigins,
+    ...productionOrigins,
+    ...(!isProduction ? developmentOrigins : []),
   ]
     .map(normalizeOrigin)
-    .filter(Boolean),
+    .filter(Boolean)
+    .filter((origin) => !isProduction || !LOCAL_ORIGIN_PATTERN.test(origin)),
 );
 
 const corsOptions = {
@@ -101,14 +118,9 @@ const corsOptions = {
 
     console.warn(`[CORS] Blocked origin: ${origin}`);
 
-    const corsError = new Error(
-      `Origin ${origin} is not allowed by CORS`,
+    return callback(
+      new ApiError(403, "This origin is not allowed to access the API"),
     );
-
-    corsError.statusCode = 403;
-    corsError.status = 403;
-
-    return callback(corsError);
   },
 
   credentials: true,
@@ -123,11 +135,17 @@ const corsOptions = {
     "Content-Type",
     "X-Requested-With",
     "X-CSRF-Token",
+    "X-Request-ID",
     "Accept",
     "Origin",
   ],
 
-  exposedHeaders: ["Content-Disposition", "Content-Length", "Content-Type"],
+  exposedHeaders: [
+    "Content-Disposition",
+    "Content-Length",
+    "Content-Type",
+    "X-Request-ID",
+  ],
 
   optionsSuccessStatus: 204,
 };
@@ -176,10 +194,7 @@ app.get("/", (req, res) => {
 
 app.get("/health", (req, res) => {
   return res.status(200).json({
-    success: true,
-    message: "Rovauto API is healthy",
-    environment: process.env.NODE_ENV || "development",
-    timestamp: new Date().toISOString(),
+    status: "ok",
   });
 });
 

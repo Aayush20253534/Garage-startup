@@ -175,6 +175,7 @@ const upsertGarageService = async (garageId, payload) => {
     deleteCache(`garages:${garageId}:services`),
     deleteCache(`garages:detail:${garageId}`),
     deletePattern("garages:list:*"),
+    deletePattern("garages:public:*"),
   ]);
 
   return garageService;
@@ -211,6 +212,7 @@ const removeGarageService = async (garageId, serviceId, scope = {}) => {
     deleteCache(`garages:${garageId}:services`),
     deleteCache(`garages:detail:${garageId}`),
     deletePattern("garages:list:*"),
+    deletePattern("garages:public:*"),
   ]);
 
   return deleted;

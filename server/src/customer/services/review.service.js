@@ -13,6 +13,7 @@ const invalidateGarageReviewCaches = async (garageId) => {
   await Promise.allSettled([
     deleteCache(`garages:detail:${garageId}`),
     deletePattern("garages:list:*"),
+    deletePattern("garages:public:*"),
   ]);
 };
 

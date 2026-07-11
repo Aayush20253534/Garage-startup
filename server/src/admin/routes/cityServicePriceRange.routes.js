@@ -17,9 +17,21 @@ router.use(protect);
 router.use(authorizeRoles("ADMIN", "INTERN"));
 
 router.get("/", priceRangeQuerySchema, validate, controller.listPriceRanges);
-router.post("/", createPriceRangeSchema, validate, controller.createPriceRange);
 router.get("/:id", priceRangeIdSchema, validate, controller.getPriceRange);
-router.patch("/:id", updatePriceRangeSchema, validate, controller.updatePriceRange);
+router.post(
+  "/",
+  authorizeRoles("ADMIN"),
+  createPriceRangeSchema,
+  validate,
+  controller.createPriceRange,
+);
+router.patch(
+  "/:id",
+  authorizeRoles("ADMIN"),
+  updatePriceRangeSchema,
+  validate,
+  controller.updatePriceRange,
+);
 router.delete(
   "/:id",
   authorizeRoles("ADMIN"),

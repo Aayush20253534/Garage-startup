@@ -25,9 +25,23 @@ const thumbnailUpload = upload.createUpload({
 router.use(protect);
 router.use(authorizeRoles("ADMIN", "INTERN"));
 
+// Interns may inspect the catalogue but only admins can mutate prices,
+// categories, services, or media.
 router.get("/categories", categoryQuerySchema, validate, controller.listCategories);
-router.post("/categories", createCategorySchema, validate, controller.createCategory);
-router.patch("/categories/:categoryId", updateCategorySchema, validate, controller.updateCategory);
+router.post(
+  "/categories",
+  authorizeRoles("ADMIN"),
+  createCategorySchema,
+  validate,
+  controller.createCategory,
+);
+router.patch(
+  "/categories/:categoryId",
+  authorizeRoles("ADMIN"),
+  updateCategorySchema,
+  validate,
+  controller.updateCategory,
+);
 router.delete(
   "/categories/:categoryId",
   authorizeRoles("ADMIN"),
@@ -37,14 +51,27 @@ router.delete(
 );
 router.post(
   "/categories/:categoryId/thumbnail",
+  authorizeRoles("ADMIN"),
   thumbnailUpload,
   upload.validateUploadedFiles,
   categoryIdSchema,
   validate,
-  controller.uploadCategoryThumbnail
+  controller.uploadCategoryThumbnail,
 );
-router.post("/", createServiceSchema, validate, controller.createService);
-router.patch("/:serviceId", updateServiceSchema, validate, controller.updateService);
+router.post(
+  "/",
+  authorizeRoles("ADMIN"),
+  createServiceSchema,
+  validate,
+  controller.createService,
+);
+router.patch(
+  "/:serviceId",
+  authorizeRoles("ADMIN"),
+  updateServiceSchema,
+  validate,
+  controller.updateService,
+);
 router.delete(
   "/:serviceId",
   authorizeRoles("ADMIN"),
@@ -52,6 +79,14 @@ router.delete(
   validate,
   controller.deactivateService,
 );
-router.post("/:serviceId/thumbnail", thumbnailUpload, upload.validateUploadedFiles, serviceIdSchema, validate, controller.uploadThumbnail);
+router.post(
+  "/:serviceId/thumbnail",
+  authorizeRoles("ADMIN"),
+  thumbnailUpload,
+  upload.validateUploadedFiles,
+  serviceIdSchema,
+  validate,
+  controller.uploadThumbnail,
+);
 
 module.exports = router;

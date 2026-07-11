@@ -768,6 +768,17 @@ export function AppProvider({ children }) {
       } catch (err) {
         if (err.response?.status === 401) {
           clearAllLocalSessions();
+        } else if (
+          err.response?.status === 403 &&
+          err.response?.data?.code === "GARAGE_PASSWORD_CHANGE_REQUIRED"
+        ) {
+          const pendingGarage = readJson("garage", null);
+
+          if (pendingGarage?.mustChangePassword) {
+            setSessionRole("GARAGE_OWNER", "USER");
+            dispatch(setGarage(pendingGarage));
+            return pendingGarage;
+          }
         } else if (err.response?.status === 403) {
           // A valid non-garage session must not be destroyed just because an old
           // garage cache existed. Remove only the garage-side state.
@@ -1074,7 +1085,24 @@ export function AppProvider({ children }) {
         syncAuthenticatedUser(me);
       } else if (me.accountType === "USER" && me.role === "GARAGE_OWNER") {
         clearCustomerSession({ clearRole: false });
-        await refreshGarage();
+
+        if (me.mustChangePassword) {
+          const pendingGarage = {
+            ownerName: me.name,
+            name: me.name || "Garage",
+            email: me.email || "",
+            phone: me.phone || "",
+            role: me.role,
+            mustChangePassword: true,
+            isFirstLogin: true,
+          };
+
+          localStorage.setItem("garage", JSON.stringify(pendingGarage));
+          setSessionRole("GARAGE_OWNER", "USER");
+          dispatch(setGarage(pendingGarage));
+        } else {
+          await refreshGarage();
+        }
       } else {
         clearCustomerSession({ clearRole: false });
         clearGarageSession({ clearRole: false });
@@ -1098,7 +1126,9 @@ export function AppProvider({ children }) {
 
     const isCustomerSupport = user?.role === "CUSTOMER_SUPPORT";
     const hasPushEligibleSession =
-      user?.role === "CUSTOMER" || Boolean(garageUser) || isCustomerSupport;
+      user?.role === "CUSTOMER" ||
+      Boolean(garageUser && !garageUser.mustChangePassword) ||
+      isCustomerSupport;
 
     if (!hasPushEligibleSession) return;
 
@@ -1135,7 +1165,7 @@ export function AppProvider({ children }) {
         return;
       }
 
-      if (garageUser) {
+      if (garageUser && !garageUser.mustChangePassword) {
         refreshGarage();
       }
     };

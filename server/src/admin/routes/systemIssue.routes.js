@@ -17,14 +17,21 @@ router.use(authorizeRoles("ADMIN", "INTERN"));
 
 router.get("/stats", controller.getIssueStats);
 router.get("/", issueQuerySchema, validate, controller.listIssues);
-router.delete("/resolved", controller.clearResolvedIssues);
 router.get("/:issueId", issueIdSchema, validate, controller.getIssue);
+router.delete("/resolved", authorizeRoles("ADMIN"), controller.clearResolvedIssues);
 router.patch(
   "/:issueId/status",
+  authorizeRoles("ADMIN"),
   updateIssueStatusSchema,
   validate,
   controller.updateIssueStatus,
 );
-router.delete("/:issueId", issueIdSchema, validate, controller.deleteIssue);
+router.delete(
+  "/:issueId",
+  authorizeRoles("ADMIN"),
+  issueIdSchema,
+  validate,
+  controller.deleteIssue,
+);
 
 module.exports = router;

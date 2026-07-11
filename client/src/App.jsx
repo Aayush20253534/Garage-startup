@@ -230,6 +230,13 @@ function ProtectedRoute({ children }) {
         />
       );
     }
+
+    if (
+      garage.mustChangePassword &&
+      location.pathname !== "/garage/first-login"
+    ) {
+      return <Navigate to="/garage/first-login" replace />;
+    }
   } else {
     const isCustomer = hasPortalRole(user, "CUSTOMER", "USER");
 
@@ -580,6 +587,10 @@ const GarageOtpLogin = lazyPage(
 const GarageForgotPassword = lazyPage(
   () => import("@/pages/garage/auth/ForgotPassword"),
   "GarageForgotPassword",
+);
+const GarageFirstLoginPassword = lazyPage(
+  () => import("@/pages/garage/auth/FirstLoginPassword"),
+  "GarageFirstLoginPassword",
 );
 const GarageOnboarding = lazyPage(
   () => import("@/pages/garage/Onboarding"),
@@ -959,6 +970,10 @@ function AppRoutes() {
           <Route
             path="/garage/forgot-password"
             element={<GarageForgotPassword />}
+          />
+          <Route
+            path="/garage/first-login"
+            element={<GarageFirstLoginPassword />}
           />
           <Route path="/garage/onboarding" element={<GarageOnboarding />} />
           <Route path="/garage/magic/:id" element={<MagicLink />} />
