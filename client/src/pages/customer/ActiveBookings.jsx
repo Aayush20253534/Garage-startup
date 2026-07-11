@@ -61,17 +61,23 @@ const formatStatus = (status) => {
 };
 
 export default function ActiveBookings() {
-  const { fetchActiveBookings } = useApp();
+  const { fetchActiveBookings, activeBookingsCache } = useApp();
 
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [bookings, setBookings] = useState(() =>
+    (Array.isArray(activeBookingsCache) ? activeBookingsCache : []).filter(
+      (booking) => ACTIVE_BOOKING_STATUSES.has(booking.status),
+    ),
+  );
+  const [loading, setLoading] = useState(
+    () => !Array.isArray(activeBookingsCache),
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
   const loadBookings = async ({ force = false } = {}) => {
     try {
       if (force) setRefreshing(true);
-      else setLoading(true);
+      else if (!Array.isArray(activeBookingsCache)) setLoading(true);
 
       setError("");
 

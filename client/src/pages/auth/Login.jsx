@@ -8,6 +8,7 @@ import { verifyCurrentSession } from "@/utils/authSession";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { useApp } from "@/hooks/useApp";
 import CustomerPwaInstall from "@/components/pwa/CustomerPwaInstall";
+import { preloadCustomerPortal } from "@/utils/customerPreload";
 
 const buildReturnPath = (fromLocation) => {
   if (!fromLocation?.pathname) return null;
@@ -24,7 +25,7 @@ export default function Login() {
   const notice = state?.message || "";
 
   const nav = useNavigate();
-  const { login } = useApp();
+  const { login, preloadCustomerData } = useApp();
 
   const [form, setForm] = useState({
     identifier: "",
@@ -37,15 +38,28 @@ export default function Login() {
   const completeLogin = (freshUser) => {
     login(freshUser);
 
-    if (!hasSavedUserLocation(freshUser)) {
-      nav("/booking/address", {
+    const targetPath = !hasSavedUserLocation(freshUser)
+      ? "/booking/address"
+      : from || "/dashboard";
+
+    // Start fetching the customer dashboard and route chunks before the next
+    // screen mounts. Navigation remains immediate; the preload never blocks
+    // login and any request is reused by the destination page.
+    preloadCustomerPortal({ targetPath });
+    preloadCustomerData?.({
+      force: true,
+      userId: freshUser.id,
+    });
+
+    if (targetPath === "/booking/address") {
+      nav(targetPath, {
         replace: true,
         state: fromLocation ? { from: fromLocation } : undefined,
       });
       return;
     }
 
-    nav(from || "/dashboard", { replace: true });
+    nav(targetPath, { replace: true });
   };
 
   useEffect(() => {

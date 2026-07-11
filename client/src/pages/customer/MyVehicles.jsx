@@ -18,11 +18,14 @@ export default function MyVehicles() {
     setVehicle,
     setVehicles,
     fetchVehicles,
+    vehiclesCache,
     clearDashboardCache,
     clearVehiclesCache,
   } = useApp();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => !Array.isArray(vehiclesCache),
+  );
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const [defaultLoadingId, setDefaultLoadingId] = useState(null);
@@ -43,7 +46,7 @@ export default function MyVehicles() {
   const loadVehicles = async ({ force = false } = {}) => {
     try {
       setError("");
-      setLoading(true);
+      if (force || !Array.isArray(vehiclesCache)) setLoading(true);
 
       const list = await fetchVehicles({ force });
       syncVehicleState(list || []);

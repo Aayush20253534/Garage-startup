@@ -10,6 +10,10 @@ import useUnreadNotifications from "@/hooks/useUnreadNotifications";
 import useOpenSystemIssueCount from "@/hooks/useOpenSystemIssueCount";
 import useCustomerSupportUnreadNotifications from "@/hooks/useCustomerSupportUnreadNotifications";
 import { FiLogOut, FiMenu, FiX } from "react-icons/fi";
+import {
+  preloadCustomerPortal,
+  preloadCustomerRoute,
+} from "@/utils/customerPreload";
 
 export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const { pathname } = useLocation();
@@ -98,6 +102,12 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   }, [pathname]);
 
   useEffect(() => {
+    if (!isCustomerPortal) return undefined;
+
+    return preloadCustomerPortal({ targetPath: pathname });
+  }, [isCustomerPortal, pathname]);
+
+  useEffect(() => {
     const closeOnEscape = (event) => {
       if (event.key === "Escape") closeSidebar();
     };
@@ -167,6 +177,10 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const renderNavItem = (item, { mobile = false } = {}) => {
     const Icon = item.icon;
     const badge = badgeForItem(item);
+    const warmRoute = () => {
+      if (!isCustomerPortal) return;
+      preloadCustomerRoute(item.to).catch(() => null);
+    };
 
     if (mobile) {
       return (
@@ -174,6 +188,9 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           key={item.to}
           to={item.to}
           end={isDashboardLink(item.to)}
+          onMouseEnter={warmRoute}
+          onFocus={warmRoute}
+          onTouchStart={warmRoute}
           className={({ isActive }) =>
             [
               "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-bold transition",
@@ -197,6 +214,9 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         key={item.to}
         to={item.to}
         end={isDashboardLink(item.to)}
+        onMouseEnter={warmRoute}
+        onFocus={warmRoute}
+        onTouchStart={warmRoute}
         onClick={closeSidebar}
         className={({ isActive }) =>
           [

@@ -32,6 +32,33 @@ const ACTIVE_BOOKINGS_CACHE_TTL = 60 * 1000;
 const SERVICE_HISTORY_CACHE_TTL = 5 * 60 * 1000;
 const PROFILE_CACHE_TTL = 5 * 60 * 1000;
 
+const isConstrainedConnection = () => {
+  if (typeof navigator === "undefined") return false;
+
+  const connection =
+    navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+
+  if (!connection) return false;
+
+  return Boolean(
+    connection.saveData ||
+      connection.effectiveType === "slow-2g" ||
+      connection.effectiveType === "2g",
+  );
+};
+
+const scheduleIdleTask = (callback, timeout = 2500) => {
+  if (typeof window === "undefined") return () => {};
+
+  if ("requestIdleCallback" in window) {
+    const id = window.requestIdleCallback(callback, { timeout });
+    return () => window.cancelIdleCallback?.(id);
+  }
+
+  const id = window.setTimeout(callback, Math.min(timeout, 1400));
+  return () => window.clearTimeout(id);
+};
+
 const SESSION_ROLE_KEY = "rov_session_role";
 const SESSION_ACCOUNT_TYPE_KEY = "rov_session_account_type";
 const SUPPORT_SESSION_ROLE_KEY = "rov_support_session_role";
@@ -356,6 +383,15 @@ export function AppProvider({ children }) {
   const authRequestRef = useRef(null);
   const garageRequestRef = useRef(null);
   const profileRequestRef = useRef(null);
+  const dashboardRequestRef = useRef(null);
+  const vehiclesRequestRef = useRef(null);
+  const activeBookingsRequestRef = useRef(null);
+  const serviceHistoryRequestRef = useRef(null);
+  const customerPreloadRef = useRef({
+    userId: null,
+    cancel: null,
+    secondaryScheduled: false,
+  });
 
   const [dashboardCache, setDashboardCache] = useState(() =>
     readSessionJson("rov_dashboard", null),
@@ -522,6 +558,13 @@ export function AppProvider({ children }) {
 
     dispatch(clearCustomerState());
     setCart([]);
+
+    customerPreloadRef.current.cancel?.();
+    customerPreloadRef.current = {
+      userId: null,
+      cancel: null,
+      secondaryScheduled: false,
+    };
 
     clearDashboardCache();
     clearVehiclesCache();
@@ -863,25 +906,40 @@ export function AppProvider({ children }) {
       return dashboardCache;
     }
 
-    const response = await api.get("/dashboard/customer");
-    const data = response.data.data;
-    const fetchedAt = Date.now();
-
-    saveDashboardCache(data, fetchedAt);
-
-    if (data.user) {
-      syncUserData({
-        ...data.user,
-        vehicles: data.vehicles || data.user.vehicles || [],
-      });
+    if (dashboardRequestRef.current) {
+      if (!force) return dashboardRequestRef.current;
+      await dashboardRequestRef.current.catch(() => null);
     }
 
-    if (data.vehicles) {
-      syncVehicles(data.vehicles);
-      saveVehiclesCache(data.vehicles, fetchedAt);
-    }
+    let request;
+    request = (async () => {
+      const response = await api.get("/dashboard/customer");
+      const data = response.data.data;
+      const fetchedAt = Date.now();
 
-    return data;
+      saveDashboardCache(data, fetchedAt);
+
+      if (data.user) {
+        syncUserData({
+          ...data.user,
+          vehicles: data.vehicles || data.user.vehicles || [],
+        });
+      }
+
+      if (data.vehicles) {
+        syncVehicles(data.vehicles);
+        saveVehiclesCache(data.vehicles, fetchedAt);
+      }
+
+      return data;
+    })().finally(() => {
+      if (dashboardRequestRef.current === request) {
+        dashboardRequestRef.current = null;
+      }
+    });
+
+    dashboardRequestRef.current = request;
+    return request;
   };
 
   const fetchVehicles = async ({ force = false } = {}) => {
@@ -897,14 +955,29 @@ export function AppProvider({ children }) {
       return vehiclesCache;
     }
 
-    const response = await api.get("/vehicles");
-    const data = response.data.data || [];
-    const fetchedAt = Date.now();
+    if (vehiclesRequestRef.current) {
+      if (!force) return vehiclesRequestRef.current;
+      await vehiclesRequestRef.current.catch(() => null);
+    }
 
-    saveVehiclesCache(data, fetchedAt);
-    syncVehicles(data);
+    let request;
+    request = (async () => {
+      const response = await api.get("/vehicles");
+      const data = response.data.data || [];
+      const fetchedAt = Date.now();
 
-    return data;
+      saveVehiclesCache(data, fetchedAt);
+      syncVehicles(data);
+
+      return data;
+    })().finally(() => {
+      if (vehiclesRequestRef.current === request) {
+        vehiclesRequestRef.current = null;
+      }
+    });
+
+    vehiclesRequestRef.current = request;
+    return request;
   };
 
   const fetchActiveBookings = async ({ force = false } = {}) => {
@@ -919,19 +992,34 @@ export function AppProvider({ children }) {
       return activeBookingsCache;
     }
 
-    const response = await api.get("/bookings", {
-      params: {
-        status:
-          "SEARCHING_GARAGE,GARAGE_ASSIGNED,CONFIRMED,IN_PROGRESS",
-      },
+    if (activeBookingsRequestRef.current) {
+      if (!force) return activeBookingsRequestRef.current;
+      await activeBookingsRequestRef.current.catch(() => null);
+    }
+
+    let request;
+    request = (async () => {
+      const response = await api.get("/bookings", {
+        params: {
+          status:
+            "SEARCHING_GARAGE,GARAGE_ASSIGNED,CONFIRMED,IN_PROGRESS",
+        },
+      });
+
+      const data = response.data.data || [];
+      const fetchedAt = Date.now();
+
+      saveActiveBookingsCache(data, fetchedAt);
+
+      return data;
+    })().finally(() => {
+      if (activeBookingsRequestRef.current === request) {
+        activeBookingsRequestRef.current = null;
+      }
     });
 
-    const data = response.data.data || [];
-    const fetchedAt = Date.now();
-
-    saveActiveBookingsCache(data, fetchedAt);
-
-    return data;
+    activeBookingsRequestRef.current = request;
+    return request;
   };
 
   const fetchServiceHistory = async ({ force = false } = {}) => {
@@ -946,18 +1034,33 @@ export function AppProvider({ children }) {
       return serviceHistoryCache;
     }
 
-    const response = await api.get("/bookings", {
-      params: {
-        status: "COMPLETED",
-      },
+    if (serviceHistoryRequestRef.current) {
+      if (!force) return serviceHistoryRequestRef.current;
+      await serviceHistoryRequestRef.current.catch(() => null);
+    }
+
+    let request;
+    request = (async () => {
+      const response = await api.get("/bookings", {
+        params: {
+          status: "COMPLETED",
+        },
+      });
+
+      const data = response.data.data || [];
+      const fetchedAt = Date.now();
+
+      saveServiceHistoryCache(data, fetchedAt);
+
+      return data;
+    })().finally(() => {
+      if (serviceHistoryRequestRef.current === request) {
+        serviceHistoryRequestRef.current = null;
+      }
     });
 
-    const data = response.data.data || [];
-    const fetchedAt = Date.now();
-
-    saveServiceHistoryCache(data, fetchedAt);
-
-    return data;
+    serviceHistoryRequestRef.current = request;
+    return request;
   };
 
   const fetchProfile = async ({ force = false } = {}) => {
@@ -1049,6 +1152,44 @@ export function AppProvider({ children }) {
     return data;
   };
 
+  const preloadCustomerData = ({
+    force = false,
+    userId = user?.id || null,
+    includeSecondary = true,
+  } = {}) => {
+    const criticalRequest = fetchDashboard({ force }).catch(() => null);
+
+    if (!includeSecondary || isConstrainedConnection()) {
+      return criticalRequest;
+    }
+
+    const preloadState = customerPreloadRef.current;
+
+    if (preloadState.userId !== userId) {
+      preloadState.cancel?.();
+      customerPreloadRef.current = {
+        userId,
+        cancel: null,
+        secondaryScheduled: false,
+      };
+    }
+
+    if (!customerPreloadRef.current.secondaryScheduled) {
+      customerPreloadRef.current.secondaryScheduled = true;
+      customerPreloadRef.current.cancel = scheduleIdleTask(() => {
+        customerPreloadRef.current.cancel = null;
+
+        Promise.allSettled([
+          fetchActiveBookings(),
+          fetchServiceHistory(),
+          fetchVehicleMeta(),
+        ]).catch(() => null);
+      });
+    }
+
+    return criticalRequest;
+  };
+
   useEffect(() => {
     let active = true;
 
@@ -1120,6 +1261,12 @@ export function AppProvider({ children }) {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (authLoading || user?.role !== "CUSTOMER") return;
+
+    preloadCustomerData({ userId: user.id });
+  }, [authLoading, user?.id, user?.role]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -1418,6 +1565,7 @@ export function AppProvider({ children }) {
     fetchProfile,
     fetchServiceCategories,
     fetchVehicleMeta,
+    preloadCustomerData,
 
     clearDashboardCache,
     clearServiceCategoriesCache,

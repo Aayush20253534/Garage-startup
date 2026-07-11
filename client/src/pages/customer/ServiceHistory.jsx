@@ -77,10 +77,18 @@ function RatingDisplay({ review }) {
 }
 
 export default function ServiceHistory() {
-  const { fetchServiceHistory, clearBookingCaches } = useApp();
+  const {
+    fetchServiceHistory,
+    clearBookingCaches,
+    serviceHistoryCache,
+  } = useApp();
 
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState(() =>
+    Array.isArray(serviceHistoryCache) ? serviceHistoryCache : [],
+  );
+  const [loading, setLoading] = useState(
+    () => !Array.isArray(serviceHistoryCache),
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -89,7 +97,7 @@ export default function ServiceHistory() {
   const loadHistory = async ({ force = false } = {}) => {
     try {
       if (force) setRefreshing(true);
-      else setLoading(true);
+      else if (!Array.isArray(serviceHistoryCache)) setLoading(true);
 
       setError("");
 
