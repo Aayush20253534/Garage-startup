@@ -65,6 +65,9 @@ const shouldRetryNetworkError = (error) => {
 
 const SESSION_ROLE_KEY = "rov_session_role";
 const SESSION_ACCOUNT_TYPE_KEY = "rov_session_account_type";
+const SUPPORT_SESSION_ROLE_KEY = "rov_support_session_role";
+const SUPPORT_SESSION_ACCOUNT_TYPE_KEY = "rov_support_session_account_type";
+const SUPPORT_USER_KEY = "rov_support_user";
 const SESSION_EXPIRED_EVENT = "rovauto:session-expired";
 const SESSION_ERROR_PATTERN =
   /authentication token missing|authentication required|invalid account session|account no longer exists|invalid or expired token|invalid or expired session|session expired/i;
@@ -113,14 +116,27 @@ api.interceptors.response.use(
       status === 401 && SESSION_ERROR_PATTERN.test(message);
 
     if (isExpiredSession) {
-      localStorage.removeItem(SESSION_ROLE_KEY);
-      localStorage.removeItem(SESSION_ACCOUNT_TYPE_KEY);
+      const requestUrl = String(error.config?.url || "");
+      const supportScope =
+        error.config?.sessionScope === "support" ||
+        requestUrl.startsWith("/auth/support/") ||
+        requestUrl.startsWith("/customer-support/");
+
+      if (supportScope) {
+        localStorage.removeItem(SUPPORT_SESSION_ROLE_KEY);
+        localStorage.removeItem(SUPPORT_SESSION_ACCOUNT_TYPE_KEY);
+        localStorage.removeItem(SUPPORT_USER_KEY);
+      } else {
+        localStorage.removeItem(SESSION_ROLE_KEY);
+        localStorage.removeItem(SESSION_ACCOUNT_TYPE_KEY);
+      }
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent(SESSION_EXPIRED_EVENT, {
             detail: {
-              url: error.config?.url || "",
+              url: requestUrl,
+              scope: supportScope ? "support" : "main",
             },
           }),
         );

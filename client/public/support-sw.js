@@ -116,7 +116,7 @@ self.addEventListener("push", (event) => {
     Promise.all([
       self.registration.showNotification(title, {
         body: payload.body || payload.message || "You have a new support alert.",
-        icon: payload.icon || "/support-icon-192.png",
+        icon: payload.icon || "/support-icon-512.png",
         badge: payload.badge || "/support-notification-badge-96.png",
         tag: payload.tag || "rovauto-support-notification",
         renotify: true,

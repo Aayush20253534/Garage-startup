@@ -84,9 +84,9 @@ const formatMoney = (value) =>
 
 function Modal({ children, onClose }) {
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 p-2 sm:p-5">
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/55 sm:items-center sm:p-5">
       <button type="button" aria-label="Close dialog" className="absolute inset-0" onClick={onClose} />
-      <div className="relative max-h-[96vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-line bg-white shadow-2xl">
+      <div className="relative h-[100dvh] w-full max-w-6xl overflow-y-auto bg-white shadow-2xl sm:h-auto sm:max-h-[94vh] sm:rounded-2xl sm:border sm:border-line">
         {children}
       </div>
     </div>
@@ -279,7 +279,7 @@ export default function CustomerSupportTickets() {
   }, [tickets]);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1450px] space-y-4 sm:space-y-6">
       <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -293,7 +293,7 @@ export default function CustomerSupportTickets() {
             type="button"
             onClick={() => void loadTickets(query)}
             disabled={loading}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-bold text-ink transition hover:bg-bg-soft disabled:opacity-50"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-bold text-ink transition hover:bg-bg-soft disabled:opacity-50 sm:w-auto"
           >
             <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
           </button>
@@ -323,7 +323,7 @@ export default function CustomerSupportTickets() {
       </section>
 
       <section className="rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-5">
-        <form onSubmit={applyFilters} className="grid gap-3 lg:grid-cols-[minmax(260px,2fr)_repeat(5,minmax(130px,1fr))_auto]">
+        <form onSubmit={applyFilters} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,2fr)_repeat(5,minmax(125px,1fr))_auto]">
           <label className="relative">
             <FiSearch className="pointer-events-none absolute left-3 top-3.5 text-muted" />
             <input
@@ -343,12 +343,44 @@ export default function CustomerSupportTickets() {
           <select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))} className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none"><option value="">All statuses</option>{[...STATUS_OPTIONS, "CLOSED"].map((value) => <option key={value} value={value}>{formatLabel(value)}</option>)}</select>
           <select value={filters.priority} onChange={(event) => setFilters((current) => ({ ...current, priority: event.target.value }))} className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none"><option value="">All priorities</option>{PRIORITY_OPTIONS.map((value) => <option key={value} value={value}>{formatLabel(value)}</option>)}</select>
           <select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))} className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none"><option value="">All categories</option>{CATEGORY_OPTIONS.map((value) => <option key={value} value={value}>{formatLabel(value)}</option>)}</select>
-          <div className="flex gap-2"><button className="inline-flex h-11 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white"><FiFilter /> Apply</button><button type="button" onClick={clearFilters} className="grid h-11 w-11 place-items-center rounded-lg border border-line"><FiX /></button></div>
+          <div className="flex gap-2 sm:col-span-2 xl:col-span-1"><button className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white xl:flex-none"><FiFilter /> Apply</button><button type="button" onClick={clearFilters} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-line"><FiX /></button></div>
         </form>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
-        <div className="overflow-x-auto">
+        <div className="grid gap-3 p-3 sm:hidden">
+          {loading ? (
+            <p className="rounded-xl bg-bg-soft p-5 text-center text-sm text-muted">Loading support queue...</p>
+          ) : tickets.length ? (
+            tickets.map((ticket) => (
+              <button
+                key={ticket.id}
+                type="button"
+                onClick={() => void openTicket(ticket.id)}
+                className="rounded-xl border border-line p-4 text-left transition active:scale-[0.99] active:bg-bg-soft"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-extrabold text-ink">{ticket.ticketCode}</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-medium text-ink">{ticket.subject}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${PRIORITY_STYLES[ticket.priority] || "bg-bg-soft"}`}>{formatLabel(ticket.priority)}</span>
+                </div>
+                <p className="mt-3 truncate text-sm font-semibold text-ink">{ticket.user?.name}</p>
+                <p className="mt-1 truncate text-xs text-muted">{ticket.user?.email}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${STATUS_STYLES[ticket.status] || "bg-bg-soft"}`}>{formatLabel(ticket.status)}</span>
+                  <span className="rounded-full bg-bg-soft px-2 py-1 text-[10px] font-bold text-muted">{formatLabel(ticket.type)}</span>
+                  {ticket.assignedToMe ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700"><FiUserCheck /> Mine</span> : ticket.supportAssignee ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-600"><FiLock /> {ticket.supportAssignee.name}</span> : <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700"><FiUnlock /> Available</span>}
+                </div>
+                <p className="mt-3 text-[11px] text-muted">Updated {formatDateTime(ticket.lastMessageAt)}</p>
+              </button>
+            ))
+          ) : (
+            <p className="rounded-xl bg-bg-soft p-5 text-center text-sm text-muted">No tickets match these filters.</p>
+          )}
+        </div>
+        <div className="hidden overflow-x-auto sm:block">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-bg-soft text-xs uppercase tracking-wide text-muted">
               <tr><th className="px-4 py-3">Ticket</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Priority</th><th className="px-4 py-3">Ownership</th><th className="px-4 py-3">Updated</th></tr>
@@ -383,12 +415,12 @@ export default function CustomerSupportTickets() {
         <Modal onClose={closeTicketModal}>
           {detailLoading && !selected ? <div className="p-10 text-center text-muted">Loading ticket...</div> : selected ? (
             <div>
-              <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-line bg-white p-5 sm:p-6">
+              <header className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-line bg-white p-4 sm:p-6">
                 <div><p className="text-xs font-bold uppercase tracking-wide text-muted">{selected.ticketCode}</p><h2 className="mt-1 text-xl font-extrabold text-ink">{selected.subject}</h2><div className="mt-2 flex flex-wrap gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_STYLES[selected.status]}`}>{formatLabel(selected.status)}</span><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${PRIORITY_STYLES[selected.priority]}`}>{formatLabel(selected.priority)}</span><span className="rounded-full bg-bg-soft px-2.5 py-1 text-xs font-bold text-ink">{formatLabel(selected.type)}</span></div></div>
                 <button type="button" onClick={closeTicketModal} className="grid h-10 w-10 place-items-center rounded-lg border border-line"><FiX /></button>
               </header>
 
-              <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_330px]">
+              <div className="grid gap-4 p-3 sm:p-6 lg:grid-cols-[minmax(0,1fr)_330px]">
                 <main>
                   <div className="rounded-2xl bg-bg-soft p-4"><h3 className="font-bold text-ink">Customer request</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted">{selected.description}</p></div>
 
@@ -414,7 +446,7 @@ export default function CustomerSupportTickets() {
                     <form onSubmit={sendReply} className="mt-5 rounded-2xl border border-line p-4 sm:p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-ink">Add response</h3><p className="mt-1 text-xs text-muted">The first reply atomically claims an unassigned ticket. Public replies notify the customer.</p></div><label className="flex cursor-pointer items-center gap-2 rounded-lg bg-bg-soft px-3 py-2 text-xs font-bold text-ink"><input type="checkbox" checked={internalNote} onChange={(event) => setInternalNote(event.target.checked)} /> Internal note</label></div>
                       <textarea required rows={5} value={reply} onChange={(event) => setReply(event.target.value)} placeholder={internalNote ? "Record investigation details..." : "Write a clear response to the customer..."} className="mt-3 w-full rounded-xl border border-line px-3 py-3 text-sm outline-none focus:border-ink" />
-                      <div className="mt-3 flex justify-end"><button disabled={saving || !reply.trim()} className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-5 text-sm font-bold text-white disabled:opacity-50"><FiSend /> {saving ? "Saving..." : internalNote ? "Add note" : "Send reply"}</button></div>
+                      <div className="mt-3 flex justify-end"><button disabled={saving || !reply.trim()} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-ink px-5 text-sm font-bold text-white disabled:opacity-50 sm:w-auto"><FiSend /> {saving ? "Saving..." : internalNote ? "Add note" : "Send reply"}</button></div>
                     </form>
                   )}
 

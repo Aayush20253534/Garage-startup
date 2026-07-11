@@ -72,7 +72,7 @@ export default function CustomerSupportDashboard() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1400px] space-y-4 sm:space-y-6">
       <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -90,7 +90,7 @@ export default function CustomerSupportDashboard() {
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line px-4 text-sm font-bold text-ink hover:bg-bg-soft disabled:opacity-50"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line px-4 text-sm font-bold text-ink hover:bg-bg-soft disabled:opacity-50 sm:w-auto"
           >
             <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
           </button>
@@ -107,15 +107,15 @@ export default function CustomerSupportDashboard() {
         </div>
       )}
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {cards.map(([Icon, value, title, detail]) => (
-          <div key={title} className="rounded-2xl border border-line bg-white p-4 shadow-soft">
+          <div key={title} className="rounded-2xl border border-line bg-white p-3 shadow-soft sm:p-4">
             <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-bg-soft text-lg text-ink">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg-soft text-base text-ink sm:h-10 sm:w-10 sm:text-lg">
                 <Icon />
               </span>
               <div>
-                <p className="text-2xl font-extrabold text-ink">{value}</p>
+                <p className="text-xl font-extrabold text-ink sm:text-2xl">{value}</p>
                 <p className="text-sm font-bold text-ink">{title}</p>
                 <p className="mt-1 text-xs leading-5 text-muted">{detail}</p>
               </div>
@@ -124,7 +124,7 @@ export default function CustomerSupportDashboard() {
         ))}
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[1.45fr_0.75fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.45fr_0.75fr]">
         <section className="rounded-2xl border border-line bg-white p-5 shadow-soft">
           <div className="flex items-center justify-between gap-3">
             <div>

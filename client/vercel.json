@@ -90,7 +90,7 @@
       "destination": "/support.html"
     },
     {
-      "source": "/((?!api/v1/|assets/|support(?:/|$)|sw\\.js$|support-sw\\.js$|site\\.webmanifest$|support\\.webmanifest$|support-icon-(?:192|512)\\.png$|support-apple-touch-icon\\.png$|support-notification-badge-96\\.png$|favicon\\.(?:ico|png)$|favicon-48\\.png$|icon-(?:192|512)\\.png$|apple-touch-icon\\.png$|og-image\\.jpg$|robots\\.txt$|sitemap\\.xml$).*)",
+      "source": "/((?!api/v1/|assets/|support(?:/|$)|sw\\.js$|support-sw\\.js$|site\\.webmanifest$|support\\.webmanifest$|support-icon-(?:192|512|1024)\\.png$|support-icon-maskable-(?:512|1024)\\.png$|support-apple-touch-icon\\.png$|support-notification-badge-96\\.png$|favicon\\.(?:ico|png)$|favicon-48\\.png$|icon-(?:192|512|1024)\\.png$|icon-maskable-(?:512|1024)\\.png$|apple-touch-icon\\.png$|og-image\\.jpg$|robots\\.txt$|sitemap\\.xml$).*)",
       "destination": "/index.html"
     }
   ]

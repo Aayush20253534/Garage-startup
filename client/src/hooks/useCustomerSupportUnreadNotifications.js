@@ -49,7 +49,7 @@ export default function useCustomerSupportUnreadNotifications() {
     };
 
     const handleServiceWorkerMessage = (event) => {
-      if (event.data?.type === "ROVAUTO_PUSH_RECEIVED") refresh();
+      if (["ROVAUTO_SUPPORT_PUSH_RECEIVED", "ROVAUTO_PUSH_RECEIVED"].includes(event.data?.type)) refresh();
     };
 
     window.addEventListener("focus", refresh);

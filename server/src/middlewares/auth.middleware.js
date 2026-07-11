@@ -8,7 +8,9 @@ const {
 } = require("../customer/services/userSession.service");
 const {
   ACCESS_TOKEN_COOKIE_NAME,
+  SUPPORT_ACCESS_TOKEN_COOKIE_NAME,
   accessTokenClearCookieOptions,
+  supportAccessTokenClearCookieOptions,
 } = require("../config/authCookie");
 
 const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF", "CUSTOMER_SUPPORT"]);
@@ -16,13 +18,18 @@ const STAFF_ROLES = new Set(["ADMIN", "INTERN"]);
 const USER_ROLES = new Set(["CUSTOMER", "GARAGE_OWNER"]);
 const CUSTOMER_SUPPORT_ROLE = "CUSTOMER_SUPPORT";
 
-const readAccessToken = (req) =>
-  req.cookies?.[ACCESS_TOKEN_COOKIE_NAME] || null;
+const readAccessToken = (req, cookieName = ACCESS_TOKEN_COOKIE_NAME) =>
+  req.cookies?.[cookieName] || null;
 
-const clearAccessTokenCookie = (res) => {
+const clearAccessTokenCookie = (
+  res,
+  cookieName = ACCESS_TOKEN_COOKIE_NAME,
+) => {
   res.clearCookie(
-    ACCESS_TOKEN_COOKIE_NAME,
-    accessTokenClearCookieOptions,
+    cookieName,
+    cookieName === SUPPORT_ACCESS_TOKEN_COOKIE_NAME
+      ? supportAccessTokenClearCookieOptions
+      : accessTokenClearCookieOptions,
   );
 };
 
@@ -131,10 +138,11 @@ const authenticateRequest = async (
   {
     optional = false,
     requiredAccountType = null,
+    tokenCookieName = ACCESS_TOKEN_COOKIE_NAME,
   } = {},
 ) => {
   try {
-    const token = readAccessToken(req);
+    const token = readAccessToken(req, tokenCookieName);
 
     if (!token) {
       if (optional) {
@@ -148,7 +156,7 @@ const authenticateRequest = async (
     const accountType = resolveAccountType(decoded);
 
     if (!accountType) {
-      clearAccessTokenCookie(res);
+      clearAccessTokenCookie(res, tokenCookieName);
 
       if (optional) {
         return next();
@@ -160,7 +168,7 @@ const authenticateRequest = async (
     const account = await getActiveAccount(decoded.id, accountType);
 
     if (!account) {
-      clearAccessTokenCookie(res);
+      clearAccessTokenCookie(res, tokenCookieName);
 
       if (optional) {
         return next();
@@ -170,7 +178,7 @@ const authenticateRequest = async (
     }
 
     if (!account.isActive) {
-      clearAccessTokenCookie(res);
+      clearAccessTokenCookie(res, tokenCookieName);
 
       if (optional) {
         return next();
@@ -185,7 +193,7 @@ const authenticateRequest = async (
       decoded.iat &&
       account.passwordChangedAt.getTime() > decoded.iat * 1000 + 1000
     ) {
-      clearAccessTokenCookie(res);
+      clearAccessTokenCookie(res, tokenCookieName);
 
       if (optional) {
         return next();
@@ -204,7 +212,7 @@ const authenticateRequest = async (
         );
 
         if (!session) {
-          clearAccessTokenCookie(res);
+          clearAccessTokenCookie(res, tokenCookieName);
 
           if (optional) {
             return next();
@@ -246,7 +254,7 @@ const authenticateRequest = async (
     req.authSessionId = authSessionId;
     return next();
   } catch {
-    clearAccessTokenCookie(res);
+    clearAccessTokenCookie(res, tokenCookieName);
 
     if (optional) {
       return next();
@@ -272,6 +280,7 @@ const protectStaff = (req, res, next) =>
 const protectCustomerSupport = (req, res, next) =>
   authenticateRequest(req, res, next, {
     requiredAccountType: "CUSTOMER_SUPPORT",
+    tokenCookieName: SUPPORT_ACCESS_TOKEN_COOKIE_NAME,
   });
 
 const optionalProtect = (req, res, next) =>

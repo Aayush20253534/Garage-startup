@@ -17,17 +17,22 @@ console.info("Rovauto frontend build:", __APP_BUILD_ID__);
 const isSupportShell =
   document.documentElement.dataset.appShell === "support";
 
-if (isSupportShell) {
-  window.addEventListener("beforeinstallprompt", (event) => {
-    event.preventDefault();
-    window.__ROVAUTO_SUPPORT_INSTALL_PROMPT__ = event;
-    window.dispatchEvent(new Event("rovauto-support-install-ready"));
-  });
+const installPromptKey = isSupportShell
+  ? "__ROVAUTO_SUPPORT_INSTALL_PROMPT__"
+  : "__ROVAUTO_INSTALL_PROMPT__";
+const installPromptEvent = isSupportShell
+  ? "rovauto-support-install-ready"
+  : "rovauto-install-ready";
 
-  window.addEventListener("appinstalled", () => {
-    window.__ROVAUTO_SUPPORT_INSTALL_PROMPT__ = null;
-  });
-}
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  window[installPromptKey] = event;
+  window.dispatchEvent(new Event(installPromptEvent));
+});
+
+window.addEventListener("appinstalled", () => {
+  window[installPromptKey] = null;
+});
 
 installChunkRecovery();
 installGlobalErrorReporting();

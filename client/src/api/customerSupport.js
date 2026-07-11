@@ -6,7 +6,7 @@ const unwrap = (response) => response.data?.data ?? response.data;
 export const customerSupportApi = {
   async login(email, password) {
     const result = unwrap(
-      await api.post("/auth/login", {
+      await api.post("/auth/support/login", {
         identifier: email,
         password,
         role: "CUSTOMER_SUPPORT",
@@ -17,7 +17,10 @@ export const customerSupportApi = {
       throw new Error("This account is not a customer support account");
     }
 
-    const user = await verifyCurrentSession({ expectedRole: "CUSTOMER_SUPPORT" });
+    const user = await verifyCurrentSession({
+      expectedRole: "CUSTOMER_SUPPORT",
+      portal: "support",
+    });
     return { ...result, user };
   },
 

@@ -116,7 +116,7 @@ export default function CustomerSupportNotifications() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1200px] space-y-4 sm:space-y-6">
       <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -133,7 +133,7 @@ export default function CustomerSupportNotifications() {
           </div>
           <Link
             to="/support/notify"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
+            className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft sm:w-auto"
           >
             <FiBell /> Open received alerts
           </Link>
@@ -160,7 +160,7 @@ export default function CustomerSupportNotifications() {
         )}
 
         <form onSubmit={sendNotification} className="mt-5 grid gap-4">
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <label className="grid gap-2 text-sm font-bold text-ink">
               Audience
               <select
@@ -281,7 +281,7 @@ export default function CustomerSupportNotifications() {
             <button
               type="submit"
               disabled={sending}
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-ink px-5 text-sm font-bold text-white disabled:opacity-50"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-ink px-5 text-sm font-bold text-white disabled:opacity-50 sm:w-auto"
             >
               <FiSend /> {sending ? "Sending..." : "Send notification"}
             </button>

@@ -34,6 +34,12 @@ const PROFILE_CACHE_TTL = 5 * 60 * 1000;
 
 const SESSION_ROLE_KEY = "rov_session_role";
 const SESSION_ACCOUNT_TYPE_KEY = "rov_session_account_type";
+const SUPPORT_SESSION_ROLE_KEY = "rov_support_session_role";
+const SUPPORT_SESSION_ACCOUNT_TYPE_KEY = "rov_support_session_account_type";
+const SUPPORT_USER_KEY = "rov_support_user";
+
+const isSupportPortalPath = (pathname = window.location.pathname) =>
+  pathname === "/support" || pathname.startsWith("/support/");
 
 const VALID_SESSION_ROLES = new Set([
   "CUSTOMER",
@@ -92,18 +98,44 @@ const setSessionRole = (role, accountType = getExpectedAccountType(role)) => {
     return false;
   }
 
-  localStorage.setItem(SESSION_ROLE_KEY, role);
+  const supportSession = role === "CUSTOMER_SUPPORT";
   localStorage.setItem(
-    SESSION_ACCOUNT_TYPE_KEY,
+    supportSession ? SUPPORT_SESSION_ROLE_KEY : SESSION_ROLE_KEY,
+    role,
+  );
+  localStorage.setItem(
+    supportSession
+      ? SUPPORT_SESSION_ACCOUNT_TYPE_KEY
+      : SESSION_ACCOUNT_TYPE_KEY,
     expectedAccountType,
   );
 
   return true;
 };
 
-const clearSessionRole = () => {
-  localStorage.removeItem(SESSION_ROLE_KEY);
-  localStorage.removeItem(SESSION_ACCOUNT_TYPE_KEY);
+const clearSessionRole = ({ support = false } = {}) => {
+  localStorage.removeItem(
+    support ? SUPPORT_SESSION_ROLE_KEY : SESSION_ROLE_KEY,
+  );
+  localStorage.removeItem(
+    support
+      ? SUPPORT_SESSION_ACCOUNT_TYPE_KEY
+      : SESSION_ACCOUNT_TYPE_KEY,
+  );
+};
+
+const clearLegacySupportStorage = () => {
+  const legacyRole = localStorage.getItem(SESSION_ROLE_KEY);
+  const legacyUser = readJson("rov_user", null) || readJson("user", null);
+
+  if (legacyRole === "CUSTOMER_SUPPORT") {
+    clearSessionRole();
+  }
+
+  if (legacyUser?.role === "CUSTOMER_SUPPORT") {
+    localStorage.removeItem("user");
+    localStorage.removeItem("rov_user");
+  }
 };
 
 const readJson = (key, fallback = null) => {
@@ -143,21 +175,49 @@ const getCartPricingContextKey = (selectedVehicle, selectedLocation) =>
 
 
 const getStoredSessionRole = () => {
-  const explicitRole = localStorage.getItem(SESSION_ROLE_KEY);
-  const explicitAccountType = localStorage.getItem(
-    SESSION_ACCOUNT_TYPE_KEY,
-  );
+  const supportPortal = isSupportPortalPath();
+  const roleKey = supportPortal
+    ? SUPPORT_SESSION_ROLE_KEY
+    : SESSION_ROLE_KEY;
+  const accountTypeKey = supportPortal
+    ? SUPPORT_SESSION_ACCOUNT_TYPE_KEY
+    : SESSION_ACCOUNT_TYPE_KEY;
+  const explicitRole = localStorage.getItem(roleKey);
+  const explicitAccountType = localStorage.getItem(accountTypeKey);
 
   if (VALID_SESSION_ROLES.has(explicitRole)) {
     const expectedAccountType = getExpectedAccountType(explicitRole);
+    const roleMatchesPortal = supportPortal
+      ? explicitRole === "CUSTOMER_SUPPORT"
+      : explicitRole !== "CUSTOMER_SUPPORT";
 
-    if (!explicitAccountType || explicitAccountType === expectedAccountType) {
+    if (
+      roleMatchesPortal &&
+      (!explicitAccountType || explicitAccountType === expectedAccountType)
+    ) {
       setSessionRole(explicitRole, expectedAccountType);
       return explicitRole;
     }
   }
 
   const pathname = window.location.pathname;
+
+  if (supportPortal) {
+    const cachedSupport = normalizeSessionAccount(
+      readJson(SUPPORT_USER_KEY, null),
+    );
+
+    if (
+      isValidSessionIdentity(cachedSupport) &&
+      cachedSupport.role === "CUSTOMER_SUPPORT"
+    ) {
+      setSessionRole(cachedSupport.role, cachedSupport.accountType);
+      return cachedSupport.role;
+    }
+
+    return null;
+  }
+
   const cachedUser = normalizeSessionAccount(
     readJson("rov_user", null) || readJson("user", null),
   );
@@ -187,15 +247,9 @@ const getStoredSessionRole = () => {
   }
 
   if (
-    pathname.startsWith("/support") &&
     isValidSessionIdentity(cachedUser) &&
-    cachedUser.role === "CUSTOMER_SUPPORT"
+    cachedUser.role !== "CUSTOMER_SUPPORT"
   ) {
-    setSessionRole(cachedUser.role, cachedUser.accountType);
-    return "CUSTOMER_SUPPORT";
-  }
-
-  if (isValidSessionIdentity(cachedUser)) {
     setSessionRole(cachedUser.role, cachedUser.accountType);
     return cachedUser.role;
   }
@@ -456,6 +510,15 @@ export function AppProvider({ children }) {
     }
   };
 
+  const clearSupportSession = ({ clearRole = true } = {}) => {
+    localStorage.removeItem(SUPPORT_USER_KEY);
+    dispatch(clearCustomerState());
+
+    if (clearRole) {
+      clearSessionRole({ support: true });
+    }
+  };
+
   const clearAllLocalSessions = () => {
     clearCustomerSession({ clearRole: false });
     clearGarageSession({ clearRole: false });
@@ -508,9 +571,15 @@ export function AppProvider({ children }) {
       return syncUserData(normalizedUser);
     }
 
-    // Staff accounts use the same top-level user state, but should not be
-    // treated as customer profile/vehicle data.
     dispatch(setCustomerUser(normalizedUser));
+
+    if (normalizedUser.role === "CUSTOMER_SUPPORT") {
+      localStorage.setItem(SUPPORT_USER_KEY, JSON.stringify(normalizedUser));
+      return normalizedUser;
+    }
+
+    // Admin and intern accounts use the shared main-session cache, but should
+    // not be treated as customer profile or vehicle data.
     localStorage.setItem("user", JSON.stringify(normalizedUser));
     localStorage.setItem("rov_user", JSON.stringify(normalizedUser));
 
@@ -522,15 +591,27 @@ export function AppProvider({ children }) {
       throw new Error("User data is required");
     }
 
-    // The shared HttpOnly cookie can represent only one role at a time.
-    clearCustomerSession({ clearRole: false });
-    clearGarageSession({ clearRole: false });
-    localStorage.removeItem("token");
     const normalizedUser = normalizeSessionAccount(userData);
 
     if (!isValidSessionIdentity(normalizedUser)) {
       throw new Error("Invalid authenticated account");
     }
+
+    if (normalizedUser.role === "CUSTOMER_SUPPORT") {
+      // Support has its own HttpOnly cookie and local cache. Keep any customer,
+      // garage, admin, or intern session intact in the main Rovauto app.
+      // Clean only support artifacts left by builds that used the shared cookie.
+      clearLegacySupportStorage();
+      clearSupportSession({ clearRole: false });
+      setSessionRole(normalizedUser.role, normalizedUser.accountType);
+      syncAuthenticatedUser(normalizedUser);
+      setAuthLoading(false);
+      return;
+    }
+
+    clearCustomerSession({ clearRole: false });
+    clearGarageSession({ clearRole: false });
+    localStorage.removeItem("token");
 
     setSessionRole(
       normalizedUser.role,
@@ -561,7 +642,10 @@ export function AppProvider({ children }) {
     setAuthLoading(false);
   };
 
-  const fetchMe = async ({ sync = true } = {}) => {
+  const fetchMe = async ({
+    sync = true,
+    portal = isSupportPortalPath() ? "support" : "main",
+  } = {}) => {
     if (authRequestRef.current) {
       return authRequestRef.current;
     }
@@ -569,9 +653,14 @@ export function AppProvider({ children }) {
     let request;
     request = (async () => {
       try {
-        const response = await api.get("/auth/me", {
-          skipSessionExpiryMessage: true,
-        });
+        const supportPortal = portal === "support";
+        const response = await api.get(
+          supportPortal ? "/auth/support/me" : "/auth/me",
+          {
+            skipSessionExpiryMessage: true,
+            sessionScope: supportPortal ? "support" : "main",
+          },
+        );
         const me = normalizeSessionAccount(response.data?.data);
 
         if (!isValidSessionIdentity(me)) {
@@ -596,7 +685,11 @@ export function AppProvider({ children }) {
         return me;
       } catch (err) {
         if (err.response?.status === 401) {
-          clearAllLocalSessions();
+          if (portal === "support") {
+            clearSupportSession();
+          } else {
+            clearAllLocalSessions();
+          }
         }
 
         return null;
@@ -672,8 +765,9 @@ export function AppProvider({ children }) {
   };
 
   const logout = async () => {
-    const pushScope =
-      user?.role === "CUSTOMER_SUPPORT" ? "support" : "user";
+    const supportSession =
+      isSupportPortalPath() || user?.role === "CUSTOMER_SUPPORT";
+    const pushScope = supportSession ? "support" : "user";
 
     try {
       await disablePushNotifications({
@@ -685,12 +779,20 @@ export function AppProvider({ children }) {
     }
 
     try {
-      await api.post("/auth/logout");
+      await api.post(
+        supportSession ? "/auth/support/logout" : "/auth/logout",
+        undefined,
+        { sessionScope: supportSession ? "support" : "main" },
+      );
     } catch {
       // Local cleanup still happens if the server session is already gone.
     }
 
-    clearAllLocalSessions();
+    if (supportSession) {
+      clearSupportSession();
+    } else {
+      clearAllLocalSessions();
+    }
   };
 
   const fetchDashboard = async ({ force = false } = {}) => {
@@ -909,7 +1011,11 @@ export function AppProvider({ children }) {
 
       // /auth/me is the single source of truth for the shared HttpOnly cookie.
       // Only after confirming GARAGE_OWNER do we request /garages/me.
-      const me = await fetchMe({ sync: false });
+      const supportPortal = isSupportPortalPath();
+      const me = await fetchMe({
+        sync: false,
+        portal: supportPortal ? "support" : "main",
+      });
 
       if (!me) {
         if (active) {
@@ -918,7 +1024,10 @@ export function AppProvider({ children }) {
         return;
       }
 
-      if (me.accountType === "USER" && me.role === "GARAGE_OWNER") {
+      if (supportPortal) {
+        clearSupportSession({ clearRole: false });
+        syncAuthenticatedUser(me);
+      } else if (me.accountType === "USER" && me.role === "GARAGE_OWNER") {
         clearCustomerSession({ clearRole: false });
         await refreshGarage();
       } else {
@@ -968,7 +1077,12 @@ export function AppProvider({ children }) {
       lastRefreshAt = now;
 
       if (user) {
-        fetchMe();
+        fetchMe({
+          portal:
+            user.role === "CUSTOMER_SUPPORT" || isSupportPortalPath()
+              ? "support"
+              : "main",
+        });
         return;
       }
 
@@ -1005,8 +1119,12 @@ export function AppProvider({ children }) {
   }, [user, garageUser]);
 
   useEffect(() => {
-    const handleSessionExpired = () => {
-      clearAllLocalSessions();
+    const handleSessionExpired = (event) => {
+      if (event.detail?.scope === "support") {
+        clearSupportSession();
+      } else {
+        clearAllLocalSessions();
+      }
       setAuthLoading(false);
     };
 
@@ -1048,10 +1166,15 @@ export function AppProvider({ children }) {
   ]);
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("rov_user", JSON.stringify(user));
+    if (!user) return;
+
+    if (user.role === "CUSTOMER_SUPPORT") {
+      localStorage.setItem(SUPPORT_USER_KEY, JSON.stringify(user));
+      return;
     }
+
+    localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem("rov_user", JSON.stringify(user));
   }, [user]);
 
   useEffect(() => {
@@ -1061,16 +1184,22 @@ export function AppProvider({ children }) {
   }, [garageUser]);
 
   useEffect(() => {
-    localStorage.setItem("rov_vehicle", JSON.stringify(vehicle));
-  }, [vehicle]);
+    if (user?.role === "CUSTOMER") {
+      localStorage.setItem("rov_vehicle", JSON.stringify(vehicle));
+    }
+  }, [user?.role, vehicle]);
 
   useEffect(() => {
-    localStorage.setItem("rov_vehicles", JSON.stringify(vehicles));
-  }, [vehicles]);
+    if (user?.role === "CUSTOMER") {
+      localStorage.setItem("rov_vehicles", JSON.stringify(vehicles));
+    }
+  }, [user?.role, vehicles]);
 
   useEffect(() => {
-    localStorage.setItem("rov_location", JSON.stringify(location));
-  }, [location]);
+    if (user?.role === "CUSTOMER") {
+      localStorage.setItem("rov_location", JSON.stringify(location));
+    }
+  }, [user?.role, location]);
 
   const setUser = (value) => {
     const nextUser = typeof value === "function" ? value(user) : value;

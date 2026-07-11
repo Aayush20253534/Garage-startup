@@ -906,6 +906,7 @@ function AppRoutes() {
             </SOSAvailabilityGuard>
           }
         />
+        <Route path="/support/login" element={<CustomerSupportLogin />} />
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/services" element={<Services />} />
@@ -934,7 +935,6 @@ function AppRoutes() {
           />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/intern/login" element={<InternLogin />} />
-          <Route path="/support/login" element={<CustomerSupportLogin />} />
 
           <Route path="/garage/login" element={<GarageLogin />} />
           <Route path="/garage/otp-login" element={<GarageOtpLogin />} />

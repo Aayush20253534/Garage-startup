@@ -9,11 +9,20 @@ const VALID_ROLES = new Set([
   "CUSTOMER_SUPPORT",
 ]);
 
-export const verifyCurrentSession = async ({ expectedRole } = {}) => {
-  const response = await api.get("/auth/me", {
-    skipSessionExpiryMessage: true,
-    skipErrorReporting: true,
-  });
+export const verifyCurrentSession = async ({
+  expectedRole,
+  portal,
+} = {}) => {
+  const supportPortal =
+    portal === "support" || expectedRole === "CUSTOMER_SUPPORT";
+  const response = await api.get(
+    supportPortal ? "/auth/support/me" : "/auth/me",
+    {
+      skipSessionExpiryMessage: true,
+      skipErrorReporting: true,
+      sessionScope: supportPortal ? "support" : "main",
+    },
+  );
 
   const account = response.data?.data;
 

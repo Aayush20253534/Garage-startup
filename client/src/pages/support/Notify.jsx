@@ -64,7 +64,7 @@ export default function CustomerSupportNotify() {
     };
 
     const refreshOnPush = (event) => {
-      if (event.data?.type === "ROVAUTO_PUSH_RECEIVED") refreshOnFocus();
+      if (["ROVAUTO_SUPPORT_PUSH_RECEIVED", "ROVAUTO_PUSH_RECEIVED"].includes(event.data?.type)) refreshOnFocus();
     };
 
     window.addEventListener("focus", refreshOnFocus);
@@ -105,7 +105,7 @@ export default function CustomerSupportNotify() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1200px] space-y-4 sm:space-y-6">
       <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -122,7 +122,7 @@ export default function CustomerSupportNotify() {
           </div>
           <Link
             to="/support/notifications"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
+            className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft sm:w-auto"
           >
             <FiSend /> Send customer notification
           </Link>
@@ -145,12 +145,12 @@ export default function CustomerSupportNotify() {
               These records come from the dedicated Notify database table.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <button
               type="button"
               onClick={() => void load()}
               disabled={loading}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-line px-4 text-sm font-bold text-ink disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-3 text-sm font-bold text-ink disabled:opacity-50 sm:px-4"
             >
               <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
             </button>
@@ -158,7 +158,7 @@ export default function CustomerSupportNotify() {
               type="button"
               onClick={() => void markAll()}
               disabled={!data.unreadCount}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white disabled:opacity-40"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-bold text-white disabled:opacity-40 sm:px-4"
             >
               <FiCheck /> Mark all read
             </button>

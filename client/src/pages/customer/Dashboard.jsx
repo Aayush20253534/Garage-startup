@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
+import CustomerPwaInstall from "@/components/pwa/CustomerPwaInstall";
 import {
   fetchRecentActivities,
   getRecentActivities,
@@ -280,6 +281,8 @@ function Dashboard() {
           </div>
         </div>
       </section>
+
+      <CustomerPwaInstall compact />
 
       {/* Alert / Setup Banner */}
       {!hasVehicles && (

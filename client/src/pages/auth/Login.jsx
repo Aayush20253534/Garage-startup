@@ -7,6 +7,7 @@ import startGoogleAuth, { completeGoogleRedirectAuth } from "@/utils/googleAuth"
 import { verifyCurrentSession } from "@/utils/authSession";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { useApp } from "@/hooks/useApp";
+import CustomerPwaInstall from "@/components/pwa/CustomerPwaInstall";
 
 const buildReturnPath = (fromLocation) => {
   if (!fromLocation?.pathname) return null;
@@ -164,7 +165,8 @@ export default function Login() {
         </h1>
       </div>
 
-      <div className="card-soft p-7 max-w-md w-full mx-auto">
+      <div className="mx-auto grid w-full max-w-md gap-4">
+      <div className="card-soft w-full p-7">
         <h2 className="text-2xl font-bold">Login to Rovauto</h2>
 
         <p className="text-sm text-muted mt-1">Use email/phone and password</p>
@@ -240,6 +242,8 @@ export default function Login() {
             </Link>
           </div>
         </form>
+      </div>
+      <CustomerPwaInstall compact />
       </div>
     </div>
   );

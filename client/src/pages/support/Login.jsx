@@ -10,7 +10,7 @@ import {
   FiShield,
 } from "react-icons/fi";
 
-import Logo from "@/components/common/Logo";
+import SupportBrand from "@/components/support/SupportBrand";
 import SupportPwaInstall from "@/components/support/SupportPwaInstall";
 import { customerSupportApi } from "@/api/customerSupport";
 import { useApp } from "@/hooks/useApp";
@@ -52,40 +52,45 @@ export default function CustomerSupportLogin() {
   };
 
   return (
-    <main className="min-h-[80vh] bg-bg-soft">
-      <div className="container-x grid min-h-[80vh] items-center py-8 sm:py-10 lg:py-12">
-        <div className="mx-auto grid w-full max-w-5xl gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(340px,0.7fr)] lg:items-stretch">
-          <section className="rounded-lg border border-line bg-white p-5 shadow-soft sm:p-7 lg:p-8">
-            <Logo className="h-14 w-auto" />
+    <main className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6 sm:py-8 lg:py-12">
+      <div className="mx-auto w-full max-w-5xl">
+        <div className="mb-5 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-5">
+          <SupportBrand />
+          <span className="hidden rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] text-slate-600 sm:inline-flex">
+            Staff only
+          </span>
+        </div>
 
-            <div className="mt-8 flex items-start gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-ink text-white">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(340px,0.7fr)] lg:items-start">
+          <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-7 lg:p-8">
+            <div className="flex items-start gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-ink text-white">
                 <FiHeadphones className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-muted">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                   Support console
                 </p>
-                <h1 className="mt-1 text-2xl font-extrabold tracking-normal text-ink sm:text-3xl">
+                <h1 className="mt-1 text-2xl font-extrabold text-ink sm:text-3xl">
                   Sign in to support
                 </h1>
                 <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-                  Use the support account issued by an admin.
+                  Use the separate support account created by an administrator.
                 </p>
               </div>
             </div>
 
             {error && (
-              <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {error}
               </div>
             )}
 
             <form onSubmit={submit} className="mt-6 grid gap-4">
               <label className="grid gap-2 text-sm font-bold text-ink">
-                Email
+                Support email
                 <div className="relative">
-                  <FiMail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <FiMail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                   <input
                     required
                     type="email"
@@ -98,7 +103,7 @@ export default function CustomerSupportLogin() {
                     }
                     placeholder="support@rovauto.com"
                     autoComplete="username"
-                    className="h-11 w-full rounded-lg border border-line bg-white pl-10 pr-4 text-sm outline-none transition focus:border-ink"
+                    className="h-12 w-full rounded-xl border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
                   />
                 </div>
               </label>
@@ -106,7 +111,7 @@ export default function CustomerSupportLogin() {
               <label className="grid gap-2 text-sm font-bold text-ink">
                 Password
                 <div className="relative">
-                  <FiLock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <FiLock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                   <input
                     required
                     type="password"
@@ -119,7 +124,7 @@ export default function CustomerSupportLogin() {
                     }
                     placeholder="Enter password"
                     autoComplete="current-password"
-                    className="h-11 w-full rounded-lg border border-line bg-white pl-10 pr-4 text-sm outline-none transition focus:border-ink"
+                    className="h-12 w-full rounded-xl border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
                   />
                 </div>
               </label>
@@ -127,7 +132,7 @@ export default function CustomerSupportLogin() {
               <button
                 type="submit"
                 disabled={loading}
-                className="mt-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-extrabold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-extrabold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   "Signing in..."
@@ -140,30 +145,28 @@ export default function CustomerSupportLogin() {
             </form>
 
             <p className="mt-5 border-t border-line pt-4 text-xs leading-5 text-muted">
-              Password recovery is unavailable for support accounts. Contact an
-              admin for password changes.
+              Support accounts have no registration or forgot-password flow.
+              Contact an admin to reset or change the password.
             </p>
           </section>
 
           <div className="grid gap-5">
-            <aside className="rounded-lg bg-ink p-5 text-white shadow-soft sm:p-7 lg:p-8">
+            <aside className="rounded-2xl bg-ink p-5 text-white shadow-soft sm:p-7">
               <div className="flex items-center gap-2 text-sm font-bold text-brand">
-                <FiShield className="h-4 w-4" />
-                Restricted workspace
+                <FiShield className="h-4 w-4" /> Restricted workspace
               </div>
-
-              <h2 className="mt-5 text-2xl font-extrabold leading-tight tracking-normal">
+              <h2 className="mt-5 text-2xl font-extrabold leading-tight">
                 Customer support desk
               </h2>
               <p className="mt-3 text-sm leading-6 text-white/70">
-                Ticket handling, alerts, and customer communication stay inside
-                this console.
+                Ticket handling, received alerts, and customer communication
+                remain inside this dedicated portal.
               </p>
 
-              <div className="mt-8 divide-y divide-white/10 border-y border-white/10">
+              <div className="mt-6 divide-y divide-white/10 border-y border-white/10">
                 {[
-                  [FiMessageSquare, "Ticket queue", "Claim and reply flow"],
-                  [FiBell, "Received alerts", "Live support notifications"],
+                  [FiMessageSquare, "Ticket queue", "Claim and reply safely"],
+                  [FiBell, "Received alerts", "PWA ticket notifications"],
                   [FiMail, "Customer email", "Recorded outbound messages"],
                 ].map(([Icon, title, copy]) => (
                   <div key={title} className="flex items-center gap-3 py-4">
@@ -179,9 +182,7 @@ export default function CustomerSupportLogin() {
               </div>
             </aside>
 
-            <div>
-              <SupportPwaInstall compact />
-            </div>
+            <SupportPwaInstall compact />
           </div>
         </div>
       </div>

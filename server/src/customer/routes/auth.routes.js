@@ -5,6 +5,7 @@ const validate = require("../../middlewares/validate.middleware");
 const {
   optionalProtect,
   protect,
+  protectCustomerSupport,
   protectUser,
 } = require("../../middlewares/auth.middleware");
 
@@ -88,6 +89,24 @@ router.post(
   verifyPhoneOtpValidation,
   validate,
   authController.verifyPhoneOtp,
+);
+
+router.post(
+  "/support/login",
+  loginRateLimit,
+  loginValidation,
+  validate,
+  authController.supportLogin,
+);
+router.post(
+  "/support/logout",
+  protectCustomerSupport,
+  authController.supportLogout,
+);
+router.get(
+  "/support/me",
+  protectCustomerSupport,
+  authController.supportMe,
 );
 
 router.post(
