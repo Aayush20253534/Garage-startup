@@ -1,412 +1,268 @@
 # Rovauto
 
-![Frontend](https://img.shields.io/badge/Frontend-React%2018-61DAFB)
-![Backend](https://img.shields.io/badge/Backend-Express%205-339933)
-![Database](https://img.shields.io/badge/Database-PostgreSQL-4169E1)
-![ORM](https://img.shields.io/badge/ORM-Prisma%207-2D3748)
-![Payments](https://img.shields.io/badge/Payments-Cashfree-6C47FF)
-![Runtime](https://img.shields.io/badge/Node.js-%3E%3D20-339933)
+Rovauto is a full-stack vehicle-service marketplace for customers, garage partners, customer-support agents, interns, and administrators. The repository contains a React/Vite frontend and an Express API backed by PostgreSQL, PostGIS, and Prisma.
 
-Rovauto is a full-stack vehicle-service platform that connects customers, garage partners, customer-support agents, and administrators. The repository contains one React application with role-specific portals and one Express API backed by PostgreSQL and Prisma.
+The current application supports customer accounts, saved locations and vehicles, city- and vehicle-specific service pricing, platform-fee checkout through Cashfree, automatic nearby-garage broadcasting, garage acceptance and wallet fees, pickup/delivery evidence, live tracking, support tickets and disputes, complaints, reviews, notifications, garage onboarding, and administrative operations.
 
-The current implementation covers customer onboarding, vehicle and location management, service discovery, checkout and payments, nearby-garage broadcasting, garage booking workflows, wallet operations, SOS requests, media uploads, push notifications, support tickets and disputes, support-agent operations, complaints, reviews, an AI support assistant, and an admin operations console.
+## Application surfaces
 
-## Product Surfaces
-
-| Surface | Main capabilities |
+| Surface | Confirmed capabilities |
 | --- | --- |
-| Customer | Signup/login, OTP and Google authentication, location onboarding, vehicle management, service booking, Cashfree payment, booking tracking, service history, wallet, notifications, complaints, reviews, SOS, profile, and chatbot history |
-| Garage partner | Partner application, email/password and OTP login, garage profile, service management, incoming booking requests, accept/reject flow, pickup and delivery verification, inspection media, wallet, and settings |
-| Customer support | Dedicated login/PWA shell, support dashboard, ticket queue, ticket claiming, dispute replies, support notifications, customer notifications, and support email history |
-| Admin | Operational dashboard, customers, garages, garage applications, services, vehicle catalog, cities, city-specific price ranges, bookings, support tickets, support accounts, intern accounts, notifications, bulk email, dangerous operations, and system-issue monitoring |
-| Public | Landing pages, service catalog, category pages, contact form, warranty information, partner application, public statistics, and service availability checks |
+| Public | Marketing pages, service catalog, public statistics, contact form, garage-partner application, and service-availability checks |
+| Customer | Password/OTP/Google login, profile, location and vehicle management, service booking, wallet-assisted payment, garage-search tracking, handover OTP, history, support, complaints, reviews, notifications, SOS, and chatbot |
+| Garage partner | Application and approval flow, password/OTP login, first-login password change, profile/services, booking requests, wallet recharge, acceptance fee, pickup/delivery inspection photos, and booking tracking |
+| Customer support | Separate login and PWA shell, dashboard, ticket queue, claim/release/reply actions, customer notifications, push subscriptions, and outbound email history |
+| Intern | Read-oriented operational console for services, garages, pricing, customers, bookings, and system issues |
+| Admin | Catalogs, cities, contextual price ranges, garages/applications, customers, bookings, payments, support, staff accounts, system issues, and protected destructive operations |
 
-## Current Architecture
+## System architecture
 
 ```mermaid
 flowchart LR
-    B[Browser] --> C[React + Vite client]
-    C -->|HTTPS + HttpOnly cookie| A[Express API /api/v1]
-    A --> S[Controllers and services]
-    S --> P[Prisma 7 + PostgreSQL adapter]
-    P --> D[(PostgreSQL)]
-
-    S --> CF[Cashfree]
-    S --> CL[Cloudinary]
-    S --> FB[Firebase Admin]
-    S --> RS[Resend]
-    S --> SMS[SMS provider]
-    S --> WA[WhatsApp provider / Meta webhook]
-    S --> GM[Google Geocoding]
-    S --> GQ[Groq]
-    S --> R[(Optional Redis)]
+    Browser["Browser: React/Vite"] -->|HTTPS, cookies, CSRF header| API["Express API /api/v1"]
+    API --> Controllers[Controllers]
+    Controllers --> Services[Domain services]
+    Services --> Prisma["Prisma 7 + PostgreSQL adapter"]
+    Prisma --> DB[("PostgreSQL + PostGIS")]
+    Services --> Redis[("Redis cache/rate limits")]
+    Services --> Cashfree[Cashfree]
+    Services --> Cloudinary[Cloudinary]
+    Services --> Google[Google Maps Platform]
+    Services --> Firebase[Firebase]
+    Services --> Messaging["Resend, SMS, WhatsApp, Web Push"]
+    Services --> Groq[Groq]
 ```
 
-### Important implementation details
+Important implementation facts:
 
-- The browser authenticates with a single `accessToken` HttpOnly cookie. The frontend sends requests with `withCredentials: true`; it does not attach bearer tokens.
-- The runtime database connection uses `DATABASE_URL`. Prisma CLI commands use `DIRECT_URL` through `server/prisma.config.ts`.
-- Redis is optional and treated as a cache. PostgreSQL remains the source of truth.
-- Google Geocoding is the active address provider. Groq can normalize a failed manual address before another Google lookup.
-- A recurring backend worker advances garage-search rounds for paid bookings that remain in `SEARCHING_GARAGE`.
-- Customer and garage-owner identities are role-scoped through compound unique constraints on email/role and phone/role. Admin and intern staff accounts live in `staff_accounts`; customer-support agents live in `customer_support_accounts`.
+- The frontend has five HTML/PWA shells (`main`, `support`, `admin`, `intern`, and `garage`) but they all boot the same `src/main.jsx` and `src/App.jsx` route tree.
+- Authentication is cookie based. User/staff sessions use `accessToken`; customer support uses `supportAccessToken`. Session rows are revocable in PostgreSQL.
+- Unsafe authenticated requests use a double-submit CSRF token (`rovautoCsrf` cookie plus `X-CSRF-Token` header). `client/src/api/axios.js` handles this automatically.
+- Customers preview ranked nearby garages, but do not reserve the highlighted garage. Payment starts an automatic broadcast, and the first eligible garage to accept wins.
+- PostgreSQL is the source of truth. Redis accelerates caches and distributed rate limits; development can run without it, while the production environment validator currently requires `REDIS_URL`.
+- Two in-process workers run with the API: the garage-search worker and the system-issue auto-resolver. There is no external queue system.
 
-## Technology Stack
+## Technology stack
 
 ### Frontend
 
-- React 18.3
-- Vite 5
-- React Router 6
-- Redux Toolkit 2 and React Redux 9
-- Axios
+- React 18.3, React Router 6, and Vite 5
+- Redux Toolkit, React Redux, and an application context provider
+- Axios with credentials, CSRF handling, safe GET retries, and issue reporting
 - Tailwind CSS 4 through `@tailwindcss/vite`
-- Framer Motion
-- Firebase client authentication
+- Framer Motion, React Icons, React Helmet Async
+- Firebase client authentication for Google sign-in
 - Vercel Analytics and Speed Insights
-- Nginx for the Docker production image
+- Multiple web manifests and service workers for role-specific PWAs
 
 ### Backend
 
-- Node.js 20+
-- Express 5
+- Node.js 20+ and Express 5
 - Prisma 7 with `@prisma/adapter-pg`
-- PostgreSQL
-- JWT, HttpOnly cookies, and Argon2
-- Zod and Express Validator
-- Cloudinary and Multer
-- Cashfree Payments
-- Firebase Admin
-- Redis through ioredis, optional
-- Resend email
-- Configurable SMS and WhatsApp providers
-- Groq SDK
-- Helmet, CORS, compression, Morgan, and cookie-parser
+- PostgreSQL with PostGIS distance queries and indexes
+- JWT, HttpOnly cookies, Argon2, database-backed sessions, and CSRF protection
+- Express Validator (the `zod` dependency is installed but is not imported by current source code)
+- Cashfree, Cloudinary/Multer, Firebase Admin, Google Maps Platform, Groq, Resend, Web Push, SMS, and WhatsApp integrations
+- Redis through ioredis, Helmet, CORS, compression, Morgan, and cookie-parser
 
-## Repository Layout
+## Repository layout
 
 ```text
 Codebase/
-├── client/
-│   ├── public/
-│   │   └── sw.js
-│   ├── src/
-│   │   ├── api/
-│   │   ├── assets/
-│   │   ├── components/
-│   │   ├── config/
-│   │   ├── data/
-│   │   ├── hooks/
-│   │   ├── layouts/
-│   │   ├── pages/
-│   │   │   ├── admin/
-│   │   │   ├── auth/
-│   │   │   ├── booking/
-│   │   │   ├── customer/
-│   │   │   ├── garage/
-│   │   │   └── sos/
-│   │   ├── store/
-│   │   └── utils/
-│   ├── Dockerfile
-│   ├── nginx.conf
-│   ├── vercel.json
-│   └── README.md
-├── server/
-│   ├── prisma/
-│   │   ├── migrations/
-│   │   └── schema.prisma
-│   ├── scripts/
-│   ├── src/
-│   │   ├── admin/
-│   │   ├── config/
-│   │   ├── controllers/
-│   │   ├── customer/
-│   │   ├── garage/
-│   │   ├── middlewares/
-│   │   ├── routes/
-│   │   ├── scripts/
-│   │   ├── seed/
-│   │   ├── services/
-│   │   ├── utils/
-│   │   └── validations/
-│   ├── Dockerfile
-│   ├── .env.example
-│   └── README.md
-├── docker-compose.yml
-├── garage-partner-flow.md
-└── README.md
+|-- client/                    React/Vite application and frontend deployment files
+|-- server/                    Express API, Prisma schema, migrations, and operations scripts
+|-- .gitignore                 Root-only ignore rules
+|-- 1.ps1                      PowerShell tree generator for project-architecture.txt
+|-- docker-compose.yml         Builds frontend and backend; does not create PostgreSQL or Redis
+|-- firebase.json              Root Firebase Hosting configuration for client/dist
+|-- garage-partner-flow.md     Product-level garage and booking workflow notes
+|-- project-architecture.txt   Generated tree snapshot; currently older than the source tree
+|-- README.md                  Repository overview and quick start
+`-- Detailed Schema.md         Local comprehensive guide; intentionally ignored by Git
 ```
+
+Local-only ignored files can include root/client/server `.env` files, `notes.md`, and the notification PDF. `.agents/`, `.codex/`, and `.git/` are tooling/version-control metadata rather than runtime application code.
 
 ## Prerequisites
 
 - Node.js 20 or newer
 - npm 10 or newer
-- PostgreSQL database
+- PostgreSQL with permission to enable/use PostGIS
 - Git
-- Docker and Docker Compose, optional
+- Optional for local development: Redis, Docker, and Docker Compose
+- Provider credentials only for the integrations you plan to exercise
 
-Third-party credentials are only required for the integrations you intend to exercise. A database and JWT secret are required for the backend to start.
+The repository uses npm in its Dockerfiles and documented workflows. A Bun lockfile and Bun supply-chain configuration also exist in `client/`; avoid switching package managers inside one change unless both lockfiles are intentionally reconciled.
 
-## Local Development
+## Local setup
 
-### 1. Clone and install the backend
+### 1. Backend
 
 ```bash
-git clone <repository-url>
-cd Codebase/server
+cd server
 npm ci
 ```
 
-Create the backend environment file:
-
-```bash
-cp .env.example .env
-```
-
-Minimum practical configuration:
+Copy `server/.env.example` to `server/.env` (`Copy-Item .env.example .env` in PowerShell, or `cp .env.example .env` in Bash). The minimum useful development configuration is:
 
 ```env
 NODE_ENV=development
 PORT=5000
-
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
 DIRECT_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
-
-JWT_SECRET=replace-with-a-long-random-secret
-JWT_EXPIRES_IN=7d
-JWT_COOKIE_MAX_AGE_MS=604800000
-
+JWT_SECRET=replace-with-at-least-32-random-bytes
 CLIENT_URL=http://127.0.0.1:8080
 FRONTEND_URL=http://127.0.0.1:8080
-ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
+ALLOWED_ORIGINS=http://127.0.0.1:8080,http://localhost:8080
+CASHFREE_ENV=sandbox
+
+# Required only when running npm run seed:admin
+ADMIN_LOGIN_ID=local-admin
+ADMIN_NAME=Local Admin
+ADMIN_PASSWORD=replace-with-a-strong-local-password
 ```
 
-Generate the Prisma client and apply migrations:
+Do not copy real credentials into documentation or Git. Then prepare the database and start the API:
 
 ```bash
 npm run prisma:generate
 npm run prisma:migrate
-```
-
-Seed an admin account when needed:
-
-```bash
 npm run seed:admin
-```
-
-Start the API:
-
-```bash
 npm run dev
 ```
 
-Available locally at:
+Endpoints:
 
 ```text
-API:    http://localhost:5000/api/v1
-Root:   http://localhost:5000/
-Health: http://localhost:5000/health
+API base: http://localhost:5000/api/v1
+Root:     http://localhost:5000/
+Health:   http://localhost:5000/health
 ```
 
-### 2. Install and start the frontend
+`GET /health` returns `{ "status": "ok" }`; it does not run a new database query.
 
-Open another terminal:
+### 2. Frontend
+
+In another terminal:
 
 ```bash
-cd Codebase/client
+cd client
 npm ci
 ```
 
-Create `client/.env`:
+Copy `client/.env.example` to `client/.env`. A minimal local file is:
 
 ```env
 VITE_API_URL=http://localhost:5000/api/v1
-
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_APP_ID=
-
-VITE_ERROR_REPORTING_ENABLED=true
-VITE_APP_VERSION=local
+VITE_GOOGLE_MAPS_BROWSER_KEY=
+VITE_GOOGLE_MAPS_MAP_ID=
 ```
 
-Start Vite:
+Firebase values are needed for Google sign-in. The Maps browser key can instead be returned by the backend `/maps/config` endpoint when the server is configured. Start Vite:
 
 ```bash
 npm run dev
 ```
 
-The configured development URL is:
+Open `http://127.0.0.1:8080`.
 
-```text
-http://127.0.0.1:8080
-```
+## Environment configuration
 
-## Environment Groups
+The complete, source-verified variable catalogs are in [`client/README.md`](client/README.md) and [`server/README.md`](server/README.md). At a high level:
 
-The server README documents every actively referenced variable. At a high level:
-
-| Group | Variables |
+| Area | Main variables |
 | --- | --- |
-| Core | `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `JWT_COOKIE_MAX_AGE_MS` |
-| Browser/CORS | `CLIENT_URL`, `FRONTEND_URL`, `ALLOWED_ORIGINS` |
-| Payments | `CASHFREE_APP_ID`, `CASHFREE_SECRET_KEY`, `CASHFREE_ENV`, `CASHFREE_NOTIFY_URL` |
-| Media | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` |
-| Google/Firebase | `GOOGLE_MAPS_API_KEY`, Google geocoding tuning variables, and Firebase service-account variables |
-| Communication | Resend, SMS provider, and WhatsApp/Meta variables |
-| AI | `GROQ_API_KEY`, model and timeout variables, chatbot limits |
-| Caching/workers | Redis timeouts, cache TTLs, and garage-search worker settings |
+| Client API | `VITE_API_URL`, `VITE_API_FALLBACK_URL`, `VITE_USE_RELATIVE_API`, timeout/retry variables |
+| Client Firebase/Maps | `VITE_FIREBASE_*`, `VITE_GOOGLE_MAPS_BROWSER_KEY`, `VITE_GOOGLE_MAPS_MAP_ID` |
+| Server core | `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, cookie lifetime |
+| Origins | `CLIENT_URL`, `FRONTEND_URL`, `ALLOWED_ORIGINS` |
+| Payments/media | `CASHFREE_*`, `CLOUDINARY_*` |
+| Maps/AI | `GOOGLE_*`, `GROQ_*`, `CHATBOT_*` |
+| Messaging | Firebase Admin, Resend/email, SMS, WhatsApp, and VAPID variables |
+| Runtime tuning | Redis/cache, garage search, tracking, system-issue resolver, pricing, and OTP variables |
 
-Legacy Nominatim variables remain in `server/.env.example`, but the current geocoding service uses Google Geocoding rather than Nominatim.
+Vite variables are public build-time configuration. Never put server secrets in a `VITE_*` variable. The checked-in example files are helpful starting points but are not complete inventories; the READMEs document active variables that are currently missing from those examples.
 
-## Main Application Routes
+## Available commands
 
-### Frontend
+There is no root `package.json`; run commands in `client/` or `server/`.
 
-| Area | Representative routes |
+### Client
+
+| Command | Purpose |
 | --- | --- |
-| Public | `/`, `/services`, `/services/:categoryId`, `/how-it-works`, `/about`, `/partner`, `/contact`, `/warranty` |
-| Customer auth | `/login`, `/register`, `/otp`, `/forgot` |
-| Customer booking | `/booking/address`, `/booking/vehicle`, `/booking/services`, `/booking/garage`, `/checkout`, `/tracking` |
-| Customer portal | `/dashboard`, `/dashboard/vehicles`, `/dashboard/bookings`, `/dashboard/history`, `/dashboard/payments`, `/dashboard/notifications`, `/dashboard/profile` |
-| Garage | `/garage/login`, `/garage/otp-login`, `/garage/onboarding`, `/garage`, `/garage/bookings`, `/garage/services`, `/garage/wallet`, `/garage/profile`, `/garage/settings` |
-| Admin | `/admin/login`, `/admin`, `/admin/customers`, `/admin/cars`, `/admin/services`, `/admin/garages`, `/admin/bookings`, `/admin/pending-bookings`, `/admin/revenue`, `/admin/payments`, `/admin/system-issues`, `/admin/support-tickets`, `/admin/customer-support-accounts`, `/admin/intern-accounts`, `/admin/dangerous` |
-| Customer support | `/support/login`, `/support`, `/support/tickets`, `/support/notify`, `/support/notifications`, `/support/email` |
-| SOS | `/sos`, `/sos/location`, `/sos/checkout`, `/sos/success` |
+| `npm run dev` | Vite dev server on `127.0.0.1:8080` |
+| `npm run build` | Production multi-entry bundle in `client/dist/` |
+| `npm run build:dev` | Development-mode bundle |
+| `npm run preview` | Preview the built bundle on `127.0.0.1:8080` |
 
-### API groups
+### Server
 
-All API routes are mounted under `/api/v1`.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start with nodemon |
+| `npm start` | Start with Node |
+| `npm run prisma:generate` | Generate Prisma Client only |
+| `npm run prisma:migrate` | Create/apply development migrations |
+| `npm run prisma:deploy` | Apply checked-in migrations in release environments |
+| `npm run prisma:validate` | Validate schema/configuration |
+| `npm run prisma:status` | Show migration status |
+| `npm run prisma:studio` | Open Prisma Studio |
+| `npm run seed:admin` | Create/update the configured admin account |
+| `npm run push:generate-vapid-keys` | Generate Web Push VAPID keys |
 
-```text
-/auth                     Customer authentication and sessions
-/customer                 Customer profile and account operations
-/vehicles                 Customer vehicles
-/locations                Geocoding and saved-location operations
-/services                 Public services and media
-/vehicle-meta             Public vehicle brands and models
-/garages                  Garage search, profile, services, and media
-/garage/applications      Partner applications and geocoding
-/garage/requests          Garage booking-request lifecycle
-/garage/wallet            Garage wallet and Cashfree recharge
-/bookings                 Checkout, booking history, tracking, cancellation
-/payments                 Customer payment order and verification
-/wallet                   Customer wallet
-/sos                      Emergency request creation and lookup
-/reviews                   Customer reviews
-/complaints               Customer complaints
-/support-tickets           Customer support tickets and disputes
-/notifications            Customer notifications
-/chatbot                  Assistant history, ask, and clear
-/activities               Customer activity feed
-/cities                   Public and admin-managed cities
-/system-issues            Frontend issue reporting
-/customer-support          Support-agent dashboard, tickets, alerts, push, and email
-/admin/*                   Admin operations and catalogs
-/whatsapp                 WhatsApp health and webhook endpoints
-/public/stats              Public platform statistics
+The server also exposes destructive `db:*` maintenance commands. Read the target script and back up the database before using one. `seed:intern`, `seed:staff`, and `seed:all` are currently broken because `src/seed/seedIntern.js` is absent.
+
+## Development workflow
+
+1. Start PostgreSQL (and Redis if the feature/environment requires it).
+2. Apply migrations before running code that depends on new tables or indexes.
+3. Run the server, then the client.
+4. Keep frontend route guards and backend role middleware aligned; backend authorization is authoritative.
+5. Use the shared Axios instance for API calls so cookies, CSRF, retry, and issue-reporting behavior remain consistent.
+6. Add database logic in services. This codebase does not have a repository abstraction; services call Prisma directly.
+7. After changes, run the relevant build/syntax/schema checks and `git diff --check`.
+
+Current validation commands:
+
+```powershell
+# client/
+npm.cmd run build
+
+# server/
+npm.cmd run prisma:validate
+Get-ChildItem src -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
 ```
 
-## Customer Booking Lifecycle
+The repository currently has no automated test suite, lint script, or CI workflow.
 
-```text
-PENDING_PAYMENT
-  -> SEARCHING_GARAGE
-  -> GARAGE_ASSIGNED
-  -> CONFIRMED
-  -> IN_PROGRESS
-  -> COMPLETED
-```
+## Build and deployment
 
-Alternative terminal states are `CANCELLED` and `EXPIRED`.
+### Docker Compose
 
-The implemented flow is:
-
-1. The customer must have a valid India location and at least one vehicle.
-2. The customer selects one or more available services.
-3. The backend creates a booking and Cashfree payment order.
-4. Successful verification moves the booking into garage search.
-5. Eligible nearby garages receive broadcast requests in batches.
-6. The first valid acceptance wins; other requests expire.
-7. Pickup uses a handover OTP and mandatory inspection images.
-8. Delivery records another inspection phase.
-9. The customer accepts delivery and may submit a review or complaint.
-
-## Garage Partner Lifecycle
-
-```text
-PENDING
-  -> CHANGES_REQUESTED
-  -> PENDING
-  -> APPROVED
-```
-
-An application may also end as `DENIED`.
-
-Garage onboarding currently enforces 10 to 15 images, with a maximum size of 1 MB per onboarding image in the client flow. Admin approval creates or activates the garage-owner identity and garage record. Approved garages can configure services, receive nearby requests, and use wallet and booking workflows.
-
-## Docker
-
-The Compose file builds both services but does not create a PostgreSQL container. Point `DATABASE_URL` and `DIRECT_URL` to an accessible database.
-
-Create a root `.env` for frontend build arguments:
-
-```env
-VITE_API_URL=http://localhost:5000/api/v1
-VITE_FIREBASE_API_KEY=
-VITE_FIREBASE_AUTH_DOMAIN=
-VITE_FIREBASE_PROJECT_ID=
-VITE_FIREBASE_APP_ID=
-```
-
-Keep backend runtime variables in `server/.env`, then run:
+Create a root `.env` containing frontend build arguments and keep backend runtime values in `server/.env`, then run:
 
 ```bash
 docker compose up --build
 ```
 
-Services:
-
-```text
-Frontend: http://localhost:8080
-Backend:  http://localhost:5000
-```
-
-Useful commands:
-
-```bash
-docker compose up -d --build
-docker compose logs -f
-docker compose logs -f backend
-docker compose logs -f frontend
-docker compose down
-```
-
-The backend image generates Prisma Client but does not automatically run database migrations. Run `npm run prisma:deploy` as an explicit release step.
-
-## Production Deployment
+The frontend is served at `http://localhost:8080`; the backend is exposed at `http://localhost:5000`. Compose does not create PostgreSQL or Redis and the backend image does not run migrations. Apply `npm run prisma:deploy` separately. The current `server/.dockerignore` does not exclude `server/.env`, while the Dockerfile later runs `COPY . .`; fix that ignore rule before building or distributing any image from a context containing secrets.
 
 ### Frontend
 
-The client can be deployed in either form:
+- Vercel: use `client/` as the project root, `npm run build`, and `dist` as output. `client/vercel.json` contains the five shell rewrites, security headers, and an API proxy currently hard-coded to `https://rovauto.onrender.com`.
+- Firebase Hosting: build first, then deploy with the intended Firebase config. `client/firebase.json` contains all five shell rewrites; the root `firebase.json` currently lags behind it for support/admin/intern shells.
+- Docker/Nginx: `client/Dockerfile` builds the Vite bundle and `client/nginx.conf` provides SPA/PWA rewrites.
 
-- Vercel using `client/vercel.json` for SPA rewrites and cache headers.
-- The multi-stage Docker image, which serves `dist/` through Nginx.
-
-Required production variable:
-
-```env
-VITE_API_URL=https://your-api-domain.example/api/v1
-```
-
-Vite variables are compiled into the frontend bundle. Changing them requires another build.
+Changing a `VITE_*` value requires a new frontend build.
 
 ### Backend
 
-Deploy the server as a Node.js service or from `server/Dockerfile`.
-
-Recommended release sequence:
+No Render blueprint or other platform manifest is checked in, so configure the Node service manually or use `server/Dockerfile`. A normal release sequence is:
 
 ```bash
 npm ci
@@ -415,56 +271,44 @@ npm run prisma:deploy
 npm start
 ```
 
-Use `/health` as the platform health-check path. Add every production frontend origin to `ALLOWED_ORIGINS`, `CLIENT_URL`, or `FRONTEND_URL`. Cookie authentication also requires HTTPS in production because the cookie is marked `secure` when `NODE_ENV=production`.
+Use `/health` for the platform health check. The PostGIS migration creates the extension and spatial indexes, so the deployment database user must have the required permission. In production, `src/config/env.js` requires HTTPS URLs, a strong JWT secret, Redis, Cashfree, Cloudinary, Firebase Admin, Resend, Web Push, and other core payment settings before the server will listen.
 
-## Available Scripts
+## Troubleshooting
 
-### Client
+| Symptom | Checks |
+| --- | --- |
+| CORS or missing-cookie errors | Confirm the exact frontend origin is in `ALLOWED_ORIGINS`; use `withCredentials`; use HTTPS in production; production cookies are `Secure` and `SameSite=None` |
+| `Invalid CSRF token` | Use `src/api/axios.js`; confirm `GET /api/v1/csrf-token` succeeds and cookies are not blocked |
+| Prisma cannot connect | Check `DATABASE_URL`; use `DIRECT_URL` for CLI migrations; verify SSL/provider requirements and PostGIS support |
+| Server exits immediately in production | Read the startup error from `src/config/env.js`; production requires all validated provider variables, including `REDIS_URL` |
+| Maps autocomplete or map fails | Check backend Google web-service key, browser key/referrer restrictions, enabled APIs, CSP, and `/api/v1/maps/config` |
+| Payment remains pending | Confirm Cashfree mode/credentials, the HTTPS notify URL, webhook signature secret, and backend verification response |
+| Upload reaches the API with no files | Send `FormData` without forcing JSON `Content-Type`; check route-specific count/size/type limits and Cloudinary variables |
+| A static-host route opens the wrong PWA | Verify host rewrites for `support.html`, `admin.html`, `intern.html`, and `garage.html`; clear stale service-worker data after deployment changes |
+| PowerShell blocks `npm.ps1` | Use `npm.cmd` (and the local `.cmd` Prisma binary when necessary) |
 
-```bash
-npm run dev
-npm run build
-npm run build:dev
-npm run preview
-```
+## Confirmed gaps and leftovers
 
-### Server
+- No automated tests, linter, CI workflow, load-test baseline, or root `LICENSE` file is present.
+- The production client build succeeds but warns that the main JavaScript chunk is about 550 kB minified; `src/assets/Rovauto_home.png` produces an approximately 2.21 MB asset.
+- `server/package.json` references a missing `src/seed/seedIntern.js`; the derived staff seed commands fail.
+- `db:activate-garage` uses `activateGarage.js`, while the tracked filename is `activategarage.js`; this is unsafe on case-sensitive deployment filesystems.
+- Both `.env.example` files omit some active variables, and the server example contains duplicate/legacy entries.
+- `server/.dockerignore` does not exclude `.env`, so a local secret file can be copied into the backend image by `COPY . .`.
+- Root and client Firebase configs have drifted; the client-scoped file has the complete multi-shell routing.
+- `project-architecture.txt` is a stale generated snapshot. Run `1.ps1` when a fresh tree is needed.
+- Several files are not wired into active routes/imports, including the standalone reset-password page, garage Jobs/Leads/Earnings pages, a duplicate SOS guard, two garage mock-data files, and an empty legacy support router.
+- `client/.rovauto/project.json` identifies an older TanStack Start TypeScript template even though the runtime is React/Vite JavaScript.
 
-```bash
-npm run dev
-npm start
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:deploy
-npm run prisma:status
-npm run prisma:studio
-npm run seed:admin
-```
+See `Detailed Schema.md` for the standalone beginner guide and the scoped READMEs for implementation details.
 
-The server also includes targeted data-cleanup and garage-administration scripts. Review their implementation and arguments before running them against any shared database. Current destructive cleanup scripts cover users, customer bookings/payments/history, garages, price ranges, bookings, customer/support notifications, support desk data, auth sessions and push endpoints, system issues, and full user nukes.
+## Documentation
 
-## Validation Performed on This Snapshot
-
-- The frontend production build completes successfully.
-- All backend JavaScript files pass `node --check` syntax validation.
-- The repository currently has no automated test suite, no lint script, and no CI workflow.
-- Prisma generation requires downloading Prisma engine binaries and therefore needs outbound network access on a fresh machine or build worker.
-
-## Operational Notes
-
-- `client/src/assets/Rovauto_home.png` is larger than 2 MB; compressing or converting large static images to WebP/AVIF would improve first-load performance.
-- Keep Cashfree, Firebase, Cloudinary, Google Maps, Groq, SMS, and WhatsApp credentials out of Git.
-- Use separate development, staging, and production databases.
-- Set quotas and alerts on every paid external provider.
-- Treat Redis as disposable acceleration, never as durable state.
-- Add integration tests before allowing real payment, wallet, destructive admin, or booking-lifecycle traffic.
-
-## Additional Documentation
-
-- [`client/README.md`](client/README.md): frontend architecture, routes, state, environment, and deployment
-- [`server/README.md`](server/README.md): API architecture, database, environment variables, endpoints, and scripts
-- [`garage-partner-flow.md`](garage-partner-flow.md): product-level garage and booking flow diagrams
+- [`client/README.md`](client/README.md) - frontend architecture, route tree, state, environment, build, and troubleshooting
+- [`server/README.md`](server/README.md) - backend layers, endpoint catalog, database, environment, operations, and deployment
+- [`garage-partner-flow.md`](garage-partner-flow.md) - product-level garage workflow notes
+- `Detailed Schema.md` - comprehensive local guide; ignored by Git by request
 
 ## License
 
-The package metadata declares ISC. Add a root `LICENSE` file before distributing the repository publicly.
+`server/package.json` declares ISC, but the repository does not contain a root `LICENSE` file. Add one before relying on that metadata for distribution.

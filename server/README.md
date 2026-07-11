@@ -1,94 +1,88 @@
 # Rovauto Server
 
-The Rovauto server is an Express 5 API for customer bookings, garage-partner operations, payments, wallets, catalog administration, media, notifications, location services, and platform monitoring. It uses Prisma 7 with the PostgreSQL driver adapter and exposes all application APIs below `/api/v1`.
+The Rovauto server is an Express 5 API for customer booking, garage operations, staff/support portals, payments and wallets, maps/tracking, media, notifications, and platform monitoring. All application endpoints are mounted below `/api/v1`; PostgreSQL is the source of truth and Prisma 7 is the data-access layer.
+
+This README is backend-specific. See the repository [`README.md`](../README.md) for the full-stack quick start and `Detailed Schema.md` at the repository root for the standalone beginner guide.
 
 ## Stack
 
-- Node.js  20+
-- Express 5
-- PostgreSQL
-- Prisma 7 and `@prisma/adapter-pg`
-- JWT in an HttpOnly cookie
-- Argon2 password hashing
-- Zod and Express Validator
-- Cloudinary and Multer
-- Cashfree Payments
-- Firebase Admin
-- Redis through ioredis, optional
-- Resend email
-- Configurable SMS and WhatsApp providers
-- Google Geocoding
-- Groq SDK
-- Helmet, CORS, compression, Morgan, and cookie-parser
+| Area | Current implementation |
+| --- | --- |
+| Runtime/API | Node.js 20+, CommonJS, Express 5 |
+| Database | PostgreSQL, PostGIS, Prisma 7, `@prisma/adapter-pg` |
+| Auth/security | JWT cookies, Argon2, revocable database sessions, CSRF, Helmet, CORS, rate limits |
+| Validation | Express Validator plus service-level invariants |
+| Payments | Cashfree order, verification, webhook, customer wallet, and garage wallet flows |
+| Media | Multer memory storage, signature validation, Cloudinary |
+| Maps | Google Places, Geocoding, Routes, Route Matrix, Roads, Address Validation, and Route Optimization paths |
+| Messaging | Firebase Admin, Resend, generic/Fast2SMS SMS, Meta/generic WhatsApp, Web Push |
+| AI | Groq for the support chatbot and address correction fallback |
+| Cache | Redis/ioredis with fail-soft cache helpers; PostgreSQL remains authoritative |
+| HTTP utilities | Axios, compression, cookie-parser, Morgan, UUID |
 
-## Runtime Architecture
+The `zod` package is installed but no current server source imports it. Active request schemas use Express Validator.
+
+## Runtime architecture
 
 ```mermaid
 flowchart TD
-    E[Express app] --> R[Route modules]
-    R --> C[Controllers]
-    C --> S[Services]
-    S --> P[Prisma Client]
-    P --> PG[(PostgreSQL)]
-
-    S --> I[External integrations]
-    I --> CF[Cashfree]
-    I --> CL[Cloudinary]
-    I --> FB[Firebase]
-    I --> RS[Resend]
-    I --> GM[Google Geocoding]
-    I --> GQ[Groq]
-    I --> WA[WhatsApp / SMS]
-    S --> RD[(Optional Redis)]
+    App[src/app.js] --> Middleware[Global middleware]
+    Middleware --> Router[src/routes/index.routes.js]
+    Router --> Controllers[Controllers]
+    Controllers --> Services[Domain services]
+    Services --> Prisma[src/config/prisma.js]
+    Prisma --> DB[("PostgreSQL + PostGIS")]
+    Services --> Providers[External providers]
+    Services --> Cache[(Redis)]
+    Server[src/server.js] --> App
+    Server --> GarageWorker[Garage-search interval]
+    Server --> IssueWorker[Issue auto-resolver interval]
 ```
 
-The server starts only after `prisma.$connect()` succeeds. It then starts the recurring garage-search worker and installs graceful shutdown handlers for `SIGTERM` and `SIGINT`.
+There is no repository abstraction. Controllers call services, and services call Prisma directly. There is also no external job queue; background work runs inside the API process.
 
-## Source Layout
+## Source layout
 
 ```text
 server/
-├── prisma/
-│   ├── migrations/
-│   └── schema.prisma
-├── scripts/
-│   └── resetServiceComingSoon.js
-├── src/
-│   ├── admin/
-│   │   ├── controllers/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   └── validations/
-│   ├── config/
-│   ├── constants/
-│   ├── controllers/
-│   ├── customer/
-│   │   ├── controllers/
-│   │   ├── knowledge/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   └── validations/
-│   ├── garage/
-│   │   ├── controllers/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   └── validations/
-│   ├── middlewares/
-│   ├── routes/
-│   ├── scripts/
-│   ├── seed/
-│   ├── services/
-│   ├── utils/
-│   ├── validations/
-│   ├── app.js
-│   └── server.js
-├── Dockerfile
-├── prisma.config.ts
-├── .env.example
-└── package.json
+|-- prisma/
+|   |-- migrations/                 Squashed baseline plus incremental SQL migrations
+|   `-- schema.prisma               52 models and 29 enums
+|-- scripts/
+|   `-- resetServiceComingSoon.js   Standalone catalog maintenance helper
+|-- src/
+|   |-- admin/                      Admin/intern controllers, routes, services, validations
+|   |-- config/                     Cookies, providers, CORS helper, env validation, Prisma, Redis
+|   |-- constants/                  Shared status/type constants
+|   |-- controllers/                Cross-role/public garage, city, push, and issue controllers
+|   |-- customer/                   Customer auth/booking/profile/support domain
+|   |-- customerSupport/            Dedicated support-account portal domain
+|   |-- garage/                     Garage application, owner, wallet, and email domain
+|   |-- maps/                       Maps controller/routes/services/validations
+|   |-- middlewares/                Auth, CSRF, role, rate limit, upload, validation, errors
+|   |-- routes/                     Root router and mixed/public route modules
+|   |-- scripts/                    Operational/cleanup/approval scripts
+|   |-- seed/                       Admin seed (intern seed target is currently missing)
+|   |-- services/                   Cross-domain booking/garage/public/issue/push services
+|   |-- utils/                      Errors, responses, cache, JWT, uploads, pricing, phone, etc.
+|   |-- validations/                Cross-domain request validation
+|   |-- app.js                      Express application and middleware order
+|   `-- server.js                   Environment validation, DB connection, workers, HTTP listen
+|-- .env.example                    Starting environment template; not a complete active inventory
+|-- Dockerfile                      Node 20 Alpine image
+|-- prisma.config.ts                Prisma CLI schema/migration path and `DIRECT_URL`
+|-- package.json                    Scripts, engines, and dependencies
+`-- README.md                       This file
 ```
 
 ## Setup
+
+### Requirements
+
+- Node.js 20+
+- npm 10+
+- PostgreSQL with permission to install/use PostGIS
+- Redis for production under the current startup policy; optional in development
 
 Install dependencies:
 
@@ -96,490 +90,439 @@ Install dependencies:
 npm ci
 ```
 
-Create the environment file:
-
-```bash
-cp .env.example .env
-```
-
-At minimum, configure:
+Copy `.env.example` to `.env` (`Copy-Item .env.example .env` in PowerShell, or `cp .env.example .env` in Bash). Minimum useful development values:
 
 ```env
 NODE_ENV=development
 PORT=5000
-
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
 DIRECT_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
-
-JWT_SECRET=replace-with-a-long-random-secret
-JWT_EXPIRES_IN=7d
-JWT_COOKIE_MAX_AGE_MS=604800000
-
+JWT_SECRET=replace-with-at-least-32-random-bytes
 CLIENT_URL=http://127.0.0.1:8080
 FRONTEND_URL=http://127.0.0.1:8080
-ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
+ALLOWED_ORIGINS=http://127.0.0.1:8080,http://localhost:8080
+CASHFREE_ENV=sandbox
+
+# Required only when running npm run seed:admin
+ADMIN_LOGIN_ID=local-admin
+ADMIN_NAME=Local Admin
+ADMIN_PASSWORD=replace-with-a-strong-local-password
 ```
 
-Generate Prisma Client and create/apply a development migration:
+Provider credentials can remain unset in development until the matching feature is used. Never commit the real `.env`.
+
+Prepare Prisma and the database:
 
 ```bash
 npm run prisma:generate
 npm run prisma:migrate
+npm run seed:admin
 ```
 
-Start development mode:
+`prisma:migrate` is for development. In a release environment, apply existing migrations with `npm run prisma:deploy`; `prisma:generate` alone does not update the database.
+
+Start the API:
 
 ```bash
 npm run dev
 ```
 
-Start production mode:
-
-```bash
-npm start
+```text
+Root:       http://localhost:5000/
+Health:     http://localhost:5000/health
+API base:   http://localhost:5000/api/v1
+CSRF seed:  http://localhost:5000/api/v1/csrf-token
 ```
 
-## Database URLs
+## Application startup and request lifecycle
 
-The project intentionally uses two environment variables:
+`src/server.js` performs this sequence:
 
-| Variable         | Used by               | Purpose                                                  |
-| ---------------- | --------------------- | -------------------------------------------------------- |
-| `DATABASE_URL` | Runtime Prisma client | Application database connection through`PrismaPg`      |
-| `DIRECT_URL`   | Prisma CLI config     | Migrations, generation, status, and Studio configuration |
+1. Load `.env`.
+2. Run production-only validation from `src/config/env.js`.
+3. Create the Express app.
+4. Connect Prisma; startup fails if PostgreSQL is unavailable.
+5. Start the garage-search and system-issue-resolver intervals.
+6. Listen on `PORT` (default `5000`).
+7. On `SIGINT`/`SIGTERM`, stop workers, close HTTP, and disconnect Prisma.
 
-For a simple local PostgreSQL installation, both may use the same connection string. Hosted providers may supply a pooled runtime URL and a separate direct migration URL.
+Uncaught exceptions and unhandled rejections are logged and sent to the system-issue reporter where possible.
 
-## Health Endpoints
+A normal request passes through:
 
 ```text
-GET /
-GET /health
+request ID -> proxy/security headers -> CORS -> compression/cookies/body parsing
+-> CSRF check -> route middleware -> validation -> controller -> service -> Prisma/provider
+-> controller response -> centralized error middleware when needed
 ```
 
-`/health` returns the environment and timestamp and is suitable for a hosting-platform health check. It does not perform a fresh database query because the process already refuses to start when the initial Prisma connection fails.
+`GET /health` returns `{ "status": "ok" }`. It does not execute a fresh database query; database readiness is checked during process startup.
 
-## Authentication and Authorization
+## Layers and responsibilities
 
-### Session model
+| Layer | Responsibility |
+| --- | --- |
+| Routes | HTTP method/path, access middleware, rate limit, upload policy, validation chain |
+| Controllers | Extract request input, call a service, select status code, format response |
+| Services | Business rules, transactions, provider calls, cache invalidation, Prisma queries |
+| Validations | Express Validator schemas for bodies, params, and queries |
+| Middleware | Authentication, roles, CSRF, rate limiting, upload checks, validation output, errors |
+| Prisma schema/migrations | Database shape, relations, constraints, indexes, and deployable evolution |
 
-- Successful login sets an `accessToken` cookie.
-- The cookie is `httpOnly`, `sameSite=lax`, scoped to `/`, and `secure` in production.
-- Default lifetime is seven days and can be overridden with `JWT_COOKIE_MAX_AGE_MS`.
-- Protected middleware reads only the cookie. Authorization headers are not used by the current implementation.
-- Invalid, expired, disabled, or deleted users cause the cookie to be cleared.
+Because services access Prisma directly, cross-service changes need particular care around transactions and cache invalidation.
 
-### Roles
+## Endpoint catalog
+
+All paths below start with `/api/v1`. Access abbreviations: **P** public/mixed, **C** customer, **G** garage owner, **A** admin, **I** intern, **S** customer-support account. Some mixed routes perform more specific ownership checks inside their services.
+
+### Authentication, public, maps, and shared endpoints
+
+| Prefix | Access | Methods and paths |
+| --- | --- | --- |
+| `/auth` | P/authenticated | `POST /signup`, `/verify-otp`, `/resend-otp`, `/send-otp`, `/login`, `/google`, `/logout`, `/forgot-password`, `/reset-password`; `POST /verify-phone-otp`; `GET /me`; `POST /change-password`; `POST /support/login`, `/support/logout`; `GET /support/me` |
+| Compatibility OTP | P | `POST /send-otp`, `POST /verify-otp` |
+| `/public` | P | `GET /stats` |
+| `/system-issues` | P | `POST /report` (rate limited and sanitized) |
+| `/cities` | P/A/I | `GET /`; staff `GET /admin`; admin `POST /admin`, `PATCH /admin/:cityId` |
+| `/maps` | P/authenticated | P: `GET /config`, `GET /places/:placeId`, `POST /autocomplete`, `POST /validate-address`; authenticated: `POST /route`, `/route-matrix`, `/roads/snap`; booking tracking GET/start/location/stop; admin `POST /optimize-routes` |
+| `/contact` | P | `POST /` |
+| `/vehicle-meta` | P | `GET /brands`, `GET /brands/:brandId/models` |
+| `/services` | P/mixed | `GET /categories`, `GET /`, `GET /:id`, `GET /:serviceId/media`; admin media `POST /:serviceId/media`, `PATCH /media/:mediaId`, `DELETE /media/:mediaId` |
+| `/garages` | P/C/G/A | P: `GET /`, `GET /:id`, `GET /:id/services`, `GET /media/:imageId`; C/A: `GET /nearby`; G/A: `GET /me`, `GET /me/services`, `PUT /me`; G: `DELETE /me`; G/A upload: `POST /:garageId/media` |
+| `/garage/applications` | P | `GET /geocode`, `POST /` multipart application |
+| `/reviews` | Authenticated | `POST /`, `GET /my`, `PATCH /:id`, `DELETE /:id` |
+| `/whatsapp` and `/webhooks/whatsapp` | P/provider | `GET /webhook`, `POST /webhook`, `GET /health` |
+| `/webhooks/cashfree` | Provider | `POST /` |
+
+### Customer endpoints
+
+The root router applies `protectUser` and the `CUSTOMER` role to these groups.
+
+| Prefix | Methods and paths |
+| --- | --- |
+| `/customer` | `POST /onboarding`; `GET /profile`; `PATCH /profile`, `/change-password`; `DELETE /delete-account` |
+| `/vehicles` | `GET/POST /`; `GET/PATCH/DELETE /:id`; `PATCH /:id/default` |
+| `/locations` | `GET /geocode`, `/reverse-geocode`; `GET/POST /`; `GET/PATCH/DELETE /:id`; `PATCH /:id/default` |
+| `/bookings` | `POST /checkout`; `GET /`, `/service-history`, `/pending-payment`, `/:id`, `/:id/success`; `POST /:id/accept-delivery`, `/:id/handover-otp/regenerate`; `PATCH /:id/cancel` |
+| `/payments` | `GET /`; `POST /create-order`, `/verify`, `/cancel` |
+| `/wallet` | `GET /`, `/transactions`; `POST /recharge` |
+| `/dashboard` | `GET /customer` |
+| `/notifications` | `GET /`; `PATCH /read-all`, `/:id/read` |
+| `/push` | `GET /public-key`; `POST/DELETE /subscriptions` |
+| `/activities` | `GET/POST /` |
+| `/chatbot` | `GET /history`; `POST /ask`; `DELETE /history` |
+| `/complaints` | `POST /` multipart; `GET /my`, `/:id` |
+| `/support-tickets` | `GET /bookings`, `/my`, `/:ticketId`; `POST /`, `/:ticketId/replies`; `PATCH /:ticketId/close` |
+| `/sos` | `POST /`; `GET /:id` |
+
+### Garage endpoints
+
+| Prefix | Access | Methods and paths |
+| --- | --- | --- |
+| `/garage/requests` | G/A | `GET /`, `GET /:requestId`; `POST /:requestId/accept`, `/reject`, `/verify-handover-otp`, `/mark-delivered` |
+| `/garage/wallet` | G/A | `GET /`, `/transactions`; `POST /recharge/order`, `/recharge/verify` |
+| `/garage/wallet-legacy` | G/A | Older `GET /`, `/transactions`, `POST /recharge` compatibility API |
+
+### Customer-support portal endpoints
+
+All `/customer-support` routes use the separate `supportAccessToken` cookie.
 
 ```text
-CUSTOMER
-GARAGE_OWNER
-ADMIN
+GET    /push/public-key
+POST   /push/subscriptions
+DELETE /push/subscriptions
+GET    /dashboard
+GET    /tickets
+GET    /tickets/:ticketId
+POST   /tickets/:ticketId/claim
+POST   /tickets/:ticketId/release
+POST   /tickets/:ticketId/replies
+PATCH  /tickets/:ticketId
+POST   /notifications/send
+GET    /notify
+PATCH  /notify/read-all
+PATCH  /notify/:notificationId/read
+GET    /notifications
+PATCH  /notifications/read-all
+PATCH  /notifications/:notificationId/read
+GET    /email-users
+POST   /emails
+GET    /emails/history
 ```
 
-Email and phone uniqueness are scoped by role:
+`/notify` is the canonical database model/table name. `/notifications` remains as a compatibility alias to the same support notification service.
 
-```prisma
-@@unique([email, role])
-@@unique([phone, role])
-```
+### Admin and intern endpoints
 
-This permits separate customer and garage-owner identities with the same contact information while keeping each session role explicit.
+| Prefix | Access | Methods and paths |
+| --- | --- | --- |
+| `/admin` | A/I unless noted | `GET /stats`, `/operations`, `/customers`, `/customers/:userId/profile`, `/bookings`, `/bookings/:bookingId`, `/payments`; booking status/garage/notes mutations; admin-only `DELETE /bookings/all` |
+| `/admin/cars` | A/I reads; A writes | Brands/models list/create/update/deactivate and logo upload |
+| `/admin/services` | A/I reads; A writes | Categories/services CRUD and thumbnail upload |
+| `/admin/garages` | A/I reads; A writes | List/detail/assignable services; bulk delete; service assignment/removal |
+| `/admin/garage-applications` | A/I reads; A writes | List/detail; approve/request changes/deny; bulk delete |
+| `/admin/city-service-price-ranges` | A/I reads; A writes | `GET /`, `GET /:id`, `POST /`, `PATCH /:id`, `DELETE /:id` |
+| `/admin/system-issues` | A/I reads/updates; A deletes | Stats/list/detail/status plus delete/clear-resolved |
+| `/admin/support-tickets` | A | Staff list, ticket list/detail/update/reply |
+| `/admin/customer-support-accounts` | A | List/create/activate-update/password reset |
+| `/admin/intern-accounts` | A | List/create/activate-update/password reset |
+| `/admin/dangerous` | A + step-up password | Command list, download, and run |
 
-### Authentication methods
+## Authentication, sessions, and authorization
 
-- Email/password signup and login
-- Email OTP verification and resend
-- Phone OTP send and verification
-- Google authentication through Firebase ID tokens
-- Forgot/reset password
-- Garage-owner password and OTP login flows
-- Admin login through the same role-aware user system
+### Account types
 
-OTP endpoints have validation and rate limiting.
+| Account storage | Roles | Cookie/session table |
+| --- | --- | --- |
+| `User` | `CUSTOMER`, `GARAGE_OWNER` | `accessToken` + `UserSession` |
+| `StaffAccount` | `ADMIN`, `INTERN` | `accessToken` + `StaffSession` |
+| `CustomerSupportAccount` | Presented as `CUSTOMER_SUPPORT` | `supportAccessToken` + `CustomerSupportSession` |
 
-## CORS and Cookies
+`User` email and phone uniqueness is scoped by role, allowing distinct customer and garage-owner identities with the same contact data. Staff login IDs and support emails are globally unique in their own tables.
 
-CORS is configured directly in `src/app.js`.
+### Session behavior
 
-Allowed origins include:
+- JWTs contain account type, role, account ID, and session ID.
+- Middleware verifies the JWT, reloads the active account, checks `passwordChangedAt`, verifies the database session, and updates `lastSeenAt`.
+- Revoked, expired, disabled, or deleted accounts lose access immediately on the next protected request.
+- Legacy user JWTs without a session ID can be bridged into a `UserSession`; staff/support tokens require session IDs.
+- Password changes invalidate older tokens through timestamps and session revocation.
+- Garage owners must replace the temporary password before authorized garage operations.
 
-- `https://rovauto.com`
-- `https://www.rovauto.com`
-- local ports 5173, 8080, 8081, and 8082 on `localhost` and `127.0.0.1`
-- `CLIENT_URL`
-- `FRONTEND_URL`
-- comma-separated `ALLOWED_ORIGINS`
+Cookie policy from `src/config/authCookie.js`:
 
-Requests without an `Origin` header are allowed for server-to-server clients, health checks, Postman, and webhooks.
+- authentication cookies are HttpOnly
+- development uses `SameSite=Lax`; production uses `SameSite=None` and `Secure`
+- the CSRF cookie is readable by JavaScript
+- a long-lived HttpOnly device ID groups/replaces sessions for the same browser
 
-Because authentication uses cookies:
+Authorization middleware remains authoritative even when the frontend hides a screen.
 
-- the browser must send credentials
-- the frontend origin must match the CORS allowlist
-- production frontend and backend must use HTTPS
-- custom cross-site deployment arrangements may require revisiting the current `sameSite=lax` cookie policy
+## Global middleware and security
 
-## Prisma Schema
+`src/app.js` installs middleware in this order:
 
-The schema contains 50 models and 29 enums.
+1. Request correlation ID (`X-Request-ID`).
+2. Reverse-proxy trust and disabled `X-Powered-By`.
+3. Helmet security headers.
+4. Exact-origin CORS with credentials; production removes localhost origins.
+5. Compression and cookie parsing.
+6. JSON/urlencoded parsing with 10 MB limits; JSON raw bytes are retained for webhook signatures.
+7. CSRF protection for unsafe cookie-authenticated requests, excluding webhook paths.
+8. Morgan in development.
+9. Root/health/CSRF endpoints and the `/api/v1` router.
+10. JSON 404 and centralized error middleware.
 
-### Identity and onboarding
+Additional protections include Redis-backed/fallback rate limits, upload MIME plus content-signature checks, Cashfree timestamp/signature verification, WhatsApp signature verification, step-up passwords for dangerous actions, and system-issue metadata redaction.
+
+## Validation and errors
+
+- Route validation is implemented with Express Validator files under each domain's `validations/` folder.
+- `validate.middleware.js` joins validation messages and returns an operational 400 error.
+- Services enforce database ownership, state transitions, price availability, provider results, and transaction invariants that cannot be expressed by field schemas alone.
+- Multer errors become safe 400 responses.
+- Server errors return a generic message plus `referenceId`; development also returns a stack.
+- 5xx request errors are captured in `SystemIssue` unless the failing request is itself an issue report.
+
+Controllers use `asyncHandler` so rejected promises reach the central error middleware.
+
+## Database integration
+
+`src/config/prisma.js` uses `DATABASE_URL` with the PostgreSQL driver adapter. `prisma.config.ts` uses `DIRECT_URL` for Prisma CLI migrations. This supports a pooled runtime URL and a direct migration URL when the database provider recommends that split.
+
+The schema currently contains **52 models** and **29 enums**.
+
+### Model groups
+
+| Domain | Models |
+| --- | --- |
+| Accounts/sessions | `User`, `UserSession`, `StaffAccount`, `StaffSession`, `CustomerSupportAccount`, `CustomerSupportSession` |
+| Signup/profile | `PendingSignup`, `Otp`, `EmailOtp`, `PhoneOtp`, `CustomerProfile`, `CustomerLocation`, `Vehicle` |
+| Catalog/pricing | `City`, `VehicleBrand`, `VehicleModel`, `ServiceCategory`, `Service`, `ServiceMedia`, `CityServicePriceRange` |
+| Garage | `Garage`, `GarageImage`, `GarageVideo`, `GarageService`, `GarageApplication`, `GarageApplicationImage` |
+| Booking/tracking | `Booking`, `BookingService`, `GarageBroadcastRequest`, `BookingInspectionImage`, `BookingTrackingPoint`, `AdminBookingEvent` |
+| Money | `Payment`, `Wallet`, `WalletTransaction`, `GarageWallet`, `GarageWalletTransaction` |
+| Support/engagement | `SupportTicket`, `SupportTicketMessage`, `SupportTicketAttachment`, `Complaint`, `ComplaintImage`, `Review`, `Notification`, `Notify`, `PushSubscription`, `CustomerSupportPushSubscription`, `CustomerSupportEmailLog`, `CustomerActivity`, `ChatbotConversation`, `ChatbotMessage` |
+| Operations | `SystemIssue` |
+
+### Important relationships and invariants
+
+- A `User` owns vehicles, locations, bookings, wallet, sessions, tickets, activities, notifications, and optionally garages.
+- A `Booking` belongs to one user and vehicle, begins without a garage, snapshots the address/pricing, and has child service, payment, broadcast, tracking, inspection, complaint, review, support-ticket, and audit rows.
+- `BookingService` snapshots estimated price ranges so later catalog changes do not rewrite the original estimate.
+- `GarageService` is unique per garage/service/vehicle-brand/vehicle-model combination.
+- `Payment` and `Review` are one-to-one with a booking.
+- Customer and garage wallets have separate transaction ledgers; mutations should always update balance and ledger in one transaction.
+- A partial database unique index permits only one active booking per vehicle. A PostgreSQL advisory transaction lock reduces race windows before insert.
+- `GarageBroadcastRequest` is unique per booking/garage. Conditional updates make the first valid acceptance win and expire other sent requests.
+- PostGIS provides the active-garage geography index and `ST_DWithin`/`ST_Distance` queries.
+- Most owned child records cascade on deletion; optional links such as support booking/assignee use `SET NULL` where the schema specifies it.
+
+Not every identifier-like field is a Prisma relation: `AdminBookingEvent.staffId`, several `SystemIssue` actor IDs, and `CustomerSupportEmailLog.userId` are scalar audit references. `Garage.applicationId` and `GarageApplication.approvedGarageId` link the approval flow without a declared Prisma relation.
+
+### PostgreSQL-specific migrations
+
+- `20260708210000_add_garage_geo_index` enables PostGIS and creates spatial/garage lookup indexes.
+- `20260711193000_add_active_vehicle_booking_guard` creates the partial unique active-booking index, which is not represented by `@@unique` in Prisma schema syntax.
+- Recent migrations add tracking, push subscriptions, revocable sessions, admin booking events, support tickets, the support portal, and separate staff/support sessions.
+
+Use migrations, not `db push`, to preserve these SQL-only constraints and indexes.
+
+## Booking and garage lifecycle
+
+Normal booking states are:
 
 ```text
-User
-UserSession
-StaffAccount
-CustomerSupportAccount
-PendingSignup
-Otp
-EmailOtp
-PhoneOtp
-CustomerProfile
-CustomerLocation
-Vehicle
-PushSubscription
+PENDING_PAYMENT -> SEARCHING_GARAGE -> CONFIRMED -> IN_PROGRESS -> COMPLETED
 ```
 
-### Services and garages
+`GARAGE_ASSIGNED` remains in the enum and compatibility checks, while current acceptance writes `CONFIRMED` directly. Terminal alternatives are `CANCELLED` and `EXPIRED`.
+
+Confirmed flow:
+
+1. Checkout verifies customer ownership of the vehicle, active city, available services, contextual price ranges, and the one-active-booking rule.
+2. A transaction inserts `Booking` in `PENDING_PAYMENT` plus `BookingService` snapshots.
+3. Cashfree/customer-wallet payment covers the platform fee; the final service amount is paid to the garage outside the platform flow.
+4. Verified payment writes `Payment=PAID`, updates wallet entries when used, changes the booking to `SEARCHING_GARAGE`, and starts a two-minute search round.
+5. Eligible verified garages are ranked by location/service/vehicle scope and receive `GarageBroadcastRequest` rows in batches.
+6. Acceptance conditionally claims both the request and booking, deducts the garage acceptance fee, expires competitors, and creates the handover OTP.
+7. The garage verifies the OTP with exactly five pickup images, moving the booking to `IN_PROGRESS`.
+8. The garage uploads exactly five delivery images and marks delivery.
+9. The customer confirms the final amount and accepts delivery, moving the booking to `COMPLETED`.
+
+The frontend's highlighted garage on `/booking/garage` is a preview only; `Booking.garageId` remains null until an eligible garage accepts.
+
+## Background workers, caching, and rate limiting
+
+### Garage-search worker
+
+`src/services/garageSearchWorker.service.js` runs immediately after DB connection and then at `GARAGE_SEARCH_WORKER_INTERVAL_MS` (default 10 seconds, minimum 5 seconds). Each pass processes up to 100 oldest `SEARCHING_GARAGE` bookings and prevents overlapping runs. Search batch size inside the request service defaults to five garages.
+
+### System-issue auto-resolver
+
+`src/services/systemIssueAutoResolver.service.js` is enabled by default. It periodically finds quiet open/investigating issues, performs safe GET/HEAD probes where possible, accepts configured 401/403 responses for protected endpoints, and resolves verified/quiet-only candidates. It will reopen through the reporter if the fingerprint occurs again.
+
+Both timers call `unref()` and stop during graceful shutdown. They are not durable queues; another API replica may run the same interval, so their database claims are designed to be conditional/idempotent.
+
+### Redis
+
+Redis is used for fail-soft caches and distributed rate-limit counters. Cache helpers time out quickly and fall back to PostgreSQL/direct provider calls. Development logs a warning when `REDIS_URL` is missing. Production startup currently rejects a missing Redis URL.
+
+Common caches cover dashboard/public statistics, cities, locations, service price ranges, reviews, booking reads, and selected Google Maps responses.
+
+## External integrations
+
+| Integration | Purpose | Main modules |
+| --- | --- | --- |
+| Cashfree | Booking platform-fee orders, verification/webhooks, customer/garage wallet recharge | `config/cashfree.js`, customer/garage payment services |
+| Cloudinary | Garage, catalog, complaint, support, and inspection media | `config/cloudinary.js`, `utils/cloudinaryUpload.js`, upload services |
+| Google Maps Platform | Autocomplete, place details, address validation, routes, matrices, roads, geocoding, route optimization | `src/maps/`, customer geocoding service |
+| Firebase Admin | Verify Google ID tokens during Google sign-in | `config/firebase.js`, auth service |
+| Resend | OTP, contact, garage application, handover, and support email | domain email services |
+| SMS | Phone OTP through Fast2SMS or configured generic provider | `customer/services/sms.service.js` |
+| WhatsApp/Meta | Garage leads, customer updates, webhook | `garageWhatsapp.service.js`, `routes/whatsapp.routes.js` |
+| Web Push | Customer/garage/support browser subscriptions and notifications | `services/webPush.service.js`, push controllers |
+| Groq | Chatbot completion and failed-address correction | chatbot service, `utils/addressCorrection.js` |
+
+The legacy `GEOCODER_PROVIDER`/Nominatim example variables are not referenced by current source; active geocoding uses Google, with Groq correction when configured.
+
+## Environment variables
+
+Never expose values in documentation or commit `.env`. Defaults below describe code behavior, not recommended production secrets.
+
+### Core, database, origins, and sessions
+
+| Variables | Purpose |
+| --- | --- |
+| `NODE_ENV`, `PORT` | Runtime mode and HTTP port |
+| `DATABASE_URL` | Required runtime PostgreSQL URL |
+| `DIRECT_URL` | Required by Prisma CLI configuration |
+| `JWT_SECRET`, `JWT_EXPIRES_IN`, `JWT_COOKIE_MAX_AGE_MS` | JWT signing and cookie lifetime |
+| `CLIENT_URL`, `FRONTEND_URL`, `ALLOWED_ORIGINS` | Redirect/origin allowlist |
+| `PUBLIC_API_URL`, `API_BASE_URL`, `BACKEND_URL` | Provider links and issue-resolver probe base where referenced |
+| `APP_TIME_ZONE` | WhatsApp date/time formatting (service-hours checks are currently fixed to `Asia/Kolkata`) |
+| `ADMIN_LOGIN_ID`, `ADMIN_NAME`, `ADMIN_PASSWORD` | `seed:admin` input only |
+
+### Cashfree and Cloudinary
 
 ```text
-City
-VehicleBrand
-VehicleModel
-ServiceCategory
-Service
-ServiceMedia
-CityServicePriceRange
-Garage
-GarageImage
-GarageVideo
-GarageService
-GarageApplication
-GarageApplicationImage
+CASHFREE_APP_ID
+CASHFREE_SECRET_KEY
+CASHFREE_ENV
+CASHFREE_NOTIFY_URL
+CASHFREE_PAYMENT_SESSION_REUSE_MS
+CASHFREE_WEBHOOK_SECRET
+CASHFREE_WEBHOOK_SIGNATURE_REQUIRED
+CASHFREE_WEBHOOK_MAX_AGE_MS
+CLOUDINARY_CLOUD_NAME
+CLOUDINARY_API_KEY
+CLOUDINARY_API_SECRET
 ```
 
-### Booking and payment
+### Redis, cache, and rate limiting
 
 ```text
-Booking
-BookingService
-BookingInspectionImage
-GarageBroadcastRequest
-BookingTrackingPoint
-AdminBookingEvent
-Payment
-Wallet
-WalletTransaction
-GarageWallet
-GarageWalletTransaction
+REDIS_URL
+REDIS_CONNECT_TIMEOUT_MS
+REDIS_COMMAND_TIMEOUT_MS
+CACHE_TIMEOUT_MS
+DASHBOARD_CACHE_TTL
+PUBLIC_STATS_CACHE_TTL
+BOOKING_READ_CACHE_TTL_SECONDS
+CITY_CACHE_TTL_SECONDS
+LOCATIONS_CACHE_TTL_SECONDS
+PRICE_RANGE_CACHE_TTL_SECONDS
+REVIEW_CACHE_TTL_SECONDS
+RATE_LIMIT_KEY_PREFIX
 ```
 
-### Support and operations
-
-```text
-Review
-Complaint
-ComplaintImage
-Notification
-Notify
-CustomerSupportPushSubscription
-CustomerSupportEmailLog
-CustomerActivity
-ChatbotConversation
-ChatbotMessage
-SystemIssue
-SupportTicket
-SupportTicketMessage
-SupportTicketAttachment
-```
-
-Important enum groups include booking, payment, broadcast, wallet-transaction, garage-application, complaint, notification, support-ticket, support-message, dispute-resolution, media, location, fuel, request, tracking-source, booking-photo, and system-issue statuses.
-
-## API Route Groups
-
-All routes below are prefixed with `/api/v1`.
-
-| Prefix                    | Purpose                                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------------------------ |
-| `/auth`                 | Customer signup, verification, login, Google auth, logout, session lookup, password operations   |
-| `/customer`             | Onboarding, profile, password, and account deletion                                              |
-| `/vehicles`             | Customer vehicle CRUD/default operations                                                         |
-| `/locations`            | Manual geocoding, reverse geocoding, and saved-location operations                               |
-| `/services`             | Public service catalog and admin-protected service media                                         |
-| `/vehicle-meta`         | Public vehicle brands and models                                                                 |
-| `/garages`              | Garage discovery, nearby search, owner profile/services, and media                               |
-| `/garage/applications`  | Garage application submission and application geocoding                                          |
-| `/garage/requests`      | Garage requests, accept/reject, handover OTP, and delivery                                       |
-| `/garage/wallet`        | Current garage wallet and Cashfree recharge flow                                                 |
-| `/garage/wallet-legacy` | Older garage-wallet endpoints retained for compatibility                                         |
-| `/bookings`             | Checkout, list/detail, service history, success/tracking data, delivery acceptance, cancellation |
-| `/payments`             | Customer payment listing, Cashfree order creation, and verification                              |
-| `/wallet`               | Customer wallet, transactions, and recharge                                                      |
-| `/sos`                  | SOS creation and lookup                                                                          |
-| `/reviews`              | Customer review create/list                                                                      |
-| `/complaints`           | Complaint creation and customer complaint history                                                |
-| `/support-tickets`      | Customer support tickets, disputes, replies, attachments, and close action                       |
-| `/notifications`        | Notification list and read state                                                                 |
-| `/dashboard`            | Customer dashboard aggregation                                                                   |
-| `/chatbot`              | History, ask, and clear                                                                          |
-| `/activities`           | Customer activity feed                                                                           |
-| `/contact`              | Public contact submission                                                                        |
-| `/cities`               | Public cities and admin city management                                                          |
-| `/public/stats`         | Public statistics                                                                                |
-| `/system-issues/report` | Frontend issue intake                                                                            |
-| `/customer-support`     | Support-agent dashboard, ticket queue, alerts, push subscriptions, and email                     |
-| `/admin/*`              | Admin operations, catalogs, garages, applications, prices, and issue management                  |
-| `/whatsapp`             | Health and webhook endpoints                                                                     |
-| `/webhooks/whatsapp`    | Alternate mount for the WhatsApp webhook router                                                  |
-
-The root router also exposes compatibility OTP endpoints:
-
-```text
-POST /api/v1/send-otp
-POST /api/v1/verify-otp
-```
-
-## Booking Lifecycle
-
-Schema statuses:
-
-```text
-PENDING_PAYMENT
-SEARCHING_GARAGE
-GARAGE_ASSIGNED
-CONFIRMED
-IN_PROGRESS
-COMPLETED
-CANCELLED
-EXPIRED
-```
-
-Normal sequence:
-
-1. Checkout validates customer, vehicle, location, city, and selected services.
-2. A booking is created in `PENDING_PAYMENT`.
-3. Cashfree order creation and verification complete the platform payment step.
-4. The booking enters `SEARCHING_GARAGE`.
-5. Eligible garages receive `GarageBroadcastRequest` rows in batches.
-6. First valid acceptance assigns the garage and expires competing requests.
-7. Pickup is protected by a handover OTP and pickup inspection images.
-8. The garage moves the booking through active work and delivery.
-9. Delivery inspection images are recorded.
-10. Customer acceptance completes the lifecycle.
-
-Alternative outcomes include cancellation, payment failure, request expiry, and exhausted garage search.
-
-## Garage Search Worker
-
-`src/services/garageSearchWorker.service.js` runs after the database connection succeeds.
-
-It:
-
-- polls bookings in `SEARCHING_GARAGE`
-- calls `ensureBookingSearchActive()` for each booking
-- avoids overlapping worker runs
-- records background failures in the system-issue table
-- uses an unreferenced timer so it does not independently keep the Node process alive
-
-Configuration:
-
-```env
-GARAGE_SEARCH_WORKER_INTERVAL_MS=10000
-GARAGE_SEARCH_BATCH_SIZE=5
-GARAGE_SEARCH_TIMEOUT_SECONDS=
-GARAGE_REQUEST_ACCEPT_PATH=
-```
-
-The worker enforces a minimum interval of five seconds. Its internal database fetch currently processes up to 100 bookings per worker pass; `GARAGE_SEARCH_BATCH_SIZE` controls request/search behavior inside the garage-request service rather than that top-level fetch limit.
-
-## Garage Applications
-
-Application status:
-
-```text
-PENDING
-CHANGES_REQUESTED
-APPROVED
-DENIED
-```
-
-The current onboarding flow requires 10 to 15 garage images. The client restricts onboarding images to 1 MB each, and the service rejects fewer than 10 uploaded photos.
-
-Admin actions include:
-
-- list/filter applications
-- inspect one application
-- approve
-- request changes
-- deny
-- bulk delete through the route's supported query behavior
-
-Approval creates or activates the garage-owner account and garage record and supports email notifications.
-
-## Geocoding
-
-Current geocoding implementation:
-
-1. Build several India-scoped address candidates.
-2. Query Google Geocoding with `components=country:IN`.
-3. Reject coordinates outside configured India bounds.
-4. When no result is found and Groq is configured, normalize/correct the address.
-5. Retry Google Geocoding with the corrected address.
-
-Reverse geocoding also uses Google and validates India coordinate bounds before calling the provider.
-
-Primary variables:
-
-```env
-GOOGLE_MAPS_API_KEY=
-GOOGLE_GEOCODING_TIMEOUT_MS=5000
-GOOGLE_GEOCODING_LANGUAGE=en
-GOOGLE_GEOCODING_REGION=in
-GOOGLE_GEOCODING_MAX_CANDIDATES=2
-GROQ_API_KEY=
-GROQ_MODEL=llama-3.1-8b-instant
-GROQ_TIMEOUT_MS=12000
-```
-
-`GEOCODER_PROVIDER`, `NOMINATIM_TIMEOUT_MS`, and `NOMINATIM_USER_AGENT` remain in `.env.example` but are not used by the current source.
-
-## Payments and Wallets
-
-### Cashfree
-
-The backend uses Cashfree's payment-gateway API for:
-
-- customer booking orders
-- payment verification
-- garage-wallet recharge orders
-- garage-wallet recharge verification
-
-```env
-CASHFREE_APP_ID=
-CASHFREE_SECRET_KEY=
-CASHFREE_ENV=sandbox
-CASHFREE_NOTIFY_URL=
-```
-
-`CASHFREE_ENV=production` selects the live API; every other value selects sandbox.
-
-### Wallets
-
-Separate customer and garage wallet models are maintained. Transaction types include credits, debits, recharge, refunds, cashback, booking payment/refund, garage acceptance fees, and SOS deductions.
-
-Wallet mutations should always go through the wallet service helpers so balance changes and transaction rows remain consistent.
-
-## Media
-
-Cloudinary is used for dynamic media:
-
-- garage applications
-- garage listing images/videos
-- service category and service thumbnails
-- service media
-- vehicle-brand logos
-- complaints
-- booking pickup/delivery inspections
-
-```env
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-```
-
-Upload middleware uses Multer and validates limits at route/service level. Avoid persisting raw uploaded files on ephemeral hosting disks.
-
-## Chatbot
-
-The chatbot service:
-
-- stores conversations and messages in PostgreSQL
-- keeps one active conversation per customer
-- loads Markdown knowledge from `src/customer/knowledge/`
-- performs keyword-based retrieval over Markdown sections
-- adds limited customer/booking context
-- sends the resulting prompt to Groq
-- retains a bounded recent history for context and display
-
-```env
-GROQ_API_KEY=
-CHATBOT_GROQ_MODEL=llama-3.1-8b-instant
-CHATBOT_GROQ_TIMEOUT_MS=12000
-CHATBOT_RATE_LIMIT_PER_MINUTE=20
-```
-
-When the model is unavailable, the service can return a knowledge-based fallback answer.
-
-## System-Issue Monitoring
-
-The platform records frontend and backend issues in `SystemIssue`.
-
-Features include:
-
-- deterministic fingerprints
-- occurrence counting and last-seen timestamps
-- automatic reopening of resolved/ignored recurring issues
-- sensitive metadata redaction
-- customer, garage, admin, public, and system actor classification
-- frontend, request, worker, startup, unhandled rejection, and uncaught exception reporting
-- admin statistics, filtering, status updates, and deletion
-
-Set `RENDER_GIT_COMMIT` or an equivalent release identifier to attach deployment metadata to backend reports.
-
-## Redis
-
-Redis is optional.
-
-```env
-REDIS_URL=
-REDIS_CONNECT_TIMEOUT_MS=1500
-REDIS_COMMAND_TIMEOUT_MS=1500
-CACHE_TIMEOUT_MS=
-DASHBOARD_CACHE_TTL=
-PUBLIC_STATS_CACHE_TTL=
-```
-
-The client uses lazy connection, short timeouts, one retry, and fail-soft cache helpers. The application should continue using PostgreSQL when Redis is unavailable.
-
-## Environment Variables
-
-### Core
-
-| Variable                  | Notes                             |
-| ------------------------- | --------------------------------- |
-| `NODE_ENV`              | `development` or `production` |
-| `PORT`                  | Defaults to`5000`               |
-| `DATABASE_URL`          | Required runtime database URL     |
-| `DIRECT_URL`            | Required by Prisma CLI config     |
-| `JWT_SECRET`            | Required; use a long random value |
-| `JWT_EXPIRES_IN`        | Defaults to`7d`                 |
-| `JWT_COOKIE_MAX_AGE_MS` | Defaults to seven days            |
-
-### Origins
-
-```text
-CLIENT_URL
-FRONTEND_URL
-ALLOWED_ORIGINS
-```
-
-### Firebase and Google
+### Firebase, Google Maps, tracking, and geocoding
 
 ```text
 FIREBASE_PROJECT_ID
 FIREBASE_CLIENT_EMAIL
 FIREBASE_PRIVATE_KEY
+FIREBASE_AUTH_DOMAIN
+FIREBASE_HOSTING_URL
 GOOGLE_MAPS_API_KEY
+GOOGLE_MAPS_BROWSER_KEY
+GOOGLE_MAPS_MAP_ID
+GOOGLE_MAPS_LANGUAGE
+GOOGLE_MAPS_TIMEOUT_MS
+GOOGLE_MAPS_REGION_CODE
+GOOGLE_MAPS_REGION_CODES
+GOOGLE_MAPS_DEFAULT_LATITUDE
+GOOGLE_MAPS_DEFAULT_LONGITUDE
+GOOGLE_PLACES_BIAS_RADIUS_M
 GOOGLE_GEOCODING_TIMEOUT_MS
 GOOGLE_GEOCODING_LANGUAGE
 GOOGLE_GEOCODING_REGION
 GOOGLE_GEOCODING_MAX_CANDIDATES
+GOOGLE_ROUTE_MATRIX_ENABLED
+GOOGLE_ROUTE_MATRIX_GARAGE_LIMIT
+GOOGLE_TRAFFIC_AWARE
+GOOGLE_ROADS_ENABLED
+GOOGLE_TRACKING_ROUTE_REFRESH_SECONDS
+GOOGLE_CLOUD_PROJECT_ID
+GOOGLE_ROUTE_OPTIMIZATION_CLIENT_EMAIL
+GOOGLE_ROUTE_OPTIMIZATION_PRIVATE_KEY
+GOOGLE_OPTIMIZATION_TIMEOUT
+GOOGLE_OPTIMIZATION_STOP_SECONDS
+PUBLIC_GARAGE_RADIUS_KM
+GARAGE_GEO_LOOKUP_RADIUS_KM
+GARAGE_ETA_SPEED_KMPH
+GARAGE_ETA_BUFFER_MINUTES
 ```
 
-### Email and SMS
+### Groq/chatbot, email, SMS, WhatsApp, and push
 
 ```text
+GROQ_API_KEY
+GROQ_MODEL
+GROQ_TIMEOUT_MS
+CHATBOT_GROQ_MODEL
+CHATBOT_GROQ_TIMEOUT_MS
+CHATBOT_RATE_LIMIT_PER_MINUTE
 RESEND_API_KEY
 RESEND_FROM_EMAIL
 EMAIL_FROM
@@ -590,11 +533,7 @@ FAST2SMS_API_KEY
 SMS_PROVIDER_URL
 SMS_PROVIDER_TOKEN
 SMS_SENDER_ID
-```
-
-### WhatsApp and Meta
-
-```text
+DEFAULT_COUNTRY_CODE
 WHATSAPP_ACCESS_TOKEN
 WHATSAPP_PHONE_NUMBER_ID
 WHATSAPP_GRAPH_VERSION
@@ -605,132 +544,189 @@ META_APP_SECRET
 WHATSAPP_PROVIDER_URL
 WHATSAPP_PROVIDER_TOKEN
 WHATSAPP_SENDER_ID
+WHATSAPP_DEFAULT_COUNTRY_CODE
+WHATSAPP_SEND_TIMEOUT_MS
+WHATSAPP_USE_TEMPLATES
+WHATSAPP_TEMPLATE_LANGUAGE
+WHATSAPP_GARAGE_REQUEST_TEMPLATE
+WHATSAPP_GARAGE_ACCEPTED_DETAILS_TEMPLATE
+WHATSAPP_DEBUG_LOGS
+WEB_PUSH_VAPID_PUBLIC_KEY
+WEB_PUSH_VAPID_PRIVATE_KEY
+WEB_PUSH_VAPID_SUBJECT
 ```
 
-### Groq
+### Booking, workers, issues, and operations
 
 ```text
-GROQ_API_KEY
-GROQ_MODEL
-GROQ_TIMEOUT_MS
-CHATBOT_GROQ_MODEL
-CHATBOT_GROQ_TIMEOUT_MS
-CHATBOT_RATE_LIMIT_PER_MINUTE
-```
-
-### Booking, pricing, and cache tuning
-
-```text
-HANDOVER_OTP_TTL_MINUTES
 SERVICE_PRICE_RANGE_DELTA
+HANDOVER_OTP_TTL_MINUTES
+HANDOVER_OTP_RESEND_COOLDOWN_SECONDS
 GARAGE_REQUEST_ACCEPT_PATH
 GARAGE_SEARCH_BATCH_SIZE
 GARAGE_SEARCH_TIMEOUT_SECONDS
 GARAGE_SEARCH_WORKER_INTERVAL_MS
-GARAGE_ETA_SPEED_KMPH
-GARAGE_ETA_BUFFER_MINUTES
-DASHBOARD_CACHE_TTL
-PUBLIC_STATS_CACHE_TTL
-CACHE_TIMEOUT_MS
-REDIS_CONNECT_TIMEOUT_MS
-REDIS_COMMAND_TIMEOUT_MS
-```
-
-### Platform metadata
-
-```text
+SYSTEM_ISSUE_AUTO_RESOLVE_ENABLED
+SYSTEM_ISSUE_AUTO_RESOLVE_INTERVAL_MS
+SYSTEM_ISSUE_AUTO_RESOLVE_QUIET_MS
+SYSTEM_ISSUE_AUTO_RESOLVE_BATCH
+SYSTEM_ISSUE_QUIET_ONLY_AUTO_RESOLVE_ENABLED
+SYSTEM_ISSUE_PROBE_BASE_URL
+SYSTEM_ISSUE_PROBE_TIMEOUT_MS
+SYSTEM_ISSUE_PROTECTED_PROBE_OK_STATUSES
 RENDER_GIT_COMMIT
+SQLITE3_BIN
+SQLITE_BACKUP_TIMEOUT_MS
+SQLITE_BACKUP_PAGE_SIZE
 ```
+
+The SQLite variables are used only by dangerous-operation backup/download compatibility code, not as the main database.
+
+### Production startup requirements
+
+When `NODE_ENV=production`, `src/config/env.js` requires:
+
+- a 32+ byte `JWT_SECRET`
+- a 24+ byte `CASHFREE_WEBHOOK_SECRET`
+- `DATABASE_URL`, `REDIS_URL`, Cashfree app/secret/HTTPS notify URL, Cloudinary credentials, Firebase Admin credentials, `RESEND_API_KEY`, and both Web Push keys
+- at least one email sender (`EMAIL_FROM` or `RESEND_FROM_EMAIL`)
+- at least one HTTPS frontend URL (`CLIENT_URL` or `FRONTEND_URL`)
+- `CASHFREE_ENV=production`, signature verification enabled, and WhatsApp debug logs disabled
+
+`server/.env.example` is not a complete inventory: it omits multiple active tuning variables and `NODE_ENV`, duplicates `HANDOVER_OTP_TTL_MINUTES`, and retains unreferenced legacy Nominatim/provider entries. Use this section with the source validator when preparing production.
 
 ## Scripts
 
-### Development and Prisma
+### Runtime and Prisma
 
-```bash
-npm run dev
-npm start
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:deploy
-npm run prisma:status
-npm run prisma:studio
-npm run seed:admin
-npm run seed:all
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | nodemon `src/server.js` |
+| `npm start` | Node `src/server.js` |
+| `npm run prisma:generate` | Generate Prisma Client |
+| `npm run prisma:format` | Format schema |
+| `npm run prisma:validate` | Validate schema/config |
+| `npm run prisma:migrate` | Development migration workflow |
+| `npm run prisma:deploy` | Apply checked-in migrations |
+| `npm run prisma:status` | Show migration status |
+| `npm run prisma:studio` | Start Prisma Studio |
+
+### Seeds and push
+
+| Command | Status |
+| --- | --- |
+| `npm run seed:admin` | Active; reads `ADMIN_*` variables |
+| `npm run seed:intern` | **Broken:** target `src/seed/seedIntern.js` is missing |
+| `npm run seed:staff`, `npm run seed:all` | **Broken:** depend on `seed:intern` |
+| `npm run push:generate-vapid-keys` | Generates VAPID JSON; protect the private key |
+
+`node generate-secret.js` is an unregistered helper for generating a secret.
+
+### Database and operations
+
+```text
+db:delete-user
+db:delete-active-bookings
+db:delete-payments
+db:delete-service-history
+db:delete-garages
+db:delete-price-ranges
+db:delete-bookings
+db:delete-notifications
+db:delete-support-data
+db:delete-auth-sessions
+db:delete-system-issues
+db:nuke-users
+db:approve-garage
+db:activate-garage
 ```
 
-### Data and operations
+These commands can mutate or erase large data sets. Read the target script, confirm its arguments/confirmation behavior, and back up the correct database first. `db:activate-garage` references `activateGarage.js`, while Git tracks `activategarage.js`; fix the capitalization before using it on Linux or another case-sensitive filesystem.
 
-```bash
-npm run db:delete-user
-npm run db:delete-active-bookings
-npm run db:delete-payments
-npm run db:delete-service-history
-npm run db:delete-garages
-npm run db:delete-price-ranges
-npm run db:delete-bookings
-npm run db:delete-notifications
-npm run db:delete-support-data
-npm run db:delete-auth-sessions
-npm run db:delete-system-issues
-npm run db:nuke-users
-npm run db:approve-garage
-npm run db:activate-garage
+## Development and validation workflow
+
+1. Apply migrations before exercising code that depends on new tables or SQL indexes.
+2. Add paths and access middleware in a route file.
+3. Keep controllers thin; implement business behavior in a service.
+4. Put field validation in the matching `validations/` module and invariants/transactions in the service.
+5. Invalidate affected Redis/read caches after writes.
+6. Use `ApiError` for expected operational failures.
+7. Run schema and syntax checks.
+
+Windows-friendly validation:
+
+```powershell
+npm.cmd run prisma:validate
+Get-ChildItem src -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
 ```
 
-Several scripts are destructive or modify production-like records. Read the script source and use its dry-run/confirmation flags where provided before running it against a shared database. The cleanup scripts are aligned with the current Prisma schema, including support-ticket tables, support notifications, user sessions, customer/support push subscriptions, booking tracking points, admin booking events, and system issues.
+The repository has no automated tests, lint script, OpenAPI document, or CI workflow. Payment, wallet, auth, upload, and concurrency changes therefore need deliberate manual/integration verification.
 
-## Docker
+## Docker and production deployment
 
-Build from `server/`:
+Build and run directly:
 
 ```bash
 docker build -t rovauto-server .
-```
-
-Run with an environment file:
-
-```bash
 docker run --env-file .env -p 5000:5000 rovauto-server
 ```
 
-The image:
+The Dockerfile:
 
-1. installs dependencies
-2. copies the Prisma schema
-3. runs `prisma generate`
-4. copies the source
-5. starts `npm start`
+1. Uses Node 20 Alpine.
+2. Installs PostgreSQL client and SQLite utilities.
+3. Runs `npm install`.
+4. Copies Prisma files and runs `npx prisma generate`.
+5. Copies source and runs `npm start`.
 
-It does not run migrations automatically. Run this as a deployment/release step:
+It does **not** apply migrations. More importantly, the current `server/.dockerignore` does not exclude `.env`, and the later `COPY . .` can embed local secrets in an image layer. Add `.env`/`.env.*` exclusions (while preserving `.env.example` if desired) before building or distributing a production image. The repository also has no Render/platform blueprint. Configure release steps explicitly:
 
 ```bash
+npm ci
+npm run prisma:generate
 npm run prisma:deploy
+npm start
 ```
 
-The repository root `docker-compose.yml` builds the frontend and backend together but expects an external PostgreSQL database.
+Deployment checklist:
 
-## Production Checklist
+- Provision PostgreSQL with PostGIS support and apply every migration.
+- Configure every production-required variable before starting.
+- Use HTTPS for frontend, API, Cashfree notify URL, and cookies.
+- Add exact frontend origins to CORS.
+- Point provider webhooks at the public `/api/v1/webhooks/*` routes.
+- Use `/health` for process health; use a separate authenticated/operational DB check if the platform needs live DB readiness.
+- Keep at least one API process continuously running if in-process workers must run continuously.
+- Back up PostgreSQL before cleanup/dangerous operations.
+- Set provider quotas/alerts and monitor `SystemIssue` plus application logs.
 
-- Set `NODE_ENV=production`.
-- Use HTTPS for both frontend and API.
-- Configure exact production origins.
-- Set a strong JWT secret.
-- Use separate pooled and direct database URLs where the provider recommends it.
-- Run `npm run prisma:deploy` before starting the new release.
-- Configure Cashfree webhooks and validate provider signatures before real payment traffic.
-- Set quotas for Google Maps, Groq, Cloudinary, SMS, WhatsApp, and email providers.
-- Keep Redis optional.
-- Use `/health` for the health check.
-- Back up PostgreSQL before destructive admin scripts.
-- Add automated tests for authentication, role separation, payments, wallets, garage request races, OTP handover, media, and deletion cascades.
+## Troubleshooting
 
-## Current Validation Status
+| Symptom | Checks |
+| --- | --- |
+| Startup says an env variable is missing | Production validation is strict; read `src/config/env.js` and the production requirements above |
+| Prisma CLI uses the wrong database | Runtime uses `DATABASE_URL`; Prisma CLI uses `DIRECT_URL` from `prisma.config.ts` |
+| PostGIS migration fails | Database user needs extension permission and provider must support PostGIS |
+| `prisma generate` succeeds but tables are missing | Run `prisma:migrate` locally or `prisma:deploy` in release; generation does not migrate |
+| Cookie exists but API returns 401 | Check session row expiry/revocation, account active state, `passwordChangedAt`, correct cookie (`supportAccessToken` for support), and JWT secret consistency |
+| Browser receives 403 CORS/CSRF | Check exact origin, credentials, HTTPS/SameSite rules, `rovautoCsrf`, and `X-CSRF-Token` |
+| Redis is unavailable | Development falls back with stricter local counters; production currently refuses to start without `REDIS_URL` |
+| Booking stays `SEARCHING_GARAGE` | Check worker logs, coordinates/PostGIS, active city, garage verification/services/radius, request rounds, and wallet only at acceptance |
+| Garage cannot accept | Check request expiry/status, competing acceptance, first-login password rule, and garage wallet fee balance |
+| Cashfree webhook is rejected | Check raw-body parsing, timestamp age, signature secret/header, environment, and public notify URL |
+| Upload fails | Check multipart field name, size/count, allowed MIME and file signature, then Cloudinary credentials |
+| Maps endpoint fails | Verify correct Google API key, enabled API, project permissions, region/config values, Redis/provider timeout, and billing/quota |
+| PowerShell blocks npm | Use `npm.cmd` or local `.cmd` binaries |
 
-- Every server JavaScript file in this snapshot passes `node --check`.
-- Dependency installation completes with Node 20-compatible packages.
-- Prisma generation on a fresh machine requires outbound access to Prisma's engine-binary host.
-- No automated tests, lint script, or CI workflow are currently included.
+## Confirmed gaps and legacy areas
 
-## License
-
-The package metadata declares ISC. Add a repository-level `LICENSE` file before public distribution.
+- No test suite, linter, CI, OpenAPI/Swagger specification, or repository layer exists.
+- Intern seed commands are broken because the seed file is absent.
+- The garage activation npm script has a filename capitalization mismatch for case-sensitive systems.
+- `.env.example` is incomplete, contains a duplicate key, and retains legacy/unreferenced geocoder settings.
+- `server/.dockerignore` omits `.env`, so Docker builds from a working directory containing secrets can copy them into the image.
+- `src/customer/routes/support.routes.js` is empty and not mounted; active support-ticket routes live in `supportTicket.routes.js`.
+- `/garage/wallet-legacy` is still mounted for compatibility alongside the newer garage wallet API.
+- Garage application `garageType` and supported brands are encoded into/parsing from the free-text `description` during approval because the application model has no typed columns for them. This is active but brittle.
+- Several audit/reference IDs are plain strings rather than foreign keys, so database referential integrity does not cover those links.
+- There is no checked-in platform deployment manifest; production hostnames and release commands are configured outside the repository.
