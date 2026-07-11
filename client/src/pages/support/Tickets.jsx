@@ -279,7 +279,7 @@ export default function CustomerSupportTickets() {
   }, [tickets]);
 
   return (
-    <div className="mx-auto max-w-[1450px] space-y-4 sm:space-y-6">
+    <div className="mx-auto min-w-0 max-w-[1450px] space-y-4 sm:space-y-6">
       <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -322,28 +322,54 @@ export default function CustomerSupportTickets() {
         ))}
       </section>
 
-      <section className="rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-5">
-        <form onSubmit={applyFilters} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,2fr)_repeat(5,minmax(125px,1fr))_auto]">
-          <label className="relative">
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-5">
+        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-sm font-extrabold text-ink">Filter support queue</h2>
+            <p className="mt-1 text-xs leading-5 text-muted">
+              Narrow tickets by ownership, type, status, priority or category.
+            </p>
+          </div>
+          <p className="text-xs font-semibold text-muted">
+            {result.total || tickets.length} matching ticket{(result.total || tickets.length) === 1 ? "" : "s"}
+          </p>
+        </div>
+
+        <form
+          onSubmit={applyFilters}
+          className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(260px,2fr)_repeat(5,minmax(0,1fr))_auto]"
+        >
+          <label className="relative min-w-0 sm:col-span-2 lg:col-span-3 2xl:col-span-1">
             <FiSearch className="pointer-events-none absolute left-3 top-3.5 text-muted" />
             <input
               value={filters.search}
               onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
               placeholder="Ticket, customer or booking"
-              className="h-11 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-ink"
+              className="h-11 w-full min-w-0 rounded-lg border border-line pl-10 pr-3 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/5"
             />
           </label>
-          <select value={filters.queue} onChange={(event) => setFilters((current) => ({ ...current, queue: event.target.value }))} className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none">
+          <select value={filters.queue} onChange={(event) => setFilters((current) => ({ ...current, queue: event.target.value }))} className="h-11 w-full min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/5">
             <option value="AVAILABLE">Available + mine</option>
             <option value="MINE">Assigned to me</option>
             <option value="UNASSIGNED">Unassigned only</option>
             <option value="ALL">All tickets</option>
           </select>
-          <select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))} className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none"><option value="">All types</option><option value="SUPPORT">Support</option><option value="DISPUTE">Dispute</option></select>
-          <select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))} className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none"><option value="">All statuses</option>{[...STATUS_OPTIONS, "CLOSED"].map((value) => <option key={value} value={value}>{formatLabel(value)}</option>)}</select>
-          <select value={filters.priority} onChange={(event) => setFilters((current) => ({ ...current, priority: event.target.value }))} className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none"><option value="">All priorities</option>{PRIORITY_OPTIONS.map((value) => <option key={value} value={value}>{formatLabel(value)}</option>)}</select>
-          <select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))} className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none"><option value="">All categories</option>{CATEGORY_OPTIONS.map((value) => <option key={value} value={value}>{formatLabel(value)}</option>)}</select>
-          <div className="flex gap-2 sm:col-span-2 xl:col-span-1"><button className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white xl:flex-none"><FiFilter /> Apply</button><button type="button" onClick={clearFilters} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-line"><FiX /></button></div>
+          <select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))} className="h-11 w-full min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/5"><option value="">All types</option><option value="SUPPORT">Support</option><option value="DISPUTE">Dispute</option></select>
+          <select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))} className="h-11 w-full min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/5"><option value="">All statuses</option>{[...STATUS_OPTIONS, "CLOSED"].map((value) => <option key={value} value={value}>{formatLabel(value)}</option>)}</select>
+          <select value={filters.priority} onChange={(event) => setFilters((current) => ({ ...current, priority: event.target.value }))} className="h-11 w-full min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/5"><option value="">All priorities</option>{PRIORITY_OPTIONS.map((value) => <option key={value} value={value}>{formatLabel(value)}</option>)}</select>
+          <select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))} className="h-11 w-full min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/5"><option value="">All categories</option>{CATEGORY_OPTIONS.map((value) => <option key={value} value={value}>{formatLabel(value)}</option>)}</select>
+          <div className="flex min-w-0 gap-2 sm:col-span-2 lg:col-span-3 2xl:col-span-1">
+            <button className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-black disabled:opacity-50 2xl:flex-none">
+              <FiFilter /> Apply
+            </button>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-ink transition hover:bg-bg-soft"
+            >
+              <FiX /> Reset
+            </button>
+          </div>
         </form>
       </section>
 
