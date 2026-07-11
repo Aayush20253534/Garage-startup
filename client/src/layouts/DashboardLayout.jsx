@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Logo from "@/components/common/Logo";
 import SupportBrand from "@/components/support/SupportBrand";
+import StaffBrand from "@/components/staff/StaffBrand";
 import FAB from "@/components/FAB";
 import { useApp } from "@/hooks/useApp";
 import useUnreadNotifications from "@/hooks/useUnreadNotifications";
@@ -21,6 +22,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const isCustomerSupportPortal =
     pathname === "/support" || pathname.startsWith("/support/");
   const isStaffPortal = isAdminPortal || isInternPortal;
+  const hasDedicatedPortalBrand = isStaffPortal || isCustomerSupportPortal;
 
   const { openIssueCount } = useOpenSystemIssueCount({
     enabled: isStaffPortal,
@@ -123,6 +125,22 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     return 0;
   };
 
+  const renderPortalBrand = ({ compact = false } = {}) => {
+    if (isCustomerSupportPortal) {
+      return <SupportBrand compact={compact} />;
+    }
+
+    if (isAdminPortal) {
+      return <StaffBrand portal="admin" compact={compact} />;
+    }
+
+    if (isInternPortal) {
+      return <StaffBrand portal="intern" compact={compact} />;
+    }
+
+    return <Logo />;
+  };
+
   const renderNavItem = (item, { mobile = false } = {}) => {
     const Icon = item.icon;
     const badge = badgeForItem(item);
@@ -210,7 +228,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         ].join(" ")}
       >
         <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-line px-4">
-          {isCustomerSupportPortal ? <SupportBrand compact /> : <Logo />}
+          {renderPortalBrand({ compact: true })}
 
           <button
             type="button"
@@ -270,10 +288,10 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
               <FiMenu />
             </button>
 
-            {isCustomerSupportPortal ? (
+            {hasDedicatedPortalBrand ? (
               <div className="flex min-w-0 items-center justify-between gap-3">
                 <div className="min-w-0 lg:hidden">
-                  <SupportBrand compact />
+                  {renderPortalBrand({ compact: true })}
                 </div>
                 <h1 className="hidden truncate text-lg font-bold text-ink lg:block">
                   {title}

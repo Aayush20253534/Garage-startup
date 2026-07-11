@@ -14,15 +14,31 @@ import "./index.css";
 
 console.info("Rovauto frontend build:", __APP_BUILD_ID__);
 
-const isSupportShell =
-  document.documentElement.dataset.appShell === "support";
+const appShell = document.documentElement.dataset.appShell || "main";
 
-const installPromptKey = isSupportShell
-  ? "__ROVAUTO_SUPPORT_INSTALL_PROMPT__"
-  : "__ROVAUTO_INSTALL_PROMPT__";
-const installPromptEvent = isSupportShell
-  ? "rovauto-support-install-ready"
-  : "rovauto-install-ready";
+const INSTALL_PROMPT_CONFIG = {
+  main: {
+    key: "__ROVAUTO_INSTALL_PROMPT__",
+    event: "rovauto-install-ready",
+  },
+  support: {
+    key: "__ROVAUTO_SUPPORT_INSTALL_PROMPT__",
+    event: "rovauto-support-install-ready",
+  },
+  admin: {
+    key: "__ROVAUTO_ADMIN_INSTALL_PROMPT__",
+    event: "rovauto-admin-install-ready",
+  },
+  intern: {
+    key: "__ROVAUTO_INTERN_INSTALL_PROMPT__",
+    event: "rovauto-intern-install-ready",
+  },
+};
+
+const installPromptConfig =
+  INSTALL_PROMPT_CONFIG[appShell] || INSTALL_PROMPT_CONFIG.main;
+const installPromptKey = installPromptConfig.key;
+const installPromptEvent = installPromptConfig.event;
 
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();

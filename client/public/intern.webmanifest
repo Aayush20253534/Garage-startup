@@ -1,0 +1,72 @@
+{
+  "id": "/intern-app",
+  "name": "Rovauto Intern",
+  "short_name": "Rovauto Intern",
+  "description": "Dedicated intern workspace for Rovauto operational tasks.",
+  "start_url": "/intern?pwa=intern",
+  "scope": "/intern",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/intern-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/intern-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/intern-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/intern-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/intern-icon-maskable-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Intern dashboard",
+      "short_name": "Dashboard",
+      "url": "/intern",
+      "icons": [{ "src": "/intern-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Manage bookings",
+      "short_name": "Bookings",
+      "url": "/intern/bookings",
+      "icons": [{ "src": "/intern-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Garages",
+      "short_name": "Garages",
+      "url": "/intern/garages",
+      "icons": [{ "src": "/intern-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "System issues",
+      "short_name": "Issues",
+      "url": "/intern/system-issues",
+      "icons": [{ "src": "/intern-icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

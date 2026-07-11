@@ -15,6 +15,8 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import { adminApi } from "@/api/admin";
+import AdminPwaInstall from "@/components/staff/AdminPwaInstall";
+import InternPwaInstall from "@/components/staff/InternPwaInstall";
 
 const formatDate = (date) => {
   if (!date) return "-";
@@ -49,7 +51,9 @@ const getStatusClass = (status) => {
 
 export default function AdminDashboard() {
   const { pathname } = useLocation();
-  const portalRoot = pathname.startsWith("/intern") ? "/intern" : "/admin";
+  const isInternPortal = pathname.startsWith("/intern");
+  const portalRoot = isInternPortal ? "/intern" : "/admin";
+  const PortalPwaInstall = isInternPortal ? InternPwaInstall : AdminPwaInstall;
   const [stats, setStats] = useState({});
   const [operations, setOperations] = useState({ stats: {}, recentBookings: [], statusCounts: {} });
   const [recentApplications, setRecentApplications] = useState([]);
@@ -191,7 +195,9 @@ export default function AdminDashboard() {
             <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
             <p className="text-xs font-bold uppercase tracking-wider text-muted">Live operations</p>
           </div>
-          <h2 className="mt-1 text-2xl font-bold text-ink">Admin command centre</h2>
+          <h2 className="mt-1 text-2xl font-bold text-ink">
+            {isInternPortal ? "Intern operations centre" : "Admin command centre"}
+          </h2>
           <p className="mt-1 text-sm text-muted">
             Current booking activity, payment problems and daily platform performance.
           </p>
@@ -214,6 +220,8 @@ export default function AdminDashboard() {
           <span>{error}</span>
         </div>
       )}
+
+      <PortalPwaInstall compact />
 
       <section>
         <div className="mb-3 flex items-end justify-between gap-3">

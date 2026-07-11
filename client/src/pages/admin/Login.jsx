@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Logo from "@/components/common/Logo";
+import StaffBrand from "@/components/staff/StaffBrand";
+import AdminPwaInstall from "@/components/staff/AdminPwaInstall";
 import { adminApi } from "@/api/admin";
 import { useApp } from "@/hooks/useApp";
 import { FiArrowRight, FiShield } from "react-icons/fi";
@@ -49,7 +50,7 @@ export default function AdminLogin() {
   return (
     <div className="container-x grid min-h-[80vh] items-center py-10">
       <div className="mx-auto w-full max-w-md card-soft p-7">
-        <Logo />
+        <StaffBrand portal="admin" />
 
         <div className="mt-8 flex items-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl bg-ink text-white">
@@ -113,6 +114,10 @@ export default function AdminLogin() {
             )}
           </button>
         </form>
+
+        <div className="mt-5">
+          <AdminPwaInstall compact />
+        </div>
       </div>
     </div>
   );

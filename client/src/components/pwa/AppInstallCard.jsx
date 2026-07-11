@@ -22,19 +22,30 @@ export default function AppInstallCard({
   promptKey,
   promptEvent,
   installedStorageKey,
+  pwaId = "",
   compact = false,
   dark = true,
 }) {
   const [installPrompt, setInstallPrompt] = useState(
     () => window[promptKey] || null,
   );
+  const hasMatchingStartMarker = () =>
+    Boolean(pwaId) &&
+    new URLSearchParams(window.location.search).get("pwa") === pwaId;
+
   const [installed, setInstalled] = useState(() =>
-    Boolean(localStorage.getItem(installedStorageKey)) || isStandalone(),
+    Boolean(localStorage.getItem(installedStorageKey)) ||
+    (isStandalone() && (!pwaId || hasMatchingStartMarker())),
   );
   const [showHelp, setShowHelp] = useState(false);
   const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
+    if (hasMatchingStartMarker()) {
+      localStorage.setItem(installedStorageKey, "1");
+      setInstalled(true);
+    }
+
     const handlePromptReady = () => {
       setInstallPrompt(window[promptKey] || null);
     };
@@ -46,7 +57,14 @@ export default function AppInstallCard({
     };
     const media = window.matchMedia?.("(display-mode: standalone)");
     const handleDisplayMode = () => {
-      if (isStandalone()) setInstalled(true);
+      if (
+        isStandalone() &&
+        (!pwaId ||
+          hasMatchingStartMarker() ||
+          Boolean(localStorage.getItem(installedStorageKey)))
+      ) {
+        setInstalled(true);
+      }
     };
 
     window.addEventListener(promptEvent, handlePromptReady);
@@ -58,7 +76,7 @@ export default function AppInstallCard({
       window.removeEventListener("appinstalled", handleInstalled);
       media?.removeEventListener?.("change", handleDisplayMode);
     };
-  }, [installedStorageKey, promptEvent, promptKey]);
+  }, [installedStorageKey, promptEvent, promptKey, pwaId]);
 
   const device = useMemo(() => {
     if (isIosDevice()) return "ios";

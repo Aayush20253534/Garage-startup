@@ -119,28 +119,42 @@ const getAccountPortal = (user) => {
   return "/login";
 };
 
+const getExpectedDocumentShell = (pathname) => {
+  if (pathname === "/support" || pathname.startsWith("/support/")) {
+    return "support";
+  }
+
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return "admin";
+  }
+
+  if (pathname === "/intern" || pathname.startsWith("/intern/")) {
+    return "intern";
+  }
+
+  return "main";
+};
+
 function PwaDocumentShellGuard() {
   const location = useLocation();
 
   useEffect(() => {
-    const supportRoute =
-      location.pathname === "/support" ||
-      location.pathname.startsWith("/support/");
-    const supportShell =
-      document.documentElement.dataset.appShell === "support";
+    const expectedShell = getExpectedDocumentShell(location.pathname);
+    const currentShell =
+      document.documentElement.dataset.appShell || "main";
 
-    if (supportRoute === supportShell) return;
+    if (expectedShell === currentShell) return;
 
     const target = `${location.pathname}${location.search}${location.hash}`;
     const reloadKey = "rovauto:pwa-shell-reload";
     const previous = sessionStorage.getItem(reloadKey);
 
-    if (previous === target) {
+    if (previous === `${expectedShell}:${target}`) {
       sessionStorage.removeItem(reloadKey);
       return;
     }
 
-    sessionStorage.setItem(reloadKey, target);
+    sessionStorage.setItem(reloadKey, `${expectedShell}:${target}`);
     window.location.replace(target);
   }, [location.hash, location.pathname, location.search]);
 

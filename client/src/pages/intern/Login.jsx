@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Logo from "@/components/common/Logo";
+import StaffBrand from "@/components/staff/StaffBrand";
+import InternPwaInstall from "@/components/staff/InternPwaInstall";
 import { internApi } from "@/api/intern";
 import { useApp } from "@/hooks/useApp";
 import { FiArrowRight, FiShield } from "react-icons/fi";
@@ -48,7 +49,7 @@ export default function InternLogin() {
   return (
     <div className="container-x grid min-h-[80vh] items-center py-10">
       <div className="mx-auto w-full max-w-md card-soft p-7">
-        <Logo />
+        <StaffBrand portal="intern" />
 
         <div className="mt-8 flex items-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl bg-ink text-white">
@@ -112,6 +113,10 @@ export default function InternLogin() {
             )}
           </button>
         </form>
+
+        <div className="mt-5">
+          <InternPwaInstall compact />
+        </div>
 
         <p className="mt-4 text-center text-xs leading-5 text-muted">
           Intern accounts do not have self-registration or forgot-password access.

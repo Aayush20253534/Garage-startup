@@ -28,23 +28,48 @@ export const getServiceImageUrls = (categories = []) =>
     ]),
   );
 
-const isSupportPath = () =>
-  typeof window !== "undefined" &&
-  (window.location.pathname === "/support" ||
-    window.location.pathname.startsWith("/support/"));
+const getPortalFromPath = () => {
+  if (typeof window === "undefined") return "main";
+
+  const { pathname } = window.location;
+
+  if (pathname === "/support" || pathname.startsWith("/support/")) {
+    return "support";
+  }
+
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return "admin";
+  }
+
+  if (pathname === "/intern" || pathname.startsWith("/intern/")) {
+    return "intern";
+  }
+
+  return "main";
+};
+
+const WORKER_CONFIG = {
+  main: {
+    scriptUrl: "/sw.js",
+    scope: "/",
+  },
+  support: {
+    scriptUrl: "/support-sw.js",
+    scope: "/support",
+  },
+  admin: {
+    scriptUrl: "/admin-sw.js",
+    scope: "/admin",
+  },
+  intern: {
+    scriptUrl: "/intern-sw.js",
+    scope: "/intern",
+  },
+};
 
 const getWorkerConfig = (portal = "auto") => {
-  const supportPortal = portal === "support" || (portal === "auto" && isSupportPath());
-
-  return supportPortal
-    ? {
-        scriptUrl: "/support-sw.js",
-        scope: "/support",
-      }
-    : {
-        scriptUrl: "/sw.js",
-        scope: "/",
-      };
+  const resolvedPortal = portal === "auto" ? getPortalFromPath() : portal;
+  return WORKER_CONFIG[resolvedPortal] || WORKER_CONFIG.main;
 };
 
 const getRegistrationScriptUrl = (registration) =>
@@ -91,7 +116,7 @@ export const getRovautoServiceWorkerRegistration = async ({ portal = "auto" } = 
   const expectedScope = config.scope.replace(/\/$/, "") || "/";
 
   // getRegistration(clientUrl) can return the broader root registration.
-  // Keep it intact and create a separate, more-specific support registration.
+  // Keep the root worker intact and create the more-specific portal registration.
   if (registration && registrationScope !== expectedScope) {
     registration = null;
   }
