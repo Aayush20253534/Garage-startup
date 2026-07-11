@@ -42,6 +42,11 @@ export default function GarageSettings() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [deleteNotice, setDeleteNotice] = useState("");
+  const [deleteMethod, setDeleteMethod] = useState("password");
+  const [deleteCredential, setDeleteCredential] = useState("");
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [deleteOtpLoading, setDeleteOtpLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   const settingsItems = [
@@ -139,12 +144,52 @@ export default function GarageSettings() {
     navigate("/garage/login");
   };
 
-  const handleDeleteAccount = async () => {
-    setActionLoading(true);
+  const handleRequestDeleteOtp = async () => {
+    setDeleteOtpLoading(true);
     setDeleteError("");
+    setDeleteNotice("");
 
     try {
-      await garageApi.deleteAccount();
+      const result = await garageApi.requestDeleteAccountOtp();
+      setDeleteMethod("otp");
+      setDeleteCredential("");
+      setDeleteNotice(`A 6-digit OTP was sent to ${result.maskedEmail}.`);
+    } catch (err) {
+      setDeleteError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to send account deletion OTP",
+      );
+    } finally {
+      setDeleteOtpLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteError("");
+
+    if (!deleteConfirmed) {
+      setDeleteError("Confirm that you understand this deletion is permanent.");
+      return;
+    }
+
+    if (!deleteCredential.trim()) {
+      setDeleteError(
+        deleteMethod === "otp"
+          ? "Enter the 6-digit OTP sent to your email."
+          : "Enter your current password.",
+      );
+      return;
+    }
+
+    setActionLoading(true);
+
+    try {
+      await garageApi.deleteAccount(
+        deleteMethod === "otp"
+          ? { otp: deleteCredential.trim() }
+          : { currentPassword: deleteCredential },
+      );
       await logoutGarage();
       navigate("/");
     } catch (err) {
@@ -185,6 +230,10 @@ export default function GarageSettings() {
                     if (item.id === "logout") setShowLogoutModal(true);
                     if (item.id === "delete") {
                       setDeleteError("");
+                      setDeleteNotice("");
+                      setDeleteMethod("password");
+                      setDeleteCredential("");
+                      setDeleteConfirmed(false);
                       setShowDeleteModal(true);
                     }
                     return;
@@ -419,8 +468,8 @@ export default function GarageSettings() {
               <h3 className="text-xl font-bold text-ink">Delete Account</h3>
 
               <p className="mt-2 text-sm text-muted">
-                This will permanently delete your account. Humanity has invented
-                undo buttons, but not for this.
+                This permanently removes the garage account and related profile data.
+                Confirm your identity with your current password or an email OTP.
               </p>
             </div>
 
@@ -430,6 +479,66 @@ export default function GarageSettings() {
                 <span>{deleteError}</span>
               </div>
             )}
+
+            {deleteNotice && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <FiCheck className="shrink-0" />
+                <span>{deleteNotice}</span>
+              </div>
+            )}
+
+            <div className="mt-5 grid gap-3">
+              <label className="grid gap-1.5 text-sm font-semibold text-ink">
+                {deleteMethod === "otp" ? "Email OTP" : "Current password"}
+                <input
+                  type={deleteMethod === "otp" ? "text" : "password"}
+                  inputMode={deleteMethod === "otp" ? "numeric" : undefined}
+                  autoComplete={deleteMethod === "otp" ? "one-time-code" : "current-password"}
+                  value={deleteCredential}
+                  onChange={(event) =>
+                    setDeleteCredential(
+                      deleteMethod === "otp"
+                        ? event.target.value.replace(/\D/g, "").slice(0, 6)
+                        : event.target.value,
+                    )
+                  }
+                  placeholder={deleteMethod === "otp" ? "6-digit OTP" : "Enter current password"}
+                  className={inputClass}
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={
+                  deleteMethod === "otp"
+                    ? () => {
+                        setDeleteMethod("password");
+                        setDeleteCredential("");
+                        setDeleteNotice("");
+                        setDeleteError("");
+                      }
+                    : handleRequestDeleteOtp
+                }
+                disabled={actionLoading || deleteOtpLoading}
+                className="text-left text-sm font-bold text-emerald-700 hover:text-emerald-800 disabled:opacity-60"
+              >
+                {deleteMethod === "otp"
+                  ? "Use current password instead"
+                  : deleteOtpLoading
+                    ? "Sending OTP..."
+                    : "Cannot use your password? Send an OTP to email"}
+              </button>
+
+              <label className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <input
+                  type="checkbox"
+                  checked={deleteConfirmed}
+                  onChange={(event) => setDeleteConfirmed(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-red-700"
+                />
+                <span>I understand this action is permanent and cannot be undone.</span>
+              </label>
+            </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button

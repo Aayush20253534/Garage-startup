@@ -1,11 +1,8 @@
-import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  FiArrowRight,
   FiBell,
   FiCheckCircle,
   FiHeadphones,
-  FiLock,
   FiMail,
   FiMessageSquare,
   FiShield,
@@ -13,6 +10,7 @@ import {
 
 import SupportBrand from "@/components/support/SupportBrand";
 import SupportPwaInstall from "@/components/support/SupportPwaInstall";
+import StaffEmailOtpLoginForm from "@/components/auth/StaffEmailOtpLoginForm";
 import { customerSupportApi } from "@/api/customerSupport";
 import { useApp } from "@/hooks/useApp";
 
@@ -20,36 +18,9 @@ export default function CustomerSupportLogin() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { login } = useApp();
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      const result = await customerSupportApi.login(
-        form.email.trim().toLowerCase(),
-        form.password,
-      );
-
-      if (!result?.user || result.user.role !== "CUSTOMER_SUPPORT") {
-        throw new Error("Invalid customer support login response");
-      }
-
-      login(result.user);
-      navigate(state?.from?.pathname || "/support", { replace: true });
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Customer support login failed",
-      );
-    } finally {
-      setLoading(false);
-    }
+  const handleAuthenticated = (supportUser) => {
+    login(supportUser);
+    navigate(state?.from?.pathname || "/support", { replace: true });
   };
 
   return (
@@ -80,69 +51,17 @@ export default function CustomerSupportLogin() {
             </div>
           </div>
 
-          {error && (
-            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={submit} className="mt-6 grid gap-4">
-            <label className="grid gap-2 text-sm font-bold text-ink">
-              Support email
-              <div className="relative">
-                <FiMail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                  required
-                  type="email"
-                  value={form.email}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      email: event.target.value,
-                    }))
-                  }
-                  placeholder="support@rovauto.com"
-                  autoComplete="username"
-                  className="h-12 w-full rounded-xl border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
-                />
-              </div>
-            </label>
-
-            <label className="grid gap-2 text-sm font-bold text-ink">
-              Password
-              <div className="relative">
-                <FiLock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                  required
-                  type="password"
-                  value={form.password}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      password: event.target.value,
-                    }))
-                  }
-                  placeholder="Enter password"
-                  autoComplete="current-password"
-                  className="h-12 w-full rounded-xl border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
-                />
-              </div>
-            </label>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-extrabold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? (
-                "Signing in..."
-              ) : (
-                <>
-                  Sign in <FiArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          </form>
+          <StaffEmailOtpLoginForm
+            identifierLabel="Support email"
+            identifierPlaceholder="support@rovauto.com"
+            identifierType="email"
+            expectedRole="CUSTOMER_SUPPORT"
+            beginLogin={customerSupportApi.login}
+            verifyOtp={customerSupportApi.verifyLoginOtp}
+            resendOtp={customerSupportApi.resendLoginOtp}
+            onSuccess={handleAuthenticated}
+            submitLabel="Continue"
+          />
 
           <p className="mt-5 border-t border-line pt-4 text-xs leading-5 text-muted">
             Support accounts have no registration or forgot-password flow.

@@ -19,7 +19,7 @@ import {
 const STATUS_OPTIONS = ["", "OPEN", "INVESTIGATING", "RESOLVED", "IGNORED"];
 const SEVERITY_OPTIONS = ["", "INFO", "WARNING", "ERROR", "CRITICAL"];
 const SOURCE_OPTIONS = ["", "FRONTEND", "BACKEND"];
-const ACTOR_OPTIONS = ["", "CUSTOMER", "GARAGE", "ADMIN", "PUBLIC", "SYSTEM"];
+const ACTOR_OPTIONS = ["", "CUSTOMER", "GARAGE", "ADMIN", "INTERN", "CUSTOMER_SUPPORT", "PUBLIC", "SYSTEM"];
 
 const formatDateTime = (value) => {
   if (!value) return "-";

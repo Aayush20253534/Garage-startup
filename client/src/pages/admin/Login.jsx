@@ -1,56 +1,19 @@
-import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import StaffBrand from "@/components/staff/StaffBrand";
 import AdminPwaInstall from "@/components/staff/AdminPwaInstall";
+import StaffEmailOtpLoginForm from "@/components/auth/StaffEmailOtpLoginForm";
 import { adminApi } from "@/api/admin";
 import { useApp } from "@/hooks/useApp";
-import {
-  FiArrowRight,
-  FiCheckCircle,
-  FiLock,
-  FiShield,
-  FiUser,
-} from "react-icons/fi";
+import { FiCheckCircle, FiShield } from "react-icons/fi";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { login } = useApp();
 
-  const [form, setForm] = useState({
-    identifier: "",
-    password: "",
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      const result = await adminApi.login(
-        form.identifier.trim(),
-        form.password,
-      );
-
-      const adminUser = result?.user;
-
-      if (!adminUser || adminUser.role !== "ADMIN") {
-        throw new Error("Invalid admin login response");
-      }
-
-      // The backend stores the JWT in an HttpOnly cookie.
-      login(adminUser);
-      navigate(state?.from?.pathname || "/admin", { replace: true });
-    } catch (err) {
-      setError(
-        err.response?.data?.message || err.message || "Admin login failed",
-      );
-    } finally {
-      setLoading(false);
-    }
+  const handleAuthenticated = (adminUser) => {
+    login(adminUser);
+    navigate(state?.from?.pathname || "/admin", { replace: true });
   };
 
   return (
@@ -81,68 +44,16 @@ export default function AdminLogin() {
             </div>
           </div>
 
-          {error && (
-            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={submit} className="mt-6 grid gap-4">
-            <label className="grid gap-2 text-sm font-bold text-ink">
-              Email or phone
-              <div className="relative">
-                <FiUser className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                  required
-                  value={form.identifier}
-                  onChange={(event) =>
-                    setForm((previous) => ({
-                      ...previous,
-                      identifier: event.target.value,
-                    }))
-                  }
-                  placeholder="admin@rovauto.com"
-                  autoComplete="username"
-                  className="h-12 w-full rounded-xl border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
-                />
-              </div>
-            </label>
-
-            <label className="grid gap-2 text-sm font-bold text-ink">
-              Password
-              <div className="relative">
-                <FiLock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                  required
-                  value={form.password}
-                  onChange={(event) =>
-                    setForm((previous) => ({
-                      ...previous,
-                      password: event.target.value,
-                    }))
-                  }
-                  type="password"
-                  placeholder="Enter password"
-                  autoComplete="current-password"
-                  className="h-12 w-full rounded-xl border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
-                />
-              </div>
-            </label>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-extrabold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? (
-                "Logging in..."
-              ) : (
-                <>
-                  Login <FiArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          </form>
+          <StaffEmailOtpLoginForm
+            identifierLabel="Admin ID, email, or phone"
+            identifierPlaceholder="admin"
+            expectedRole="ADMIN"
+            beginLogin={adminApi.login}
+            verifyOtp={adminApi.verifyLoginOtp}
+            resendOtp={adminApi.resendLoginOtp}
+            onSuccess={handleAuthenticated}
+            submitLabel="Continue"
+          />
         </section>
 
         <aside className="grid gap-5">

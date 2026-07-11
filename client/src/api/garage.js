@@ -225,8 +225,12 @@ export const garageApi = {
     return normalizeGarage(garage);
   },
 
-  async deleteAccount() {
-    return unwrap(await api.delete("/garages/me"));
+  async requestDeleteAccountOtp() {
+    return unwrap(await api.post("/garages/me/delete-otp"));
+  },
+
+  async deleteAccount(payload = {}) {
+    return unwrap(await api.delete("/garages/me", { data: payload }));
   },
 
   async submitApplication(payload) {

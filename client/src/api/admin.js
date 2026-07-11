@@ -8,12 +8,31 @@ export const adminApi = {
     const result = unwrap(
       await api.post("/auth/login", { identifier, password, role: "ADMIN" }),
     );
+
+    if (!result?.requiresTwoFactor || !result?.challengeId) {
+      throw new Error("Admin two-factor verification could not be started");
+    }
+
+    return result;
+  },
+
+  async verifyLoginOtp(challengeId, otp) {
+    const result = unwrap(
+      await api.post("/auth/staff/verify-otp", { challengeId, otp }),
+    );
+
     if (result.user?.role !== "ADMIN") {
       throw new Error("This account is not an admin account");
     }
 
     const user = await verifyCurrentSession({ expectedRole: "ADMIN" });
     return { ...result, user };
+  },
+
+  async resendLoginOtp(challengeId) {
+    return unwrap(
+      await api.post("/auth/staff/resend-otp", { challengeId }),
+    );
   },
 
   async getStats() {

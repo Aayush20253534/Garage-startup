@@ -1,0 +1,49 @@
+name: Security checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  server-security-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: server
+    env:
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/rovauto_ci
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/rovauto_ci
+      JWT_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+      ADMIN_2FA_EMAIL: ci-admin@example.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run prisma:validate
+      - run: npm run test:security
+
+  client-production-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm run build

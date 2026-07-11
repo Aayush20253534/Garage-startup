@@ -13,6 +13,22 @@ export const customerSupportApi = {
       }),
     );
 
+    if (!result?.requiresTwoFactor || !result?.challengeId) {
+      throw new Error("Support two-factor verification could not be started");
+    }
+
+    return result;
+  },
+
+  async verifyLoginOtp(challengeId, otp) {
+    const result = unwrap(
+      await api.post(
+        "/auth/staff/verify-otp",
+        { challengeId, otp },
+        { sessionScope: "support" },
+      ),
+    );
+
     if (result.user?.role !== "CUSTOMER_SUPPORT") {
       throw new Error("This account is not a customer support account");
     }
@@ -22,6 +38,16 @@ export const customerSupportApi = {
       portal: "support",
     });
     return { ...result, user };
+  },
+
+  async resendLoginOtp(challengeId) {
+    return unwrap(
+      await api.post(
+        "/auth/staff/resend-otp",
+        { challengeId },
+        { sessionScope: "support" },
+      ),
+    );
   },
 
   async getDashboard() {
