@@ -218,12 +218,12 @@ export default function Navbar() {
           : "bg-transparent",
       ].join(" ")}
     >
-      <div className="container-x flex h-16 items-center justify-between sm:h-20 lg:grid lg:grid-cols-[1fr_auto_1fr]">
+      <div className="container-x flex h-16 items-center justify-between sm:h-20">
         <Link to="/" className="shrink-0" onClick={closeDropdowns}>
           <Logo />
         </Link>
 
-        <nav className="hidden items-center gap-1 lg:flex lg:justify-self-center">
+        <nav className="hidden items-center gap-1 lg:flex">
           {visibleNav.map((item) => (
             <NavLink
               key={item.to}
@@ -251,8 +251,31 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 lg:flex lg:justify-self-end">
-          {user && (
+        <div className="hidden items-center gap-2 lg:flex">
+          {!user ? (
+            <>
+              <Link
+                to="/login"
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
+              >
+                Login
+              </Link>
+
+              <Link
+                to="/register"
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
+              >
+                Register
+              </Link>
+
+              <Link
+                to="/booking/vehicle"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark"
+              >
+                Book Service
+              </Link>
+            </>
+          ) : (
             <>
               {vehicle ? (
                 <div className="relative">
@@ -909,4 +932,4 @@ export default function Navbar() {
       </AnimatePresence>
     </>
   );
-}
+}H
