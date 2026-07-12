@@ -49,11 +49,22 @@ const isCategoryComingSoon = (category) => {
 };
 
 export default function Services() {
-  const [q, setQ] = useState("");
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    user,
+    vehicle,
+    location,
+    cart,
+    serviceCategoriesCache,
+    fetchServiceCategories,
+  } = useApp();
 
-  const { user, cart, fetchServiceCategories } = useApp();
+  const hasCachedCategories = Array.isArray(serviceCategoriesCache);
+
+  const [q, setQ] = useState("");
+  const [categories, setCategories] = useState(() =>
+    hasCachedCategories ? serviceCategoriesCache : [],
+  );
+  const [loading, setLoading] = useState(!hasCachedCategories);
 
   const cartItems = Array.isArray(cart) ? cart : [];
 
@@ -61,6 +72,10 @@ export default function Services() {
     let cancelled = false;
 
     const loadCategories = async () => {
+      if (!Array.isArray(serviceCategoriesCache)) {
+        setLoading(true);
+      }
+
       try {
         const data = await fetchServiceCategories();
 
@@ -68,16 +83,14 @@ export default function Services() {
           return;
         }
 
-        setCategories(
-          Array.isArray(data) ? data : [],
-        );
+        setCategories(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error(
           "Failed to load service categories:",
           error,
         );
 
-        if (!cancelled) {
+        if (!cancelled && !Array.isArray(serviceCategoriesCache)) {
           setCategories([]);
         }
       } finally {
@@ -93,13 +106,9 @@ export default function Services() {
       cancelled = true;
     };
 
-    /*
-     * Categories should load only once when the page mounts.
-     * Depending on fetchServiceCategories can cause repeated
-     * requests if the App context recreates the function.
-     */
+    // Refetch only when the response's pricing/restriction context changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user?.id, vehicle?.id, location?.city]);
 
   const filteredCategories = useMemo(() => {
     const searchQuery = q.trim().toLowerCase();

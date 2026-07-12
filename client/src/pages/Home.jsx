@@ -22,9 +22,7 @@ import { formatRupees } from "@/utils/priceRange";
 import homepageHero from "@/assets/Rovauto_home.png";
 import {
   getCategoryThumbnailUrl,
-  getServiceImageUrls,
   getServiceThumbnailUrl,
-  warmImageCache,
 } from "@/utils/imageCache";
 
 const TRUST = [
@@ -84,7 +82,7 @@ const formatCount = (value) => {
 };
 
 export default function Home() {
-  const { user, vehicle, location } = useApp();
+  const { user, vehicle, location, fetchServiceCategories } = useApp();
 
   const [categories, setCategories] = useState([]);
   const [popularServices, setPopularServices] = useState([]);
@@ -134,24 +132,15 @@ export default function Home() {
     let mounted = true;
     setLoading(true);
 
-    api
-      .get("/services/categories", {
-        params: user
-          ? {
-              ...(vehicle?.id && { vehicleId: vehicle.id }),
-              ...(location?.city && { city: location.city }),
-            }
-          : {},
-        skipSessionExpiryMessage: true,
-      })
-      .then((response) => {
+    Promise.resolve(fetchServiceCategories())
+      .then((serviceCategories) => {
         if (!mounted) return;
 
-        const serviceCategories = Array.isArray(response.data?.data)
-          ? response.data.data
+        const normalizedCategories = Array.isArray(serviceCategories)
+          ? serviceCategories
           : [];
 
-        const services = serviceCategories
+        const services = normalizedCategories
           .flatMap((category) =>
             (category.services || []).map((service) => ({
               ...service,
@@ -160,9 +149,8 @@ export default function Home() {
           )
           .slice(0, 6);
 
-        setCategories(serviceCategories);
+        setCategories(normalizedCategories);
         setPopularServices(services);
-        warmImageCache(getServiceImageUrls(serviceCategories));
       })
       .catch(() => {
         if (!mounted) return;
@@ -176,7 +164,7 @@ export default function Home() {
     return () => {
       mounted = false;
     };
-  }, [user, vehicle?.id, location?.city]);
+  }, [user?.id, vehicle?.id, location?.city]);
 
   return (
     <>

@@ -235,6 +235,15 @@ const getCartPricingContextKey = (selectedVehicle, selectedLocation) =>
     location: getLocationIdentity(selectedLocation),
   });
 
+const getServiceCategoriesContextKey = (user, vehicle, location) =>
+  JSON.stringify({
+    scope: user?.id ? `customer:${user.id}` : "public",
+    vehicleId: user?.id ? vehicle?.id || null : null,
+    city: user?.id
+      ? String(location?.city || "").trim().toLowerCase() || null
+      : null,
+  });
+
 
 const getStoredSessionRole = () => {
   const supportPortal = isSupportPortalPath();
@@ -387,6 +396,10 @@ export function AppProvider({ children }) {
   const vehiclesRequestRef = useRef(null);
   const activeBookingsRequestRef = useRef(null);
   const serviceHistoryRequestRef = useRef(null);
+  const serviceCategoriesRequestRef = useRef({
+    contextKey: null,
+    request: null,
+  });
   const customerPreloadRef = useRef({
     userId: null,
     cancel: null,
@@ -405,6 +418,11 @@ export function AppProvider({ children }) {
   );
   const [serviceCategoriesFetchedAt, setServiceCategoriesFetchedAt] = useState(
     () => readNumber("rov_service_categories_time", null),
+  );
+  const [serviceCategoriesCacheKey, setServiceCategoriesCacheKey] = useState(
+    () =>
+      localStorage.getItem("rov_service_categories_context") ||
+      (readJson("rov_service_categories", null) ? "public" : null),
   );
 
   const [vehicleMetaCache, setVehicleMetaCache] = useState(() =>
@@ -459,15 +477,23 @@ export function AppProvider({ children }) {
   const clearServiceCategoriesCache = () => {
     setServiceCategoriesCache(null);
     setServiceCategoriesFetchedAt(null);
+    setServiceCategoriesCacheKey(null);
+    serviceCategoriesRequestRef.current = {
+      contextKey: null,
+      request: null,
+    };
     localStorage.removeItem("rov_service_categories");
     localStorage.removeItem("rov_service_categories_time");
+    localStorage.removeItem("rov_service_categories_context");
   };
 
-  const saveServiceCategoriesCache = (data, fetchedAt) => {
+  const saveServiceCategoriesCache = (data, fetchedAt, contextKey) => {
     setServiceCategoriesCache(data);
     setServiceCategoriesFetchedAt(fetchedAt);
+    setServiceCategoriesCacheKey(contextKey);
     localStorage.setItem("rov_service_categories", JSON.stringify(data));
     localStorage.setItem("rov_service_categories_time", String(fetchedAt));
+    localStorage.setItem("rov_service_categories_context", contextKey);
   };
 
   const clearVehicleMetaCache = () => {
@@ -1101,7 +1127,11 @@ export function AppProvider({ children }) {
 
   const fetchServiceCategories = async ({ force = false } = {}) => {
     const now = Date.now();
-    const usePublicCache = !user;
+    const contextKey = getServiceCategoriesContextKey(
+      user,
+      vehicle,
+      location,
+    );
 
     const params = user
       ? {
@@ -1110,25 +1140,54 @@ export function AppProvider({ children }) {
         }
       : {};
 
-    if (
-      usePublicCache &&
+    const hasFreshMatchingCache = Boolean(
       !force &&
-      serviceCategoriesCache &&
-      serviceCategoriesFetchedAt &&
-      now - serviceCategoriesFetchedAt < SERVICES_CACHE_TTL
-    ) {
+        Array.isArray(serviceCategoriesCache) &&
+        serviceCategoriesCacheKey === contextKey &&
+        serviceCategoriesFetchedAt &&
+        now - serviceCategoriesFetchedAt < SERVICES_CACHE_TTL,
+    );
+
+    if (hasFreshMatchingCache) {
       return serviceCategoriesCache;
     }
 
-    const response = await api.get("/services/categories", { params });
-    const data = response.data.data || [];
-    const fetchedAt = Date.now();
-
-    if (usePublicCache) {
-      saveServiceCategoriesCache(data, fetchedAt);
+    if (
+      !force &&
+      serviceCategoriesRequestRef.current.contextKey === contextKey &&
+      serviceCategoriesRequestRef.current.request
+    ) {
+      return serviceCategoriesRequestRef.current.request;
     }
 
-    return data;
+    let request;
+
+    request = api
+      .get("/services/categories", { params })
+      .then((response) => {
+        const data = Array.isArray(response.data?.data)
+          ? response.data.data
+          : [];
+        const fetchedAt = Date.now();
+
+        saveServiceCategoriesCache(data, fetchedAt, contextKey);
+        return data;
+      })
+      .finally(() => {
+        if (serviceCategoriesRequestRef.current.request === request) {
+          serviceCategoriesRequestRef.current = {
+            contextKey: null,
+            request: null,
+          };
+        }
+      });
+
+    serviceCategoriesRequestRef.current = {
+      contextKey,
+      request,
+    };
+
+    return request;
   };
 
   const fetchVehicleMeta = async ({ force = false } = {}) => {
@@ -1503,6 +1562,15 @@ export function AppProvider({ children }) {
     setCartContextKey(getCartPricingContextKey(vehicle, location));
   };
 
+  const currentServiceCategoriesContextKey =
+    getServiceCategoriesContextKey(user, vehicle, location);
+  const hasFreshServiceCategoriesCache = Boolean(
+    Array.isArray(serviceCategoriesCache) &&
+      serviceCategoriesCacheKey === currentServiceCategoriesContextKey &&
+      serviceCategoriesFetchedAt &&
+      Date.now() - serviceCategoriesFetchedAt < SERVICES_CACHE_TTL,
+  );
+
   const value = {
     user,
     garage: garageUser,
@@ -1518,8 +1586,12 @@ export function AppProvider({ children }) {
 
     dashboardCache,
     dashboardFetchedAt,
-    serviceCategoriesCache,
-    serviceCategoriesFetchedAt,
+    serviceCategoriesCache: hasFreshServiceCategoriesCache
+      ? serviceCategoriesCache
+      : null,
+    serviceCategoriesFetchedAt: hasFreshServiceCategoriesCache
+      ? serviceCategoriesFetchedAt
+      : null,
     vehicleMetaCache,
     vehicleMetaFetchedAt,
     vehiclesCache,

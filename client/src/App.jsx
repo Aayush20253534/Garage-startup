@@ -580,7 +580,8 @@ const lazyPage = (loader, moduleName) =>
       }),
   );
 
-const Services = lazyPage(() => import("@/pages/Services"), "Services");
+const loadServicesPage = () => import("@/pages/Services");
+const Services = lazyPage(loadServicesPage, "Services");
 const Garages = lazyPage(() => import("@/pages/Garages"), "Garages");
 const CategoryDetail = lazyPage(
   () => import("@/pages/CategoryDetail"),
@@ -1558,6 +1559,16 @@ function RouteFallback() {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (getExpectedDocumentShell(window.location.pathname) !== "main") {
+      return;
+    }
+
+    // Start downloading the small Services route chunk immediately after the
+    // first paint so clicking the Services link does not trigger a chunk wait.
+    loadServicesPage().catch(() => {});
+  }, []);
+
   return (
     <AppProvider>
       <AppErrorBoundary>
