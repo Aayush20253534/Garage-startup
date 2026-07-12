@@ -265,7 +265,7 @@ export default function Navbar() {
                 to="/register"
                 className="inline-flex h-10 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
               >
-                Register
+                Signup
               </Link>
 
               <Link
