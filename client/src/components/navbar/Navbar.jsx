@@ -241,14 +241,8 @@ export default function Navbar() {
                   <span className="relative z-10">{item.label}</span>
 
                   {isActive && (
-                    <motion.span
-                      layoutId="nav-pill"
+                    <span
                       className="pointer-events-none absolute inset-0 z-0 rounded-full bg-bg-soft"
-                      transition={{
-                        type: "spring",
-                        stiffness: 420,
-                        damping: 32,
-                      }}
                     />
                   )}
                 </>
