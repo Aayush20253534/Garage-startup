@@ -1,6 +1,10 @@
 const axios = require("axios");
 const prisma = require("../config/prisma");
 const systemIssueReporter = require("./systemIssueReporter.service");
+const {
+  buildSafeProbeUrl,
+  isUntrustedPublicIssue,
+} = require("./security/systemIssueProbePolicy");
 
 const DEFAULT_INTERVAL_MS = 30 * 60 * 1000;
 const DEFAULT_QUIET_PERIOD_MS = 30 * 60 * 1000;
@@ -93,7 +97,11 @@ const canResolveByQuietPeriodOnly = (issue) => {
   if (!isQuietOnlyAutoResolveEnabled()) return false;
   if (/system-issues\/report/i.test(String(issue.endpoint || ""))) return false;
 
-  return !isSafeProbeMethod(issue.method) || isProtectedEndpoint(issue);
+  return (
+    isUntrustedPublicIssue(issue) ||
+    !isSafeProbeMethod(issue.method) ||
+    isProtectedEndpoint(issue)
+  );
 };
 
 const buildResolutionNote = (quietPeriodMs, verification) => {
@@ -124,38 +132,21 @@ const buildResolutionNote = (quietPeriodMs, verification) => {
 };
 
 const toProbeUrl = (issue) => {
-  const metadataProbeUrl =
-    typeof issue.metadata?.autoResolveProbeUrl === "string"
-      ? issue.metadata.autoResolveProbeUrl.trim()
-      : "";
-  const endpoint = metadataProbeUrl || String(issue.endpoint || "").trim();
+  const endpoint = String(issue.endpoint || "").trim();
 
-  if (!endpoint || /system-issues\/report/i.test(endpoint)) {
+  if (
+    !endpoint ||
+    /system-issues\/report/i.test(endpoint) ||
+    !isSafeProbeMethod(issue.method) ||
+    isUntrustedPublicIssue(issue)
+  ) {
     return null;
   }
 
-  if (!metadataProbeUrl && !isSafeProbeMethod(issue.method)) {
-    return null;
-  }
-
-  try {
-    if (/^https?:\/\//i.test(endpoint)) {
-      return endpoint;
-    }
-
-    const normalizedEndpoint = endpoint.startsWith("/")
-      ? endpoint
-      : `/${endpoint}`;
-    const baseUrl = getProbeBaseUrl();
-
-    if (normalizedEndpoint.startsWith("/api/v1/")) {
-      return `${baseUrl.replace(/\/api\/v1$/, "")}${normalizedEndpoint}`;
-    }
-
-    return `${baseUrl}${normalizedEndpoint}`;
-  } catch {
-    return null;
-  }
+  return buildSafeProbeUrl({
+    endpoint,
+    baseUrl: getProbeBaseUrl(),
+  });
 };
 
 const verifyIssueResolved = async (issue) => {
@@ -174,6 +165,9 @@ const verifyIssueResolved = async (issue) => {
       method: isSafeProbeMethod(issue.method) ? issue.method || "GET" : "GET",
       url: probeUrl,
       timeout: Number(process.env.SYSTEM_ISSUE_PROBE_TIMEOUT_MS || 8000),
+      maxRedirects: 0,
+      maxContentLength: 64 * 1024,
+      maxBodyLength: 64 * 1024,
       validateStatus: (status) => status < 500,
       headers: {
         "X-Rovauto-System-Probe": "system-issue-auto-resolver",

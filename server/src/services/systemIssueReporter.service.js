@@ -1,6 +1,9 @@
 const crypto = require("crypto");
 const prisma = require("../config/prisma");
 const { deriveSystemIssueActor } = require("./security/systemIssueActorRules");
+const {
+  isReservedSystemIssueMetadataKey,
+} = require("./security/systemIssueProbePolicy");
 
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TITLE_LENGTH = 180;
@@ -34,6 +37,12 @@ const sanitizeValue = (value, depth = 0) => {
     return Object.entries(value)
       .slice(0, 50)
       .reduce((result, [key, item]) => {
+        // Client reports must never store metadata that controls server-side
+        // network requests or other auto-resolver behavior.
+        if (isReservedSystemIssueMetadataKey(key)) {
+          return result;
+        }
+
         result[key] = SENSITIVE_KEY_PATTERN.test(key)
           ? "[REDACTED]"
           : sanitizeValue(item, depth + 1);
