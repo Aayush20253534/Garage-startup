@@ -150,8 +150,8 @@ export const INDIA_COORDINATE_BOUNDS = SERVICE_AREA_COORDINATE_BOUNDS[0];
 export const hasUsableIndiaCoordinates = (location = {}) => {
   if (!location || typeof location !== "object") return false;
 
-  const latitude = Number(location.latitude);
-  const longitude = Number(location.longitude);
+  const latitude = Number(location.latitude ?? location.lat);
+  const longitude = Number(location.longitude ?? location.lng);
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
   if (latitude === 0 && longitude === 0) return false;

@@ -6,6 +6,7 @@ import LocationPicker from "@/components/maps/LocationPicker";
 import {
   buildFullAddress,
   getDefaultUserLocation,
+  getLocationAddress,
   getProfileAddress,
   hasUsableIndiaCoordinates,
   parseAddressParts,
@@ -33,15 +34,37 @@ import {
   FiX,
 } from "react-icons/fi";
 
+const hasCompleteServiceLocation = (candidate) =>
+  hasUsableIndiaCoordinates(candidate) && Boolean(getLocationAddress(candidate));
+
+const normalizeSavedLocation = (candidate = {}) => {
+  const fullAddress = getLocationAddress(candidate);
+
+  return {
+    ...candidate,
+    latitude: Number(candidate.latitude ?? candidate.lat),
+    longitude: Number(candidate.longitude ?? candidate.lng),
+    address: fullAddress,
+    formattedAddress: fullAddress,
+    fullAddress,
+  };
+};
+
+const getPreferredSavedLocation = (locations = []) => {
+  const validLocations = locations.filter(hasCompleteServiceLocation);
+
+  return (
+    validLocations.find((item) => item.isDefault) || validLocations[0] || null
+  );
+};
+
 const getCheckoutAddressForm = ({ location, user }) => {
   const defaultUserLocation = getDefaultUserLocation(user);
-  const source = location || defaultUserLocation || {};
+  const source = hasCompleteServiceLocation(location)
+    ? location
+    : defaultUserLocation || location || {};
   const fullAddress =
-    source.formattedAddress ||
-    source.fullAddress ||
-    source.address ||
-    getProfileAddress(user) ||
-    "";
+    getLocationAddress(source) || getProfileAddress(user) || "";
 
   const parts = parseAddressParts(fullAddress);
 
@@ -49,7 +72,7 @@ const getCheckoutAddressForm = ({ location, user }) => {
     ...source,
     ...parts,
     address: source.address || parts.address,
-    city: parts.city || source.city || "",
+    city: source.city || parts.city || "",
     formattedAddress: fullAddress,
     fullAddress,
   };
@@ -119,6 +142,7 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
   const [phoneDraft, setPhoneDraft] = useState(user?.phone || "");
   const [pendingBooking, setPendingBooking] = useState(null);
   const [activeVehicleBooking, setActiveVehicleBooking] = useState(null);
@@ -227,6 +251,60 @@ export default function Checkout() {
     }
   }, [editingAddress, location, user]);
 
+  useEffect(() => {
+    if (!user?.id || hasCompleteServiceLocation(location)) {
+      return undefined;
+    }
+
+    const defaultUserLocation = getDefaultUserLocation(user);
+
+    if (defaultUserLocation) {
+      setLocation(normalizeSavedLocation(defaultUserLocation));
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    api
+      .get("/locations")
+      .then((response) => {
+        if (cancelled) return;
+
+        const savedLocations = Array.isArray(response.data?.data)
+          ? response.data.data
+          : [];
+        const savedLocation = getPreferredSavedLocation(savedLocations);
+
+        if (!savedLocation) return;
+
+        const normalizedLocation = normalizeSavedLocation(savedLocation);
+        const nextUser = {
+          ...(user || {}),
+          locations: savedLocations,
+        };
+
+        setLocation(normalizedLocation);
+        setAddressForm(
+          getCheckoutAddressForm({
+            location: normalizedLocation,
+            user: nextUser,
+          }),
+        );
+        setUser?.((previous) => ({
+          ...(previous || {}),
+          locations: savedLocations,
+        }));
+      })
+      .catch(() => {
+        // Checkout retries this lookup before payment. Do not interrupt the page
+        // while a saved-location hydration request is temporarily unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   const savePhoneNumber = async () => {
     if (!canSavePhone) {
       setError("Enter a valid 10-digit Indian mobile number before payment.");
@@ -265,38 +343,71 @@ export default function Checkout() {
   };
 
   const buildLocationPayload = async () => {
+    const toPayload = async (candidate) => {
+      if (!hasCompleteServiceLocation(candidate)) return null;
+
+      const normalizedLocation = normalizeSavedLocation(candidate);
+      const city = await requireAvailableCityName(normalizedLocation);
+
+      return {
+        latitude: normalizedLocation.latitude,
+        longitude: normalizedLocation.longitude,
+        address: normalizedLocation.fullAddress,
+        city,
+        placeId: normalizedLocation.placeId || null,
+      };
+    };
+
+    const currentLocationPayload = await toPayload(location);
+    if (currentLocationPayload) return currentLocationPayload;
+
     const defaultUserLocation = getDefaultUserLocation(user);
-    const currentAddress =
-      location?.fullAddress || buildFullAddress(location) || location?.address;
+    const defaultLocationPayload = await toPayload(defaultUserLocation);
 
-    if (hasUsableIndiaCoordinates(location) && currentAddress) {
-      const city = await requireAvailableCityName(location);
-
-      return {
-        latitude: Number(location.latitude),
-        longitude: Number(location.longitude),
-        address: currentAddress,
-        city,
-        placeId: location.placeId || null,
-      };
+    if (defaultLocationPayload) {
+      const normalizedLocation = normalizeSavedLocation(defaultUserLocation);
+      setLocation(normalizedLocation);
+      setAddressForm(
+        getCheckoutAddressForm({ location: normalizedLocation, user }),
+      );
+      return defaultLocationPayload;
     }
 
-    if (
-      defaultUserLocation?.address &&
-      hasUsableIndiaCoordinates(defaultUserLocation)
-    ) {
-      const city = await requireAvailableCityName(defaultUserLocation);
+    let savedLocations = [];
 
-      return {
-        latitude: Number(defaultUserLocation.latitude),
-        longitude: Number(defaultUserLocation.longitude),
-        address: defaultUserLocation.formattedAddress || defaultUserLocation.address,
-        city,
-        placeId: defaultUserLocation.placeId || null,
-      };
+    try {
+      const response = await api.get("/locations");
+      savedLocations = Array.isArray(response.data?.data)
+        ? response.data.data
+        : [];
+    } catch {
+      return null;
     }
 
-    return null;
+    const savedLocation = getPreferredSavedLocation(savedLocations);
+    const savedLocationPayload = await toPayload(savedLocation);
+
+    if (!savedLocationPayload) return null;
+
+    const normalizedLocation = normalizeSavedLocation(savedLocation);
+    const nextUser = {
+      ...(user || {}),
+      locations: savedLocations,
+    };
+
+    setLocation(normalizedLocation);
+    setAddressForm(
+      getCheckoutAddressForm({
+        location: normalizedLocation,
+        user: nextUser,
+      }),
+    );
+    setUser?.((previous) => ({
+      ...(previous || {}),
+      locations: savedLocations,
+    }));
+
+    return savedLocationPayload;
   };
 
   const saveAddress = async () => {
@@ -325,24 +436,39 @@ export default function Checkout() {
       fullAddress,
       formattedAddress: fullAddress,
       address: fullAddress,
-      latitude: Number(addressForm.latitude),
-      longitude: Number(addressForm.longitude),
+      latitude: Number(addressForm.latitude ?? addressForm.lat),
+      longitude: Number(addressForm.longitude ?? addressForm.lng),
+    };
+    const locationPayload = {
+      latitude: nextLocation.latitude,
+      longitude: nextLocation.longitude,
+      address: fullAddress,
+      formattedAddress: fullAddress,
+      city,
+      placeId: nextLocation.placeId || null,
+      addressComponents: nextLocation.addressComponents || undefined,
+      source: nextLocation.source === "GPS" ? "GPS" : "MANUAL",
+      isDefault: true,
     };
 
-    setLocation(nextLocation);
-
     try {
-      await api.post("/locations", {
-        latitude: nextLocation.latitude,
-        longitude: nextLocation.longitude,
-        address: fullAddress,
-        formattedAddress: fullAddress,
+      setSavingAddress(true);
+      setError("");
+
+      const response = nextLocation.id
+        ? await api.patch(`/locations/${nextLocation.id}`, locationPayload)
+        : await api.post("/locations", locationPayload);
+      const persistedLocation = normalizeSavedLocation({
+        ...nextLocation,
+        ...(response.data?.data || {}),
         city,
-        placeId: nextLocation.placeId || null,
-        addressComponents: nextLocation.addressComponents || undefined,
-        source: nextLocation.source === "GPS" ? "GPS" : "MANUAL",
         isDefault: true,
       });
+
+      setLocation(persistedLocation);
+      setAddressForm(
+        getCheckoutAddressForm({ location: persistedLocation, user }),
+      );
       clearProfileCache?.();
       await fetchProfile?.({ force: true });
       addRecentActivity({
@@ -351,12 +477,17 @@ export default function Checkout() {
         detail: `${city}${canonicalAddressForm.area ? `, ${canonicalAddressForm.area}` : ""}`,
         path: "/checkout",
       });
-    } catch (err) {
-      console.error("Failed to save address to profile:", err);
-    }
 
-    setEditingAddress(false);
-    setError("");
+      setEditingAddress(false);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Could not save this address. Please try again.",
+      );
+    } finally {
+      setSavingAddress(false);
+    }
   };
 
   const bookService = async () => {
@@ -590,16 +721,18 @@ export default function Checkout() {
                 <button
                   type="button"
                   onClick={() => setEditingAddress(false)}
-                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
+                  disabled={savingAddress}
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <FiX /> Cancel
                 </button>
                 <button
                   type="button"
                   onClick={saveAddress}
-                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark"
+                  disabled={savingAddress}
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <FiSave /> Save address
+                  <FiSave /> {savingAddress ? "Saving..." : "Save address"}
                 </button>
               </div>
             </div>
