@@ -141,12 +141,9 @@ export default function Contact() {
         path="/contact"
       />
 
-      <div className="container-x py-10">
+      <div className="container-x py-4">
       <div className="mx-auto max-w-6xl space-y-8 overflow-x-hidden">
         <section className="text-center">
-          <span className="inline-flex rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-ink">
-            Contact
-          </span>
 
           <h1 className="mt-4 text-3xl font-bold text-ink sm:text-5xl">
             We're here to help.

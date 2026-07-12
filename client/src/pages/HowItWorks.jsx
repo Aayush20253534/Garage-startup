@@ -52,12 +52,9 @@ function HowItWorks() {
         path="/how-it-works"
       />
 
-      <div className="container-x py-10 sm:py-14">
+      <div className="container-x py-10 sm:py-2">
       <section className="mx-auto max-w-6xl space-y-8 overflow-x-hidden">
         <div className="mx-auto max-w-2xl text-center">
-          <span className="inline-flex rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-ink">
-            How Rovauto Works
-          </span>
 
           <h1 className="mt-4 text-3xl font-bold leading-tight text-ink sm:text-5xl">
             Service your car in 6 simple steps

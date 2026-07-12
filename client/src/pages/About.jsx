@@ -69,10 +69,9 @@ export default function About() {
         structuredData={ABOUT_STRUCTURED_DATA}
       />
 
-      <main className="container-x py-16">
+      <main className="container-x py-10">
         <section className="grid items-center gap-12 lg:grid-cols-2">
           <div>
-            <span className="chip-brand">About Rovauto</span>
 
             <h1 className="mt-4 text-4xl font-bold leading-tight sm:text-6xl">
               Building a more trusted vehicle-service experience.
