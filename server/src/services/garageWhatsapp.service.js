@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { buildTemplatePayload } = require("./whatsappTemplatePayload");
 const {
   createWhatsappLink,
   getDefaultCountryCode,
@@ -74,8 +75,10 @@ const summarizeProviderResponse = (data) => {
     messageId: data.messages?.[0]?.id,
     contactWaId: data.contacts?.[0]?.wa_id,
     errorCode: data.error?.code,
+    errorSubcode: data.error?.error_subcode,
     errorType: data.error?.type,
     errorMessage: data.error?.message,
+    errorDetails: data.error?.error_data?.details,
   };
 };
 
@@ -228,34 +231,11 @@ const sendWhatsappMessage = async ({ to, message, context = {} }) => {
   }
 };
 
-const toTextParameter = (value) => ({
-  type: "text",
-  text: String(value ?? "-").slice(0, 1024),
-});
-
-const buildTemplatePayload = ({ phone, templateName, languageCode, parameters }) => ({
-  messaging_product: "whatsapp",
-  recipient_type: "individual",
-  to: phone,
-  type: "template",
-  template: {
-    name: templateName,
-    language: {
-      code: languageCode || DEFAULT_TEMPLATE_LANGUAGE,
-    },
-    components: [
-      {
-        type: "body",
-        parameters: parameters.map(toTextParameter),
-      },
-    ],
-  },
-});
-
 const sendWhatsappTemplateMessage = async ({
   to,
   templateName,
   parameters = [],
+  buttons = [],
   languageCode = DEFAULT_TEMPLATE_LANGUAGE,
   fallbackMessage = "",
   context = {},
@@ -319,6 +299,7 @@ const sendWhatsappTemplateMessage = async ({
     templateName,
     languageCode,
     parameters,
+    buttons,
   });
 
   logWhatsapp("info", "template.attempt", {
@@ -331,6 +312,12 @@ const sendWhatsappTemplateMessage = async ({
     languageCode,
     parameterCount: parameters.length,
     parameterPreview: parameters.map((value) => String(value ?? "-").slice(0, 80)),
+    buttonCount: buttons.length,
+    buttonPreview: buttons.map((button) => ({
+      subType: button?.subType,
+      index: button?.index,
+      parameterCount: button?.parameters?.length || 0,
+    })),
     ...context,
   });
 
@@ -355,12 +342,17 @@ const sendWhatsappTemplateMessage = async ({
   } catch (error) {
     const status = error.response?.status || null;
     const responseData = error.response?.data || null;
+    const providerError = responseData?.error || null;
+    const errorMessage =
+      providerError?.error_data?.details ||
+      providerError?.message ||
+      error.message;
 
     logWhatsapp("error", "template.failed", {
       to: maskPhone(phone),
       status,
       code: error.code,
-      errorMessage: error.message,
+      errorMessage,
       templateName,
       providerError: summarizeProviderResponse(responseData),
       providerResponse: responseData,
@@ -372,7 +364,9 @@ const sendWhatsappTemplateMessage = async ({
       failed: true,
       status,
       code: error.code,
-      errorMessage: error.message,
+      errorMessage,
+      providerErrorCode: providerError?.code || null,
+      providerErrorSubcode: providerError?.error_subcode || null,
       providerResponse: responseData,
     };
   }
@@ -421,7 +415,16 @@ const sendGarageBookingRequestWhatsapp = async ({
     to: garage.whatsappNo || garage.phone,
     templateName: GARAGE_REQUEST_TEMPLATE,
     languageCode: DEFAULT_TEMPLATE_LANGUAGE,
-    parameters: [brand, model, services, acceptUrl],
+    parameters: [brand, model, services],
+    buttons: [
+      {
+        subType: "url",
+        index: 0,
+        // The Meta template already contains the fixed URL prefix. Only send
+        // the dynamic suffix represented by {{1}} in the URL button.
+        parameters: [request.id],
+      },
+    ],
     fallbackMessage,
     context: {
       type: "garage_booking_request",

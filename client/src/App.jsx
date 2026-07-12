@@ -254,19 +254,56 @@ function ProtectedRoute({ children }) {
 }
 
 function AddressCheck({ children }) {
-  const { user, location } = useApp();
+  const { user, location, fetchProfile } = useApp();
   const routeLocation = useLocation();
+  const hasSavedLocation = hasSavedUserLocation(user, location);
+  const [checkedUserId, setCheckedUserId] = useState(
+    hasSavedLocation ? user?.id || null : null,
+  );
 
-  if (
-    user?.role === "CUSTOMER" &&
-    !hasSavedUserLocation(user, location)
-  ) {
-    return (
-      <Navigate to="/booking/address" state={{ from: routeLocation }} replace />
-    );
+  useEffect(() => {
+    let active = true;
+
+    if (user?.role !== "CUSTOMER" || hasSavedLocation) {
+      setCheckedUserId(user?.id || null);
+      return () => {
+        active = false;
+      };
+    }
+
+    if (checkedUserId === user.id) {
+      return () => {
+        active = false;
+      };
+    }
+
+    // The route guard used to redirect immediately when the in-memory location
+    // had not hydrated yet. Confirm against the authoritative profile once
+    // before sending an existing customer back through address setup.
+    Promise.resolve(fetchProfile?.({ force: true }))
+      .catch(() => null)
+      .finally(() => {
+        if (active) {
+          setCheckedUserId(user.id);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [checkedUserId, hasSavedLocation, user?.id, user?.role]);
+
+  if (user?.role !== "CUSTOMER" || hasSavedLocation) {
+    return children;
   }
 
-  return children;
+  if (checkedUserId !== user.id) {
+    return <RouteFallback />;
+  }
+
+  return (
+    <Navigate to="/booking/address" state={{ from: routeLocation }} replace />
+  );
 }
 
 function VehicleCheck({ children }) {

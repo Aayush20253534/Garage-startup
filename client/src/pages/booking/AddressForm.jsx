@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FiCheckCircle, FiMapPin, FiShield } from "react-icons/fi";
 import api from "@/api/axios";
@@ -14,6 +14,7 @@ import {
 import { queueGeocodeRequest, clearGeocodeCache } from "@/utils/geocodeService";
 import { requireAvailableCityName } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
+import { hasSavedUserLocation } from "@/utils/signupLocation";
 
 const hasText = (value) => Boolean(String(value || "").trim());
 const hasOwn = (object, key) =>
@@ -62,6 +63,7 @@ export default function AddressForm() {
   const routeLocation = useLocation();
   const {
     user,
+    location,
     setUser,
     setLocation,
     clearProfileCache,
@@ -74,6 +76,30 @@ export default function AddressForm() {
   const [form, setForm] = useState(() =>
     getInitialLocation({ user, routeLocation }),
   );
+  const forceLocationConfirmation =
+    routeLocation.state?.forceLocationConfirmation === true;
+  const shouldReuseSavedLocation =
+    !forceLocationConfirmation && hasSavedUserLocation(user, location);
+
+  useEffect(() => {
+    if (!shouldReuseSavedLocation) return;
+
+    const fromLocation = routeLocation.state?.from;
+    const returnPath = fromLocation?.pathname
+      ? `${fromLocation.pathname}${fromLocation.search || ""}${
+          fromLocation.hash || ""
+        }`
+      : "/booking/vehicle";
+
+    nav(returnPath, {
+      replace: true,
+      state: fromLocation?.state,
+    });
+  }, [
+    nav,
+    routeLocation.state?.from,
+    shouldReuseSavedLocation,
+  ]);
 
   const updateField = (field, value) => {
     setForm((previous) => ({
@@ -274,6 +300,16 @@ export default function AddressForm() {
       setLoading(false);
     }
   };
+
+  if (shouldReuseSavedLocation) {
+    return (
+      <div className="container-x mx-auto max-w-4xl py-10 sm:py-14">
+        <div className="card-soft rounded-2xl p-5 text-sm text-muted">
+          Using your saved service location…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-x mx-auto max-w-4xl py-10 sm:py-14">

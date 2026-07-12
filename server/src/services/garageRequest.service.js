@@ -373,6 +373,8 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
         loggedOnly: Boolean(value?.logged),
         failed: result.status === "rejected" || Boolean(value?.failed),
         status: value?.status || null,
+        metaErrorCode: value?.providerErrorCode || null,
+        metaErrorSubcode: value?.providerErrorSubcode || null,
         reason: failedReason,
       });
     });
