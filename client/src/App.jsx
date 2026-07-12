@@ -257,48 +257,111 @@ function AddressCheck({ children }) {
   const { user, location, fetchProfile } = useApp();
   const routeLocation = useLocation();
   const hasSavedLocation = hasSavedUserLocation(user, location);
-  const [checkedUserId, setCheckedUserId] = useState(
-    hasSavedLocation ? user?.id || null : null,
-  );
+  const [retryKey, setRetryKey] = useState(0);
+  const [verification, setVerification] = useState({
+    userId: null,
+    status: "idle",
+    hasSavedLocation: false,
+  });
 
   useEffect(() => {
     let active = true;
 
-    if (user?.role !== "CUSTOMER" || hasSavedLocation) {
-      setCheckedUserId(user?.id || null);
+    if (user?.role !== "CUSTOMER") {
+      setVerification({
+        userId: user?.id || null,
+        status: "verified",
+        hasSavedLocation: false,
+      });
       return () => {
         active = false;
       };
     }
 
-    if (checkedUserId === user.id) {
+    if (hasSavedLocation) {
+      setVerification({
+        userId: user.id,
+        status: "verified",
+        hasSavedLocation: true,
+      });
       return () => {
         active = false;
       };
     }
 
-    // The route guard used to redirect immediately when the in-memory location
-    // had not hydrated yet. Confirm against the authoritative profile once
-    // before sending an existing customer back through address setup.
+    setVerification({
+      userId: user.id,
+      status: "loading",
+      hasSavedLocation: false,
+    });
+
+    // Authentication responses and Redux hydration can arrive before the full
+    // customer profile. Verify the authoritative profile before deciding that
+    // this customer needs to confirm an address again.
     Promise.resolve(fetchProfile?.({ force: true }))
-      .catch(() => null)
-      .finally(() => {
-        if (active) {
-          setCheckedUserId(user.id);
-        }
+      .then((profile) => {
+        if (!active) return;
+
+        setVerification({
+          userId: user.id,
+          status: "verified",
+          hasSavedLocation: hasSavedUserLocation(profile),
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+
+        // A temporary profile/network failure is not proof that the customer
+        // has no saved location. Offer retry instead of forcing address setup.
+        setVerification({
+          userId: user.id,
+          status: "error",
+          hasSavedLocation: false,
+        });
       });
 
     return () => {
       active = false;
     };
-  }, [checkedUserId, hasSavedLocation, user?.id, user?.role]);
+  }, [hasSavedLocation, retryKey, user?.id, user?.role]);
 
-  if (user?.role !== "CUSTOMER" || hasSavedLocation) {
+  if (
+    user?.role !== "CUSTOMER" ||
+    hasSavedLocation ||
+    (verification.userId === user?.id && verification.hasSavedLocation)
+  ) {
     return children;
   }
 
-  if (checkedUserId !== user.id) {
+  if (
+    verification.userId !== user?.id ||
+    verification.status === "idle" ||
+    verification.status === "loading"
+  ) {
     return <RouteFallback />;
+  }
+
+  if (verification.status === "error") {
+    return (
+      <div className="container-x mx-auto max-w-xl py-12">
+        <div className="card-soft rounded-2xl p-6 text-center">
+          <h1 className="text-xl font-bold text-ink">
+            Could not verify your saved location
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            Your saved address was not changed. Check your connection and try
+            again.
+          </p>
+          <button
+            type="button"
+            onClick={() => setRetryKey((value) => value + 1)}
+            className="mt-5 rounded-full bg-brand px-5 py-3 text-sm font-bold text-ink"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

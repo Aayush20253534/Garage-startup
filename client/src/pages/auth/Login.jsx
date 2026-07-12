@@ -25,7 +25,7 @@ export default function Login() {
   const notice = state?.message || "";
 
   const nav = useNavigate();
-  const { login, preloadCustomerData } = useApp();
+  const { login, fetchProfile, preloadCustomerData } = useApp();
 
   const [form, setForm] = useState({
     identifier: "",
@@ -35,16 +35,39 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const completeLogin = (freshUser) => {
+  const completeLogin = async (freshUser) => {
     login(freshUser);
 
-    const targetPath = !hasSavedUserLocation(freshUser)
+    let resolvedUser = freshUser;
+    let locationCheckCompleted = hasSavedUserLocation(freshUser);
+
+    if (!locationCheckCompleted) {
+      try {
+        // The authentication response can be available before the complete
+        // customer profile is hydrated. Check the authoritative profile before
+        // deciding that an existing customer needs address confirmation.
+        const profile = await fetchProfile?.({ force: true });
+
+        if (profile?.id === freshUser.id) {
+          resolvedUser = profile;
+          locationCheckCompleted = true;
+        }
+      } catch (profileError) {
+        // A temporary profile failure must not force a returning customer
+        // through location confirmation. Booking routes will verify again.
+        console.warn("Unable to verify saved location after login:", profileError);
+      }
+    }
+
+    const needsLocationConfirmation =
+      locationCheckCompleted && !hasSavedUserLocation(resolvedUser);
+    const targetPath = needsLocationConfirmation
       ? "/booking/address"
       : from || "/dashboard";
 
     // Start fetching the customer dashboard and route chunks before the next
-    // screen mounts. Navigation remains immediate; the preload never blocks
-    // login and any request is reused by the destination page.
+    // screen mounts. Navigation remains immediate after the location check;
+    // preload failures never block login.
     preloadCustomerPortal({ targetPath });
     preloadCustomerData?.({
       force: true,
@@ -75,7 +98,7 @@ export default function Login() {
           throw new Error("Invalid Google login response");
         }
 
-        completeLogin(freshUser);
+        await completeLogin(freshUser);
       } catch (err) {
         if (!active) return;
         setError(
@@ -129,7 +152,7 @@ export default function Login() {
         expectedRole: "CUSTOMER",
       });
 
-      completeLogin(freshUser);
+      await completeLogin(freshUser);
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -156,7 +179,7 @@ export default function Login() {
         throw new Error("Invalid Google login response");
       }
 
-      completeLogin(freshUser);
+      await completeLogin(freshUser);
     } catch (err) {
       setError(
         err.response?.data?.message ||
