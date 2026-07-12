@@ -220,7 +220,6 @@ export default function GarageServices() {
                               className="h-3.5 w-3.5"
                               fill="currentColor"
                             />
-                            4.8 verified
                           </span>
 
                           <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-muted">

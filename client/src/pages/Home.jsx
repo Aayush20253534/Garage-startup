@@ -649,7 +649,7 @@ export default function Home() {
                     <div className="mt-4 flex min-w-0 items-center justify-between gap-3">
                       <div className="flex items-center gap-1 text-sm font-semibold text-amber-500">
                         <FiStar fill="currentColor" className="shrink-0" />
-                        {service.rating || "4.8"}
+                        {service.rating }
                       </div>
 
                       <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-ink/80 group-hover:text-ink">
