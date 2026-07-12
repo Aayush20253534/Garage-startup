@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import api from "@/api/axios";
 import InspectionGallery from "@/components/booking/InspectionGallery";
 import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
@@ -15,6 +15,7 @@ import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
 import {
   FiCheck,
+  FiCheckCircle,
   FiClock,
   FiDollarSign,
   FiMapPin,
@@ -124,16 +125,16 @@ const getHeaderCopy = (booking, remainingSeconds) => {
   if (booking.status === "SEARCHING_GARAGE") {
     if (remainingSeconds <= 0) {
       return {
-        title: "Trying Again",
+        title: "Expanding Your Garage Search",
         description:
-          "No garage accepted that round. We are selecting the next nearby garages automatically.",
+          "The previous group did not respond in time, so we are automatically contacting the next nearest verified garages.",
       };
     }
 
     return {
-      title: "Selecting Nearby Garages",
+      title: "Finding the Right Garage",
       description:
-        "Verified garages are being contacted in a two-minute acceptance round.",
+        "We are contacting verified garages near you. The first eligible partner to accept will be assigned automatically.",
     };
   }
 
@@ -191,65 +192,178 @@ const getBookingId = (location) => {
   );
 };
 
-function SearchMap({ retrying }) {
+function SearchMap({ contactedCount, remainingSeconds, retrying }) {
+  const reduceMotion = useReducedMotion();
   const garagePoints = [
-    { left: "15%", top: "23%", delay: 0 },
-    { left: "72%", top: "18%", delay: 0.25 },
-    { left: "79%", top: "68%", delay: 0.5 },
-    { left: "21%", top: "72%", delay: 0.75 },
-    { left: "50%", top: "10%", delay: 1 },
+    { left: "15%", top: "25%", delay: 0 },
+    { left: "78%", top: "22%", delay: 0.22 },
+    { left: "82%", top: "68%", delay: 0.44 },
+    { left: "20%", top: "72%", delay: 0.66 },
+    { left: "52%", top: "14%", delay: 0.88 },
   ];
+  const statusMessage = retrying
+    ? "Preparing the next nearest garage group"
+    : contactedCount > 0
+      ? `Waiting for ${contactedCount} ${contactedCount === 1 ? "garage" : "garages"} to respond`
+      : "Contacting nearby verified garages";
 
   return (
-    <div
-      className="relative h-72 overflow-hidden rounded-3xl border border-line bg-bg-soft"
-      style={{
-        backgroundImage:
-          "linear-gradient(rgba(15,23,42,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,0.06) 1px, transparent 1px)",
-        backgroundSize: "32px 32px",
-      }}
-    >
-      <motion.div
-        className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-brand/50"
-        animate={{ scale: [0.65, 1.15], opacity: [0.9, 0] }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
-      />
-      <motion.div
-        className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-brand"
-        animate={{ scale: [0.75, 1.2], opacity: [0.8, 0] }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          delay: 0.7,
-          ease: "easeOut",
+    <section className="overflow-hidden rounded-[1.75rem] border border-line bg-white shadow-soft">
+      <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-muted">
+            <span className="relative flex h-2.5 w-2.5">
+              {!reduceMotion && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-dark opacity-40" />
+              )}
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand-dark" />
+            </span>
+            Live garage search
+          </div>
+          <h2 className="mt-1.5 text-lg font-bold sm:text-xl">
+            Matching your booking with nearby experts
+          </h2>
+        </div>
+
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-bg-soft px-3 py-1.5 text-xs font-semibold text-ink">
+          <FiCheckCircle className="text-brand-dark" /> Verified network
+        </span>
+      </div>
+
+      <div
+        className="relative h-[270px] overflow-hidden sm:h-[310px]"
+        style={{
+          backgroundColor: "#f8f9f6",
+          backgroundImage:
+            "radial-gradient(circle at 50% 50%, rgba(185,240,0,0.16), transparent 35%), linear-gradient(rgba(17,17,17,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(17,17,17,0.055) 1px, transparent 1px)",
+          backgroundSize: "100% 100%, 40px 40px, 40px 40px",
         }}
-      />
-
-      {garagePoints.map((point, index) => (
-        <motion.div
-          key={`${point.left}-${point.top}`}
-          className="absolute grid h-11 w-11 place-items-center rounded-2xl border border-line bg-white shadow-soft"
-          style={{ left: point.left, top: point.top }}
-          animate={{ y: [0, -7, 0], scale: [1, 1.06, 1] }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            delay: point.delay,
-          }}
+      >
+        <svg
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full"
+          preserveAspectRatio="none"
+          viewBox="0 0 100 100"
         >
-          <FiTool className="text-brand-dark" />
-          <span className="sr-only">Nearby garage {index + 1}</span>
-        </motion.div>
-      ))}
+          <path d="M50 52 C38 38 28 31 15 25" fill="none" stroke="rgba(17,17,17,0.14)" strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
+          <path d="M50 52 C61 37 68 28 78 22" fill="none" stroke="rgba(17,17,17,0.14)" strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
+          <path d="M50 52 C64 58 72 64 82 68" fill="none" stroke="rgba(17,17,17,0.14)" strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
+          <path d="M50 52 C40 60 31 67 20 72" fill="none" stroke="rgba(17,17,17,0.14)" strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
+          <path d="M50 52 C50 37 51 25 52 14" fill="none" stroke="rgba(17,17,17,0.14)" strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
+        </svg>
 
-      <div className="absolute left-1/2 top-1/2 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-ink text-white shadow-xl">
-        <FiMapPin className="text-2xl" />
+        <div
+          aria-hidden="true"
+          className="absolute left-1/2 top-[52%] h-44 w-44 -translate-x-1/2 -translate-y-1/2"
+        >
+          <motion.div
+            className="absolute inset-0 rounded-full border border-brand-dark/35"
+            animate={
+              reduceMotion
+                ? undefined
+                : { scale: [0.58, 1.12], opacity: [0.75, 0] }
+            }
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut" }}
+          />
+          <motion.div
+            className="absolute inset-8 rounded-full border border-brand-dark/60"
+            animate={
+              reduceMotion
+                ? undefined
+                : { scale: [0.62, 1.2], opacity: [0.7, 0] }
+            }
+            transition={{
+              duration: 2.2,
+              repeat: Infinity,
+              delay: 0.75,
+              ease: "easeOut",
+            }}
+          />
+        </div>
+
+        {garagePoints.map((point, index) => (
+          <div
+            key={`${point.left}-${point.top}`}
+            aria-hidden="true"
+            className="absolute -translate-x-1/2 -translate-y-1/2"
+            style={{ left: point.left, top: point.top }}
+          >
+            <motion.div
+              className="relative grid h-11 w-11 place-items-center rounded-2xl border border-white bg-white text-ink shadow-[0_8px_24px_rgba(17,17,17,0.11)] sm:h-12 sm:w-12"
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.72 }}
+              animate={
+                reduceMotion
+                  ? { opacity: 1, scale: 1 }
+                  : { opacity: 1, scale: [1, 1.05, 1], y: [0, -4, 0] }
+              }
+              transition={{
+                opacity: { duration: 0.35, delay: point.delay },
+                scale: { duration: 2.6, repeat: Infinity, delay: point.delay },
+                y: { duration: 2.6, repeat: Infinity, delay: point.delay },
+              }}
+            >
+              <FiTool className="text-brand-dark" />
+              <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-brand-dark" />
+              <span className="sr-only">Nearby garage {index + 1}</span>
+            </motion.div>
+          </div>
+        ))}
+
+        <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2">
+          <div className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-full border-[6px] border-white bg-ink text-white shadow-[0_14px_32px_rgba(17,17,17,0.24)]">
+            <FiMapPin className="text-2xl" />
+          </div>
+        </div>
+
+        <div
+          className="absolute inset-x-4 bottom-4 mx-auto flex max-w-max items-center gap-2 rounded-full border border-line bg-white/95 px-4 py-2.5 text-center text-xs font-semibold shadow-soft backdrop-blur"
+          role="status"
+          aria-live="polite"
+        >
+          <FiRefreshCw
+            className={retrying ? "motion-safe:animate-spin text-brand-dark" : "text-brand-dark"}
+          />
+          {statusMessage}
+        </div>
       </div>
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-line bg-white/95 px-4 py-2 text-xs font-semibold shadow-soft backdrop-blur">
-        {retrying ? "Refreshing nearby garage batch..." : "Contacting nearby verified garages"}
+      <div className="grid grid-cols-2 border-t border-line sm:grid-cols-3">
+        <div className="border-b border-r border-line p-4 sm:border-b-0 sm:p-5">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+            <FiClock /> Round timer
+          </div>
+          <div
+            className="mt-2 font-mono text-2xl font-bold tabular-nums sm:text-3xl"
+            role="timer"
+            aria-label={`${remainingSeconds} seconds remaining in this garage search round`}
+          >
+            {retrying ? "00:00" : formatCountdown(remainingSeconds)}
+          </div>
+          <p className="mt-1 text-xs text-muted">Live countdown</p>
+        </div>
+
+        <div className="border-b border-line p-4 sm:border-b-0 sm:border-r sm:p-5">
+          <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+            Garages contacted
+          </div>
+          <div className="mt-2 text-2xl font-bold tabular-nums sm:text-3xl">
+            {contactedCount}
+          </div>
+          <p className="mt-1 text-xs text-muted">Active in this round</p>
+        </div>
+
+        <div className="col-span-2 p-4 sm:col-span-1 sm:p-5">
+          <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+            Search mode
+          </div>
+          <div className="mt-2 flex items-center gap-2 font-bold">
+            <span className="h-2 w-2 rounded-full bg-brand-dark" />
+            {retrying ? "Next round" : "Awaiting reply"}
+          </div>
+          <p className="mt-1 text-xs text-muted">Automatic matching</p>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -487,9 +601,24 @@ function Tracking() {
 
 
   const currentStep = getCurrentStep(booking);
-  const header = getHeaderCopy(booking, remainingSeconds);
   const searching = booking.status === "SEARCHING_GARAGE";
-  const retrying = searching && remainingSeconds <= 0;
+  const searchExpiry = booking.searchExpiresAt
+    ? new Date(booking.searchExpiresAt).getTime()
+    : 0;
+  const now = Date.now();
+  const retrying =
+    searching &&
+    remainingSeconds <= 0 &&
+    searchExpiry > 0 &&
+    searchExpiry <= now;
+  const displayedRemainingSeconds =
+    searching && remainingSeconds <= 0 && searchExpiry > now
+      ? Math.max(1, Math.ceil((searchExpiry - now) / 1000))
+      : remainingSeconds;
+  const header = getHeaderCopy(
+    booking,
+    retrying ? 0 : Math.max(1, displayedRemainingSeconds),
+  );
   const currentRoundRequests =
     booking.broadcasts?.filter((request) => request.status === "SENT") || [];
   const servicesTotal = getServicesTotal(booking);
@@ -504,75 +633,74 @@ function Tracking() {
   );
 
   return (
-    <div className="container-x grid max-w-6xl gap-8 py-12 lg:grid-cols-[1fr_380px]">
-      <main>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="chip-brand">Booking #{bookingCode}</span>
-          {refreshing && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted">
-              <FiRefreshCw className="animate-spin" /> Refreshing
-            </span>
-          )}
-        </div>
+    <>
+      <div className="relative isolate overflow-hidden bg-[linear-gradient(180deg,#fafcf6_0px,#ffffff_300px)]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-0 -z-10 h-64 w-[52rem] max-w-full -translate-x-1/2 rounded-full bg-brand/10 blur-3xl"
+      />
 
-        <h1 className="mt-3 text-3xl font-bold sm:text-4xl">
-          {header.title}
-        </h1>
-        <p className="mt-2 text-muted">{header.description}</p>
-
-        {error && (
-          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="mt-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            {success}
-          </div>
-        )}
-
-        {searching && (
-          <div className="mt-8">
-            <SearchMap retrying={retrying} />
-
-            <div className="card-soft mt-4 grid gap-4 p-5 sm:grid-cols-3">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-                  Round timer
-                </div>
-                <div className="mt-1 font-mono text-3xl font-bold">
-                  {retrying ? "00:00" : formatCountdown(remainingSeconds)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-                  Garages contacted
-                </div>
-                <div className="mt-1 text-3xl font-bold">
-                  {currentRoundRequests.length}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-                  Search mode
-                </div>
-                <div className="mt-2 font-semibold">
-                  {retrying ? "Starting next round" : "Waiting for acceptance"}
-                </div>
-              </div>
+      <div className="container-x py-8 sm:py-10 lg:py-12">
+        <div className="mx-auto w-full max-w-[74rem]">
+          <header className="max-w-3xl">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="chip-brand">Booking #{bookingCode}</span>
+              {searching && (
+                <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-muted shadow-sm">
+                  <span className="h-2 w-2 rounded-full bg-brand-dark" />
+                  Matching in progress
+                </span>
+              )}
+              {refreshing && (
+                <span className="inline-flex items-center gap-1 text-xs text-muted">
+                  <FiRefreshCw className="motion-safe:animate-spin" /> Updating status
+                </span>
+              )}
             </div>
 
+            <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-4xl lg:text-[2.75rem]">
+              {header.title}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted sm:text-base">
+              {header.description}
+            </p>
+          </header>
+
+          {error && (
+            <div className="mt-5 max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="mt-5 max-w-3xl rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+              {success}
+            </div>
+          )}
+
+          <div className="mt-7 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-7">
+            <main className="min-w-0">
+
+        {searching && (
+          <div>
+            <SearchMap
+              contactedCount={currentRoundRequests.length}
+              remainingSeconds={displayedRemainingSeconds}
+              retrying={retrying}
+            />
+
             {retrying && (
-              <div className="mt-4 rounded-2xl border border-brand bg-brand-soft p-4 text-sm">
+              <div className="mt-4 rounded-2xl border border-brand bg-brand-soft/70 p-4 text-sm">
                 <div className="flex items-start gap-3">
-                  <FiRefreshCw className="mt-0.5 shrink-0 animate-spin" />
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white">
+                    <FiRefreshCw className="motion-safe:animate-spin" />
+                  </span>
                   <div>
-                    <div className="font-semibold">
-                      No garage accepted the previous round.
+                    <div className="font-bold">
+                      Expanding the search automatically
                     </div>
-                    <div className="mt-1 text-muted">
-                      Selecting the next nearest garages and sending fresh notifications. You do not need to restart checkout.
+                    <div className="mt-1 leading-5 text-muted">
+                      The previous group did not respond in time, so we are notifying the next nearest verified garages. No action is needed from you.
                     </div>
                   </div>
                 </div>
@@ -582,7 +710,7 @@ function Tracking() {
         )}
 
         {!searching && booking.garage && (
-          <div className="mt-8">
+          <div>
             <LiveBookingTracking
               bookingId={booking.id}
               title={booking.requestType === "SOS" ? "Live SOS response route" : "Live garage route"}
@@ -756,50 +884,96 @@ function Tracking() {
         )}
       </main>
 
-      <aside className="card-soft h-fit p-6 lg:sticky lg:top-24">
+      <aside className="card-soft h-fit min-w-0 p-5 sm:p-6 lg:sticky lg:top-24">
         {searching ? (
           <div>
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-brand">
-              {retrying ? (
-                <FiRefreshCw className="animate-spin text-2xl" />
-              ) : (
-                <FiNavigation className="text-2xl" />
-              )}
-            </div>
-            <h3 className="mt-4 text-center font-semibold">
-              {retrying ? "Trying another garage batch" : "Waiting for a garage"}
-            </h3>
-            <p className="mt-2 text-center text-xs text-muted">
-              In-app and WhatsApp notifications are sent to eligible garage owners for each round.
-            </p>
+            <div className="rounded-2xl bg-ink p-5 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand text-xl text-ink">
+                  {retrying ? (
+                    <FiRefreshCw className="motion-safe:animate-spin" />
+                  ) : (
+                    <FiNavigation />
+                  )}
+                </span>
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/80">
+                  Automatic
+                </span>
+              </div>
 
-            <div className="mt-5 grid gap-3 rounded-2xl bg-bg-soft p-4 text-sm">
-              <Row
-                label="Time remaining"
-                value={formatCountdown(remainingSeconds)}
-              />
-              <Row
-                label="Active requests"
-                value={currentRoundRequests.length}
-              />
-              <Row label="Round duration" value="2 minutes" />
+              <h3 className="mt-4 text-lg font-bold">
+                {retrying ? "Finding more garages" : "Your request is live"}
+              </h3>
+              <p className="mt-1.5 text-sm leading-5 text-white/65">
+                {retrying
+                  ? "We are expanding the search to the next nearest verified partners."
+                  : "We will confirm your garage as soon as an eligible partner accepts."}
+              </p>
+            </div>
+
+            <div className="mt-5">
+              <h3 className="text-sm font-bold">What happens next</h3>
+              <div className="mt-4 grid gap-0">
+                {[
+                  {
+                    label: retrying ? "Next group is notified" : "Nearby garages are notified",
+                    description: "Only verified, eligible partners receive the request.",
+                  },
+                  {
+                    label: "First qualified garage accepts",
+                    description: "Availability and service coverage are checked again.",
+                  },
+                  {
+                    label: "You get instant confirmation",
+                    description: "Garage details will appear here automatically.",
+                  },
+                ].map((item, index) => (
+                  <div key={item.label} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <span
+                        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${
+                          index === 0
+                            ? "bg-brand text-ink"
+                            : "bg-bg-soft text-muted"
+                        }`}
+                      >
+                        {index + 1}
+                      </span>
+                      {index < 2 && <span className="my-1 h-full min-h-7 w-px bg-line" />}
+                    </div>
+                    <div className="pb-4">
+                      <p className="text-sm font-semibold">{item.label}</p>
+                      <p className="mt-0.5 text-xs leading-5 text-muted">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-1 flex items-start gap-3 rounded-2xl bg-brand-soft/55 p-4">
+              <FiShield className="mt-0.5 shrink-0 text-brand-dark" />
+              <p className="text-xs leading-5 text-muted">
+                Your booking stays active during matching. You do not need to keep this page open.
+              </p>
             </div>
 
             <button
               type="button"
               onClick={() => loadBooking()}
               disabled={refreshing}
-              className="btn-ghost mt-4 w-full"
+              className="btn-ghost mt-5 w-full disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <FiRefreshCw className={refreshing ? "animate-spin" : ""} />
-              Refresh Status
+              <FiRefreshCw className={refreshing ? "motion-safe:animate-spin" : ""} />
+              {refreshing ? "Checking..." : "Check for updates"}
             </button>
 
             <button
               type="button"
               onClick={cancelBooking}
               disabled={actionLoading === "cancel"}
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-3 font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-muted transition hover:bg-red-50 hover:text-red-600 disabled:opacity-60"
             >
               <FiX />
               {actionLoading === "cancel" ? "Cancelling..." : "Cancel Booking"}
@@ -858,7 +1032,7 @@ function Tracking() {
                   className="btn-ghost mt-4 w-full disabled:opacity-60"
                 >
                   <FiRefreshCw
-                    className={actionLoading === "otp" ? "animate-spin" : ""}
+                    className={actionLoading === "otp" ? "motion-safe:animate-spin" : ""}
                   />
                   {actionLoading === "otp"
                     ? "Generating..."
@@ -919,7 +1093,8 @@ function Tracking() {
 
         <hr className="my-6 border-line" />
 
-        <div className="grid gap-3 text-sm">
+        <h3 className="text-sm font-bold">Booking summary</h3>
+        <div className="mt-4 grid gap-3 text-sm">
           <Row
             label="Vehicle"
             value={`${booking.vehicle?.brand || ""} ${booking.vehicle?.model || ""}`.trim() || "Vehicle"}
@@ -935,7 +1110,12 @@ function Tracking() {
           />
           <Row label="Estimated service" value={formatRupees(servicesTotal)} />
         </div>
-      </aside>
+            </aside>
+          </div>
+
+        </div>
+      </div>
+      </div>
 
       <ReviewModal
         open={reviewOpen}
@@ -944,7 +1124,7 @@ function Tracking() {
         onClose={() => setReviewOpen(false)}
         onSaved={handleReviewSaved}
       />
-    </div>
+    </>
   );
 }
 
