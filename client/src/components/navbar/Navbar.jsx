@@ -240,11 +240,11 @@ export default function Navbar() {
                 <>
                   <span className="relative z-10">{item.label}</span>
 
-                  {isActive && (
+                  {/* {isActive && (
                     <span
                       className="pointer-events-none absolute inset-0 z-0 rounded-full bg-bg-soft"
                     />
-                  )}
+                  )} */}
                 </>
               )}
             </NavLink>
