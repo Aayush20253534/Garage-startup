@@ -144,3 +144,9 @@ h5 {
 ::-webkit-scrollbar-thumb:hover {
   background: #d4d4d4;
 }
+
+/* Google Maps tiles must keep their native dimensions. Tailwind's global image
+   reset can otherwise leave the route overlays visible over a blank basemap. */
+.rovauto-google-map .gm-style img {
+  max-width: none !important;
+}

@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { FiAlertCircle, FiMapPin } from "react-icons/fi";
-import { loadGoogleMaps } from "@/utils/googleMapsLoader";
+import { FiAlertCircle, FiExternalLink, FiMapPin } from "react-icons/fi";
+import {
+  getGoogleMapsAuthError,
+  GOOGLE_MAPS_AUTH_FAILURE_EVENT,
+  loadGoogleMaps,
+} from "@/utils/googleMapsLoader";
+
+const MAP_TILE_TIMEOUT_MS = 20000;
 
 const toPosition = (value) => {
   const lat = Number(value?.latitude ?? value?.lat);
@@ -10,6 +16,26 @@ const toPosition = (value) => {
 
 const samePosition = (left, right) =>
   left && right && left.lat === right.lat && left.lng === right.lng;
+
+const createPinIcon = (maps, fillColor) => {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="42" height="52" viewBox="0 0 42 52">
+      <path d="M21 1.5C10.5 1.5 2 10 2 20.5c0 13.2 15.1 28.2 17.6 30.6a2 2 0 0 0 2.8 0C24.9 48.7 40 33.7 40 20.5 40 10 31.5 1.5 21 1.5Z" fill="${fillColor}" stroke="#111827" stroke-width="2"/>
+      <circle cx="21" cy="20" r="6.5" fill="#111827"/>
+    </svg>
+  `;
+
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new maps.Size(42, 52),
+    anchor: new maps.Point(21, 50),
+  };
+};
+
+const getGoogleMapsUrl = (position) =>
+  position
+    ? `https://www.google.com/maps?q=${position.lat},${position.lng}`
+    : "https://www.google.com/maps";
 
 export default function MapPanel({
   center,
@@ -28,27 +54,53 @@ export default function MapPanel({
   const mapRef = useRef(null);
   const overlaysRef = useRef([]);
   const listenersRef = useRef([]);
+  const tileTimerRef = useRef(null);
+  const hasLoadedTilesRef = useRef(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const clearMapArtifacts = () => {
+    listenersRef.current.forEach((listener) => listener?.remove?.());
+    listenersRef.current = [];
+
+    overlaysRef.current.forEach((overlay) => {
+      if (overlay?.setMap) overlay.setMap(null);
+      if (overlay) overlay.map = null;
+    });
+    overlaysRef.current = [];
+
+    if (tileTimerRef.current) {
+      window.clearTimeout(tileTimerRef.current);
+      tileTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    const handleAuthFailure = () => {
+      const authError = getGoogleMapsAuthError();
+      setLoading(false);
+      setError(authError?.message || "Google Maps authentication failed.");
+    };
+
+    window.addEventListener(GOOGLE_MAPS_AUTH_FAILURE_EVENT, handleAuthFailure);
+    return () =>
+      window.removeEventListener(
+        GOOGLE_MAPS_AUTH_FAILURE_EVENT,
+        handleAuthFailure,
+      );
+  }, []);
 
   useEffect(() => {
     let active = true;
 
     const renderMap = async () => {
       try {
-        setLoading(true);
+        if (!hasLoadedTilesRef.current) setLoading(true);
         setError("");
         const { maps, config } = await loadGoogleMaps();
         if (!active || !containerRef.current) return;
 
-        listenersRef.current.forEach((listener) => listener?.remove?.());
-        listenersRef.current = [];
-
-        overlaysRef.current.forEach((overlay) => {
-          if (overlay?.setMap) overlay.setMap(null);
-          if (overlay) overlay.map = null;
-        });
-        overlaysRef.current = [];
+        clearMapArtifacts();
 
         const originPosition = toPosition(origin);
         const destinationPosition = toPosition(destination);
@@ -59,83 +111,92 @@ export default function MapPanel({
           toPosition(config.defaultCenter) ||
           { lat: 20.5937, lng: 78.9629 };
 
+        // Use Google's normal ROADMAP raster renderer. The previous fallback
+        // DEMO_MAP_ID could force a vector/WebGL map, leaving only markers and
+        // the route visible on devices where the vector basemap did not render.
+        const mapOptions = {
+          center: centerPosition,
+          zoom,
+          disableDefaultUI: true,
+          zoomControl: true,
+          fullscreenControl: true,
+          gestureHandling: "greedy",
+          mapTypeId: maps.MapTypeId.ROADMAP,
+          backgroundColor: dark ? "#111827" : "#e5e7eb",
+        };
+
+        if (maps.RenderingType?.RASTER) {
+          mapOptions.renderingType = maps.RenderingType.RASTER;
+        }
+
         const map =
-          mapRef.current ||
-          new maps.Map(containerRef.current, {
-            center: centerPosition,
-            zoom,
-            mapId: config.mapId,
-            disableDefaultUI: true,
-            zoomControl: true,
-            fullscreenControl: true,
-            gestureHandling: "greedy",
-          });
+          mapRef.current || new maps.Map(containerRef.current, mapOptions);
 
         mapRef.current = map;
+        map.setOptions(mapOptions);
         map.setCenter(centerPosition);
+
+        if (!hasLoadedTilesRef.current) {
+          maps.event.addListenerOnce(map, "tilesloaded", () => {
+            if (!active) return;
+            hasLoadedTilesRef.current = true;
+            if (tileTimerRef.current) {
+              window.clearTimeout(tileTimerRef.current);
+              tileTimerRef.current = null;
+            }
+            setLoading(false);
+          });
+
+          tileTimerRef.current = window.setTimeout(() => {
+            if (!active || hasLoadedTilesRef.current) return;
+            setLoading(false);
+            setError(
+              "Google map tiles did not load. Check the browser-key domain restriction and ensure Maps JavaScript API and billing are enabled.",
+            );
+          }, MAP_TILE_TIMEOUT_MS);
+        } else {
+          setLoading(false);
+        }
 
         const bounds = new maps.LatLngBounds();
         let bounded = false;
 
-        const addMarker = async (position, title, isDraggable = false) => {
+        const addMarker = (position, title, isDraggable = false) => {
           if (!position) return null;
           bounds.extend(position);
           bounded = true;
 
-          try {
-            const { AdvancedMarkerElement, PinElement } =
-              await maps.importLibrary("marker");
-            const pin = new PinElement({
-              background: title === "Customer" ? "#ef4444" : "#facc15",
-              borderColor: "#111827",
-              glyphColor: "#111827",
-              scale: 1.1,
-            });
-            const marker = new AdvancedMarkerElement({
-              map,
-              position,
-              title,
-              content: pin.element,
-              gmpDraggable: isDraggable,
-            });
-            if (isDraggable && onLocationChange) {
-              const listener = marker.addListener("dragend", () => {
-                const next = marker.position;
-                onLocationChange({
-                  latitude: Number(next.lat),
-                  longitude: Number(next.lng),
-                });
+          const marker = new maps.Marker({
+            map,
+            position,
+            title,
+            draggable: isDraggable,
+            icon: createPinIcon(
+              maps,
+              title === "Customer" ? "#ef4444" : "#facc15",
+            ),
+            optimized: true,
+          });
+
+          if (isDraggable && onLocationChange) {
+            const listener = marker.addListener("dragend", (event) => {
+              onLocationChange({
+                latitude: event.latLng.lat(),
+                longitude: event.latLng.lng(),
               });
-              listenersRef.current.push(listener);
-            }
-            overlaysRef.current.push(marker);
-            return marker;
-          } catch {
-            const marker = new maps.Marker({
-              map,
-              position,
-              title,
-              draggable: isDraggable,
             });
-            if (isDraggable && onLocationChange) {
-              const listener = marker.addListener("dragend", (event) => {
-                onLocationChange({
-                  latitude: event.latLng.lat(),
-                  longitude: event.latLng.lng(),
-                });
-              });
-              listenersRef.current.push(listener);
-            }
-            overlaysRef.current.push(marker);
-            return marker;
+            listenersRef.current.push(listener);
           }
+
+          overlaysRef.current.push(marker);
+          return marker;
         };
 
         if (originPosition && destinationPosition) {
-          await addMarker(originPosition, "Garage");
-          await addMarker(destinationPosition, "Customer");
+          addMarker(originPosition, "Garage");
+          addMarker(destinationPosition, "Customer");
         } else {
-          await addMarker(centerPosition, "Selected location", draggable);
+          addMarker(centerPosition, "Selected location", draggable);
         }
 
         for (const point of points) {
@@ -148,6 +209,7 @@ export default function MapPanel({
 
         if (encodedPolyline) {
           const geometry = await maps.importLibrary("geometry");
+          if (!active) return;
           const path = geometry.encoding.decodePath(encodedPolyline);
           path.forEach((position) => bounds.extend(position));
           bounded = true;
@@ -188,10 +250,9 @@ export default function MapPanel({
         }
       } catch (err) {
         if (active) {
+          setLoading(false);
           setError(err.message || "Map unavailable");
         }
-      } finally {
-        if (active) setLoading(false);
       }
     };
 
@@ -199,8 +260,7 @@ export default function MapPanel({
 
     return () => {
       active = false;
-      listenersRef.current.forEach((listener) => listener?.remove?.());
-      listenersRef.current = [];
+      clearMapArtifacts();
     };
   }, [
     center?.latitude,
@@ -216,7 +276,11 @@ export default function MapPanel({
     points,
     dark,
     zoom,
+    onLocationChange,
   ]);
+
+  const fallbackPosition =
+    toPosition(destination) || toPosition(origin) || toPosition(center);
 
   if (error) {
     return (
@@ -228,10 +292,22 @@ export default function MapPanel({
         } ${className}`}
         style={{ minHeight: height }}
       >
-        <div>
+        <div className="max-w-md">
           <FiAlertCircle className="mx-auto text-2xl" />
           <p className="mt-2 text-sm font-semibold">Map unavailable</p>
-          <p className="mt-1 text-xs opacity-75">{error}</p>
+          <p className="mt-1 text-xs leading-5 opacity-75">{error}</p>
+          <a
+            href={getGoogleMapsUrl(fallbackPosition)}
+            target="_blank"
+            rel="noreferrer"
+            className={`mt-4 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition ${
+              dark
+                ? "border-gray-600 text-white hover:border-yellow-300"
+                : "border-line bg-white text-ink hover:border-ink"
+            }`}
+          >
+            Open in Google Maps <FiExternalLink />
+          </a>
         </div>
       </div>
     );
@@ -239,7 +315,7 @@ export default function MapPanel({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border ${
+      className={`rovauto-google-map relative overflow-hidden rounded-2xl border ${
         dark ? "border-gray-700 bg-gray-900" : "border-line bg-bg-soft"
       } ${className}`}
       style={{ height }}
