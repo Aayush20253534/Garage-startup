@@ -1,7 +1,7 @@
 const express = require("express");
 
 const garageRequestController = require("../controllers/garageRequest.controller");
-const { protect } = require("../middlewares/auth.middleware");
+const { protectUser } = require("../middlewares/auth.middleware");
 const { authorizeRoles } = require("../middlewares/role.middleware");
 const validate = require("../middlewares/validate.middleware");
 const upload = require("../middlewares/upload.middleware");
@@ -21,8 +21,8 @@ const inspectionPhotoUpload = upload.createUpload({
   allowedMimeTypes: upload.IMAGE_MIME_TYPES,
 });
 
-router.use(protect);
-router.use(authorizeRoles("GARAGE_OWNER", "ADMIN"));
+router.use(protectUser);
+router.use(authorizeRoles("GARAGE_OWNER"));
 
 router.get("/", garageRequestController.getGarageRequests);
 router.get("/:requestId", garageRequestController.getGarageRequestById);

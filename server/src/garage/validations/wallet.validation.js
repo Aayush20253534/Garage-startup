@@ -12,7 +12,7 @@ const verifyRechargeOrderSchema = [
 
 const walletTransactionQuerySchema = [
   query("page").optional({ nullable: true, checkFalsy: true }).isInt({ min: 1 }),
-  query("limit").optional({ nullable: true, checkFalsy: true }).isInt({ min: 1, max: 1 }),
+  query("limit").optional({ nullable: true, checkFalsy: true }).isInt({ min: 1, max: 100 }),
   query("type")
     .optional({ nullable: true, checkFalsy: true })
     .isIn(["CREDIT", "DEBIT", "RECHARGE", "REFUND", "CASHBACK", "BOOKING_PAYMENT", "BOOKING_REFUND", "GARAGE_ACCEPT_FEE", "SOS_DEDUCTION"])

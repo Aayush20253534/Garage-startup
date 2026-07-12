@@ -1,6 +1,6 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
-const generateBookingCode = require("../../utils/bookingCode");
+const { withUniqueBookingCode } = require("../../utils/bookingCode");
 const garageRequestService = require("../../services/garageRequest.service");
 const {
   ensureVehicleHasNoActiveBooking,
@@ -54,75 +54,68 @@ const createSosRequest = async (userId, data) => {
     );
   }
 
-  const bookingCode = await generateBookingCode();
-
   let booking;
 
   try {
-    booking = await prisma.$transaction(async (tx) => {
-      await lockAndEnsureVehicleHasNoActiveBooking(userId, vehicleId, {
-        tx,
-      });
+    booking = await withUniqueBookingCode((bookingCode) =>
+      prisma.$transaction(async (tx) => {
+        await lockAndEnsureVehicleHasNoActiveBooking(userId, vehicleId, {
+          tx,
+        });
 
-      return tx.booking.create({
-        data: {
-          userId,
-          vehicleId,
-          garageId: null,
-
-          bookingCode,
-
-          requestType: REQUEST_TYPE.SOS,
-          status: BOOKING_STATUS.SEARCHING_GARAGE,
-
-          customerLatitude: Number(latitude),
-          customerLongitude: Number(longitude),
-          customerAddress: address || null,
-
-          customerNote: note || "SOS emergency request",
-
-          handlingFee: SOS_CHARGE,
-          totalServiceAmount: SOS_ESTIMATED_AMOUNT,
-          totalServiceMaxAmount: SOS_ESTIMATED_AMOUNT + 500,
-          walletAmountUsed: 0,
-          payableAmount: 0,
-
-          services: {
-            create: {
-              serviceId: sosService.id,
-              quantity: 1,
-              estimatedPrice: SOS_ESTIMATED_AMOUNT,
-              estimatedMinPrice: SOS_ESTIMATED_AMOUNT,
-              estimatedMaxPrice: SOS_ESTIMATED_AMOUNT + 500,
+        return tx.booking.create({
+          data: {
+            userId,
+            vehicleId,
+            garageId: null,
+            bookingCode,
+            requestType: REQUEST_TYPE.SOS,
+            status: BOOKING_STATUS.SEARCHING_GARAGE,
+            customerLatitude: Number(latitude),
+            customerLongitude: Number(longitude),
+            customerAddress: address || null,
+            customerNote: note || "SOS emergency request",
+            handlingFee: SOS_CHARGE,
+            totalServiceAmount: SOS_ESTIMATED_AMOUNT,
+            totalServiceMaxAmount: SOS_ESTIMATED_AMOUNT + 500,
+            walletAmountUsed: 0,
+            payableAmount: 0,
+            services: {
+              create: {
+                serviceId: sosService.id,
+                quantity: 1,
+                estimatedPrice: SOS_ESTIMATED_AMOUNT,
+                estimatedMinPrice: SOS_ESTIMATED_AMOUNT,
+                estimatedMaxPrice: SOS_ESTIMATED_AMOUNT + 500,
+              },
             },
-          },
-
-          payment: {
-            create: {
-              amount: 0,
-              currency: "INR",
-              status: PAYMENT_STATUS.PAID,
-              walletAmountUsed: 0,
-              upiAmountPaid: 0,
-            },
-          },
-        },
-        include: {
-          vehicle: true,
-          services: {
-            include: {
-              service: {
-                include: {
-                  category: true,
-                  media: true,
-                },
+            payment: {
+              create: {
+                amount: 0,
+                currency: "INR",
+                status: PAYMENT_STATUS.PAID,
+                walletAmountUsed: 0,
+                upiAmountPaid: 0,
               },
             },
           },
-          payment: true,
-        },
-      });
-    });
+          include: {
+            vehicle: true,
+            services: {
+              include: {
+                service: {
+                  include: {
+                    category: true,
+                    media: true,
+                  },
+                },
+              },
+            },
+            payment: true,
+          },
+        });
+      }),
+    );
   } catch (error) {
     if (isActiveVehicleBookingConflictError(error)) {
       await ensureVehicleHasNoActiveBooking(userId, vehicleId);

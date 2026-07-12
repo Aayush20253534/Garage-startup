@@ -1,6 +1,10 @@
 const prisma = require("../config/prisma");
 const ApiError = require("../utils/apiError");
-const { uploadToCloudinary } = require("../utils/cloudinaryUpload");
+const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinaryUpload");
+const {
+  deleteCloudinaryImagesIfUnreferenced,
+} = require("../utils/cloudinaryCleanup");
+const invalidatePublicCache = require("../utils/invalidatePublicCache");
 const {
   GARAGE_MAXIMUM_IMAGES,
   GARAGE_MAX_IMAGE_SIZE_BYTES,
@@ -65,6 +69,11 @@ const uploadGarageMedia = async (garageId, files, user) => {
 
   const garage = await prisma.garage.findUnique({
     where: { id: garageId },
+    include: {
+      images: {
+        select: { publicId: true },
+      },
+    },
   });
 
   if (!garage) {
@@ -82,54 +91,84 @@ const uploadGarageMedia = async (garageId, files, user) => {
   const orderedFiles = [...thumbnail, ...images];
   const uploadedImages = [];
 
-  for (const file of orderedFiles) {
-    const uploaded = await uploadToCloudinary(
-      file.buffer,
-      "project-x/garages/images",
-      "image"
-    );
-
-    if (!uploaded?.secure_url || !uploaded?.public_id) {
-      throw new ApiError(
-        502,
-        "Cloud image upload did not return a usable photo URL",
+  try {
+    for (const file of orderedFiles) {
+      const uploaded = await uploadToCloudinary(
+        file.buffer,
+        "project-x/garages/images",
+        "image",
       );
-    }
 
-    uploadedImages.push(uploaded);
+      if (!uploaded?.secure_url || !uploaded?.public_id) {
+        throw new ApiError(
+          502,
+          "Cloud image upload did not return a usable photo URL",
+        );
+      }
+
+      uploadedImages.push(uploaded);
+    }
+  } catch (error) {
+    await Promise.allSettled(
+      uploadedImages.map((image) =>
+        deleteFromCloudinary(image.public_id, "image"),
+      ),
+    );
+    throw error;
   }
 
-  return prisma.$transaction(async (tx) => {
-    await tx.garageImage.deleteMany({ where: { garageId } });
+  let result;
 
-    await tx.garageImage.createMany({
-      data: uploadedImages.map((image, index) => ({
-        garageId,
-        imageUrl: image.secure_url,
-        publicId: image.public_id,
-        isThumbnail: index === 0,
-        order: index,
-      })),
-    });
+  try {
+    result = await prisma.$transaction(async (tx) => {
+      await tx.garageImage.deleteMany({ where: { garageId } });
 
-    const updatedGarage = await activateGarageIfEligible(tx, garageId);
+      await tx.garageImage.createMany({
+        data: uploadedImages.map((image, index) => ({
+          garageId,
+          imageUrl: image.secure_url,
+          publicId: image.public_id,
+          isThumbnail: index === 0,
+          order: index,
+        })),
+      });
 
-    return tx.garage.findUnique({
-      where: { id: garageId },
-      include: {
-        images: {
-          orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
+      const updatedGarage = await activateGarageIfEligible(tx, garageId);
+      const freshGarage = await tx.garage.findUnique({
+        where: { id: garageId },
+        include: {
+          images: {
+            orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
+          },
+          wallet: true,
         },
-        wallet: true,
-      },
-    }).then((freshGarage) => ({
-      ...freshGarage,
-      activation: {
-        isActive: updatedGarage.isActive,
-        photoCount: freshGarage.images.length,
-      },
-    }));
-  });
+      });
+
+      return {
+        ...freshGarage,
+        activation: {
+          isActive: updatedGarage.isActive,
+          photoCount: freshGarage.images.length,
+        },
+      };
+    });
+  } catch (error) {
+    await Promise.allSettled(
+      uploadedImages.map((image) =>
+        deleteFromCloudinary(image.public_id, "image"),
+      ),
+    );
+    throw error;
+  }
+
+  await Promise.allSettled([
+    deleteCloudinaryImagesIfUnreferenced(
+      garage.images.map((image) => image.publicId),
+    ),
+    invalidatePublicCache(),
+  ]);
+
+  return result;
 };
 
 module.exports = {

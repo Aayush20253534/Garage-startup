@@ -2,7 +2,6 @@ const prisma = require("../config/prisma");
 const ApiError = require("../utils/apiError");
 const { verifyToken } = require("../utils/jwt");
 const {
-  ensureLegacyUserSession,
   getActiveCustomerSupportSession,
   getActiveStaffSession,
   getActiveUserSession,
@@ -228,13 +227,15 @@ const authenticateRequest = async (
         authSessionId = session.id;
         await touchUserSession(session.id, account.id);
       } else {
-        authSessionId = await ensureLegacyUserSession({
-          userId: account.id,
-          tokenExpiresAt: decoded.exp
-            ? new Date(decoded.exp * 1000)
-            : null,
-          userAgent: req.get("user-agent") || "",
-        });
+        clearAccessTokenCookie(res, tokenCookieName);
+
+        if (optional) {
+          return next();
+        }
+
+        return next(
+          new ApiError(401, "Legacy session expired. Please log in again"),
+        );
       }
     } else if (accountType === "STAFF") {
       if (!decoded.sessionId) {

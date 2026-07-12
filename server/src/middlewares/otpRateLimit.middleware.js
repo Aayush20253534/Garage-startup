@@ -3,7 +3,8 @@ const rateLimit = require("./rateLimit.middleware");
 const normalizeOtpIdentifier = (value) =>
   String(value || "")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .slice(0, 200);
 
 const otpKeyGenerator = (req) => {
   const identifier =
@@ -14,6 +15,24 @@ const otpKeyGenerator = (req) => {
 
   return `${req.ip}:${normalizeOtpIdentifier(identifier)}`;
 };
+
+const otpPerIpHourlyRateLimit = rateLimit({
+  name: "otp-ip-hourly",
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  fallbackMax: 12,
+  keyGenerator: (req) => req.ip,
+  message: "Too many OTP requests from this network. Please try again later.",
+});
+
+const otpPerIpDailyRateLimit = rateLimit({
+  name: "otp-ip-daily",
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 100,
+  fallbackMax: 40,
+  keyGenerator: (req) => req.ip,
+  message: "Daily OTP request limit reached for this network.",
+});
 
 const otpCooldownRateLimit = rateLimit({
   name: "otp-cooldown",
@@ -43,6 +62,8 @@ const otpDailyRateLimit = rateLimit({
 });
 
 const otpSendRateLimits = [
+  otpPerIpHourlyRateLimit,
+  otpPerIpDailyRateLimit,
   otpCooldownRateLimit,
   otpHourlyRateLimit,
   otpDailyRateLimit,

@@ -1,11 +1,12 @@
 const express = require("express");
 
 const garageController = require("../controllers/garage.controller");
-const { protect } = require("../middlewares/auth.middleware");
+const { protectUser } = require("../middlewares/auth.middleware");
 const { authorizeRoles } = require("../middlewares/role.middleware");
 const validate = require("../middlewares/validate.middleware");
 const {
   deleteGarageAccountValidation,
+  updateGarageAccountValidation,
 } = require("../validations/garageAccount.validation");
 const rateLimit = require("../middlewares/rateLimit.middleware");
 
@@ -31,35 +32,37 @@ router.get("/", garageController.getGarages);
 
 router.get(
   "/nearby",
-  protect,
-  authorizeRoles("CUSTOMER", "ADMIN"),
+  protectUser,
+  authorizeRoles("CUSTOMER"),
   garageController.getNearbyGarages,
 );
 
 router.get(
   "/me",
-  protect,
-  authorizeRoles("GARAGE_OWNER", "ADMIN"),
+  protectUser,
+  authorizeRoles("GARAGE_OWNER"),
   garageController.getMyGarage,
 );
 
 router.get(
   "/me/services",
-  protect,
-  authorizeRoles("GARAGE_OWNER", "ADMIN"),
+  protectUser,
+  authorizeRoles("GARAGE_OWNER"),
   garageController.getMyGarageServices,
 );
 
 router.put(
   "/me",
-  protect,
-  authorizeRoles("GARAGE_OWNER", "ADMIN"),
+  protectUser,
+  authorizeRoles("GARAGE_OWNER"),
+  updateGarageAccountValidation,
+  validate,
   garageController.updateMyGarage,
 );
 
 router.post(
   "/me/delete-otp",
-  protect,
+  protectUser,
   authorizeRoles("GARAGE_OWNER"),
   deletionOtpRateLimit,
   garageController.requestGarageAccountDeletionOtp,
@@ -67,7 +70,7 @@ router.post(
 
 router.delete(
   "/me",
-  protect,
+  protectUser,
   authorizeRoles("GARAGE_OWNER"),
   deletionVerifyRateLimit,
   deleteGarageAccountValidation,

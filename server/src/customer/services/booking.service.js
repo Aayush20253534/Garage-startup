@@ -1,7 +1,7 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { buildOwnedResourceWhere } = require("../security/ownership");
-const generateBookingCode = require("../../utils/bookingCode");
+const { withUniqueBookingCode } = require("../../utils/bookingCode");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const { getCache, setCache, deletePattern } = require("../../utils/cache");
 const {
@@ -284,63 +284,58 @@ const createBooking = async (userId, data) => {
 
   const walletAmountUsed = 0;
   const payableAmount = handlingFee;
-  const bookingCode = await generateBookingCode();
-
   let booking;
 
   try {
-    booking = await prisma.$transaction(async (tx) => {
-      await lockAndEnsureVehicleHasNoActiveBooking(userId, vehicleId, {
-        tx,
-      });
+    booking = await withUniqueBookingCode((bookingCode) =>
+      prisma.$transaction(async (tx) => {
+        await lockAndEnsureVehicleHasNoActiveBooking(userId, vehicleId, {
+          tx,
+        });
 
-      return tx.booking.create({
-        data: {
-          userId,
-          vehicleId,
-          garageId: null,
-          bookingCode,
-          scheduledDate: scheduledDate
-            ? new Date(scheduledDate)
-            : null,
-          startTime: startTime || null,
-          endTime: endTime || null,
-          requestType: "NORMAL",
-          status: "PENDING_PAYMENT",
+        return tx.booking.create({
+          data: {
+            userId,
+            vehicleId,
+            garageId: null,
+            bookingCode,
+            scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
+            startTime: startTime || null,
+            endTime: endTime || null,
+            requestType: "NORMAL",
+            status: "PENDING_PAYMENT",
 
-          // Payment verification starts the first two-minute garage search round.
-          searchExpiresAt: null,
+            // Payment verification starts the first two-minute garage search round.
+            searchExpiresAt: null,
 
-          customerLatitude: Number(location.latitude),
-          customerLongitude: Number(location.longitude),
-          customerAddress: customerAddress || null,
-          customerPlaceId: location.placeId || null,
-          customerNote: customerNote || null,
-          handlingFee,
-          totalServiceAmount,
-          totalServiceMaxAmount,
-          walletAmountUsed,
-          payableAmount,
-          services: {
-            create: services.map((service) => {
-              const range = getBookingServiceRange(
-                service,
-                priceRangeMap,
-              );
+            customerLatitude: Number(location.latitude),
+            customerLongitude: Number(location.longitude),
+            customerAddress: customerAddress || null,
+            customerPlaceId: location.placeId || null,
+            customerNote: customerNote || null,
+            handlingFee,
+            totalServiceAmount,
+            totalServiceMaxAmount,
+            walletAmountUsed,
+            payableAmount,
+            services: {
+              create: services.map((service) => {
+                const range = getBookingServiceRange(service, priceRangeMap);
 
-              return {
-                serviceId: service.id,
-                quantity: 1,
-                estimatedPrice: range.min,
-                estimatedMinPrice: range.min,
-                estimatedMaxPrice: range.max,
-              };
-            }),
+                return {
+                  serviceId: service.id,
+                  quantity: 1,
+                  estimatedPrice: range.min,
+                  estimatedMinPrice: range.min,
+                  estimatedMaxPrice: range.max,
+                };
+              }),
+            },
           },
-        },
-        include: bookingInclude,
-      });
-    });
+          include: bookingInclude,
+        });
+      }),
+    );
   } catch (error) {
     if (isActiveVehicleBookingConflictError(error)) {
       await ensureVehicleHasNoActiveBooking(userId, vehicleId);

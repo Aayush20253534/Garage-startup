@@ -1,8 +1,12 @@
 const argon2 = require("argon2");
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
-const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/cloudinaryUpload");
-const { sendGarageApplicationEmail } = require("./applicationEmail.service");
+const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
+const {
+  dispatchOutboxEmail,
+  enqueueGarageApplicationEmail,
+} = require("./applicationEmailOutbox.service");
+const { deleteCloudinaryImagesIfUnreferenced } = require("../../utils/cloudinaryCleanup");
 const geocodingService = require("../../customer/services/geocoding.service");
 const { GARAGE_MINIMUM_ACTIVATION_RECHARGE } = require("../constants");
 
@@ -143,52 +147,132 @@ const getApplication = async (applicationId) => {
   return application;
 };
 
+const deliverQueuedEmail = async (outboxId) => {
+  try {
+    return await dispatchOutboxEmail(outboxId);
+  } catch (error) {
+    console.error("[garage-application-email] Immediate delivery failed:", error.message);
+    return {
+      id: outboxId,
+      status: "QUEUED",
+      lastError: String(error.message || error).slice(0, 1000),
+    };
+  }
+};
+
 const requestChanges = async (applicationId, adminNote) => {
   const application = await getApplication(applicationId);
-  const updatedApplication = await prisma.garageApplication.update({
-    where: { id: applicationId },
-    data: {
-      status: "CHANGES_REQUESTED",
-      adminNote: adminNote || "Please update and resubmit your garage application.",
-      reviewedAt: new Date(),
-    },
-    select: applicationSelect,
+  const reviewedAt = new Date();
+  const message = adminNote || "Please update and resubmit your garage application.";
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updatedApplication = await tx.garageApplication.update({
+      where: { id: applicationId },
+      data: {
+        status: "CHANGES_REQUESTED",
+        adminNote: message,
+        reviewedAt,
+      },
+      select: applicationSelect,
+    });
+
+    const email = await enqueueGarageApplicationEmail({
+      client: tx,
+      applicationId,
+      dedupeKey: `garage-application:${applicationId}:changes:${reviewedAt.getTime()}`,
+      to: application.email,
+      subject: "Rovauto garage application changes requested",
+      message,
+    });
+
+    return { application: updatedApplication, emailOutboxId: email.id };
   });
 
-  await sendGarageApplicationEmail({
-    to: application.email,
-    subject: "Rovauto garage application changes requested",
-    message: updatedApplication.adminNote,
-  });
-
-  return updatedApplication;
+  return {
+    ...result.application,
+    emailDelivery: await deliverQueuedEmail(result.emailOutboxId),
+  };
 };
 
 const denyApplication = async (applicationId, adminNote) => {
   const application = await getApplication(applicationId);
-  const updatedApplication = await prisma.garageApplication.update({
-    where: { id: applicationId },
-    data: {
-      status: "DENIED",
-      adminNote: adminNote || "Your garage application was not approved at this time.",
-      reviewedAt: new Date(),
+  const reviewedAt = new Date();
+  const message = adminNote || "Your garage application was not approved at this time.";
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updatedApplication = await tx.garageApplication.update({
+      where: { id: applicationId },
+      data: {
+        status: "DENIED",
+        adminNote: message,
+        reviewedAt,
+      },
+      select: applicationSelect,
+    });
+
+    const email = await enqueueGarageApplicationEmail({
+      client: tx,
+      applicationId,
+      dedupeKey: `garage-application:${applicationId}:denied:${reviewedAt.getTime()}`,
+      to: application.email,
+      subject: "Rovauto garage application update",
+      message,
+    });
+
+    return { application: updatedApplication, emailOutboxId: email.id };
+  });
+
+  return {
+    ...result.application,
+    emailDelivery: await deliverQueuedEmail(result.emailOutboxId),
+  };
+};
+
+const buildApprovalMessage = (application, defaultPassword) =>
+  `${application.adminNote}\n\nYour account has been created/verified.\n\nYour temporary password is your 10-digit mobile number: ${defaultPassword}\n\nFor security, the garage portal will require you to create a new password immediately after your first login.`;
+
+const loadApprovedApplicationResult = async (application) => {
+  const garage = await prisma.garage.findUnique({
+    where: { id: application.approvedGarageId },
+    include: { owner: true, wallet: true, images: true },
+  });
+
+  if (!garage) {
+    throw new ApiError(409, "Approved garage record is missing for this application");
+  }
+
+  const dedupeKey = `garage-application:${application.id}:approved:v1`;
+  let email = await prisma.garageApplicationEmailOutbox.findUnique({
+    where: { dedupeKey },
+  });
+
+  if (!email) {
+    email = await enqueueGarageApplicationEmail({
+      applicationId: application.id,
+      dedupeKey,
+      to: garage.owner.email || application.email,
+      subject: "Rovauto garage application approved",
+      message: buildApprovalMessage(application, getDefaultGaragePassword(application.phone)),
+    });
+  }
+
+  return {
+    application,
+    garage,
+    owner: garage.owner,
+    activationRequired: {
+      minimumRecharge: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
+      message: `Garage is verified but inactive until wallet has at least Rs. ${GARAGE_MINIMUM_ACTIVATION_RECHARGE} verified Cashfree balance.`,
     },
-    select: applicationSelect,
-  });
-
-  await sendGarageApplicationEmail({
-    to: application.email,
-    subject: "Rovauto garage application update",
-    message: updatedApplication.adminNote,
-  });
-
-  return updatedApplication;
+    alreadyApproved: true,
+    emailDelivery: await deliverQueuedEmail(email.id),
+  };
 };
 
 const approveApplication = async (applicationId, adminNote) => {
   const application = await getApplication(applicationId);
   if (application.status === "APPROVED" && application.approvedGarageId) {
-    throw new ApiError(400, "Garage application is already approved");
+    return loadApprovedApplicationResult(application);
   }
 
   const existingGarage = await prisma.garage.findFirst({
@@ -198,7 +282,6 @@ const approveApplication = async (applicationId, adminNote) => {
   });
   if (existingGarage) throw new ApiError(409, "A garage already exists for this application/email/phone");
 
-  // perform owner creation/update, garage creation and update application in a transaction
   const result = await prisma.$transaction(async (tx) => {
     const defaultPassword = getDefaultGaragePassword(application.phone);
     const defaultPasswordHash = await argon2.hash(defaultPassword);
@@ -213,6 +296,7 @@ const approveApplication = async (applicationId, adminNote) => {
           where: { id: existingOwner.id },
           data: {
             name: application.ownerName,
+            email: application.email,
             phone: application.phone,
             password: defaultPasswordHash,
             passwordChangedAt: null,
@@ -282,11 +366,21 @@ const approveApplication = async (applicationId, adminNote) => {
       select: applicationSelect,
     });
 
+    const email = await enqueueGarageApplicationEmail({
+      client: tx,
+      applicationId,
+      dedupeKey: `garage-application:${applicationId}:approved:v1`,
+      to: owner.email,
+      subject: "Rovauto garage application approved",
+      message: buildApprovalMessage(updatedApplication, defaultPassword),
+    });
+
     return {
       application: updatedApplication,
       garage,
       owner,
       defaultPassword,
+      emailOutboxId: email.id,
       activationRequired: {
         minimumRecharge: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
         message: `Garage is verified but inactive until wallet has at least Rs. ${GARAGE_MINIMUM_ACTIVATION_RECHARGE} verified Cashfree balance.`,
@@ -294,15 +388,9 @@ const approveApplication = async (applicationId, adminNote) => {
     };
   });
 
-  const approvalMessage = `${result.application.adminNote}\n\nYour account has been created/verified.\n\nYour temporary password is your 10-digit mobile number: ${result.defaultPassword}\n\nFor security, the garage portal will require you to create a new password immediately after your first login.`;
-
-  await sendGarageApplicationEmail({
-    to: result.owner.email,
-    subject: "Rovauto garage application approved",
-    message: approvalMessage,
-  });
-
-  return result;
+  const emailDelivery = await deliverQueuedEmail(result.emailOutboxId);
+  const { emailOutboxId, ...response } = result;
+  return { ...response, emailDelivery };
 };
 
 const deleteApplications = async (applicationIds = []) => {
@@ -326,14 +414,14 @@ const deleteApplications = async (applicationIds = []) => {
     throw new ApiError(400, "Only approved or denied applications can be deleted");
   }
 
-  const publicIds = applications
-    .filter((application) => application.status === "DENIED" || !application.approvedGarageId)
-    .flatMap((application) => application.images.map((image) => image.publicId));
+  const publicIds = applications.flatMap((application) =>
+    application.images.map((image) => image.publicId),
+  );
   const result = await prisma.garageApplication.deleteMany({
     where: { id: { in: ids } },
   });
 
-  await Promise.all(publicIds.map((publicId) => deleteFromCloudinary(publicId).catch(() => null)));
+  await deleteCloudinaryImagesIfUnreferenced(publicIds);
 
   return { deleted: result.count };
 };

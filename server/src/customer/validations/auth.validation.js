@@ -5,6 +5,7 @@ const PASSWORD_MESSAGE =
 const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
+const PUBLIC_SIGNUP_ROLES = ["CUSTOMER"];
 const USER_ROLES = ["CUSTOMER", "GARAGE_OWNER"];
 const AUTH_ROLES = [...USER_ROLES, "ADMIN", "INTERN", "CUSTOMER_SUPPORT"];
 
@@ -36,20 +37,24 @@ const signupValidation = [
   body("password")
     .notEmpty()
     .withMessage("Password is required")
+    .isLength({ max: 256 })
+    .withMessage("Password is too long")
     .matches(PASSWORD_REGEX)
     .withMessage(PASSWORD_MESSAGE),
 
   body("confirmPassword")
     .notEmpty()
     .withMessage("Confirm password is required")
+    .isLength({ max: 256 })
+    .withMessage("Confirm password is too long")
     .custom((value, { req }) => value === req.body.password)
     .withMessage("Passwords do not match"),
 
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(USER_ROLES)
-    .withMessage("Role must be either CUSTOMER or GARAGE_OWNER"),
+    .isIn(PUBLIC_SIGNUP_ROLES)
+    .withMessage("Public registration is available only for CUSTOMER accounts"),
 ];
 
 const verifyOtpValidation = [
@@ -80,8 +85,8 @@ const verifyOtpValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(USER_ROLES)
-    .withMessage("Role must be either CUSTOMER or GARAGE_OWNER"),
+    .isIn(PUBLIC_SIGNUP_ROLES)
+    .withMessage("Public registration is available only for CUSTOMER accounts"),
 ];
 
 const resendOtpValidation = [
@@ -105,8 +110,8 @@ const resendOtpValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(USER_ROLES)
-    .withMessage("Role must be either CUSTOMER or GARAGE_OWNER"),
+    .isIn(PUBLIC_SIGNUP_ROLES)
+    .withMessage("Public registration is available only for CUSTOMER accounts"),
 ];
 
 const sendPhoneOtpValidation = [
@@ -144,11 +149,15 @@ const loginValidation = [
   body("identifier")
     .trim()
     .notEmpty()
-    .withMessage("Email, phone, or staff login ID is required"),
+    .withMessage("Email, phone, or staff login ID is required")
+    .isLength({ max: 254 })
+    .withMessage("Login identifier is too long"),
 
   body("password")
     .notEmpty()
-    .withMessage("Password is required"),
+    .withMessage("Password is required")
+    .isLength({ max: 256 })
+    .withMessage("Password is too long"),
 
   body("role")
     .optional({ checkFalsy: true })
@@ -193,8 +202,8 @@ const googleAuthValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(USER_ROLES)
-    .withMessage("Role must be either CUSTOMER or GARAGE_OWNER"),
+    .isIn(PUBLIC_SIGNUP_ROLES)
+    .withMessage("Google registration is available only for CUSTOMER accounts"),
 ];
 
 const forgotPasswordValidation = [

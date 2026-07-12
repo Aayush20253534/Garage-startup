@@ -1,7 +1,7 @@
 const express = require("express");
 
 const garageWalletController = require("../controllers/garageWallet.controller");
-const { protect } = require("../middlewares/auth.middleware");
+const { protectUser } = require("../middlewares/auth.middleware");
 const { authorizeRoles } = require("../middlewares/role.middleware");
 const validate = require("../middlewares/validate.middleware");
 
@@ -12,8 +12,8 @@ const {
 
 const router = express.Router();
 
-router.use(protect);
-router.use(authorizeRoles("GARAGE_OWNER", "ADMIN"));
+router.use(protectUser);
+router.use(authorizeRoles("GARAGE_OWNER"));
 
 router.get("/", garageWalletController.getGarageWallet);
 

@@ -6,6 +6,7 @@ const calculateDistanceKm = require("../utils/distance");
 const { getCache, setCache } = require("../utils/cache");
 const { addGarageWhatsappLink, createWhatsappLink } = require("../utils/whatsapp");
 const googleMapsService = require("../maps/services/googleMaps.service");
+const { isGarageOpenNow } = require("../utils/garageHours");
 
 const GARAGE_LIST_TTL = 5 * 60;
 const GARAGE_DETAIL_TTL = 5 * 60;
@@ -68,14 +69,6 @@ const garageIncludeForDetails = {
       },
     },
   },
-};
-
-const isGarageOpenNow = (garage) => {
-  if (!garage.openingTime || !garage.closingTime) return true;
-
-  const currentTime = new Date().toTimeString().slice(0, 5);
-
-  return garage.openingTime <= currentTime && garage.closingTime >= currentTime;
 };
 
 const normalizeServiceIds = (serviceIds) => {

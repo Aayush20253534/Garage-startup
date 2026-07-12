@@ -1,24 +1,40 @@
-const prisma = require("../config/prisma");
+const crypto = require("crypto");
 
-const generateBookingCode = async () => {
-  let bookingCode;
-  let exists = true;
+const MAX_BOOKING_CODE_ATTEMPTS = 5;
 
-  while (exists) {
-    const time = Date.now().toString().slice(-6);
-    const random = Math.floor(1000 + Math.random() * 9000);
+const generateBookingCode = () => {
+  const time = Date.now().toString(36).toUpperCase();
+  const random = crypto.randomBytes(6).toString("hex").toUpperCase();
+  return `ROV-${time}-${random}`;
+};
 
-    bookingCode = `ROV-${time}-${random}`;
+const isBookingCodeConflictError = (error) => {
+  if (error?.code !== "P2002") return false;
 
-    const booking = await prisma.booking.findUnique({
-      where: { bookingCode },
-      select: { id: true },
-    });
+  const target = error?.meta?.target;
+  if (Array.isArray(target)) return target.includes("bookingCode");
+  return String(target || "").includes("bookingCode");
+};
 
-    exists = Boolean(booking);
+const withUniqueBookingCode = async (
+  createBooking,
+  maxAttempts = MAX_BOOKING_CODE_ATTEMPTS,
+) => {
+  let lastConflict = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      return await createBooking(generateBookingCode());
+    } catch (error) {
+      if (!isBookingCodeConflictError(error)) throw error;
+      lastConflict = error;
+    }
   }
 
-  return bookingCode;
+  throw lastConflict || new Error("Unable to allocate a unique booking code");
 };
 
 module.exports = generateBookingCode;
+module.exports.generateBookingCode = generateBookingCode;
+module.exports.isBookingCodeConflictError = isBookingCodeConflictError;
+module.exports.withUniqueBookingCode = withUniqueBookingCode;

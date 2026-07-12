@@ -1,5 +1,23 @@
 node_modules
+npm-debug.log*
+logs
+coverage
 .git
-npm-debug.log
-Dockerfile
-.dockerignore
+.github
+
+# Never bake runtime credentials into an image.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Development, test, and local-only artifacts.
+test
+tests
+docs
+backups
+tmp
+*.log

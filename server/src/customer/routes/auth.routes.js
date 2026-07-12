@@ -25,11 +25,39 @@ const {
 } = require("../validations/auth.validation");
 
 const rateLimit = require("../../middlewares/rateLimit.middleware");
+const concurrencyLimit = require("../../middlewares/concurrencyLimit.middleware");
 const {
   otpSendRateLimits,
 } = require("../../middlewares/otpRateLimit.middleware");
 
 const router = express.Router();
+const authConcurrencyLimit = concurrencyLimit({
+  max: Number(process.env.AUTH_MAX_CONCURRENT_REQUESTS || 50),
+});
+
+const loginIpRateLimit = rateLimit({
+  name: "login-ip",
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  fallbackMax: 10,
+  keyGenerator: (req) => req.ip,
+});
+
+const otpVerifyIpRateLimit = rateLimit({
+  name: "otp-verify-ip",
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  fallbackMax: 10,
+  keyGenerator: (req) => req.ip,
+});
+
+const passwordResetIpRateLimit = rateLimit({
+  name: "password-reset-ip",
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  fallbackMax: 8,
+  keyGenerator: (req) => req.ip,
+});
 
 const otpVerifyRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -73,6 +101,7 @@ const passwordResetRateLimit = rateLimit({
 
 router.post(
   "/signup",
+  authConcurrencyLimit,
   signupValidation,
   validate,
   otpSendRateLimits,
@@ -81,6 +110,7 @@ router.post(
 
 router.post(
   "/verify-otp",
+  otpVerifyIpRateLimit,
   otpVerifyRateLimit,
   verifyOtpValidation,
   validate,
@@ -106,6 +136,7 @@ router.post(
 router.post(
   "/verify-phone-otp",
   protectUser,
+  otpVerifyIpRateLimit,
   otpVerifyRateLimit,
   verifyPhoneOtpValidation,
   validate,
@@ -114,6 +145,8 @@ router.post(
 
 router.post(
   "/support/login",
+  authConcurrencyLimit,
+  loginIpRateLimit,
   loginRateLimit,
   loginValidation,
   validate,
@@ -132,6 +165,8 @@ router.get(
 
 router.post(
   "/login",
+  authConcurrencyLimit,
+  loginIpRateLimit,
   loginRateLimit,
   loginValidation,
   validate,
@@ -156,6 +191,8 @@ router.post(
 
 router.post(
   "/google",
+  authConcurrencyLimit,
+  loginIpRateLimit,
   loginRateLimit,
   googleAuthValidation,
   validate,
@@ -175,6 +212,7 @@ router.post(
 
 router.post(
   "/forgot-password",
+  passwordResetIpRateLimit,
   forgotPasswordValidation,
   validate,
   otpSendRateLimits,
@@ -184,6 +222,8 @@ router.post(
 
 router.post(
   "/reset-password",
+  authConcurrencyLimit,
+  passwordResetIpRateLimit,
   passwordResetRateLimit,
   resetPasswordValidation,
   validate,

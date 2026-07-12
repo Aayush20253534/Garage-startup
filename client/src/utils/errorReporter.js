@@ -4,6 +4,42 @@ const reportUrl = getSystemIssueReportUrl();
 const recentReports = new Map();
 const REPORT_COOLDOWN_MS = 60 * 1000;
 
+const SENSITIVE_KEY_PATTERN =
+  /password|token|authorization|cookie|secret|otp|pin|card|cvv|session|privateKey|paymentSession/i;
+
+const stripQueryAndFragment = (value) =>
+  String(value || "").split(/[?#]/, 1)[0];
+
+const redactSensitiveText = (value) =>
+  String(value || "")
+    .replace(/\bBearer\s+[A-Za-z0-9._~-]+/gi, "Bearer [REDACTED]")
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[REDACTED_JWT]")
+    .replace(/([?&](?:token|code|otp|password|secret|session|key|authorization)=)[^&#\s]*/gi, "$1[REDACTED]")
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[REDACTED_EMAIL]")
+    .replace(/(?:\+91[ -]?)?[6-9]\d{9}\b/g, "[REDACTED_PHONE]")
+    .replace(/\b(otp|pin|verification code|reset code)\s*[:= -]*\d{4,8}\b/gi, "$1 [REDACTED]");
+
+const sanitizeMetadata = (value, depth = 0) => {
+  if (depth > 4) return "[Maximum depth reached]";
+  if (value === null || value === undefined) return value;
+  if (typeof value === "string") return redactSensitiveText(value).slice(0, 1000);
+  if (["number", "boolean"].includes(typeof value)) return value;
+  if (Array.isArray(value)) {
+    return value.slice(0, 25).map((item) => sanitizeMetadata(item, depth + 1));
+  }
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .slice(0, 50)
+      .reduce((result, [key, item]) => {
+        result[key] = SENSITIVE_KEY_PATTERN.test(key)
+          ? "[REDACTED]"
+          : sanitizeMetadata(item, depth + 1);
+        return result;
+      }, {});
+  }
+  return redactSensitiveText(value).slice(0, 1000);
+};
+
 const toText = (value, fallback = "Unknown frontend error") => {
   if (value instanceof Error) return value.message || fallback;
   if (typeof value === "string") return value || fallback;
@@ -43,7 +79,7 @@ const getPortal = () => {
 
 const getRoute = () => {
   if (typeof window === "undefined") return null;
-  return `${window.location.pathname}${window.location.search}`;
+  return window.location.pathname;
 };
 
 const buildFingerprint = (payload) =>
@@ -88,7 +124,19 @@ const postIssue = async (payload) => {
       credentials: "include",
       keepalive: true,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        title: redactSensitiveText(payload.title).slice(0, 180),
+        message: redactSensitiveText(payload.message).slice(0, 2000),
+        stack: payload.stack
+          ? redactSensitiveText(payload.stack).slice(0, 12000)
+          : null,
+        route: payload.route ? stripQueryAndFragment(payload.route).slice(0, 500) : null,
+        endpoint: payload.endpoint
+          ? stripQueryAndFragment(payload.endpoint).slice(0, 500)
+          : null,
+        metadata: sanitizeMetadata(payload.metadata || {}),
+      }),
     });
   } catch {
     // Error reporting must never break the customer or garage flow.
@@ -141,7 +189,7 @@ export const reportApiFailure = (error) => {
   const status = error.response?.status || null;
   const criticalFlow =
     /\/(bookings|payments|garage\/requests|garage\/wallet|sos)(\/|$)/i.test(
-      endpoint,
+      stripQueryAndFragment(endpoint),
     );
   const ignoredStatus = [401, 403, 404, 422, 429].includes(status);
   const shouldReport =
@@ -165,7 +213,7 @@ export const reportApiFailure = (error) => {
       Number(status) >= 500 || (!error.response && criticalFlow)
         ? "ERROR"
         : "WARNING",
-    endpoint,
+    endpoint: stripQueryAndFragment(endpoint),
     method: String(config.method || "GET").toUpperCase(),
     httpStatus: status,
     component: "Axios response interceptor",
@@ -173,7 +221,6 @@ export const reportApiFailure = (error) => {
       errorCode: error.code || null,
       timeout: config.timeout || null,
       retryCount: config.__networkRetryCount || 0,
-      params: config.params || null,
       statusText: error.response?.statusText || null,
       criticalFlow,
       timedOut,

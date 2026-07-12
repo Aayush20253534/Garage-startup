@@ -6,6 +6,7 @@ validateEnvironment();
 
 const app = require("./app");
 const prisma = require("./config/prisma");
+const redis = require("./config/redis");
 const systemIssueReporter = require("./services/systemIssueReporter.service");
 const {
   startGarageSearchWorker,
@@ -15,49 +16,147 @@ const {
   startSystemIssueAutoResolver,
   stopSystemIssueAutoResolver,
 } = require("./services/systemIssueAutoResolver.service");
+const {
+  startGarageApplicationEmailOutboxWorker,
+  stopGarageApplicationEmailOutboxWorker,
+} = require("./garage/services/applicationEmailOutbox.service");
 
 const PORT = process.env.PORT || 5000;
+const SHUTDOWN_TIMEOUT_MS = Math.max(
+  5_000,
+  Number(process.env.SHUTDOWN_TIMEOUT_MS || 15_000),
+);
+const FAILURE_REPORT_TIMEOUT_MS = Math.max(
+  500,
+  Number(process.env.FAILURE_REPORT_TIMEOUT_MS || 3_000),
+);
+
+let server = null;
+let shuttingDown = false;
+
+const withTimeout = (promise, timeoutMs, label) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+        timeoutMs,
+      );
+      timer.unref?.();
+    }),
+  ]);
 
 const reportProcessFailure = async (error, title, severity = "CRITICAL") => {
   console.error(title, error);
-  await systemIssueReporter.captureBackgroundError(error, {
-    title,
-    component: "Node.js process",
-    severity,
+
+  try {
+    await withTimeout(
+      systemIssueReporter.captureBackgroundError(error, {
+        title,
+        component: "Node.js process",
+        severity,
+      }),
+      FAILURE_REPORT_TIMEOUT_MS,
+      "Process failure report",
+    );
+  } catch (reportError) {
+    console.error("Failed to persist process failure report:", reportError.message);
+  }
+};
+
+const closeHttpServer = async () => {
+  if (!server) return;
+
+  server.closeIdleConnections?.();
+  await new Promise((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
   });
+};
+
+const closeRedis = async () => {
+  if (!redis || ["end", "close"].includes(redis.status)) return;
+
+  try {
+    await withTimeout(redis.quit(), 2_000, "Redis shutdown");
+  } catch (error) {
+    console.error("Redis graceful shutdown failed:", error.message);
+    redis.disconnect(false);
+  }
+};
+
+const shutdown = async ({ signal, exitCode = 0, error = null }) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  console.log(`${signal} received. Shutting down...`);
+  if (error) {
+    await reportProcessFailure(
+      error,
+      signal === "unhandledRejection"
+        ? "Unhandled promise rejection"
+        : "Uncaught server exception",
+      signal === "unhandledRejection" ? "ERROR" : "CRITICAL",
+    );
+  }
+
+  stopGarageSearchWorker();
+  stopSystemIssueAutoResolver();
+  stopGarageApplicationEmailOutboxWorker();
+
+  const forceExitTimer = setTimeout(() => {
+    console.error(`Forced shutdown after ${SHUTDOWN_TIMEOUT_MS}ms`);
+    server?.closeAllConnections?.();
+    process.exit(exitCode || 1);
+  }, SHUTDOWN_TIMEOUT_MS);
+  forceExitTimer.unref?.();
+
+  const results = await Promise.allSettled([
+    closeHttpServer(),
+    prisma.$disconnect(),
+    closeRedis(),
+  ]);
+
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error("Shutdown task failed:", result.reason);
+      exitCode = exitCode || 1;
+    }
+  }
+
+  clearTimeout(forceExitTimer);
+  process.exit(exitCode);
 };
 
 process.on("unhandledRejection", (reason) => {
   const error = reason instanceof Error ? reason : new Error(String(reason));
-  void reportProcessFailure(error, "Unhandled promise rejection", "ERROR");
+  void shutdown({ signal: "unhandledRejection", exitCode: 1, error });
 });
 
-process.on("uncaughtException", async (error) => {
-  await reportProcessFailure(error, "Uncaught server exception");
-  process.exit(1);
+process.on("uncaughtException", (error) => {
+  void shutdown({ signal: "uncaughtException", exitCode: 1, error });
 });
 
+process.on("SIGTERM", () => {
+  void shutdown({ signal: "SIGTERM" });
+});
+
+process.on("SIGINT", () => {
+  void shutdown({ signal: "SIGINT" });
+});
 
 const startServer = async () => {
   try {
     await prisma.$connect();
-
     console.log("Database connected successfully");
 
-    /*
-     * Starts the recurring garage-search worker.
-     *
-     * The worker checks bookings whose two-minute search round has expired
-     * and sends the next batch of requests to nearby garages.
-     *
-     * Start it only after the database connection succeeds.
-     */
     startGarageSearchWorker();
     const systemIssueAutoResolver = startSystemIssueAutoResolver();
+    startGarageApplicationEmailOutboxWorker();
 
-    const server = app.listen(PORT, () => {
+    server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log("Garage search worker started");
+      console.log("Garage application email outbox worker started");
       console.log(
         systemIssueAutoResolver
           ? "System issue auto resolver started"
@@ -65,46 +164,16 @@ const startServer = async () => {
       );
     });
 
-    /*
-     * Graceful shutdown.
-     * This closes the HTTP server and Prisma connection when the process
-     * receives a shutdown signal from Render, Docker, or the operating system.
-     */
-    const shutdown = async (signal) => {
-      console.log(`${signal} received. Shutting down gracefully...`);
-      stopGarageSearchWorker();
-      stopSystemIssueAutoResolver();
-
-      server.close(async () => {
-        try {
-          await prisma.$disconnect();
-          console.log("Database disconnected successfully");
-          process.exit(0);
-        } catch (error) {
-          console.error("Failed to disconnect database:", error);
-          process.exit(1);
-        }
-      });
-    };
-
-    process.on("SIGTERM", () => shutdown("SIGTERM"));
-    process.on("SIGINT", () => shutdown("SIGINT"));
+    server.on("error", (error) => {
+      void shutdown({ signal: "serverError", exitCode: 1, error });
+    });
   } catch (error) {
     console.error("Failed to start server:", error);
-    await systemIssueReporter.captureBackgroundError(error, {
-      title: "Server startup failed",
-      component: "Server startup",
-      severity: "CRITICAL",
-    });
+    await reportProcessFailure(error, "Server startup failed");
 
-    try {
-      await prisma.$disconnect();
-    } catch (disconnectError) {
-      console.error("Failed to disconnect Prisma:", disconnectError);
-    }
-
+    await Promise.allSettled([prisma.$disconnect(), closeRedis()]);
     process.exit(1);
   }
 };
 
-startServer();
+void startServer();

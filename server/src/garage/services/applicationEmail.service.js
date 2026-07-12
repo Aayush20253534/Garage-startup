@@ -5,34 +5,55 @@ if (process.env.RESEND_API_KEY) {
   resend = new Resend(process.env.RESEND_API_KEY);
 }
 
+const escapeHtml = (value) =>
+  String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+const getGarageEmailSender = () =>
+  String(process.env.EMAIL_FROM || process.env.RESEND_FROM_EMAIL || "").trim();
+
 const sendGarageApplicationEmail = async ({ to, subject, message }) => {
-  if (!to) return false;
+  const recipient = String(to || "").trim().toLowerCase();
+  const sender = getGarageEmailSender();
 
-  const html = `
-      <h2>${subject}</h2>
-      <p>${message}</p>
-      <p>Team Rovauto</p>
-    `;
-
-  if (!resend || !process.env.EMAIL_FROM) {
-    // Never print recipient data or message bodies here. Approval emails can
-    // contain a temporary password and must not be copied into deployment logs.
-    console.warn(
-      "[garage-email] Email delivery is not configured; message was not sent.",
-    );
-    return false;
+  if (!recipient) {
+    throw new Error("Garage application email recipient is missing");
   }
 
-  await resend.emails.send({
-    from: process.env.EMAIL_FROM,
-    to,
+  if (!resend || !sender) {
+    const error = new Error("Garage application email delivery is not configured");
+    error.code = "EMAIL_NOT_CONFIGURED";
+    throw error;
+  }
+
+  const html = `
+    <h2>${escapeHtml(subject)}</h2>
+    <p>${escapeHtml(message).replaceAll("\n", "<br>")}</p>
+    <p>Team Rovauto</p>
+  `;
+
+  const result = await resend.emails.send({
+    from: sender,
+    to: recipient,
     subject,
     html,
   });
 
-  return true;
+  if (result?.error) {
+    throw new Error(result.error.message || "Email provider rejected the message");
+  }
+
+  return {
+    sent: true,
+    providerId: result?.data?.id || null,
+  };
 };
 
 module.exports = {
+  getGarageEmailSender,
   sendGarageApplicationEmail,
 };

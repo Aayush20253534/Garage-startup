@@ -189,65 +189,6 @@ const touchCustomerSupportSession = (sessionId, supportAccountId) =>
     supportAccountId,
   );
 
-const ensureLegacyUserSession = async ({
-  userId,
-  tokenExpiresAt,
-  userAgent,
-}) => {
-  const id = `legacy-${userId}`;
-  const now = new Date();
-  const fallbackExpiry = getSessionExpiry();
-  const parsedExpiry = tokenExpiresAt ? new Date(tokenExpiresAt) : null;
-  const expiresAt =
-    parsedExpiry && parsedExpiry > now ? parsedExpiry : fallbackExpiry;
-  const normalizedUserAgent = normalizeUserAgent(userAgent);
-  const cutoff = new Date(now.getTime() - SESSION_TOUCH_INTERVAL_MS);
-
-  const existing = await prisma.userSession.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      expiresAt: true,
-      revokedAt: true,
-      lastSeenAt: true,
-      userAgent: true,
-    },
-  });
-
-  if (!existing) {
-    await prisma.userSession.create({
-      data: {
-        id,
-        userId,
-        userAgent: normalizedUserAgent,
-        lastSeenAt: now,
-        expiresAt,
-      },
-    });
-
-    return id;
-  }
-
-  if (
-    existing.revokedAt ||
-    existing.expiresAt <= now ||
-    existing.lastSeenAt <= cutoff ||
-    (!existing.userAgent && normalizedUserAgent)
-  ) {
-    await prisma.userSession.update({
-      where: { id },
-      data: {
-        userAgent: normalizedUserAgent || existing.userAgent,
-        lastSeenAt: now,
-        expiresAt,
-        revokedAt: null,
-      },
-    });
-  }
-
-  return id;
-};
-
 const revokeUserSession = async (sessionId, userId) => {
   if (!sessionId || !userId) return;
 
@@ -340,7 +281,6 @@ module.exports = {
   createCustomerSupportSession,
   createStaffSession,
   createUserSession,
-  ensureLegacyUserSession,
   getActiveCustomerSupportSession,
   getActiveStaffSession,
   getActiveUserSession,

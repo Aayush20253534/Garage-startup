@@ -239,8 +239,10 @@ const signup = async ({
   const cleanName = name?.trim();
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
-  const validRoles = ["CUSTOMER", "GARAGE_OWNER"];
-  const userRole = normalizeAuthRole(role, validRoles, "CUSTOMER");
+  if (role && role !== "CUSTOMER") {
+    throw new ApiError(403, "Garage owner accounts are created only after application approval");
+  }
+  const userRole = "CUSTOMER";
 
   if (!cleanName || !cleanEmail || !cleanPhone || !password) {
     throw new ApiError(400, "Name, email, phone and password are required");
@@ -352,7 +354,10 @@ const verifyOtp = async (
 ) => {
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
-  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER"], "CUSTOMER");
+  if (role && role !== "CUSTOMER") {
+    throw new ApiError(403, "Garage owner accounts are created only after application approval");
+  }
+  const userRole = "CUSTOMER";
 
   const pendingSignup = await prisma.pendingSignup.findFirst({
     where: {
@@ -403,7 +408,10 @@ const verifyOtp = async (
 const resendOtp = async ({ email, phone, role = "CUSTOMER" }) => {
   const cleanEmail = normalizeEmail(email);
   const cleanPhone = normalizePhone(phone);
-  const userRole = normalizeAuthRole(role, ["CUSTOMER", "GARAGE_OWNER"], "CUSTOMER");
+  if (role && role !== "CUSTOMER") {
+    throw new ApiError(403, "Garage owner accounts are created only after application approval");
+  }
+  const userRole = "CUSTOMER";
 
   const pendingSignup = await prisma.pendingSignup.findFirst({
     where: {
@@ -659,8 +667,10 @@ const googleAuth = async (
     decodedToken.name?.trim() ||
     decodedToken.email?.split("@")[0] ||
     "Rovauto User";
-  const validRoles = ["CUSTOMER", "GARAGE_OWNER"];
-  const userRole = normalizeAuthRole(role, validRoles, "CUSTOMER");
+  if (role && role !== "CUSTOMER") {
+    throw new ApiError(403, "Garage owner accounts cannot be created through Google sign-in");
+  }
+  const userRole = "CUSTOMER";
 
   if (!cleanEmail || !decodedToken.email_verified) {
     throw new ApiError(400, "Google account email must be verified");

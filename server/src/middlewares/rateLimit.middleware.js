@@ -3,20 +3,31 @@ const redis = require("../config/redis");
 const { ensureRedisConnected, withTimeout } = require("../utils/cache");
 
 const buckets = new Map();
-const MAX_MEMORY_BUCKETS = 10000;
+const configuredMemoryBucketLimit = Number(
+  process.env.RATE_LIMIT_MAX_MEMORY_BUCKETS || 10000,
+);
+const MAX_MEMORY_BUCKETS = Number.isFinite(configuredMemoryBucketLimit)
+  ? Math.max(100, Math.floor(configuredMemoryBucketLimit))
+  : 10000;
 
 const normalizeKeyPart = (value) =>
   String(value || "anonymous")
     .replace(/\s+/g, "_")
     .slice(0, 200);
 
-const cleanupExpiredMemoryBuckets = (now) => {
-  if (buckets.size < MAX_MEMORY_BUCKETS) return;
+const ensureMemoryCapacity = (now, incomingKey) => {
+  if (buckets.has(incomingKey)) return;
 
   for (const [key, bucket] of buckets.entries()) {
     if (bucket.resetAt <= now) {
       buckets.delete(key);
     }
+  }
+
+  while (buckets.size >= MAX_MEMORY_BUCKETS) {
+    const oldestKey = buckets.keys().next().value;
+    if (oldestKey === undefined) break;
+    buckets.delete(oldestKey);
   }
 };
 
@@ -48,7 +59,7 @@ const incrementRedisBucket = async (key, windowMs) => {
 
 const incrementMemoryBucket = (key, windowMs) => {
   const now = Date.now();
-  cleanupExpiredMemoryBuckets(now);
+  ensureMemoryCapacity(now, key);
 
   const bucket = buckets.get(key);
 
@@ -63,6 +74,9 @@ const incrementMemoryBucket = (key, windowMs) => {
   }
 
   bucket.count += 1;
+  // Refresh insertion order so capacity eviction behaves like a small LRU.
+  buckets.delete(key);
+  buckets.set(key, bucket);
   return bucket;
 };
 

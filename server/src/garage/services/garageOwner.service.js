@@ -6,6 +6,7 @@ const {
   GARAGE_MINIMUM_ACTIVATION_RECHARGE,
 } = require("../constants");
 const geocodingService = require("../../customer/services/geocoding.service");
+const invalidatePublicCache = require("../../utils/invalidatePublicCache");
 const {
   createDeleteAccountOtp,
   verifyDeleteAccountOtp,
@@ -162,30 +163,74 @@ const normalizeSupportedBrands = (value) => {
     .filter(Boolean);
 };
 
+const isValidCoordinatePair = (latitude, longitude) =>
+  Number.isFinite(latitude) &&
+  Number.isFinite(longitude) &&
+  latitude >= -90 &&
+  latitude <= 90 &&
+  longitude >= -180 &&
+  longitude <= 180;
+
 const updateGarageOwnerProfile = async (userId, payload = {}) => {
   const garage = await getGarageForOwner(userId);
+  const nextName =
+    payload.name === undefined ? garage.name : String(payload.name).trim();
+  const nextDescription =
+    payload.description === undefined
+      ? garage.description
+      : String(payload.description || "").trim() || null;
+  const nextPhone =
+    payload.phone === undefined ? garage.phone : String(payload.phone).trim();
+  const nextWhatsappNo =
+    payload.whatsappNo === undefined
+      ? payload.phone === undefined
+        ? garage.whatsappNo
+        : nextPhone
+      : String(payload.whatsappNo || "").trim() || null;
+  const nextEmail =
+    payload.email === undefined
+      ? garage.email
+      : String(payload.email || "").trim().toLowerCase() || null;
   const nextAddress = String(payload.address ?? garage.address).trim();
   const nextCity = String(payload.city ?? garage.city).trim();
   const nextArea = String(payload.area ?? garage.area).trim();
-  const addressChanged =
-    nextAddress !== garage.address ||
-    nextCity !== garage.city ||
-    nextArea !== garage.area;
+
+  if (nextName.length < 2 || nextName.length > 120) {
+    throw new ApiError(400, "Garage name must be between 2 and 120 characters");
+  }
+
+  if (!/^\+91[6-9]\d{9}$/.test(nextPhone)) {
+    throw new ApiError(400, "Garage phone must be a valid Indian mobile number");
+  }
+
+  if (nextWhatsappNo && !/^\+91[6-9]\d{9}$/.test(nextWhatsappNo)) {
+    throw new ApiError(400, "WhatsApp number must be a valid Indian mobile number");
+  }
+
+  if (nextEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+    throw new ApiError(400, "Garage email is invalid");
+  }
 
   if (!nextAddress || !nextCity || !nextArea) {
     throw new ApiError(400, "Garage address, city and area are required");
   }
 
-  let latitude =
-    payload.latitude === undefined || payload.latitude === ""
-      ? garage.latitude
-      : Number(payload.latitude);
-  let longitude =
-    payload.longitude === undefined || payload.longitude === ""
-      ? garage.longitude
-      : Number(payload.longitude);
+  const hasLatitude = payload.latitude !== undefined && payload.latitude !== "";
+  const hasLongitude = payload.longitude !== undefined && payload.longitude !== "";
 
-  if (addressChanged || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+  if (hasLatitude !== hasLongitude) {
+    throw new ApiError(400, "Latitude and longitude must be provided together");
+  }
+
+  const addressChanged =
+    nextAddress !== garage.address ||
+    nextCity !== garage.city ||
+    nextArea !== garage.area;
+
+  let latitude = hasLatitude ? Number(payload.latitude) : garage.latitude;
+  let longitude = hasLongitude ? Number(payload.longitude) : garage.longitude;
+
+  if ((addressChanged && !hasLatitude) || !isValidCoordinatePair(latitude, longitude)) {
     const geocodeResult = await geocodingService.geocodeAddress({
       address: nextAddress,
       city: nextCity,
@@ -195,12 +240,34 @@ const updateGarageOwnerProfile = async (userId, payload = {}) => {
     longitude = Number(geocodeResult.longitude);
   }
 
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    throw new ApiError(400, "Could not determine coordinates for this garage address");
+  if (!isValidCoordinatePair(latitude, longitude)) {
+    throw new ApiError(400, "Could not determine valid coordinates for this garage address");
+  }
+
+  const workingRadiusKm = Number(
+    payload.workingRadiusKm ?? garage.workingRadiusKm,
+  );
+
+  if (
+    !Number.isInteger(workingRadiusKm) ||
+    workingRadiusKm < 1 ||
+    workingRadiusKm > 100
+  ) {
+    throw new ApiError(400, "Working radius must be between 1 and 100 km");
   }
 
   const garageType = normalizeGarageType(payload.garageType ?? garage.garageType);
-  const supportedBrands = normalizeSupportedBrands(payload.supportedBrands ?? garage.supportedBrands);
+  const supportedBrands = [
+    ...new Set(
+      normalizeSupportedBrands(
+        payload.supportedBrands ?? garage.supportedBrands,
+      ),
+    ),
+  ];
+
+  if (supportedBrands.length > 25 || supportedBrands.some((brand) => brand.length > 60)) {
+    throw new ApiError(400, "Supported brands are invalid");
+  }
 
   if (garageType === "AUTHORIZED" && supportedBrands.length === 0) {
     throw new ApiError(400, "Select at least one authorized brand");
@@ -209,30 +276,23 @@ const updateGarageOwnerProfile = async (userId, payload = {}) => {
   await prisma.garage.update({
     where: { id: garage.id },
     data: {
-      name: payload.name === undefined ? garage.name : String(payload.name).trim(),
-      description:
-        payload.description === undefined
-          ? garage.description
-          : String(payload.description || "").trim() || null,
-      phone: payload.phone === undefined ? garage.phone : String(payload.phone).trim(),
-      whatsappNo:
-        payload.whatsappNo === undefined
-          ? payload.phone === undefined
-            ? garage.whatsappNo
-            : String(payload.phone).trim()
-          : String(payload.whatsappNo).trim(),
-      email: payload.email === undefined ? garage.email : String(payload.email).trim().toLowerCase(),
+      name: nextName,
+      description: nextDescription,
+      phone: nextPhone,
+      whatsappNo: nextWhatsappNo,
+      email: nextEmail,
       address: nextAddress,
       city: nextCity,
       area: nextArea,
       latitude,
       longitude,
-      workingRadiusKm: Number(payload.workingRadiusKm || garage.workingRadiusKm) || 15,
+      workingRadiusKm,
       garageType,
       supportedBrands,
     },
   });
 
+  await invalidatePublicCache();
   return getGarageOwnerProfile(userId);
 };
 

@@ -12,9 +12,21 @@ const MAX_TEXT_LENGTH = 1000;
 const SENSITIVE_KEY_PATTERN =
   /password|token|authorization|cookie|secret|otp|pin|card|cvv|session|cashfreePaymentSession|privateKey/i;
 
+const stripQueryAndFragment = (value) =>
+  String(value || "").split(/[?#]/, 1)[0];
+
+const redactSensitiveText = (value) =>
+  String(value || "")
+    .replace(/\bBearer\s+[A-Za-z0-9._~-]+/gi, "Bearer [REDACTED]")
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[REDACTED_JWT]")
+    .replace(/([?&](?:token|code|otp|password|secret|session|key|authorization)=)[^&#\s]*/gi, "$1[REDACTED]")
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[REDACTED_EMAIL]")
+    .replace(/(?:\+91[ -]?)?[6-9]\d{9}\b/g, "[REDACTED_PHONE]")
+    .replace(/\b(otp|pin|verification code|reset code)\s*[:= -]*\d{4,8}\b/gi, "$1 [REDACTED]");
+
 const truncate = (value, maxLength = MAX_TEXT_LENGTH) => {
   if (value === undefined || value === null) return null;
-  const text = String(value).trim();
+  const text = redactSensitiveText(value).trim();
   if (!text) return null;
   return text.length > maxLength
     ? `${text.slice(0, maxLength)}…`
@@ -152,12 +164,12 @@ const buildIssueData = async ({
       : "WARNING";
 
   const route = truncate(
-    payload.route || req?.originalUrl || req?.path,
+    stripQueryAndFragment(payload.route || req?.originalUrl || req?.path),
     500,
   );
 
   const endpoint = truncate(
-    payload.endpoint || req?.originalUrl,
+    stripQueryAndFragment(payload.endpoint || req?.originalUrl),
     500,
   );
 
@@ -323,7 +335,7 @@ const captureRequestError = (
         "Express error middleware",
       metadata: {
         params: req?.params,
-        query: req?.query,
+        queryKeys: Object.keys(req?.query || {}).slice(0, 25),
         requestId:
           req?.headers?.["x-request-id"] ||
           null,
@@ -369,5 +381,7 @@ module.exports = {
   captureFrontendReport,
   captureIssue,
   captureRequestError,
+  redactSensitiveText,
   sanitizeValue,
+  stripQueryAndFragment,
 };

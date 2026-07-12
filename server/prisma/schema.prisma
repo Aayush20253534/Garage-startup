@@ -1050,11 +1050,36 @@ model GarageApplication {
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
   images           GarageApplicationImage[]
+  emailOutbox       GarageApplicationEmailOutbox[]
 
   @@index([email])
   @@index([phone])
   @@index([status])
   @@index([createdAt])
+}
+
+model GarageApplicationEmailOutbox {
+  id            String             @id @default(uuid())
+  applicationId String?
+  dedupeKey     String             @unique
+  recipient     String
+  subject       String
+  message       String
+  status        String             @default("PENDING")
+  attempts      Int                @default(0)
+  nextAttemptAt DateTime           @default(now())
+  lastError     String?
+  sentAt        DateTime?
+  lockedAt      DateTime?
+  lockedBy      String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  application   GarageApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId])
+  @@index([status, nextAttemptAt])
+  @@index([status, lockedAt])
+  @@map("garage_application_email_outbox")
 }
 
 model GarageApplicationImage {
