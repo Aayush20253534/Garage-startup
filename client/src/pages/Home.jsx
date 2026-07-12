@@ -304,11 +304,6 @@ export default function Home() {
                 </div>
 
                 <div className="text-sm">
-                  <div className="flex items-center gap-1 text-amber-300">
-                    {[1, 2, 3, 4, 5].map((item) => (
-                      <FiStar key={item} fill="currentColor" />
-                    ))}
-                  </div>
 
                   <div className="text-xs text-white/70">
                     Built for vehicle owners and garage partners
