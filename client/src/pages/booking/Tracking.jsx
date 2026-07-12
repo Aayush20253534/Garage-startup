@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import api from "@/api/axios";
 import InspectionGallery from "@/components/booking/InspectionGallery";
 import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
+import NearbyGarageSearchMap from "@/components/maps/NearbyGarageSearchMap";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
@@ -24,7 +25,6 @@ import {
   FiRefreshCw,
   FiShield,
   FiStar,
-  FiTool,
   FiX,
 } from "react-icons/fi";
 
@@ -190,68 +190,6 @@ const getBookingId = (location) => {
     ""
   );
 };
-
-function SearchMap({ retrying }) {
-  const garagePoints = [
-    { left: "15%", top: "23%", delay: 0 },
-    { left: "72%", top: "18%", delay: 0.25 },
-    { left: "79%", top: "68%", delay: 0.5 },
-    { left: "21%", top: "72%", delay: 0.75 },
-    { left: "50%", top: "10%", delay: 1 },
-  ];
-
-  return (
-    <div
-      className="relative h-72 overflow-hidden rounded-3xl border border-line bg-bg-soft"
-      style={{
-        backgroundImage:
-          "linear-gradient(rgba(15,23,42,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,0.06) 1px, transparent 1px)",
-        backgroundSize: "32px 32px",
-      }}
-    >
-      <motion.div
-        className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-brand/50"
-        animate={{ scale: [0.65, 1.15], opacity: [0.9, 0] }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
-      />
-      <motion.div
-        className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-brand"
-        animate={{ scale: [0.75, 1.2], opacity: [0.8, 0] }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          delay: 0.7,
-          ease: "easeOut",
-        }}
-      />
-
-      {garagePoints.map((point, index) => (
-        <motion.div
-          key={`${point.left}-${point.top}`}
-          className="absolute grid h-11 w-11 place-items-center rounded-2xl border border-line bg-white shadow-soft"
-          style={{ left: point.left, top: point.top }}
-          animate={{ y: [0, -7, 0], scale: [1, 1.06, 1] }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            delay: point.delay,
-          }}
-        >
-          <FiTool className="text-brand-dark" />
-          <span className="sr-only">Nearby garage {index + 1}</span>
-        </motion.div>
-      ))}
-
-      <div className="absolute left-1/2 top-1/2 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-ink text-white shadow-xl">
-        <FiMapPin className="text-2xl" />
-      </div>
-
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-line bg-white/95 px-4 py-2 text-xs font-semibold shadow-soft backdrop-blur">
-        {retrying ? "Refreshing nearby garage batch..." : "Contacting nearby verified garages"}
-      </div>
-    </div>
-  );
-}
 
 function Row({ label, value, bold = false }) {
   return (
@@ -534,7 +472,17 @@ function Tracking() {
 
         {searching && (
           <div className="mt-8">
-            <SearchMap retrying={retrying} />
+            <NearbyGarageSearchMap
+              customerLocation={{
+                latitude: booking.customerLatitude,
+                longitude: booking.customerLongitude,
+              }}
+              customerAddress={booking.customerAddress}
+              garages={currentRoundRequests
+                .map((request) => request.garage)
+                .filter(Boolean)}
+              retrying={retrying}
+            />
 
             <div className="card-soft mt-4 grid gap-4 p-5 sm:grid-cols-3">
               <div>
