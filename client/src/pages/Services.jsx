@@ -42,7 +42,7 @@ export default function Services() {
 
   const { user, cart, fetchServiceCategories } = useApp();
   const cartItems = Array.isArray(cart) ? cart : [];
-
+ 
   useEffect(() => {
     const loadCategories = async () => {
       try {
