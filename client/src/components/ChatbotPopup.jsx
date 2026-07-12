@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   FiChevronRight,
   FiSend,
@@ -26,6 +26,7 @@ export default function ChatbotPopup({ onClose }) {
   const [isClearing, setIsClearing] = useState(false);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const scrollFrameRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -75,11 +76,33 @@ export default function ChatbotPopup({ onClose }) {
     };
   }, [onClose]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  useLayoutEffect(() => {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return undefined;
+
+    if (scrollFrameRef.current) {
+      window.cancelAnimationFrame(scrollFrameRef.current);
     }
+
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    });
+
+    return () => {
+      if (scrollFrameRef.current) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+    };
   }, [messages, isSending, isLoadingHistory]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   const sendMessage = async (presetQuestion) => {
     const question = (presetQuestion ?? inputText).trim();
@@ -158,9 +181,9 @@ export default function ChatbotPopup({ onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label="Rovauto Assistant"
-      className="fixed inset-x-3 bottom-3 z-50 flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[min(680px,calc(100dvh-3rem))] sm:w-[420px]"
+      className="fixed inset-x-2.5 top-[calc(env(safe-area-inset-top)+0.625rem)] bottom-[calc(env(safe-area-inset-bottom)+0.625rem)] z-50 flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)] sm:inset-x-auto sm:top-auto sm:bottom-6 sm:right-6 sm:h-[min(680px,calc(100dvh-3rem))] sm:w-[420px]"
     >
-      <header className="relative overflow-hidden bg-ink px-4 py-4 text-white sm:px-5">
+      <header className="relative shrink-0 overflow-hidden bg-ink px-4 py-4 text-white sm:px-5">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-80" />
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -204,7 +227,7 @@ export default function ChatbotPopup({ onClose }) {
 
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50/80 px-4 py-5 sm:px-5"
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-slate-50/80 px-4 py-5 pb-6 sm:px-5"
       >
         {isLoadingHistory && (
           <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
@@ -228,7 +251,7 @@ export default function ChatbotPopup({ onClose }) {
               )}
               <div
                 className={[
-                  "max-w-[82%] whitespace-pre-line px-4 py-3 text-sm leading-6 shadow-sm",
+                  "max-w-[82%] break-words whitespace-pre-line px-4 py-3 text-sm leading-6 shadow-sm",
                   isBot
                     ? "rounded-2xl rounded-bl-md border border-slate-200 bg-white text-slate-700"
                     : "rounded-2xl rounded-br-md bg-ink text-white",
@@ -275,7 +298,7 @@ export default function ChatbotPopup({ onClose }) {
         )}
       </div>
 
-      <footer className="border-t border-slate-200 bg-white p-3 sm:p-4">
+      <footer className="shrink-0 border-t border-slate-200 bg-white p-3 sm:p-4">
         <div className="flex items-end gap-2 rounded-2xl border border-slate-300 bg-slate-50 p-1.5 transition focus-within:border-ink focus-within:bg-white focus-within:ring-4 focus-within:ring-slate-100">
           <textarea
             ref={inputRef}
