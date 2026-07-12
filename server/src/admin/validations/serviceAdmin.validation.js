@@ -34,6 +34,7 @@ const createCategorySchema = [
     .isBoolean()
     .withMessage("isComingSoon must be true or false")
     .toBoolean(),
+  ...restrictedCityIdsSchema,
 ];
 
 const updateCategorySchema = [
@@ -46,6 +47,7 @@ const updateCategorySchema = [
     .isBoolean()
     .withMessage("isComingSoon must be true or false")
     .toBoolean(),
+  ...restrictedCityIdsSchema,
 ];
 
 const createServiceSchema = [

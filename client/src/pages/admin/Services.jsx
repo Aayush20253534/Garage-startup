@@ -24,6 +24,7 @@ const emptyCategoryForm = {
   description: "",
   isActive: true,
   isComingSoon: false,
+  restrictedCityIds: [],
   thumbnail: null,
 };
 
@@ -78,23 +79,114 @@ const isServiceComingSoon = (service) =>
 const isCategoryComingSoon = (category) =>
   toBoolean(category?.isComingSoon);
 
-const getRestrictedCityIds = (service) =>
-  (service?.cityRestrictions || [])
+const getRestrictedCityIds = (record) =>
+  (record?.cityRestrictions || [])
     .map((restriction) => restriction.cityId || restriction.city?.id)
     .filter(Boolean);
 
-const getRestrictedCityNames = (service) =>
-  (service?.cityRestrictions || [])
+const getRestrictedCityNames = (record) =>
+  (record?.cityRestrictions || [])
     .map((restriction) => restriction.city?.name)
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
+
+function RestrictedCityPicker({
+  description,
+  cities,
+  selectedCityIds,
+  search,
+  onSearchChange,
+  onToggle,
+  onClear,
+}) {
+  const filteredCities = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return cities;
+
+    return cities.filter((city) =>
+      [city.name, city.state]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [cities, search]);
+
+  return (
+    <div className="rounded-xl border border-line bg-bg-soft/60 p-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-bold text-ink">
+            <FiMapPin />
+            Restricted cities
+            <span className="rounded-full bg-white px-2 py-0.5 text-xs text-muted">
+              {selectedCityIds.length}
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-muted">{description}</p>
+        </div>
+
+        {selectedCityIds.length > 0 && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-xs font-bold text-red-700 hover:underline"
+          >
+            Clear restrictions
+          </button>
+        )}
+      </div>
+
+      <div className="mt-3">
+        <label className="relative block">
+          <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <input
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Search cities"
+            className="h-9 w-full rounded-lg border border-line bg-white pl-9 pr-3 text-sm outline-none focus:border-ink"
+          />
+        </label>
+
+        <div className="mt-2 flex max-h-36 flex-wrap gap-2 overflow-y-auto pr-1">
+          {filteredCities.map((city) => {
+            const selected = selectedCityIds.includes(city.id);
+            const inactive = !toBoolean(city.isActive);
+
+            return (
+              <button
+                key={city.id}
+                type="button"
+                disabled={inactive && !selected}
+                onClick={() => onToggle(city.id)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  selected
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-line bg-white text-ink hover:border-ink"
+                }`}
+                title={inactive ? "Inactive city" : undefined}
+              >
+                {selected && <FiX />}
+                {city.name}
+                {inactive && " (inactive)"}
+              </button>
+            );
+          })}
+
+          {filteredCities.length === 0 && (
+            <span className="py-2 text-xs text-muted">No cities found.</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminServices() {
   const { user } = useApp();
   const isIntern = user?.role === "INTERN";
   const [categories, setCategories] = useState([]);
   const [cities, setCities] = useState([]);
-  const [citySearch, setCitySearch] = useState("");
+  const [categoryCitySearch, setCategoryCitySearch] = useState("");
+  const [serviceCitySearch, setServiceCitySearch] = useState("");
   const [categoryForm, setCategoryForm] = useState(emptyCategoryForm);
   const [serviceForm, setServiceForm] = useState(emptyServiceForm);
   const [search, setSearch] = useState("");
@@ -110,17 +202,6 @@ export default function AdminServices() {
     () => categories.filter((category) => category.isActive).length,
     [categories]
   );
-
-  const filteredCities = useMemo(() => {
-    const query = citySearch.trim().toLowerCase();
-    if (!query) return cities;
-
-    return cities.filter((city) =>
-      [city.name, city.state]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)),
-    );
-  }, [cities, citySearch]);
 
   const activeServiceCount = useMemo(
     () =>
@@ -182,6 +263,7 @@ export default function AdminServices() {
         description: categoryForm.description.trim() || null,
         isActive: categoryForm.isActive,
         isComingSoon: categoryForm.isComingSoon,
+        restrictedCityIds: categoryForm.restrictedCityIds,
       };
 
       let saved;
@@ -201,6 +283,7 @@ export default function AdminServices() {
       }
 
       setCategoryForm(emptyCategoryForm);
+      setCategoryCitySearch("");
       await load();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save category");
@@ -216,6 +299,7 @@ export default function AdminServices() {
       description: category.description || "",
       isActive: Boolean(category.isActive),
       isComingSoon: isCategoryComingSoon(category),
+      restrictedCityIds: getRestrictedCityIds(category),
       thumbnail: null,
     });
 
@@ -290,6 +374,19 @@ export default function AdminServices() {
     }
   };
 
+  const toggleCategoryRestrictedCity = (cityId) => {
+    setCategoryForm((current) => {
+      const selected = current.restrictedCityIds.includes(cityId);
+
+      return {
+        ...current,
+        restrictedCityIds: selected
+          ? current.restrictedCityIds.filter((id) => id !== cityId)
+          : [...current.restrictedCityIds, cityId],
+      };
+    });
+  };
+
   const setCategoryThumbnail = (file) => {
     setError("");
 
@@ -334,7 +431,7 @@ export default function AdminServices() {
     await adminApi.uploadServiceThumbnail(serviceId, formData);
   };
 
-  const toggleRestrictedCity = (cityId) => {
+  const toggleServiceRestrictedCity = (cityId) => {
     setServiceForm((current) => {
       const selected = current.restrictedCityIds.includes(cityId);
 
@@ -385,6 +482,7 @@ export default function AdminServices() {
         ...emptyServiceForm,
         categoryId: serviceForm.categoryId,
       });
+      setServiceCitySearch("");
 
       await load();
     } catch (err) {
@@ -608,7 +706,10 @@ export default function AdminServices() {
             {categoryForm.id && (
               <button
                 type="button"
-                onClick={() => setCategoryForm(emptyCategoryForm)}
+                onClick={() => {
+                  setCategoryForm(emptyCategoryForm);
+                  setCategoryCitySearch("");
+                }}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line text-ink transition hover:border-ink hover:bg-bg-soft"
                 aria-label="Cancel category edit"
               >
@@ -616,6 +717,23 @@ export default function AdminServices() {
               </button>
             )}
           </div>
+        </div>
+
+        <div className="mt-3">
+          <RestrictedCityPicker
+            description="Logged-in customers in selected cities will not see this category or any service inside it. Service-level restrictions can still add more restricted cities."
+            cities={cities}
+            selectedCityIds={categoryForm.restrictedCityIds}
+            search={categoryCitySearch}
+            onSearchChange={setCategoryCitySearch}
+            onToggle={toggleCategoryRestrictedCity}
+            onClear={() =>
+              setCategoryForm((current) => ({
+                ...current,
+                restrictedCityIds: [],
+              }))
+            }
+          />
         </div>
       </form>
 
@@ -700,79 +818,21 @@ export default function AdminServices() {
             Coming Soon
           </label>
 
-          <div className="rounded-xl border border-line bg-bg-soft/60 p-3 md:col-span-2 xl:col-span-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-bold text-ink">
-                  <FiMapPin />
-                  Restricted cities
-                  <span className="rounded-full bg-white px-2 py-0.5 text-xs text-muted">
-                    {serviceForm.restrictedCityIds.length}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs leading-5 text-muted">
-                  Logged-in customers in selected cities will not see this service.
-                  Leave every city unselected to make it available everywhere.
-                </p>
-              </div>
-
-              {serviceForm.restrictedCityIds.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setServiceForm((current) => ({
-                      ...current,
-                      restrictedCityIds: [],
-                    }))
-                  }
-                  className="text-xs font-bold text-red-700 hover:underline"
-                >
-                  Clear restrictions
-                </button>
-              )}
-            </div>
-
-            <div className="mt-3">
-              <label className="relative block">
-                <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-                <input
-                  value={citySearch}
-                  onChange={(event) => setCitySearch(event.target.value)}
-                  placeholder="Search cities"
-                  className="h-9 w-full rounded-lg border border-line bg-white pl-9 pr-3 text-sm outline-none focus:border-ink"
-                />
-              </label>
-
-              <div className="mt-2 flex max-h-36 flex-wrap gap-2 overflow-y-auto pr-1">
-                {filteredCities.map((city) => {
-                  const selected = serviceForm.restrictedCityIds.includes(city.id);
-                  const inactive = !toBoolean(city.isActive);
-
-                  return (
-                    <button
-                      key={city.id}
-                      type="button"
-                      disabled={inactive && !selected}
-                      onClick={() => toggleRestrictedCity(city.id)}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                        selected
-                          ? "border-red-200 bg-red-50 text-red-700"
-                          : "border-line bg-white text-ink hover:border-ink"
-                      }`}
-                      title={inactive ? "Inactive city" : undefined}
-                    >
-                      {selected && <FiX />}
-                      {city.name}
-                      {inactive && " (inactive)"}
-                    </button>
-                  );
-                })}
-
-                {filteredCities.length === 0 && (
-                  <span className="py-2 text-xs text-muted">No cities found.</span>
-                )}
-              </div>
-            </div>
+          <div className="md:col-span-2 xl:col-span-4">
+            <RestrictedCityPicker
+              description="Logged-in customers in selected cities will not see this service. These restrictions are added on top of any category-level restrictions."
+              cities={cities}
+              selectedCityIds={serviceForm.restrictedCityIds}
+              search={serviceCitySearch}
+              onSearchChange={setServiceCitySearch}
+              onToggle={toggleServiceRestrictedCity}
+              onClear={() =>
+                setServiceForm((current) => ({
+                  ...current,
+                  restrictedCityIds: [],
+                }))
+              }
+            />
           </div>
 
           <div className="flex gap-2 xl:justify-end">
@@ -792,12 +852,13 @@ export default function AdminServices() {
             {serviceForm.id && (
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
                   setServiceForm({
                     ...emptyServiceForm,
                     categoryId: serviceForm.categoryId,
-                  })
-                }
+                  });
+                  setServiceCitySearch("");
+                }}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line text-ink transition hover:border-ink hover:bg-bg-soft"
                 aria-label="Cancel service edit"
               >
@@ -857,6 +918,8 @@ export default function AdminServices() {
         ) : categories.length ? (
           categories.map((category) => {
             const categoryComingSoon = isCategoryComingSoon(category);
+            const categoryRestrictedCityNames =
+              getRestrictedCityNames(category);
 
             return (
             <section
@@ -905,6 +968,16 @@ export default function AdminServices() {
                       {categoryComingSoon && (
                         <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
                           Coming Soon
+                        </span>
+                      )}
+
+                      {categoryRestrictedCityNames.length > 0 ? (
+                        <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">
+                          Restricted in: {categoryRestrictedCityNames.join(", ")}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">
+                          All cities
                         </span>
                       )}
                     </div>
@@ -985,6 +1058,8 @@ export default function AdminServices() {
                     const effectiveComingSoon =
                       categoryComingSoon || serviceComingSoon;
                     const serviceActive = toBoolean(service.isActive);
+                    const serviceRestrictedCityNames =
+                      getRestrictedCityNames(service);
 
                     return (
                       <div
@@ -1040,9 +1115,13 @@ export default function AdminServices() {
                               </span>
                             )}
 
-                            {getRestrictedCityNames(service).length > 0 ? (
+                            {serviceRestrictedCityNames.length > 0 ? (
                               <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">
-                                Restricted: {getRestrictedCityNames(service).join(", ")}
+                                Service restricted: {serviceRestrictedCityNames.join(", ")}
+                              </span>
+                            ) : categoryRestrictedCityNames.length > 0 ? (
+                              <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-700">
+                                Uses category restrictions
                               </span>
                             ) : (
                               <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">

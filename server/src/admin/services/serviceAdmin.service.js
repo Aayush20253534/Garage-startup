@@ -31,6 +31,9 @@ const serviceInclude = {
 };
 
 const categoryInclude = {
+  cityRestrictions: {
+    include: { city: true },
+  },
   services: {
     include: {
       media: {
@@ -94,6 +97,10 @@ const createCategory = async (payload) => {
   const name = normalizeText(payload.name);
   if (!name) throw new ApiError(400, "Service category name is required");
 
+  const restrictedCityIds = await ensureRestrictedCitiesExist(
+    payload.restrictedCityIds,
+  );
+
   try {
     const category = await prisma.serviceCategory.create({
       data: {
@@ -101,6 +108,11 @@ const createCategory = async (payload) => {
         description: normalizeText(payload.description) || null,
         isActive: parseBoolean(payload.isActive, true),
         isComingSoon: parseBoolean(payload.isComingSoon, false),
+        ...(restrictedCityIds.length > 0 && {
+          cityRestrictions: {
+            create: restrictedCityIds.map((cityId) => ({ cityId })),
+          },
+        }),
       },
       include: categoryInclude,
     });
@@ -132,6 +144,18 @@ const updateCategory = async (categoryId, payload) => {
   }
   if (payload.isComingSoon !== undefined) {
     data.isComingSoon = parseBoolean(payload.isComingSoon, false);
+  }
+  if (payload.restrictedCityIds !== undefined) {
+    const restrictedCityIds = await ensureRestrictedCitiesExist(
+      payload.restrictedCityIds,
+    );
+
+    data.cityRestrictions = {
+      deleteMany: {},
+      ...(restrictedCityIds.length > 0 && {
+        create: restrictedCityIds.map((cityId) => ({ cityId })),
+      }),
+    };
   }
 
   try {

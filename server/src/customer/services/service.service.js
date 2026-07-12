@@ -4,6 +4,7 @@ const { getCache, setCache } = require("../../utils/cache");
 const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
 const cityService = require("../../services/city.service");
 const {
+  buildCategoryAvailabilityWhere,
   buildServiceAvailabilityWhere,
 } = require("../../services/serviceCityRestriction.service");
 
@@ -174,7 +175,10 @@ const getServiceCategories = async (options = {}) => {
   if (cached) return cached;
 
   const categories = await prisma.serviceCategory.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      ...buildCategoryAvailabilityWhere(context?.city?.id),
+    },
     include: {
       services: {
         where: {

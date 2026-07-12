@@ -406,6 +406,7 @@ model ServiceCategory {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   services          Service[]
+  cityRestrictions  CategoryCityRestriction[]
 
   @@index([isComingSoon])
 }
@@ -503,7 +504,8 @@ model City {
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  serviceRestrictions ServiceCityRestriction[]
+  serviceRestrictions  ServiceCityRestriction[]
+  categoryRestrictions CategoryCityRestriction[]
 
   @@index([isActive])
   @@index([name])
@@ -521,6 +523,20 @@ model ServiceCityRestriction {
   @@index([serviceId])
   @@index([cityId])
   @@map("service_city_restrictions")
+}
+
+model CategoryCityRestriction {
+  id         String          @id @default(uuid())
+  categoryId String
+  cityId     String
+  createdAt  DateTime        @default(now())
+  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  city       City            @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, cityId])
+  @@index([categoryId])
+  @@index([cityId])
+  @@map("service_category_city_restrictions")
 }
 
 model Booking {

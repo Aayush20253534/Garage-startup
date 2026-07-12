@@ -29,7 +29,7 @@ const ensureRestrictedCitiesExist = async (cityIds = [], { tx = prisma } = {}) =
   return normalizedIds;
 };
 
-const buildServiceAvailabilityWhere = (cityId) => {
+const buildCategoryAvailabilityWhere = (cityId) => {
   const normalizedCityId = String(cityId || "").trim();
   if (!normalizedCityId) return {};
 
@@ -42,7 +42,22 @@ const buildServiceAvailabilityWhere = (cityId) => {
   };
 };
 
+const buildServiceAvailabilityWhere = (cityId) => {
+  const normalizedCityId = String(cityId || "").trim();
+  if (!normalizedCityId) return {};
+
+  return {
+    cityRestrictions: {
+      none: {
+        cityId: normalizedCityId,
+      },
+    },
+    category: buildCategoryAvailabilityWhere(normalizedCityId),
+  };
+};
+
 module.exports = {
+  buildCategoryAvailabilityWhere,
   buildServiceAvailabilityWhere,
   ensureRestrictedCitiesExist,
   normalizeRestrictedCityIds,

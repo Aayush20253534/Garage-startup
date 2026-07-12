@@ -203,6 +203,10 @@ const createBooking = async (userId, data) => {
           id: true,
           name: true,
           isComingSoon: true,
+          cityRestrictions: {
+            where: { cityId: bookingCityRecord.id },
+            select: { id: true },
+          },
         },
       },
       cityRestrictions: {
@@ -217,7 +221,9 @@ const createBooking = async (userId, data) => {
   }
 
   const restrictedServices = services.filter(
-    (service) => service.cityRestrictions.length > 0,
+    (service) =>
+      service.cityRestrictions.length > 0 ||
+      service.category?.cityRestrictions?.length > 0,
   );
 
   if (restrictedServices.length > 0) {
