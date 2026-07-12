@@ -400,8 +400,8 @@ export default function Home() {
                         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 p-6">
                           <p className="max-w-[260px] text-center text-xl font-bold leading-relaxed text-white sm:text-2xl">
                             {isSos
-                              ? "Roadside assistance launching soon"
-                              : "This category is launching soon"}
+                              ? "Roadside assistance Coming soon"
+                              : "This category is Coming soon"}
                           </p>
                         </div>
                       ) : (
