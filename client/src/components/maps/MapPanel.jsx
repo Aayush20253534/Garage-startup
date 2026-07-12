@@ -55,9 +55,15 @@ export default function MapPanel({
   const overlaysRef = useRef([]);
   const listenersRef = useRef([]);
   const tileTimerRef = useRef(null);
+  const resizeFrameRef = useRef(null);
   const hasLoadedTilesRef = useRef(false);
+  const onLocationChangeRef = useRef(onLocationChange);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    onLocationChangeRef.current = onLocationChange;
+  }, [onLocationChange]);
 
   const clearMapArtifacts = () => {
     listenersRef.current.forEach((listener) => listener?.remove?.());
@@ -72,6 +78,11 @@ export default function MapPanel({
     if (tileTimerRef.current) {
       window.clearTimeout(tileTimerRef.current);
       tileTimerRef.current = null;
+    }
+
+    if (resizeFrameRef.current) {
+      window.cancelAnimationFrame(resizeFrameRef.current);
+      resizeFrameRef.current = null;
     }
   };
 
@@ -114,7 +125,7 @@ export default function MapPanel({
         // Use Google's normal ROADMAP raster renderer. The previous fallback
         // DEMO_MAP_ID could force a vector/WebGL map, leaving only markers and
         // the route visible on devices where the vector basemap did not render.
-        const mapOptions = {
+        const mutableMapOptions = {
           center: centerPosition,
           zoom,
           disableDefaultUI: true,
@@ -125,15 +136,23 @@ export default function MapPanel({
           backgroundColor: dark ? "#111827" : "#e5e7eb",
         };
 
-        if (maps.RenderingType?.RASTER) {
-          mapOptions.renderingType = maps.RenderingType.RASTER;
+        let map = mapRef.current;
+        if (!map) {
+          const initialMapOptions = { ...mutableMapOptions };
+
+          // renderingType is constructor-only. Passing it to setOptions after a
+          // map click/coordinate update makes Google collapse the map and show
+          // "setRenderingType after instantiation is not supported".
+          if (maps.RenderingType?.RASTER) {
+            initialMapOptions.renderingType = maps.RenderingType.RASTER;
+          }
+
+          map = new maps.Map(containerRef.current, initialMapOptions);
+          mapRef.current = map;
+        } else {
+          map.setOptions(mutableMapOptions);
         }
 
-        const map =
-          mapRef.current || new maps.Map(containerRef.current, mapOptions);
-
-        mapRef.current = map;
-        map.setOptions(mapOptions);
         map.setCenter(centerPosition);
 
         if (!hasLoadedTilesRef.current) {
@@ -178,9 +197,9 @@ export default function MapPanel({
             optimized: true,
           });
 
-          if (isDraggable && onLocationChange) {
+          if (isDraggable && onLocationChangeRef.current) {
             const listener = marker.addListener("dragend", (event) => {
-              onLocationChange({
+              onLocationChangeRef.current?.({
                 latitude: event.latLng.lat(),
                 longitude: event.latLng.lng(),
               });
@@ -239,15 +258,31 @@ export default function MapPanel({
           map.setZoom(zoom);
         }
 
-        if (draggable && onLocationChange) {
+        if (draggable && onLocationChangeRef.current) {
           const listener = map.addListener("click", (event) => {
-            onLocationChange({
+            onLocationChangeRef.current?.({
               latitude: event.latLng.lat(),
               longitude: event.latLng.lng(),
             });
           });
           listenersRef.current.push(listener);
         }
+
+        // Google Maps can retain the old internal canvas size while the parent
+        // rerenders after a pin click. Re-measure once layout has settled and
+        // then restore the intended viewport.
+        resizeFrameRef.current = window.requestAnimationFrame(() => {
+          if (!active || !containerRef.current || !mapRef.current) return;
+
+          maps.event.trigger(map, "resize");
+          if (bounded && !samePosition(originPosition, destinationPosition)) {
+            map.fitBounds(bounds, 56);
+          } else {
+            map.setCenter(centerPosition);
+            map.setZoom(zoom);
+          }
+          resizeFrameRef.current = null;
+        });
       } catch (err) {
         if (active) {
           setLoading(false);
@@ -276,7 +311,6 @@ export default function MapPanel({
     points,
     dark,
     zoom,
-    onLocationChange,
   ]);
 
   const fallbackPosition =
