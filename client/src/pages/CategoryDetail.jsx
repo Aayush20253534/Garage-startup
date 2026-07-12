@@ -397,8 +397,6 @@ export default function CategoryDetail() {
 
               <div className="mb-5 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <FiStar className="text-amber-400" fill="currentColor" />
-                  <span className="font-semibold">4.8</span>
                   <span className="text-muted text-sm">Verified service</span>
                 </div>
 
