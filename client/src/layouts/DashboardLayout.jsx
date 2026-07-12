@@ -76,24 +76,6 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     [items],
   );
 
-  const mobileItems = useMemo(() => {
-    if (isCustomerPortal) {
-      const preferredPaths = [
-        "/dashboard",
-        "/dashboard/vehicles",
-        "/booking/vehicle",
-        "/dashboard/bookings",
-        "/dashboard/notifications",
-      ];
-
-      return preferredPaths
-        .map((path) => visibleItems.find((item) => item.to === path))
-        .filter(Boolean);
-    }
-
-    return visibleItems.slice(0, 5);
-  }, [isCustomerPortal, visibleItems]);
-
   const closeSidebar = () => {
     setOpen(false);
     document.body.style.overflow = "";
@@ -177,7 +159,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     return <Logo />;
   };
 
-  const renderNavItem = (item, { mobile = false } = {}) => {
+  const renderNavItem = (item) => {
     const Icon = item.icon;
     const badge = badgeForItem(item);
     const warmRoute = () => {
@@ -185,32 +167,6 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
       preloadCustomerRoute(item.to).catch(() => null);
     };
 
-    if (mobile) {
-      return (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={isDashboardLink(item.to)}
-          onMouseEnter={warmRoute}
-          onFocus={warmRoute}
-          onTouchStart={warmRoute}
-          className={({ isActive }) =>
-            [
-              "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-bold transition",
-              isActive ? "bg-ink text-white" : "text-slate-500",
-            ].join(" ")
-          }
-        >
-          {Icon && <Icon className="text-lg" />}
-          <span className="w-full truncate text-center">{item.label}</span>
-          {badge > 0 && (
-            <span className="absolute right-1.5 top-1 rounded-full bg-brand px-1.5 py-0.5 text-[9px] font-extrabold text-black">
-              {badge > 99 ? "99+" : badge}
-            </span>
-          )}
-        </NavLink>
-      );
-    }
 
     return (
       <NavLink
@@ -357,7 +313,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           className={[
             "w-full min-w-0 max-w-full overflow-x-hidden",
             usesFixedPortalShell
-              ? "mx-auto max-w-[1600px] px-3 pb-28 pt-4 sm:px-5 sm:pt-5 lg:px-7 lg:pb-8 lg:pt-7 xl:px-8"
+              ? "mx-auto max-w-[1600px] px-3 pb-24 pt-4 sm:px-5 sm:pt-5 lg:px-7 lg:pb-8 lg:pt-7 xl:px-8"
               : "p-4 sm:p-6 lg:p-8",
           ].join(" ")}
         >
@@ -365,23 +321,6 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         </motion.main>
       </div>
 
-      {(isCustomerSupportPortal || isCustomerPortal) && (
-        <nav
-          aria-label={
-            isCustomerSupportPortal
-              ? "Support portal navigation"
-              : "Customer portal navigation"
-          }
-          className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-2 pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:hidden"
-          style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
-        >
-          <div className="mx-auto flex max-w-lg gap-1">
-            {mobileItems.map((item) =>
-              renderNavItem(item, { mobile: true }),
-            )}
-          </div>
-        </nav>
-      )}
 
       {showCustomerAssistant && <FAB />}
     </div>

@@ -1,11 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { FiTrash2, FiX, FiSend } from "react-icons/fi";
+import {
+  FiChevronRight,
+  FiSend,
+  FiTrash2,
+  FiX,
+} from "react-icons/fi";
 import api from "@/api/axios";
 
 const welcomeMessage = {
   from: "bot",
-  text: "Hi, I am Rovauto Assistant. Ask me about booking, location, vehicles, payments, SOS, complaints, or tracking.",
+  text: "Hi, I’m the Rovauto Assistant. I can help with bookings, vehicles, payments, service tracking, SOS, and support requests.",
 };
+
+const quickPrompts = [
+  "How do I book a service?",
+  "Where is my booking?",
+  "Help with a payment",
+];
 
 export default function ChatbotPopup({ onClose }) {
   const [messages, setMessages] = useState([welcomeMessage]);
@@ -14,6 +25,7 @@ export default function ChatbotPopup({ onClose }) {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
   const scrollRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -37,7 +49,7 @@ export default function ChatbotPopup({ onClose }) {
             ...current,
             {
               from: "bot",
-              text: "I could not load your previous chat right now, but you can still ask me a new question.",
+              text: "I couldn’t load your previous conversation, but you can still start a new one.",
             },
           ]);
         }
@@ -49,11 +61,19 @@ export default function ChatbotPopup({ onClose }) {
     };
 
     loadHistory();
+    window.setTimeout(() => inputRef.current?.focus(), 120);
+
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("keydown", closeOnEscape);
     };
-  }, []);
+  }, [onClose]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -61,8 +81,8 @@ export default function ChatbotPopup({ onClose }) {
     }
   }, [messages, isSending, isLoadingHistory]);
 
-  const sendMessage = async () => {
-    const question = inputText.trim();
+  const sendMessage = async (presetQuestion) => {
+    const question = (presetQuestion ?? inputText).trim();
     if (!question || isSending) return;
 
     const newMessages = [...messages, { from: "user", text: question }];
@@ -83,20 +103,21 @@ export default function ChatbotPopup({ onClose }) {
 
       const reply =
         response.data?.data?.answer ||
-        "I could not generate an answer right now. Please try again.";
+        "I couldn’t generate an answer right now. Please try again.";
 
       setMessages((current) => [...current, { from: "bot", text: reply }]);
     } catch (error) {
       const status = error.response?.status;
       const reply =
         status === 401
-          ? "Please login as a customer so I can help with your Rovauto account."
+          ? "Please sign in as a customer so I can help with your Rovauto account."
           : error.response?.data?.message ||
-            "I am having trouble connecting right now. Please try again in a moment.";
+            "I’m having trouble connecting right now. Please try again in a moment.";
 
       setMessages((current) => [...current, { from: "bot", text: reply }]);
     } finally {
       setIsSending(false);
+      window.setTimeout(() => inputRef.current?.focus(), 80);
     }
   };
 
@@ -114,7 +135,7 @@ export default function ChatbotPopup({ onClose }) {
           from: "bot",
           text:
             error.response?.data?.message ||
-            "Could not clear chat history right now.",
+            "I couldn’t clear the conversation right now.",
         },
       ]);
     } finally {
@@ -122,74 +143,165 @@ export default function ChatbotPopup({ onClose }) {
     }
   };
 
+  const handleInputKeyDown = (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const showQuickPrompts =
+    !isLoadingHistory && messages.length === 1 && !isSending;
+
   return (
-    <div className="fixed bottom-28 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] max-w-96 bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
-      <div className="bg-[#b9f000] text-[#111] px-5 py-4 flex items-center justify-between">
-        <div className="font-semibold text-lg">Rovauto Assistant</div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={clearHistory}
-            disabled={isClearing || isSending}
-            title="Clear chat history"
-            className="hover:bg-black/10 rounded-full p-1 disabled:opacity-50"
-          >
-            <FiTrash2 className="text-lg" />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="hover:bg-black/10 rounded-full p-1"
-          >
-            <FiX className="text-xl" />
-          </button>
+    <section
+      role="dialog"
+      aria-modal="true"
+      aria-label="Rovauto Assistant"
+      className="fixed inset-x-3 bottom-3 z-50 flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[min(680px,calc(100dvh-3rem))] sm:w-[420px]"
+    >
+      <header className="relative overflow-hidden bg-ink px-4 py-4 text-white sm:px-5">
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-80" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand font-display text-lg font-extrabold text-black shadow-[0_8px_24px_rgba(185,240,0,0.18)]">
+              R
+              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-ink bg-emerald-400" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-bold sm:text-lg">
+                Rovauto Assistant
+              </h2>
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Online · Typically replies instantly
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={clearHistory}
+              disabled={isClearing || isSending}
+              aria-label="Clear conversation"
+              title="Clear conversation"
+              className="grid h-9 w-9 place-items-center rounded-xl text-slate-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <FiTrash2 className="text-base" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close assistant"
+              className="grid h-9 w-9 place-items-center rounded-xl text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <FiX className="text-xl" />
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
+
       <div
         ref={scrollRef}
-        className="h-80 overflow-y-auto bg-gray-50 p-4 flex flex-col gap-3"
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50/80 px-4 py-5 sm:px-5"
       >
         {isLoadingHistory && (
-          <div className="max-w-[80%] p-3 rounded-2xl bg-gray-200 self-start rounded-tl-none text-sm text-muted">
-            Loading previous chat...
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-brand-dark" />
+            Loading your conversation…
           </div>
         )}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
-              msg.from === "bot"
-                ? "bg-gray-200 self-start rounded-tl-none"
-                : "bg-[#b9f000] text-[#111] self-end rounded-tr-none"
-            }`}
-          >
-            {msg.text}
+
+        {messages.map((message, index) => {
+          const isBot = message.from === "bot";
+
+          return (
+            <div
+              key={`${message.from}-${index}`}
+              className={`flex items-end gap-2 ${isBot ? "justify-start" : "justify-end"}`}
+            >
+              {isBot && (
+                <div className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-ink text-[11px] font-extrabold text-brand">
+                  R
+                </div>
+              )}
+              <div
+                className={[
+                  "max-w-[82%] whitespace-pre-line px-4 py-3 text-sm leading-6 shadow-sm",
+                  isBot
+                    ? "rounded-2xl rounded-bl-md border border-slate-200 bg-white text-slate-700"
+                    : "rounded-2xl rounded-br-md bg-ink text-white",
+                ].join(" ")}
+              >
+                {message.text}
+              </div>
+            </div>
+          );
+        })}
+
+        {showQuickPrompts && (
+          <div className="pl-9">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+              Common questions
+            </p>
+            <div className="grid gap-2">
+              {quickPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => sendMessage(prompt)}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <span>{prompt}</span>
+                  <FiChevronRight className="shrink-0 text-slate-400" />
+                </button>
+              ))}
+            </div>
           </div>
-        ))}
+        )}
+
         {isSending && (
-          <div className="max-w-[80%] p-3 rounded-2xl bg-gray-200 self-start rounded-tl-none text-sm text-muted">
-            Thinking...
+          <div className="flex items-end gap-2">
+            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-ink text-[11px] font-extrabold text-brand">
+              R
+            </div>
+            <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
+            </div>
           </div>
         )}
       </div>
-      <div className="p-3 bg-white border-t border-gray-200 flex gap-2">
-        <input
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder="Ask about your service..."
-          disabled={isSending}
-          className="flex-1 border border-gray-300 rounded-full px-4 py-2 outline-none focus:border-[#b9f000]"
-        />
-        <button
-          type="button"
-          onClick={sendMessage}
-          disabled={isSending || !inputText.trim()}
-          className="w-10 h-10 bg-[#b9f000] rounded-full flex items-center justify-center hover:opacity-90 transition disabled:opacity-50"
-        >
-          <FiSend className="text-[#111]" />
-        </button>
-      </div>
-    </div>
+
+      <footer className="border-t border-slate-200 bg-white p-3 sm:p-4">
+        <div className="flex items-end gap-2 rounded-2xl border border-slate-300 bg-slate-50 p-1.5 transition focus-within:border-ink focus-within:bg-white focus-within:ring-4 focus-within:ring-slate-100">
+          <textarea
+            ref={inputRef}
+            rows={1}
+            value={inputText}
+            onChange={(event) => setInputText(event.target.value)}
+            onKeyDown={handleInputKeyDown}
+            placeholder="Type your question…"
+            disabled={isSending}
+            className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed"
+          />
+          <button
+            type="button"
+            onClick={() => sendMessage()}
+            disabled={isSending || !inputText.trim()}
+            aria-label="Send message"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-black shadow-sm transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+          >
+            <FiSend className="text-base" />
+          </button>
+        </div>
+        <p className="mt-2 text-center text-[10px] leading-4 text-slate-400">
+          Automated assistance may occasionally be inaccurate. For urgent help,
+          use Call support.
+        </p>
+      </footer>
+    </section>
   );
 }
