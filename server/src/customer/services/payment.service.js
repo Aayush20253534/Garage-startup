@@ -1,4 +1,5 @@
 const prisma = require("../../config/prisma");
+const { randomUUID } = require("crypto");
 const systemIssueReporter = require("../../services/systemIssueReporter.service");
 const axios = require("axios");
 const {
@@ -23,6 +24,14 @@ const {
   getCashfreeOrderIdFromWebhook,
   verifyCashfreeWebhookSignature,
 } = require("../security/cashfreeWebhook");
+const {
+  lockBookingFinance,
+} = require("./bookingFinanceLock.service");
+const {
+  getBookingPaymentIdempotencyKey,
+  getBookingRefundIdempotencyKey,
+  getPaymentReference,
+} = require("./bookingFinancialIdempotency");
 
 const bookingInclude = {
   user: {
@@ -62,34 +71,9 @@ const invalidatePaymentBookingCaches = async (userId) => {
   ]);
 };
 
-const DEFAULT_PAYMENT_SESSION_REUSE_MS = 10 * 60 * 1000;
-const REUSABLE_CASHFREE_ORDER_STATUSES = new Set(["ACTIVE", "CREATED"]);
-const TERMINAL_CASHFREE_ORDER_STATUSES = new Set([
-  "EXPIRED",
-  "TERMINATED",
-  "FAILED",
-  "CANCELLED",
-  "CANCELED",
-]);
-
-const getPaymentSessionReuseMs = () => {
-  const parsed = Number(process.env.CASHFREE_PAYMENT_SESSION_REUSE_MS);
-  return Number.isFinite(parsed) && parsed >= 60 * 1000
-    ? parsed
-    : DEFAULT_PAYMENT_SESSION_REUSE_MS;
-};
-
 const getCashfreeOrderStatus = (cashfreeOrder) =>
   String(cashfreeOrder?.order_status || "").toUpperCase();
 
-const isPaymentSessionFresh = (payment) => {
-  const referenceDate = payment?.updatedAt || payment?.createdAt;
-  const timestamp = referenceDate ? new Date(referenceDate).getTime() : 0;
-
-  return Number.isFinite(timestamp) &&
-    timestamp > 0 &&
-    Date.now() - timestamp <= getPaymentSessionReuseMs();
-};
 
 const fetchCashfreeOrder = async (cashfreeOrderId, fallback) => {
   try {
@@ -127,7 +111,12 @@ const getBookingPaymentAmount = (booking) => {
   );
 };
 
-const getWalletPaymentSplit = async (userId, totalAmount, useWallet) => {
+const getWalletPaymentSplit = async (
+  userId,
+  totalAmount,
+  useWallet,
+  { tx = prisma } = {},
+) => {
   const amount = toWholeRupee(totalAmount);
 
   if (!isWalletRequested(useWallet)) {
@@ -137,7 +126,7 @@ const getWalletPaymentSplit = async (userId, totalAmount, useWallet) => {
     };
   }
 
-  const wallet = await prisma.wallet.findUnique({
+  const wallet = await tx.wallet.findUnique({
     where: { userId },
     select: { balance: true },
   });
@@ -151,6 +140,7 @@ const getWalletPaymentSplit = async (userId, totalAmount, useWallet) => {
   };
 };
 
+
 const reserveWalletForBookingPaymentTx = async (
   tx,
   { userId, booking, amount, cashfreeOrderId = null },
@@ -158,6 +148,16 @@ const reserveWalletForBookingPaymentTx = async (
   const walletAmount = toWholeRupee(amount);
 
   if (walletAmount <= 0) return null;
+
+  const idempotencyKey = getBookingPaymentIdempotencyKey(
+    booking.id,
+    cashfreeOrderId || "wallet-only",
+  );
+  const existingDebit = await tx.walletTransaction.findUnique({
+    where: { idempotencyKey },
+  });
+
+  if (existingDebit) return existingDebit;
 
   const debitResult = await tx.wallet.updateMany({
     where: {
@@ -177,10 +177,12 @@ const reserveWalletForBookingPaymentTx = async (
     where: { userId },
   });
 
-  await tx.walletTransaction.create({
+  return tx.walletTransaction.create({
     data: {
       walletId: wallet.id,
       userId,
+      bookingId: booking.id,
+      idempotencyKey,
       type: "BOOKING_PAYMENT",
       status: "SUCCESS",
       amount: walletAmount,
@@ -191,8 +193,6 @@ const reserveWalletForBookingPaymentTx = async (
       }`,
     },
   });
-
-  return wallet;
 };
 
 const getWalletPaymentLookupFilters = ({ payment, booking } = {}) => {
@@ -226,6 +226,22 @@ const findWalletPaymentDebitTx = async (tx, { payment, booking, userId }) => {
 
   if (walletAmount <= 0) return null;
 
+  const bookingId = booking?.id || payment?.bookingId;
+
+  if (bookingId) {
+    const idempotentDebit = await tx.walletTransaction.findUnique({
+      where: {
+        idempotencyKey: getBookingPaymentIdempotencyKey(
+          bookingId,
+          getPaymentReference(payment),
+        ),
+      },
+    });
+
+    if (idempotentDebit) return idempotentDebit;
+  }
+
+  // Legacy fallback for payments created before idempotency keys existed.
   const filters = getWalletPaymentLookupFilters({ payment, booking });
 
   return tx.walletTransaction.findFirst({
@@ -244,6 +260,21 @@ const findWalletPaymentRefundTx = async (tx, { payment, booking, userId }) => {
   const walletAmount = toWholeRupee(payment?.walletAmountUsed);
 
   if (walletAmount <= 0) return null;
+
+  const bookingId = booking?.id || payment?.bookingId;
+
+  if (bookingId) {
+    const idempotentRefund = await tx.walletTransaction.findUnique({
+      where: {
+        idempotencyKey: getBookingRefundIdempotencyKey(
+          bookingId,
+          getPaymentReference(payment),
+        ),
+      },
+    });
+
+    if (idempotentRefund) return idempotentRefund;
+  }
 
   const filters = getWalletPaymentLookupFilters({ payment, booking });
 
@@ -322,6 +353,11 @@ const refundWalletPaymentTx = async (
     data: {
       walletId: wallet.id,
       userId,
+      bookingId: booking?.id || payment.bookingId,
+      idempotencyKey: getBookingRefundIdempotencyKey(
+        booking?.id || payment.bookingId,
+        getPaymentReference(payment),
+      ),
       type: "BOOKING_REFUND",
       status: "SUCCESS",
       amount: walletAmount,
@@ -342,6 +378,8 @@ const failCreatedPaymentAndReleaseWallet = async ({
   cashfreeOrderId = null,
 }) => {
   const result = await prisma.$transaction(async (tx) => {
+    await lockBookingFinance(bookingId, { tx });
+
     const payment = await tx.payment.findFirst({
       where: {
         bookingId,
@@ -353,12 +391,18 @@ const failCreatedPaymentAndReleaseWallet = async ({
 
     if (!payment) return null;
 
-    const booking = payment.booking;
-
-    await tx.payment.update({
-      where: { id: payment.id },
+    const claim = await tx.payment.updateMany({
+      where: {
+        id: payment.id,
+        status: "CREATED",
+        ...(cashfreeOrderId ? { cashfreeOrderId } : {}),
+      },
       data: { status: "FAILED" },
     });
+
+    if (claim.count !== 1) return null;
+
+    const booking = payment.booking;
 
     await refundWalletPaymentTx(tx, {
       payment,
@@ -519,35 +563,253 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    await applyWalletPaymentIfNeededTx(tx, {
-      payment: booking.payment,
-      booking,
-      userId: booking.userId,
+    await lockBookingFinance(booking.id, { tx });
+
+    const currentBooking = await tx.booking.findUnique({
+      where: { id: booking.id },
+      include: {
+        payment: true,
+        services: true,
+      },
     });
+
+    if (!currentBooking?.payment) {
+      throw new ApiError(404, "Payment order not found");
+    }
+
+    assertCashfreeOrderMatchesPayment(
+      cashfreeOrder,
+      currentBooking.payment,
+    );
+
+    if (
+      currentBooking.payment.status === "PAID" ||
+      currentBooking.payment.status === "REFUNDED"
+    ) {
+      return {
+        payment: currentBooking.payment,
+        booking: await tx.booking.findUnique({
+          where: { id: booking.id },
+          include: bookingInclude,
+        }),
+        completedNow: false,
+      };
+    }
+
+    if (currentBooking.payment.status !== "CREATED") {
+      throw new ApiError(409, "This payment attempt is no longer active");
+    }
+
+    if (currentBooking.status === "CANCELLED") {
+      const existingWalletDebit = await findWalletPaymentDebitTx(tx, {
+        payment: currentBooking.payment,
+        booking: currentBooking,
+        userId: currentBooking.userId,
+      });
+      const refundAmount =
+        getCashfreePayableAmount(currentBooking.payment) +
+        (existingWalletDebit
+          ? toWholeRupee(currentBooking.payment.walletAmountUsed)
+          : 0);
+
+      const paymentClaim = await tx.payment.updateMany({
+        where: {
+          id: currentBooking.payment.id,
+          bookingId: currentBooking.id,
+          cashfreeOrderId: currentBooking.payment.cashfreeOrderId,
+          status: "CREATED",
+        },
+        data: {
+          status: "REFUNDED",
+          cashfreePaymentId: cashfreeOrder.cf_order_id
+            ? String(cashfreeOrder.cf_order_id)
+            : currentBooking.payment.cashfreePaymentId,
+        },
+      });
+
+      if (paymentClaim.count !== 1) {
+        throw new ApiError(409, "Late payment was handled by another request");
+      }
+
+      if (refundAmount > 0) {
+        const idempotencyKey = getBookingRefundIdempotencyKey(
+          currentBooking.id,
+          getPaymentReference(currentBooking.payment),
+        );
+        const existingRefund = await tx.walletTransaction.findUnique({
+          where: { idempotencyKey },
+        });
+
+        if (!existingRefund) {
+          const wallet = await tx.wallet.upsert({
+            where: { userId: currentBooking.userId },
+            update: { balance: { increment: refundAmount } },
+            create: {
+              userId: currentBooking.userId,
+              type: "CUSTOMER",
+              balance: refundAmount,
+            },
+          });
+
+          await tx.walletTransaction.create({
+            data: {
+              walletId: wallet.id,
+              userId: currentBooking.userId,
+              bookingId: currentBooking.id,
+              idempotencyKey,
+              type: "BOOKING_REFUND",
+              status: "SUCCESS",
+              amount: refundAmount,
+              balanceAfter: wallet.balance,
+              cashfreeOrderId: currentBooking.payment.cashfreeOrderId,
+              cashfreePaymentId: cashfreeOrder.cf_order_id
+                ? String(cashfreeOrder.cf_order_id)
+                : currentBooking.payment.cashfreePaymentId,
+              description: `Late payment refund for cancelled booking ${
+                currentBooking.bookingCode || currentBooking.id
+              }`,
+            },
+          });
+        }
+      }
+
+      return {
+        payment: await tx.payment.findUnique({
+          where: { bookingId: currentBooking.id },
+        }),
+        booking: await tx.booking.findUnique({
+          where: { id: currentBooking.id },
+          include: bookingInclude,
+        }),
+        completedNow: false,
+        latePaymentRefunded: true,
+      };
+    }
+
+    if (currentBooking.status !== "PENDING_PAYMENT") {
+      throw new ApiError(409, "Booking is no longer awaiting payment");
+    }
+
+    try {
+      await applyWalletPaymentIfNeededTx(tx, {
+        payment: currentBooking.payment,
+        booking: currentBooking,
+        userId: currentBooking.userId,
+      });
+    } catch (error) {
+      const walletBalanceChanged =
+        error instanceof ApiError &&
+        error.statusCode === 400 &&
+        /wallet balance changed/i.test(error.message);
+
+      if (!walletBalanceChanged) throw error;
+
+      const refundAmount = getCashfreePayableAmount(
+        currentBooking.payment,
+      );
+      const paymentClaim = await tx.payment.updateMany({
+        where: {
+          id: currentBooking.payment.id,
+          bookingId: currentBooking.id,
+          cashfreeOrderId: currentBooking.payment.cashfreeOrderId,
+          status: "CREATED",
+        },
+        data: {
+          status: "REFUNDED",
+          cashfreePaymentId: cashfreeOrder.cf_order_id
+            ? String(cashfreeOrder.cf_order_id)
+            : currentBooking.payment.cashfreePaymentId,
+        },
+      });
+
+      if (paymentClaim.count !== 1) {
+        throw new ApiError(409, "Payment was handled by another request");
+      }
+
+      if (refundAmount > 0) {
+        const idempotencyKey = getBookingRefundIdempotencyKey(
+          currentBooking.id,
+          getPaymentReference(currentBooking.payment),
+        );
+        const existingRefund = await tx.walletTransaction.findUnique({
+          where: { idempotencyKey },
+        });
+
+        if (!existingRefund) {
+          const wallet = await tx.wallet.upsert({
+            where: { userId: currentBooking.userId },
+            update: { balance: { increment: refundAmount } },
+            create: {
+              userId: currentBooking.userId,
+              type: "CUSTOMER",
+              balance: refundAmount,
+            },
+          });
+
+          await tx.walletTransaction.create({
+            data: {
+              walletId: wallet.id,
+              userId: currentBooking.userId,
+              bookingId: currentBooking.id,
+              idempotencyKey,
+              type: "BOOKING_REFUND",
+              status: "SUCCESS",
+              amount: refundAmount,
+              balanceAfter: wallet.balance,
+              cashfreeOrderId: currentBooking.payment.cashfreeOrderId,
+              cashfreePaymentId: cashfreeOrder.cf_order_id
+                ? String(cashfreeOrder.cf_order_id)
+                : currentBooking.payment.cashfreePaymentId,
+              description: `Cashfree refund after wallet balance changed for booking ${
+                currentBooking.bookingCode || currentBooking.id
+              }`,
+            },
+          });
+        }
+      }
+
+      await tx.booking.update({
+        where: { id: currentBooking.id },
+        data: {
+          walletAmountUsed: 0,
+          payableAmount: getBookingPaymentAmount(currentBooking),
+        },
+      });
+
+      return {
+        payment: await tx.payment.findUnique({
+          where: { bookingId: currentBooking.id },
+        }),
+        booking: await tx.booking.findUnique({
+          where: { id: currentBooking.id },
+          include: bookingInclude,
+        }),
+        completedNow: false,
+        walletChangedRefunded: true,
+      };
+    }
 
     const paymentUpdate = await tx.payment.updateMany({
       where: {
-        bookingId: booking.id,
-        cashfreeOrderId: booking.payment.cashfreeOrderId,
-        status: { not: "PAID" },
+        id: currentBooking.payment.id,
+        bookingId: currentBooking.id,
+        cashfreeOrderId: currentBooking.payment.cashfreeOrderId,
+        status: "CREATED",
       },
       data: {
         status: "PAID",
         cashfreePaymentId: cashfreeOrder.cf_order_id
           ? String(cashfreeOrder.cf_order_id)
-          : booking.payment.cashfreePaymentId,
+          : currentBooking.payment.cashfreePaymentId,
       },
     });
 
-    const payment = await tx.payment.findUnique({
-      where: { bookingId: booking.id },
-    });
+    if (paymentUpdate.count !== 1) {
+      throw new ApiError(409, "Payment was processed by another request");
+    }
 
-    await tx.booking.updateMany({
-      where: {
-        id: booking.id,
-        status: "PENDING_PAYMENT",
-      },
+    await tx.booking.update({
+      where: { id: currentBooking.id },
       data: {
         status: "SEARCHING_GARAGE",
         searchExpiresAt: null,
@@ -555,15 +817,15 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
       },
     });
 
-    const updatedBooking = await tx.booking.findUnique({
-      where: { id: booking.id },
-      include: bookingInclude,
-    });
-
     return {
-      payment,
-      booking: updatedBooking,
-      completedNow: paymentUpdate.count > 0,
+      payment: await tx.payment.findUnique({
+        where: { bookingId: currentBooking.id },
+      }),
+      booking: await tx.booking.findUnique({
+        where: { id: currentBooking.id },
+        include: bookingInclude,
+      }),
+      completedNow: true,
     };
   });
 
@@ -588,11 +850,45 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
       include: bookingInclude,
     }),
     broadcastRequests,
-    message: result.completedNow
-      ? "Payment verified. Searching nearby garages in two-minute rounds."
-      : "Payment was already verified.",
+    message: result.latePaymentRefunded
+      ? "This booking was already cancelled. The late Cashfree payment was safely credited to your Rovauto wallet."
+      : result.walletChangedRefunded
+        ? "Your wallet balance changed during payment. The completed Cashfree amount was safely credited to your Rovauto wallet; retry the booking payment when ready."
+        : result.completedNow
+          ? "Payment verified. Searching nearby garages in two-minute rounds."
+          : "Payment was already verified.",
   };
 };
+
+const PAYMENT_ORDER_PREPARATION_GRACE_MS = 30 * 1000;
+
+const getPaymentAgeMs = (payment) => {
+  const timestamp = new Date(
+    payment?.updatedAt || payment?.createdAt || 0,
+  ).getTime();
+
+  return Number.isFinite(timestamp) && timestamp > 0
+    ? Math.max(Date.now() - timestamp, 0)
+    : Number.POSITIVE_INFINITY;
+};
+
+const buildCashfreeOrderResult = (payment, cashfreeOrder = null) => ({
+  payment,
+  walletAmountUsed: toWholeRupee(payment.walletAmountUsed),
+  upiAmountPaid: getCashfreePayableAmount(payment),
+  cashfreeOrder: {
+    id: payment.cashfreeOrderId,
+    cfOrderId:
+      cashfreeOrder?.cf_order_id || payment.cashfreePaymentId,
+    amount:
+      cashfreeOrder?.order_amount || getCashfreePayableAmount(payment),
+    currency: cashfreeOrder?.order_currency || payment.currency,
+    paymentSessionId:
+      cashfreeOrder?.payment_session_id ||
+      payment.cashfreePaymentSessionId,
+  },
+  mode: getCashfreeMode(),
+});
 
 const tryReuseCreatedPaymentOrder = async (booking, amount) => {
   const payment = booking.payment;
@@ -600,48 +896,90 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
   if (
     payment?.status !== "CREATED" ||
     payment.amount !== amount ||
-    !payment.cashfreeOrderId ||
-    !payment.cashfreePaymentSessionId
+    !payment.cashfreeOrderId
   ) {
     return null;
   }
 
-  if (!isPaymentSessionFresh(payment)) {
-    await failCreatedPaymentAndReleaseWallet({
-      bookingId: booking.id,
-      cashfreeOrderId: payment.cashfreeOrderId,
-    });
-    return null;
+  if (
+    !payment.cashfreePaymentSessionId &&
+    getPaymentAgeMs(payment) < PAYMENT_ORDER_PREPARATION_GRACE_MS
+  ) {
+    throw new ApiError(
+      409,
+      "Your payment session is being prepared. Please retry in a few seconds.",
+      "PAYMENT_ORDER_PREPARING",
+    );
   }
 
-  const cashfreeOrder = await fetchCashfreeOrder(
-    payment.cashfreeOrderId,
-    "Unable to check existing Cashfree order",
-  );
+  let cashfreeOrder;
+
+  try {
+    cashfreeOrder = await fetchCashfreeOrder(
+      payment.cashfreeOrderId,
+      "Unable to check existing Cashfree order",
+    );
+  } catch (error) {
+    if (
+      !payment.cashfreePaymentSessionId &&
+      error.statusCode === 404
+    ) {
+      await failCreatedPaymentAndReleaseWallet({
+        bookingId: booking.id,
+        cashfreeOrderId: payment.cashfreeOrderId,
+      });
+      return null;
+    }
+
+    throw error;
+  }
+
   const orderStatus = getCashfreeOrderStatus(cashfreeOrder);
 
   assertCashfreeOrderMatchesPayment(cashfreeOrder, payment);
 
   if (orderStatus === "PAID") {
-    await completePaidBookingPayment(booking, cashfreeOrder);
-    throw new ApiError(
-      409,
-      "Payment is already completed. Refresh your booking status.",
-    );
+    return completePaidBookingPayment(booking, cashfreeOrder);
   }
 
   if (REUSABLE_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
-    return {
-      payment,
-      cashfreeOrder: {
-        id: payment.cashfreeOrderId,
-        cfOrderId: payment.cashfreePaymentId,
-        amount: getCashfreePayableAmount(payment),
-        currency: payment.currency,
-        paymentSessionId: payment.cashfreePaymentSessionId,
-      },
-      mode: getCashfreeMode(),
-    };
+    const refreshedPayment = await prisma.$transaction(async (tx) => {
+      await lockBookingFinance(booking.id, { tx });
+
+      await tx.payment.updateMany({
+        where: {
+          id: payment.id,
+          bookingId: booking.id,
+          cashfreeOrderId: payment.cashfreeOrderId,
+          status: "CREATED",
+        },
+        data: {
+          cashfreePaymentId: cashfreeOrder.cf_order_id
+            ? String(cashfreeOrder.cf_order_id)
+            : payment.cashfreePaymentId,
+          cashfreePaymentSessionId:
+            cashfreeOrder.payment_session_id ||
+            payment.cashfreePaymentSessionId,
+        },
+      });
+
+      return tx.payment.findUnique({
+        where: { bookingId: booking.id },
+      });
+    });
+
+    if (!refreshedPayment?.cashfreePaymentSessionId) {
+      throw new ApiError(
+        409,
+        "Cashfree has not finished preparing this payment session. Please retry shortly.",
+        "PAYMENT_ORDER_PREPARING",
+      );
+    }
+
+    return buildCashfreeOrderResult(
+      refreshedPayment,
+      cashfreeOrder,
+    );
   }
 
   if (TERMINAL_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
@@ -661,9 +999,47 @@ const completeWalletOnlyBookingPayment = async (
   walletAmountUsed,
 ) => {
   const result = await prisma.$transaction(async (tx) => {
+    await lockBookingFinance(booking.id, { tx });
+
+    const currentBooking = await tx.booking.findFirst({
+      where: buildOwnedResourceWhere({ id: booking.id, userId }),
+      include: { payment: true },
+    });
+
+    if (!currentBooking) {
+      throw new ApiError(404, "Booking not found");
+    }
+
+    if (currentBooking.payment?.status === "PAID") {
+      return {
+        payment: currentBooking.payment,
+        booking: await tx.booking.findUnique({
+          where: { id: booking.id },
+          include: bookingInclude,
+        }),
+        completedNow: false,
+      };
+    }
+
+    ensurePendingPaymentBooking(currentBooking);
+
+    const split = await getWalletPaymentSplit(
+      userId,
+      totalAmount,
+      true,
+      { tx },
+    );
+
+    if (split.walletAmountUsed < totalAmount || split.upiAmountPaid > 0) {
+      throw new ApiError(
+        409,
+        "Wallet balance changed. Please refresh and choose a payment method again.",
+      );
+    }
+
     await reserveWalletForBookingPaymentTx(tx, {
       userId,
-      booking,
+      booking: currentBooking,
       amount: walletAmountUsed,
     });
 
@@ -692,11 +1068,8 @@ const completeWalletOnlyBookingPayment = async (
       },
     });
 
-    await tx.booking.updateMany({
-      where: {
-        id: booking.id,
-        status: "PENDING_PAYMENT",
-      },
+    await tx.booking.update({
+      where: { id: booking.id },
       data: {
         status: "SEARCHING_GARAGE",
         walletAmountUsed,
@@ -711,7 +1084,7 @@ const completeWalletOnlyBookingPayment = async (
       include: bookingInclude,
     });
 
-    return { payment, booking: updatedBooking };
+    return { payment, booking: updatedBooking, completedNow: true };
   });
 
   let broadcastRequests = [];
@@ -739,104 +1112,228 @@ const completeWalletOnlyBookingPayment = async (
     upiAmountPaid: 0,
     cashfreeOrder: null,
     mode: getCashfreeMode(),
-    message: "Wallet payment completed. Searching nearby garages in two-minute rounds.",
+    message: result.completedNow
+      ? "Wallet payment completed. Searching nearby garages in two-minute rounds."
+      : "Wallet payment was already completed.",
   };
 };
 
-const createPaymentOrder = async (userId, { bookingId, useWallet = false }) => {
-  assertServiceHoursOpen();
+const createCashfreeBookingOrderId = (booking) => {
+  const bookingToken = String(booking.bookingCode || booking.id)
+    .replace(/[^A-Za-z0-9_-]/g, "")
+    .slice(0, 20);
+  const randomToken = randomUUID().replace(/-/g, "").slice(0, 16);
 
-  const booking = await prisma.booking.findFirst({
-    where: buildOwnedResourceWhere({ id: bookingId, userId }),
-    include: {
-      payment: true,
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
+  return `cf_${bookingToken}_${randomToken}`;
+};
+
+const reserveCashfreeOrderForBooking = async (
+  userId,
+  bookingId,
+  useWallet,
+) =>
+  prisma.$transaction(async (tx) => {
+    await lockBookingFinance(bookingId, { tx });
+
+    const booking = await tx.booking.findFirst({
+      where: buildOwnedResourceWhere({ id: bookingId, userId }),
+      include: {
+        payment: true,
+        services: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  ensurePendingPaymentBooking(booking);
-
-  const amount = getBookingPaymentAmount(booking);
-
-  if (amount <= 0) {
-    throw new ApiError(
-      400,
-      "No online payment required for this booking",
-    );
-  }
-
-  let split = await getWalletPaymentSplit(userId, amount, useWallet);
-
-  if (booking.payment?.status === "CREATED") {
-    const existingWalletAmount = toWholeRupee(
-      booking.payment.walletAmountUsed,
-    );
-    const existingUpiAmount = getCashfreePayableAmount(booking.payment);
-    const requestedWallet = isWalletRequested(useWallet);
-    const canReuseExistingOrder =
-      booking.payment.amount === amount &&
-      ((requestedWallet && existingWalletAmount > 0) ||
-        (!requestedWallet && existingWalletAmount === 0) ||
-        (requestedWallet &&
-          existingWalletAmount === 0 &&
-          split.walletAmountUsed === 0)) &&
-      existingUpiAmount > 0;
-
-    if (canReuseExistingOrder) {
-      const reusableOrder = await tryReuseCreatedPaymentOrder(
-        booking,
-        amount,
-      );
-
-      if (reusableOrder) {
-        return reusableOrder;
-      }
-    } else {
-      await failCreatedPaymentAndReleaseWallet({
-        bookingId: booking.id,
-        cashfreeOrderId: booking.payment.cashfreeOrderId,
-      });
+    if (!booking) {
+      throw new ApiError(404, "Booking not found");
     }
 
-    split = await getWalletPaymentSplit(userId, amount, useWallet);
+    if (booking.payment?.status === "PAID") {
+      return { kind: "PAID", booking, payment: booking.payment };
+    }
+
+    ensurePendingPaymentBooking(booking);
+
+    const amount = getBookingPaymentAmount(booking);
+
+    if (amount <= 0) {
+      throw new ApiError(400, "No online payment required for this booking");
+    }
+
+    if (
+      booking.payment?.status === "CREATED" &&
+      booking.payment.cashfreeOrderId
+    ) {
+      return {
+        kind: "EXISTING",
+        booking,
+        payment: booking.payment,
+        amount,
+      };
+    }
+
+    const split = await getWalletPaymentSplit(
+      userId,
+      amount,
+      useWallet,
+      { tx },
+    );
+
+    if (
+      split.walletAmountUsed >= amount &&
+      split.upiAmountPaid <= 0
+    ) {
+      return {
+        kind: "WALLET_ONLY",
+        booking,
+        amount,
+        ...split,
+      };
+    }
+
+    const cashfreeOrderId = createCashfreeBookingOrderId(booking);
+
+    await tx.booking.update({
+      where: { id: booking.id },
+      data: {
+        walletAmountUsed: split.walletAmountUsed,
+        payableAmount: split.upiAmountPaid,
+      },
+    });
+
+    const payment = await tx.payment.upsert({
+      where: { bookingId: booking.id },
+      update: {
+        amount,
+        currency: "INR",
+        status: "CREATED",
+        cashfreeOrderId,
+        cashfreePaymentId: null,
+        cashfreePaymentSessionId: null,
+        walletAmountUsed: split.walletAmountUsed,
+        upiAmountPaid: split.upiAmountPaid,
+      },
+      create: {
+        bookingId: booking.id,
+        amount,
+        currency: "INR",
+        status: "CREATED",
+        cashfreeOrderId,
+        cashfreePaymentId: null,
+        cashfreePaymentSessionId: null,
+        walletAmountUsed: split.walletAmountUsed,
+        upiAmountPaid: split.upiAmountPaid,
+      },
+    });
+
+    return {
+      kind: "CREATE",
+      booking: { ...booking, payment },
+      payment,
+      amount,
+      cashfreeOrderId,
+      ...split,
+    };
+  });
+
+const createPaymentOrder = async (
+  userId,
+  { bookingId, useWallet = false },
+  retryCount = 0,
+) => {
+  assertServiceHoursOpen();
+
+  const reservation = await reserveCashfreeOrderForBooking(
+    userId,
+    bookingId,
+    useWallet,
+  );
+
+  if (reservation.kind === "PAID") {
+    return {
+      payment: reservation.payment,
+      booking: await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: bookingInclude,
+      }),
+      cashfreeOrder: null,
+      mode: getCashfreeMode(),
+      message: "Payment was already completed.",
+    };
   }
 
-  const { walletAmountUsed, upiAmountPaid } = split;
-
-  if (walletAmountUsed >= amount && upiAmountPaid <= 0) {
+  if (reservation.kind === "WALLET_ONLY") {
     return completeWalletOnlyBookingPayment(
       userId,
-      booking,
-      amount,
-      walletAmountUsed,
+      reservation.booking,
+      reservation.amount,
+      reservation.walletAmountUsed,
+    );
+  }
+
+  if (reservation.kind === "EXISTING") {
+    const reusableOrder = await tryReuseCreatedPaymentOrder(
+      reservation.booking,
+      reservation.amount,
+    );
+
+    if (reusableOrder) return reusableOrder;
+
+    if (retryCount >= 1) {
+      throw new ApiError(
+        409,
+        "The previous payment attempt ended. Please press Pay again.",
+      );
+    }
+
+    return createPaymentOrder(
+      userId,
+      { bookingId, useWallet },
+      retryCount + 1,
     );
   }
 
   if (!isCashfreeConfigured()) {
-    throw new ApiError(
-      500,
-      "Cashfree payment gateway is not configured",
-    );
+    await failCreatedPaymentAndReleaseWallet({
+      bookingId,
+      cashfreeOrderId: reservation.cashfreeOrderId,
+    });
+    throw new ApiError(500, "Cashfree payment gateway is not configured");
   }
 
-  const customerPhone = getCashfreeCustomerPhone(booking.user?.phone);
+  const customerPhone = getCashfreeCustomerPhone(
+    reservation.booking.user?.phone,
+  );
 
   if (!customerPhone) {
+    await failCreatedPaymentAndReleaseWallet({
+      bookingId,
+      cashfreeOrderId: reservation.cashfreeOrderId,
+    });
     throw new ApiError(
       400,
       "Please add a valid Indian mobile number before payment.",
     );
   }
 
-  const cashfreeOrderId = `cf_${booking.bookingCode}_${Date.now()}`;
-  const frontendUrl = getPaymentReturnBaseUrl();
+  let frontendUrl;
+
+  try {
+    frontendUrl = getPaymentReturnBaseUrl();
+  } catch (error) {
+    await failCreatedPaymentAndReleaseWallet({
+      bookingId,
+      cashfreeOrderId: reservation.cashfreeOrderId,
+    });
+    throw error;
+  }
 
   let cashfreeOrder;
 
@@ -844,101 +1341,114 @@ const createPaymentOrder = async (userId, { bookingId, useWallet = false }) => {
     const cashfreeRes = await axios.post(
       `${getCashfreeBaseUrl()}/orders`,
       {
-        order_id: cashfreeOrderId,
-        order_amount: upiAmountPaid,
+        order_id: reservation.cashfreeOrderId,
+        order_amount: reservation.upiAmountPaid,
         order_currency: "INR",
         customer_details: {
           customer_id: userId,
           customer_name:
-            booking.user?.name || "Rovauto Customer",
-          customer_email: booking.user?.email || undefined,
+            reservation.booking.user?.name || "Rovauto Customer",
+          customer_email:
+            reservation.booking.user?.email || undefined,
           customer_phone: customerPhone,
         },
         order_meta: {
           return_url: `${frontendUrl}/dashboard/payments?cashfree_order_id={order_id}`,
           notify_url: getCashfreeNotifyUrl(),
         },
-        order_note: `Booking ${booking.bookingCode}`,
+        order_note: `Booking ${reservation.booking.bookingCode}`,
         order_tags: {
-          bookingId: booking.id,
+          bookingId: reservation.booking.id,
           userId,
-          walletAmountUsed: String(walletAmountUsed),
-          upiAmountPaid: String(upiAmountPaid),
+          walletAmountUsed: String(reservation.walletAmountUsed),
+          upiAmountPaid: String(reservation.upiAmountPaid),
         },
       },
       { headers: getCashfreeHeaders() },
     );
 
     cashfreeOrder = cashfreeRes.data;
-  } catch (error) {
-    throw getCashfreeApiError(
-      error,
-      "Unable to create Cashfree order",
+  } catch (createError) {
+    // A timeout can happen after Cashfree accepted the order. Since the order
+    // ID was persisted before this HTTP request, recover it instead of
+    // creating a second order and orphaning the first one.
+    try {
+      cashfreeOrder = await fetchCashfreeOrder(
+        reservation.cashfreeOrderId,
+        "Unable to recover the Cashfree payment order",
+      );
+    } catch (recoveryError) {
+      const createStatus = createError.response?.status;
+      const definitelyRejected =
+        Number.isInteger(createStatus) &&
+        createStatus >= 400 &&
+        createStatus < 500 &&
+        createStatus !== 409;
+
+      if (definitelyRejected) {
+        await failCreatedPaymentAndReleaseWallet({
+          bookingId,
+          cashfreeOrderId: reservation.cashfreeOrderId,
+        });
+        throw getCashfreeApiError(
+          createError,
+          "Unable to create Cashfree order",
+        );
+      }
+
+      throw new ApiError(
+        502,
+        "Cashfree is still confirming the payment session. Please retry in a few seconds; a second order will not be created.",
+        "PAYMENT_ORDER_RECONCILING",
+      );
+    }
+  }
+
+  assertCashfreeOrderMatchesPayment(
+    cashfreeOrder,
+    reservation.payment,
+  );
+
+  const payment = await prisma.$transaction(async (tx) => {
+    await lockBookingFinance(bookingId, { tx });
+
+    await tx.payment.updateMany({
+      where: {
+        id: reservation.payment.id,
+        bookingId,
+        cashfreeOrderId: reservation.cashfreeOrderId,
+        status: "CREATED",
+      },
+      data: {
+        cashfreePaymentId: cashfreeOrder.cf_order_id
+          ? String(cashfreeOrder.cf_order_id)
+          : null,
+        cashfreePaymentSessionId:
+          cashfreeOrder.payment_session_id || null,
+      },
+    });
+
+    return tx.payment.findUnique({ where: { bookingId } });
+  });
+
+  if (!payment || payment.cashfreeOrderId !== reservation.cashfreeOrderId) {
+    throw new ApiError(
+      409,
+      "This payment order is no longer active. Refresh the booking before paying.",
     );
   }
 
-  const payment = await prisma.$transaction(async (tx) => {
-    /*
-     * For partial wallet + Cashfree payments, do not debit the wallet while
-     * the Cashfree order is only CREATED. The wallet is applied atomically
-     * only after Cashfree confirms PAID. This prevents balance from being
-     * lost when the browser refreshes/closes before /payments/verify runs.
-     */
-    await tx.booking.update({
-      where: { id: booking.id },
-      data: {
-        walletAmountUsed,
-        payableAmount: upiAmountPaid,
-      },
-    });
-
-    return tx.payment.upsert({
-      where: { bookingId: booking.id },
-      update: {
-        amount,
-        currency: "INR",
-        status: "CREATED",
-        cashfreeOrderId: cashfreeOrder.order_id,
-        cashfreePaymentId: cashfreeOrder.cf_order_id
-          ? String(cashfreeOrder.cf_order_id)
-          : null,
-        cashfreePaymentSessionId:
-          cashfreeOrder.payment_session_id,
-        walletAmountUsed,
-        upiAmountPaid,
-      },
-      create: {
-        bookingId: booking.id,
-        amount,
-        currency: "INR",
-        status: "CREATED",
-        cashfreeOrderId: cashfreeOrder.order_id,
-        cashfreePaymentId: cashfreeOrder.cf_order_id
-          ? String(cashfreeOrder.cf_order_id)
-          : null,
-        cashfreePaymentSessionId:
-          cashfreeOrder.payment_session_id,
-        walletAmountUsed,
-        upiAmountPaid,
-      },
-    });
-  });
+  if (!payment.cashfreePaymentSessionId) {
+    throw new ApiError(
+      409,
+      "Cashfree has not finished preparing this payment session. Please retry shortly.",
+      "PAYMENT_ORDER_PREPARING",
+    );
+  }
 
   await invalidatePaymentBookingCaches(userId);
 
-  return {
-    payment,
-    walletAmountUsed,
-    upiAmountPaid,
-    cashfreeOrder: {
-      id: cashfreeOrder.order_id,
-      cfOrderId: cashfreeOrder.cf_order_id,
-      amount: cashfreeOrder.order_amount,
-      currency: cashfreeOrder.order_currency,
-      paymentSessionId: cashfreeOrder.payment_session_id,
-    },
-    mode: getCashfreeMode(),
-  };
+  return buildCashfreeOrderResult(payment, cashfreeOrder);
 };
 
 const verifyPayment = async (
@@ -970,7 +1480,11 @@ const verifyPayment = async (
 
   if (
     booking.status !== "PENDING_PAYMENT" &&
-    booking.payment.status !== "PAID"
+    booking.payment.status !== "PAID" &&
+    !(
+      booking.status === "CANCELLED" &&
+      booking.payment.status === "CREATED"
+    )
   ) {
     throw new ApiError(400, "Booking is no longer payable");
   }
@@ -1018,22 +1532,54 @@ const cancelPaymentOrder = async (userId, { bookingId }) => {
     where: buildOwnedResourceWhere({ id: bookingId, userId }),
     include: {
       payment: true,
+      services: true,
     },
   });
 
   ensurePendingPaymentBooking(booking);
 
-  let payment = null;
+  let payment = booking.payment || null;
+  let message =
+    "The checkout window was closed. Your booking is still pending payment.";
 
   if (booking.payment?.status === "CREATED") {
-    const releaseResult = await failCreatedPaymentAndReleaseWallet({
-      bookingId,
-      cashfreeOrderId: booking.payment.cashfreeOrderId,
-    });
+    if (booking.payment.cashfreeOrderId) {
+      const cashfreeOrder = await fetchCashfreeOrder(
+        booking.payment.cashfreeOrderId,
+        "Unable to check the Cashfree order before closing checkout",
+      );
+      const orderStatus = getCashfreeOrderStatus(cashfreeOrder);
 
-    payment = releaseResult?.payment
-      ? { ...releaseResult.payment, status: "FAILED" }
-      : null;
+      if (orderStatus === "PAID") {
+        return completePaidBookingPayment(booking, cashfreeOrder);
+      }
+
+      if (TERMINAL_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
+        const releaseResult = await failCreatedPaymentAndReleaseWallet({
+          bookingId,
+          cashfreeOrderId: booking.payment.cashfreeOrderId,
+        });
+
+        payment = releaseResult?.payment
+          ? { ...releaseResult.payment, status: "FAILED" }
+          : booking.payment;
+        message =
+          "The previous payment session ended. A fresh session will be created when you retry.";
+      } else {
+        // Do not mark an ACTIVE Cashfree order as failed locally. The same
+        // order is reused on retry, so a late payment/webhook can always be
+        // reconciled and can never become an orphaned charge.
+        message =
+          "The checkout window was closed. The same secure payment session will be reused when you retry.";
+      }
+    } else {
+      const releaseResult = await failCreatedPaymentAndReleaseWallet({
+        bookingId,
+      });
+      payment = releaseResult?.payment
+        ? { ...releaseResult.payment, status: "FAILED" }
+        : booking.payment;
+    }
   }
 
   const payableBooking = await prisma.booking.findUnique({
@@ -1046,8 +1592,7 @@ const cancelPaymentOrder = async (userId, { bookingId }) => {
   return {
     booking: payableBooking,
     payment,
-    message:
-      "Payment attempt was cancelled. The booking is still pending payment and can be retried.",
+    message,
   };
 };
 

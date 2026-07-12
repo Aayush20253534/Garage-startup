@@ -562,6 +562,7 @@ model Booking {
   trackingPoints        BookingTrackingPoint[]
   adminEvents           AdminBookingEvent[]
   supportTickets        SupportTicket[]
+  walletTransactions    WalletTransaction[]
 
   @@index([userId])
   @@index([garageId])
@@ -709,12 +710,16 @@ model WalletTransaction {
   description       String?
   cashfreeOrderId   String?
   cashfreePaymentId String?
+  bookingId         String?
+  idempotencyKey    String?                 @unique
   createdAt         DateTime                @default(now())
   user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   wallet            Wallet                  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  booking           Booking?                @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
   @@index([walletId])
   @@index([userId])
+  @@index([bookingId])
   @@index([type])
   @@index([status])
 }

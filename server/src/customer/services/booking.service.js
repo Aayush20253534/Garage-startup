@@ -18,6 +18,12 @@ const {
   isActiveVehicleBookingConflictError,
   lockAndEnsureVehicleHasNoActiveBooking,
 } = require("./vehicleBookingGuard.service");
+const {
+  lockBookingFinance,
+} = require("./bookingFinanceLock.service");
+const {
+  getBookingRefundIdempotencyKey,
+} = require("./bookingFinancialIdempotency");
 
 const bookingInclude = {
   user: {
@@ -528,29 +534,55 @@ const getRefundAmountForCancelledBooking = (booking) => {
 };
 
 const cancelBooking = async (userId, bookingId) => {
-  const booking = await prisma.booking.findFirst({
-    where: buildOwnedResourceWhere({ id: bookingId, userId }),
-    include: { payment: true },
-  });
+  const cancelledBooking = await prisma.$transaction(async (tx) => {
+    await lockBookingFinance(bookingId, { tx });
 
-  if (!booking) {
-    throw new ApiError(404, "Booking not found");
-  }
+    const booking = await tx.booking.findFirst({
+      where: buildOwnedResourceWhere({ id: bookingId, userId }),
+      include: { payment: true },
+    });
 
-  if (
-    ![
+    if (!booking) {
+      throw new ApiError(404, "Booking not found");
+    }
+
+    if (booking.status === "CANCELLED") {
+      return tx.booking.findUnique({
+        where: { id: bookingId },
+        include: bookingInclude,
+      });
+    }
+
+    const cancellableStatuses = [
       "PENDING_PAYMENT",
       "SEARCHING_GARAGE",
       "GARAGE_ASSIGNED",
       "CONFIRMED",
-    ].includes(booking.status)
-  ) {
-    throw new ApiError(400, "This booking cannot be cancelled");
-  }
+    ];
 
-  const refundAmount = getRefundAmountForCancelledBooking(booking);
+    if (!cancellableStatuses.includes(booking.status)) {
+      throw new ApiError(400, "This booking cannot be cancelled");
+    }
 
-  const cancelledBooking = await prisma.$transaction(async (tx) => {
+    const claim = await tx.booking.updateMany({
+      where: {
+        id: bookingId,
+        userId,
+        status: { in: cancellableStatuses },
+      },
+      data: {
+        status: "CANCELLED",
+        searchExpiresAt: null,
+      },
+    });
+
+    if (claim.count !== 1) {
+      throw new ApiError(
+        409,
+        "This booking was changed by another request. Refresh and try again.",
+      );
+    }
+
     await tx.garageBroadcastRequest.updateMany({
       where: {
         bookingId,
@@ -562,58 +594,72 @@ const cancelBooking = async (userId, bookingId) => {
       },
     });
 
-    if (refundAmount > 0) {
-      let wallet = await tx.wallet.findUnique({
-        where: { userId },
+    const refundAmount = getRefundAmountForCancelledBooking(booking);
+
+    if (refundAmount > 0 && booking.payment) {
+      const paymentClaim = await tx.payment.updateMany({
+        where: {
+          id: booking.payment.id,
+          bookingId,
+          status: "PAID",
+        },
+        data: { status: "REFUNDED" },
       });
 
-      if (!wallet) {
-        wallet = await tx.wallet.create({
-          data: {
+      if (paymentClaim.count !== 1) {
+        throw new ApiError(
+          409,
+          "This payment was already refunded or changed by another request.",
+        );
+      }
+
+      const paymentReference =
+        booking.payment.cashfreeOrderId || booking.payment.id;
+      const idempotencyKey = getBookingRefundIdempotencyKey(
+        bookingId,
+        paymentReference,
+      );
+      const existingRefund = await tx.walletTransaction.findUnique({
+        where: { idempotencyKey },
+      });
+
+      if (!existingRefund) {
+        const wallet = await tx.wallet.upsert({
+          where: { userId },
+          update: {
+            balance: { increment: refundAmount },
+          },
+          create: {
             userId,
             type: "CUSTOMER",
-            balance: 0,
+            balance: refundAmount,
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            userId,
+            bookingId,
+            idempotencyKey,
+            type: "BOOKING_REFUND",
+            status: "SUCCESS",
+            amount: refundAmount,
+            balanceAfter: wallet.balance,
+            cashfreeOrderId:
+              booking.payment.cashfreeOrderId || null,
+            cashfreePaymentId:
+              booking.payment.cashfreePaymentId || null,
+            description: `Refund for cancelled booking ${
+              booking.bookingCode || booking.id
+            }`,
           },
         });
       }
-
-      const updatedWallet = await tx.wallet.update({
-        where: { id: wallet.id },
-        data: {
-          balance: {
-            increment: refundAmount,
-          },
-        },
-      });
-
-      await tx.walletTransaction.create({
-        data: {
-          walletId: wallet.id,
-          userId,
-          type: "BOOKING_REFUND",
-          status: "SUCCESS",
-          amount: refundAmount,
-          balanceAfter: updatedWallet.balance,
-          cashfreeOrderId: booking.payment.cashfreeOrderId || null,
-          cashfreePaymentId: booking.payment.cashfreePaymentId || null,
-          description: `Refund for cancelled booking ${
-            booking.bookingCode || booking.id
-          }`,
-        },
-      });
-
-      await tx.payment.update({
-        where: { id: booking.payment.id },
-        data: { status: "REFUNDED" },
-      });
     }
 
-    return tx.booking.update({
+    return tx.booking.findUnique({
       where: { id: bookingId },
-      data: {
-        status: "CANCELLED",
-        searchExpiresAt: null,
-      },
       include: bookingInclude,
     });
   });

@@ -114,7 +114,18 @@ export const payForBooking = async ({ booking, useWallet = false } = {}) => {
       cashfreeOrderId: cashfreeOrder.id,
     });
 
-    return verifyRes.data.data.booking;
+    const verification = verifyRes.data.data || {};
+
+    if (verification.payment?.status === "REFUNDED") {
+      const refundedError = new Error(
+        verification.message ||
+          "The payment was safely credited to your Rovauto wallet. Please review the booking before retrying.",
+      );
+      refundedError.code = "PAYMENT_REFUNDED_TO_WALLET";
+      throw refundedError;
+    }
+
+    return verification.booking;
   } catch (error) {
     if (isIncompletePaymentError(error)) {
       error.code = PAYMENT_INCOMPLETE;
