@@ -5,12 +5,10 @@ WORKDIR /app
 RUN apk add --no-cache postgresql-client sqlite
 
 COPY package*.json ./
-
-RUN npm install
-
 COPY prisma ./prisma
 
-RUN npx prisma generate
+# package.json postinstall generates Prisma Client from the checked-in schema.
+RUN npm ci
 
 COPY . .
 
