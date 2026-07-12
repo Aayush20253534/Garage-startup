@@ -25,6 +25,19 @@ const WEBHOOK_PATHS = new Set([
   "/api/v1/whatsapp/webhook",
 ]);
 
+/*
+ * These endpoints create a new authenticated browser session. They need CSRF
+ * protection even before an authentication cookie exists, otherwise another
+ * site could log a victim into an attacker-controlled Rovauto account.
+ */
+const SESSION_ESTABLISHING_PATHS = new Set([
+  "/api/v1/auth/login",
+  "/api/v1/auth/support/login",
+  "/api/v1/auth/google",
+  "/api/v1/auth/verify-otp",
+  "/api/v1/auth/staff/verify-otp",
+]);
+
 const seedCsrfCookie = (req, res) => {
   const existing = req.cookies?.[CSRF_COOKIE_NAME];
   const token =
@@ -47,6 +60,20 @@ const hasAuthCookie = (req) =>
 
 const isWebhookPath = (req) => WEBHOOK_PATHS.has(getRequestPath(req));
 
+const isSessionEstablishingPath = (req) =>
+  SESSION_ESTABLISHING_PATHS.has(getRequestPath(req));
+
+const isBrowserRequest = (req) =>
+  Boolean(
+    req.get?.("origin") ||
+      req.get?.("sec-fetch-site") ||
+      req.get?.("sec-fetch-mode"),
+  );
+
+const requiresCsrfProtection = (req) =>
+  hasAuthCookie(req) ||
+  (isSessionEstablishingPath(req) && isBrowserRequest(req));
+
 const isValidCsrfPair = (cookieToken, headerToken) => {
   if (!cookieToken || !headerToken) return false;
 
@@ -66,7 +93,7 @@ const csrfProtection = (req, res, next) => {
     return next();
   }
 
-  if (!hasAuthCookie(req)) {
+  if (!requiresCsrfProtection(req)) {
     return next();
   }
 
@@ -97,4 +124,7 @@ module.exports = {
   seedCsrfCookie,
   getRequestPath,
   isWebhookPath,
+  isBrowserRequest,
+  isSessionEstablishingPath,
+  requiresCsrfProtection,
 };

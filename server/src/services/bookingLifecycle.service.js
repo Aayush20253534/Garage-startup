@@ -21,6 +21,9 @@ const { REQUIRED_BOOKING_INSPECTION_IMAGES } = require("../garage/constants");
 const DEFAULT_SEARCH_TIMEOUT_SECONDS = 120;
 const DEFAULT_HANDOVER_OTP_TTL_MINUTES = 120;
 const DEFAULT_HANDOVER_OTP_RESEND_COOLDOWN_SECONDS = 60;
+const HANDOVER_OTP_MAX_ATTEMPTS = 5;
+const HANDOVER_OTP_CLAIM_TIMEOUT_MS = 3 * 60 * 1000;
+const OTP_CONCURRENCY_RETRIES = 8;
 const REQUIRED_INSPECTION_PHOTO_COUNT = REQUIRED_BOOKING_INSPECTION_IMAGES;
 const MAX_INSPECTION_PHOTO_SIZE_BYTES = 1024 * 1024;
 const INSPECTION_IMAGE_FOLDER = "project-x/bookings/inspection-images";
@@ -490,6 +493,16 @@ const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
     throw new ApiError(400, "Vehicle handover is already verified");
   }
 
+  if (booking.handoverOtpClaimedAt) {
+    const claimAge = Date.now() - booking.handoverOtpClaimedAt.getTime();
+    if (claimAge < HANDOVER_OTP_CLAIM_TIMEOUT_MS) {
+      throw new ApiError(
+        409,
+        "Handover OTP verification is already in progress",
+      );
+    }
+  }
+
   if (booking.handoverOtpExpiresAt) {
     const ttlMilliseconds = getHandoverOtpTtlMinutes() * 60 * 1000;
     const previousGeneratedAt = new Date(
@@ -520,6 +533,8 @@ const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
     data: {
       handoverOtpHash: handoverOtp.otpHash,
       handoverOtpExpiresAt: handoverOtp.expiresAt,
+      handoverOtpAttempts: 0,
+      handoverOtpClaimedAt: null,
     },
     include: bookingDetailInclude,
   });
@@ -576,45 +591,190 @@ const verifyBookingHandoverOtp = async ({
     throw new ApiError(404, "Accepted garage request not found");
   }
 
-  const booking = request.booking;
+  const submittedOtp = String(otp || "").trim();
+  if (!/^\d{6}$/.test(submittedOtp)) {
+    throw new ApiError(400, "Handover OTP must be 6 digits");
+  }
 
-  if (booking.status !== BOOKING_STATUS.CONFIRMED) {
+  const submittedHash = getOtpHash(submittedOtp);
+  let claimedAt = null;
+
+  for (let retry = 0; retry < OTP_CONCURRENCY_RETRIES; retry += 1) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: request.bookingId },
+    });
+
+    if (!booking || booking.garageId !== garageId) {
+      throw new ApiError(404, "Accepted garage request not found");
+    }
+
+    if (booking.status !== BOOKING_STATUS.CONFIRMED) {
+      throw new ApiError(
+        400,
+        "Booking is not ready for handover OTP verification",
+      );
+    }
+
+    if (booking.handoverOtpVerifiedAt) {
+      throw new ApiError(400, "Handover OTP has already been used");
+    }
+
+    if (!booking.handoverOtpHash || !booking.handoverOtpExpiresAt) {
+      throw new ApiError(
+        400,
+        "Handover OTP is not available for this booking",
+      );
+    }
+
+    const now = new Date();
+
+    if (booking.handoverOtpExpiresAt <= now) {
+      throw new ApiError(400, "Handover OTP has expired");
+    }
+
+    if (booking.handoverOtpAttempts >= HANDOVER_OTP_MAX_ATTEMPTS) {
+      throw new ApiError(
+        429,
+        "Maximum handover OTP attempts exceeded. Generate a new OTP.",
+      );
+    }
+
+    if (booking.handoverOtpClaimedAt) {
+      const claimAge = now.getTime() - booking.handoverOtpClaimedAt.getTime();
+
+      if (claimAge < HANDOVER_OTP_CLAIM_TIMEOUT_MS) {
+        throw new ApiError(
+          409,
+          "Handover OTP verification is already in progress",
+        );
+      }
+
+      const released = await prisma.booking.updateMany({
+        where: {
+          id: booking.id,
+          status: BOOKING_STATUS.CONFIRMED,
+          handoverOtpVerifiedAt: null,
+          handoverOtpClaimedAt: booking.handoverOtpClaimedAt,
+        },
+        data: { handoverOtpClaimedAt: null },
+      });
+
+      if (released.count !== 1) continue;
+      continue;
+    }
+
+    if (submittedHash !== booking.handoverOtpHash) {
+      const nextAttempts = booking.handoverOtpAttempts + 1;
+      const attempted = await prisma.booking.updateMany({
+        where: {
+          id: booking.id,
+          garageId,
+          status: BOOKING_STATUS.CONFIRMED,
+          handoverOtpHash: booking.handoverOtpHash,
+          handoverOtpVerifiedAt: null,
+          handoverOtpClaimedAt: null,
+          handoverOtpAttempts: booking.handoverOtpAttempts,
+          handoverOtpExpiresAt: { gt: now },
+        },
+        data: {
+          handoverOtpAttempts: nextAttempts,
+          ...(nextAttempts >= HANDOVER_OTP_MAX_ATTEMPTS && {
+            handoverOtpHash: null,
+            handoverOtpExpiresAt: null,
+          }),
+        },
+      });
+
+      if (attempted.count !== 1) continue;
+
+      if (nextAttempts >= HANDOVER_OTP_MAX_ATTEMPTS) {
+        throw new ApiError(
+          429,
+          "Maximum handover OTP attempts exceeded. Generate a new OTP.",
+        );
+      }
+
+      throw new ApiError(400, "Invalid handover OTP");
+    }
+
+    claimedAt = new Date();
+    const claimed = await prisma.booking.updateMany({
+      where: {
+        id: booking.id,
+        garageId,
+        status: BOOKING_STATUS.CONFIRMED,
+        handoverOtpHash: booking.handoverOtpHash,
+        handoverOtpVerifiedAt: null,
+        handoverOtpClaimedAt: null,
+        handoverOtpAttempts: booking.handoverOtpAttempts,
+        handoverOtpExpiresAt: { gt: claimedAt },
+      },
+      data: { handoverOtpClaimedAt: claimedAt },
+    });
+
+    if (claimed.count === 1) break;
+    claimedAt = null;
+  }
+
+  if (!claimedAt) {
     throw new ApiError(
-      400,
-      "Booking is not ready for handover OTP verification",
+      409,
+      "Handover OTP verification is already in progress. Please retry.",
     );
   }
 
-  if (!booking.handoverOtpHash || !booking.handoverOtpExpiresAt) {
-    throw new ApiError(
-      400,
-      "Handover OTP is not available for this booking",
-    );
+  try {
+    await uploadInspectionImages({
+      bookingId: request.bookingId,
+      garageId,
+      phase: "PICKUP",
+      files: images,
+    });
+
+    const verifiedAt = new Date();
+    const finalized = await prisma.booking.updateMany({
+      where: {
+        id: request.bookingId,
+        garageId,
+        status: BOOKING_STATUS.CONFIRMED,
+        handoverOtpVerifiedAt: null,
+        handoverOtpClaimedAt: claimedAt,
+      },
+      data: {
+        status: BOOKING_STATUS.IN_PROGRESS,
+        handoverOtpVerifiedAt: verifiedAt,
+        handoverOtpClaimedAt: null,
+      },
+    });
+
+    if (finalized.count !== 1) {
+      throw new ApiError(
+        409,
+        "Handover OTP was already used or the booking changed",
+      );
+    }
+  } catch (error) {
+    await prisma.booking.updateMany({
+      where: {
+        id: request.bookingId,
+        status: BOOKING_STATUS.CONFIRMED,
+        handoverOtpVerifiedAt: null,
+        handoverOtpClaimedAt: claimedAt,
+      },
+      data: { handoverOtpClaimedAt: null },
+    }).catch(() => {});
+
+    throw error;
   }
 
-  if (booking.handoverOtpExpiresAt < new Date()) {
-    throw new ApiError(400, "Handover OTP has expired");
-  }
-
-  if (getOtpHash(otp) !== booking.handoverOtpHash) {
-    throw new ApiError(400, "Invalid handover OTP");
-  }
-
-  await uploadInspectionImages({
-    bookingId: booking.id,
-    garageId,
-    phase: "PICKUP",
-    files: images,
-  });
-
-  const updatedBooking = await prisma.booking.update({
-    where: { id: booking.id },
-    data: {
-      status: BOOKING_STATUS.IN_PROGRESS,
-      handoverOtpVerifiedAt: new Date(),
-    },
+  const updatedBooking = await prisma.booking.findUnique({
+    where: { id: request.bookingId },
     include: bookingDetailInclude,
   });
+
+  if (!updatedBooking) {
+    throw new ApiError(409, "Booking changed during handover verification");
+  }
 
   await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
 

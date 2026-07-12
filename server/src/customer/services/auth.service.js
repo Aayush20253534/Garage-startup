@@ -3,7 +3,6 @@ const crypto = require("crypto");
 const prisma = require("../../config/prisma");
 const { verifyFirebaseIdToken } = require("../../config/firebase");
 const ApiError = require("../../utils/apiError");
-const hashOtp = require("../../utils/hashOtp");
 const { normalizePhone } = require("../../utils/phone");
 const {
   createSignupOtp,
@@ -11,6 +10,8 @@ const {
   verifyPhoneOtp,
   verifySignupOtp,
   createResetPasswordOtp,
+  consumeUserOtp,
+  throwOtpResult,
 } = require("./otp.service");
 const { createAuthToken } = require("./token.service");
 const {
@@ -771,51 +772,39 @@ const resetPassword = async ({
     throw new ApiError(400, "Invalid or expired OTP");
   }
 
-  const otpHash = hashOtp(otp);
-
-  const validOtp = await prisma.otp.findFirst({
-    where: {
-      userId: user.id,
-      otpHash,
-      purpose: "RESET_PASSWORD",
-      usedAt: null,
-      expiresAt: {
-        gt: new Date(),
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  if (!validOtp) {
-    throw new ApiError(400, "Invalid or expired OTP");
-  }
-
   const hashedPassword = await argon2.hash(newPassword);
+  const changedAt = new Date();
 
-  await prisma.$transaction([
-    prisma.otp.update({
-      where: { id: validOtp.id },
-      data: { usedAt: new Date() },
-    }),
-    prisma.user.update({
+  const otpResult = await prisma.$transaction(async (tx) => {
+    const result = await consumeUserOtp({
+      client: tx,
+      userId: user.id,
+      purpose: "RESET_PASSWORD",
+      otp,
+    });
+
+    if (!result.ok) return result;
+
+    await tx.user.update({
       where: { id: user.id },
       data: {
         password: hashedPassword,
-        passwordChangedAt: new Date(),
+        passwordChangedAt: changedAt,
       },
-    }),
-    prisma.userSession.updateMany({
+    });
+
+    await tx.userSession.updateMany({
       where: {
         userId: user.id,
         revokedAt: null,
       },
-      data: {
-        revokedAt: new Date(),
-      },
-    }),
-  ]);
+      data: { revokedAt: changedAt },
+    });
+
+    return result;
+  });
+
+  throwOtpResult(otpResult);
 
   return {
     message: "Password reset successful",

@@ -749,6 +749,9 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
         expiredAt: null,
         handoverOtpHash: handoverOtp.otpHash,
         handoverOtpExpiresAt: handoverOtp.expiresAt,
+        handoverOtpVerifiedAt: null,
+        handoverOtpAttempts: 0,
+        handoverOtpClaimedAt: null,
       },
     });
 

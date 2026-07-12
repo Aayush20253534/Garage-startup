@@ -5,10 +5,17 @@ const ApiError = require("../../utils/apiError");
 const generateOtp = require("../../utils/generateOtp");
 const hashOtp = require("../../utils/hashOtp");
 const { normalizePhone } = require("../../utils/phone");
+const {
+  OTP_MAX_ATTEMPTS,
+  OTP_CONCURRENCY_RETRIES,
+  safeHashEquals,
+  invalidOtpResult,
+  throwOtpResult,
+  consumeUserOtp,
+} = require("../security/otpVerification");
 
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
-const OTP_MAX_ATTEMPTS = 5;
 
 let resendClient = null;
 let activeResendApiKey = null;
@@ -293,17 +300,19 @@ const createEmailOtp = async ({
     assertOtpCooldown(latestOtp);
   }
 
-  await prisma.emailOtp.deleteMany({
-    where: {
-      email: cleanEmail,
+  const now = new Date();
+  const createdOtp = await prisma.emailOtp.upsert({
+    where: { email: cleanEmail },
+    update: {
+      otpHash: hashOtp(otp),
+      expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
+      attempts: 0,
+      createdAt: now,
     },
-  });
-
-  const createdOtp = await prisma.emailOtp.create({
-    data: {
+    create: {
       email: cleanEmail,
       otpHash: hashOtp(otp),
-      expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
+      expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
     },
   });
 
@@ -319,9 +328,11 @@ const createEmailOtp = async ({
      * This lets the customer request another OTP immediately.
      */
     await prisma.emailOtp
-      .delete({
+      .deleteMany({
         where: {
           id: createdOtp.id,
+          otpHash: createdOtp.otpHash,
+          createdAt: createdOtp.createdAt,
         },
       })
       .catch(() => {});
@@ -365,64 +376,65 @@ const verifyStoredOtp = async ({
     throw new ApiError(400, "OTP must be 6 digits");
   }
 
-  const record = await prisma[model].findFirst({
-    where: {
-      [identifierField]: identifier,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  const submittedHash = hashOtp(submittedOtp);
 
-  if (!record) {
-    throw new ApiError(400, "Invalid or expired OTP");
-  }
-
-  if (record.expiresAt <= new Date()) {
-    await prisma[model].delete({
-      where: {
-        id: record.id,
-      },
+  for (let retry = 0; retry < OTP_CONCURRENCY_RETRIES; retry += 1) {
+    const record = await prisma[model].findUnique({
+      where: { [identifierField]: identifier },
     });
 
-    throw new ApiError(400, "Invalid or expired OTP");
-  }
+    if (!record) {
+      throwOtpResult(invalidOtpResult());
+    }
 
-  if (record.attempts >= OTP_MAX_ATTEMPTS) {
-    await prisma[model].delete({
-      where: {
-        id: record.id,
-      },
-    });
+    const now = new Date();
 
-    throw new ApiError(
-      429,
-      "Maximum OTP verification attempts exceeded",
-    );
-  }
+    if (record.expiresAt <= now) {
+      await prisma[model].deleteMany({ where: { id: record.id } });
+      throwOtpResult(invalidOtpResult());
+    }
 
-  if (record.otpHash !== hashOtp(submittedOtp)) {
-    await prisma[model].update({
-      where: {
-        id: record.id,
-      },
-      data: {
-        attempts: {
-          increment: 1,
+    if (record.attempts >= OTP_MAX_ATTEMPTS) {
+      await prisma[model].deleteMany({ where: { id: record.id } });
+      throwOtpResult(invalidOtpResult(429));
+    }
+
+    if (!safeHashEquals(record.otpHash, submittedHash)) {
+      const nextAttempts = record.attempts + 1;
+      const attempted = await prisma[model].updateMany({
+        where: {
+          id: record.id,
+          attempts: record.attempts,
+          expiresAt: { gt: now },
         },
+        data: { attempts: nextAttempts },
+      });
+
+      if (attempted.count !== 1) continue;
+
+      if (nextAttempts >= OTP_MAX_ATTEMPTS) {
+        await prisma[model].deleteMany({
+          where: { id: record.id, attempts: nextAttempts },
+        });
+        throwOtpResult(invalidOtpResult(429));
+      }
+
+      throwOtpResult(invalidOtpResult());
+    }
+
+    const consumed = await prisma[model].deleteMany({
+      where: {
+        id: record.id,
+        otpHash: record.otpHash,
+        attempts: record.attempts,
+        expiresAt: { gt: now },
       },
     });
 
-    throw new ApiError(400, "Invalid or expired OTP");
+    if (consumed.count === 1) return true;
   }
 
-  await prisma[model].delete({
-    where: {
-      id: record.id,
-    },
-  });
-
-  return true;
+  throw new ApiError(409, "OTP verification is already in progress. Please retry.");
 };
 
 const verifyEmailOtp = async ({ email, otp }) => {
@@ -443,106 +455,30 @@ const verifyPhoneOtp = async ({ phone, otp }) => {
   });
 };
 
-const getLatestOtpOrThrow = async ({
-  model,
-  identifierField,
-  identifier,
-}) => {
-  const record = await prisma[model].findFirst({
-    where: {
-      [identifierField]: identifier,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  if (!record) {
-    throw new ApiError(400, "Invalid or expired OTP");
-  }
-
-  if (record.expiresAt <= new Date()) {
-    await prisma[model].delete({
-      where: {
-        id: record.id,
-      },
-    });
-
-    throw new ApiError(400, "Invalid or expired OTP");
-  }
-
-  if (record.attempts >= OTP_MAX_ATTEMPTS) {
-    await prisma[model].delete({
-      where: {
-        id: record.id,
-      },
-    });
-
-    throw new ApiError(
-      429,
-      "Maximum OTP verification attempts exceeded",
-    );
-  }
-
-  return record;
-};
-
-const verifySignupOtp = async ({ email, otp }) => {
-  const cleanEmail = normalizeEmail(email);
-  const submittedOtp = String(otp || "").trim();
-
-  if (!/^\d{6}$/.test(submittedOtp)) {
-    throw new ApiError(400, "OTP must be 6 digits");
-  }
-
-  const emailOtp = await getLatestOtpOrThrow({
-    model: "emailOtp",
-    identifierField: "email",
-    identifier: cleanEmail,
-  });
-
-  if (emailOtp.otpHash !== hashOtp(submittedOtp)) {
-    await prisma.emailOtp.update({
-      where: {
-        id: emailOtp.id,
-      },
-      data: {
-        attempts: {
-          increment: 1,
-        },
-      },
-    });
-
-    throw new ApiError(400, "Invalid or expired OTP");
-  }
-
-  await prisma.emailOtp.delete({
-    where: {
-      id: emailOtp.id,
-    },
-  });
-
-  return true;
-};
+const verifySignupOtp = async ({ email, otp }) =>
+  verifyEmailOtp({ email, otp });
 
 const createResetPasswordOtp = async (userId, email) => {
   const otp = generateOtp();
   const cleanEmail = normalizeEmail(email);
 
-  await prisma.otp.deleteMany({
+  const now = new Date();
+  const createdOtp = await prisma.otp.upsert({
     where: {
-      userId,
-      purpose: "RESET_PASSWORD",
-      usedAt: null,
+      userId_purpose: { userId, purpose: "RESET_PASSWORD" },
     },
-  });
-
-  const createdOtp = await prisma.otp.create({
-    data: {
+    update: {
+      otpHash: hashOtp(otp),
+      expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
+      usedAt: null,
+      attempts: 0,
+      createdAt: now,
+    },
+    create: {
       userId,
       otpHash: hashOtp(otp),
       purpose: "RESET_PASSWORD",
-      expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
+      expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
     },
   });
 
@@ -554,9 +490,11 @@ const createResetPasswordOtp = async (userId, email) => {
     });
   } catch (error) {
     await prisma.otp
-      .delete({
+      .deleteMany({
         where: {
           id: createdOtp.id,
+          otpHash: createdOtp.otpHash,
+          createdAt: createdOtp.createdAt,
         },
       })
       .catch(() => {});
@@ -575,20 +513,23 @@ const createDeleteAccountOtp = async (userId, email) => {
   const otp = generateOtp();
   const cleanEmail = normalizeEmail(email);
 
-  await prisma.otp.deleteMany({
+  const now = new Date();
+  const createdOtp = await prisma.otp.upsert({
     where: {
-      userId,
-      purpose: "DELETE_ACCOUNT",
-      usedAt: null,
+      userId_purpose: { userId, purpose: "DELETE_ACCOUNT" },
     },
-  });
-
-  const createdOtp = await prisma.otp.create({
-    data: {
+    update: {
+      otpHash: hashOtp(otp),
+      expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
+      usedAt: null,
+      attempts: 0,
+      createdAt: now,
+    },
+    create: {
       userId,
       otpHash: hashOtp(otp),
       purpose: "DELETE_ACCOUNT",
-      expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
+      expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
     },
   });
 
@@ -600,7 +541,13 @@ const createDeleteAccountOtp = async (userId, email) => {
     });
   } catch (error) {
     await prisma.otp
-      .delete({ where: { id: createdOtp.id } })
+      .deleteMany({
+        where: {
+          id: createdOtp.id,
+          otpHash: createdOtp.otpHash,
+          createdAt: createdOtp.createdAt,
+        },
+      })
       .catch(() => {});
     throw error;
   }
@@ -609,52 +556,14 @@ const createDeleteAccountOtp = async (userId, email) => {
 };
 
 const verifyDeleteAccountOtp = async (userId, otp) => {
-  const submittedOtp = String(otp || "").trim();
-
-  if (!/^\d{6}$/.test(submittedOtp)) {
-    throw new ApiError(400, "OTP must be 6 digits");
-  }
-
-  const record = await prisma.otp.findFirst({
-    where: {
-      userId,
-      purpose: "DELETE_ACCOUNT",
-      usedAt: null,
-      expiresAt: { gt: new Date() },
-    },
-    orderBy: { createdAt: "desc" },
+  const result = await consumeUserOtp({
+    client: prisma,
+    userId,
+    purpose: "DELETE_ACCOUNT",
+    otp,
   });
 
-  if (!record) {
-    throw new ApiError(400, "Invalid or expired OTP");
-  }
-
-  if (record.attempts >= OTP_MAX_ATTEMPTS) {
-    await prisma.otp.delete({ where: { id: record.id } }).catch(() => {});
-    throw new ApiError(429, "Maximum OTP verification attempts exceeded");
-  }
-
-  if (record.otpHash !== hashOtp(submittedOtp)) {
-    await prisma.otp.update({
-      where: { id: record.id },
-      data: { attempts: { increment: 1 } },
-    });
-    throw new ApiError(400, "Invalid or expired OTP");
-  }
-
-  const consumed = await prisma.otp.updateMany({
-    where: {
-      id: record.id,
-      usedAt: null,
-      expiresAt: { gt: new Date() },
-    },
-    data: { usedAt: new Date() },
-  });
-
-  if (consumed.count !== 1) {
-    throw new ApiError(400, "Invalid or expired OTP");
-  }
-
+  throwOtpResult(result);
   return true;
 };
 
@@ -668,5 +577,7 @@ module.exports = {
   createResetPasswordOtp,
   createDeleteAccountOtp,
   verifyDeleteAccountOtp,
+  consumeUserOtp,
+  throwOtpResult,
   sendEmailOtp,
 };

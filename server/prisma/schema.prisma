@@ -221,6 +221,7 @@ model Otp {
   createdAt DateTime   @default(now())
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, purpose])
   @@index([userId])
 }
 
@@ -254,7 +255,7 @@ model EmailOtp {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([email])
+  @@unique([email])
   @@index([expiresAt])
   @@map("email_otps")
 }
@@ -268,7 +269,7 @@ model PhoneOtp {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([phone])
+  @@unique([phone])
   @@index([expiresAt])
   @@map("phone_otps")
 }
@@ -535,6 +536,8 @@ model Booking {
   handoverOtpHash       String?
   handoverOtpExpiresAt  DateTime?
   handoverOtpVerifiedAt DateTime?
+  handoverOtpAttempts   Int                      @default(0)
+  handoverOtpClaimedAt  DateTime?
   deliveredAt           DateTime?
   customerAcceptedAt    DateTime?
   customerPlaceId       String?
