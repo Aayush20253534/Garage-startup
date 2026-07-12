@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CATEGORY_UI } from "@/data/services";
 import {
@@ -40,7 +40,7 @@ export default function Services() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const { cart, fetchServiceCategories } = useApp();
+  const { user, cart, fetchServiceCategories } = useApp();
   const cartItems = Array.isArray(cart) ? cart : [];
 
   useEffect(() => {
@@ -87,9 +87,22 @@ export default function Services() {
       ].includes(category.name),
   );
 
+  const serviceById = useMemo(
+    () =>
+      new Map(
+        categories.flatMap((category) =>
+          (category.services || []).map((service) => [service.id, service]),
+        ),
+      ),
+    [categories],
+  );
+
+  const hasUnavailableCartItems = Boolean(user) &&
+    cartItems.some((item) => !serviceById.get(item.id)?.priceRange);
+
   const cartTotal = cartItems.reduce(
     (total, item) =>
-      total + getServiceMinPrice(item),
+      total + getServiceMinPrice(serviceById.get(item.id) || item),
     0,
   );
 
@@ -252,12 +265,18 @@ export default function Services() {
       {cartItems.length > 0 && (
         <div className="fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
           <Link
-            to="/checkout"
+            to={hasUnavailableCartItems ? "/booking/services" : "/checkout"}
             className="btn-dark px-6 py-3.5 shadow-2xl"
           >
-            {cartItems.length} service
-            {cartItems.length > 1 ? "s" : ""} · {formatRupees(cartTotal)} ·
-            Continue <FiArrowRight />
+            {hasUnavailableCartItems ? (
+              <>Review unavailable services <FiArrowRight /></>
+            ) : (
+              <>
+                {cartItems.length} service
+                {cartItems.length > 1 ? "s" : ""} · {formatRupees(cartTotal)} ·
+                Continue <FiArrowRight />
+              </>
+            )}
           </Link>
         </div>
       )}

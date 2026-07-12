@@ -8,6 +8,18 @@ const serviceIdSchema = [
   param("serviceId").isUUID().withMessage("Invalid service ID"),
 ];
 
+
+const restrictedCityIdsSchema = [
+  body("restrictedCityIds")
+    .optional({ nullable: true })
+    .isArray({ max: 100 })
+    .withMessage("restrictedCityIds must be an array with at most 100 cities"),
+  body("restrictedCityIds.*")
+    .optional()
+    .isUUID()
+    .withMessage("Each restricted city ID must be valid"),
+];
+
 const categoryQuerySchema = [
   query("search").optional({ nullable: true, checkFalsy: true }).trim(),
   query("includeInactive").optional({ nullable: true }).isBoolean(),
@@ -46,6 +58,7 @@ const createServiceSchema = [
     .isBoolean()
     .withMessage("isComingSoon must be true or false")
     .toBoolean(),
+  ...restrictedCityIdsSchema,
 ];
 
 const updateServiceSchema = [
@@ -61,6 +74,7 @@ const updateServiceSchema = [
     .isBoolean()
     .withMessage("isComingSoon must be true or false")
     .toBoolean(),
+  ...restrictedCityIdsSchema,
 ];
 
 module.exports = {

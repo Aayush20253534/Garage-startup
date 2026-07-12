@@ -1,0 +1,41 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+process.env.DATABASE_URL ||=
+  "postgresql://test:test@127.0.0.1:5432/rovauto_test";
+
+const prismaPath = require.resolve("../../src/config/prisma");
+
+require.cache[prismaPath] = {
+  id: prismaPath,
+  filename: prismaPath,
+  loaded: true,
+  exports: {},
+};
+
+const {
+  buildServiceAvailabilityWhere,
+  normalizeRestrictedCityIds,
+} = require("../../src/services/serviceCityRestriction.service");
+
+test("anonymous or city-less catalogue requests are not city filtered", () => {
+  assert.deepEqual(buildServiceAvailabilityWhere(), {});
+  assert.deepEqual(buildServiceAvailabilityWhere(""), {});
+});
+
+test("authenticated city catalogue excludes services restricted in that city", () => {
+  assert.deepEqual(buildServiceAvailabilityWhere("city-1"), {
+    cityRestrictions: {
+      none: {
+        cityId: "city-1",
+      },
+    },
+  });
+});
+
+test("restricted city IDs are trimmed, deduplicated, and empty values removed", () => {
+  assert.deepEqual(
+    normalizeRestrictedCityIds([" city-1 ", "city-2", "city-1", null, ""]),
+    ["city-1", "city-2"],
+  );
+});

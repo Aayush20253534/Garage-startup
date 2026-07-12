@@ -263,6 +263,13 @@ export default function CategoryDetail() {
                     </div>
                   )}
 
+                  {user && !hasPrice && !comingSoon && (
+                    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+                      {pkg.priceUnavailableMessage ||
+                        "Price not allocated for this vehicle"}
+                    </div>
+                  )}
+
                   <div className="mb-3 flex items-center gap-2">
                     <div className="flex items-center gap-1">
                       <FiStar className="text-amber-400" fill="currentColor" />
@@ -313,7 +320,7 @@ export default function CategoryDetail() {
                           ? "Login to Book"
                           : hasPrice
                             ? "Book"
-                            : "Unavailable"}
+                            : "Price unavailable"}
                     </button>
                   </div>
                 </div>
@@ -383,6 +390,15 @@ export default function CategoryDetail() {
                 </div>
               )}
 
+              {user &&
+                !selectedPackage.priceRange &&
+                !selectedPackageComingSoon && (
+                  <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+                    {selectedPackage.priceUnavailableMessage ||
+                      "Price not allocated for this vehicle"}
+                  </div>
+                )}
+
               <div className="mb-5 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
                   <FiStar className="text-amber-400" fill="currentColor" />
@@ -411,9 +427,12 @@ export default function CategoryDetail() {
                 <div>
                   <span className="text-sm text-muted">Estimated Price</span>
                   <div className="font-semibold">
-                    {user && selectedPackage.priceRange
-                      ? formatServicePriceRange(selectedPackage)
-                      : ""}
+                    {user
+                      ? selectedPackage.priceRange
+                        ? formatServicePriceRange(selectedPackage)
+                        : selectedPackage.priceUnavailableMessage ||
+                          "Price not allocated for this vehicle"
+                      : "Login to view pricing"}
                   </div>
                 </div>
               </div>
@@ -459,7 +478,7 @@ export default function CategoryDetail() {
                       ? "Login to Book"
                       : selectedPackage.priceRange
                         ? "Book Now"
-                        : "Unavailable"}
+                        : "Price unavailable"}
                 </button>
               </div>
             </div>

@@ -2,6 +2,9 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { deletePattern } = require("../../utils/cache");
 const {
+  ensureRestrictedCitiesExist,
+} = require("../../services/serviceCityRestriction.service");
+const {
   deleteFromCloudinary,
   uploadToCloudinary,
 } = require("../../utils/cloudinaryUpload");
@@ -22,6 +25,9 @@ const serviceInclude = {
   media: {
     orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
   },
+  cityRestrictions: {
+    include: { city: true },
+  },
 };
 
 const categoryInclude = {
@@ -29,6 +35,9 @@ const categoryInclude = {
     include: {
       media: {
         orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
+      },
+      cityRestrictions: {
+        include: { city: true },
       },
     },
     orderBy: { name: "asc" },
@@ -171,6 +180,9 @@ const createService = async (payload) => {
   if (!name) throw new ApiError(400, "Service name is required");
 
   await getCategory(payload.categoryId);
+  const restrictedCityIds = await ensureRestrictedCitiesExist(
+    payload.restrictedCityIds,
+  );
 
   const service = await prisma.service.create({
     data: {
@@ -179,6 +191,11 @@ const createService = async (payload) => {
       description: normalizeText(payload.description) || null,
       isActive: parseBoolean(payload.isActive, true),
       isComingSoon: parseBoolean(payload.isComingSoon, false),
+      ...(restrictedCityIds.length > 0 && {
+        cityRestrictions: {
+          create: restrictedCityIds.map((cityId) => ({ cityId })),
+        },
+      }),
     },
     include: serviceInclude,
   });
@@ -209,6 +226,18 @@ const updateService = async (serviceId, payload) => {
   }
   if (payload.isComingSoon !== undefined) {
     data.isComingSoon = parseBoolean(payload.isComingSoon, false);
+  }
+  if (payload.restrictedCityIds !== undefined) {
+    const restrictedCityIds = await ensureRestrictedCitiesExist(
+      payload.restrictedCityIds,
+    );
+
+    data.cityRestrictions = {
+      deleteMany: {},
+      ...(restrictedCityIds.length > 0 && {
+        create: restrictedCityIds.map((cityId) => ({ cityId })),
+      }),
+    };
   }
 
   const service = await prisma.service.update({

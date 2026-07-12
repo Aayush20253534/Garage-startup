@@ -17,12 +17,14 @@ import {
   warmImageCache,
 } from "@/utils/imageCache";
 import {
+  FiAlertCircle,
   FiArrowRight,
   FiCheck,
   FiMinus,
   FiPlus,
   FiSettings,
   FiTruck,
+  FiX,
 } from "react-icons/fi";
 
 const toBoolean = (value) =>
@@ -47,6 +49,16 @@ export default function ServiceSelect() {
   const selectedCategory = categories.find((category) => category.id === catId);
   const list = selectedCategory?.services || [];
 
+  const serviceById = useMemo(
+    () =>
+      new Map(
+        categories.flatMap((category) =>
+          (category.services || []).map((service) => [service.id, service]),
+        ),
+      ),
+    [categories],
+  );
+
   const comingSoonIds = useMemo(
     () =>
       new Set(
@@ -68,12 +80,21 @@ export default function ServiceSelect() {
     (item) => isCartItemComingSoon(item) || comingSoonIds.has(item.id),
   );
 
-  const totalMin = cart.reduce(
+  const hasUnavailableInCart = cart.some((item) => {
+    const currentService = serviceById.get(item.id);
+    return !currentService?.priceRange;
+  });
+
+  const pricedCartItems = cart
+    .map((item) => serviceById.get(item.id))
+    .filter((item) => item?.priceRange);
+
+  const totalMin = pricedCartItems.reduce(
     (sum, item) => sum + getServiceMinPrice(item),
     0,
   );
 
-  const totalMax = cart.reduce(
+  const totalMax = pricedCartItems.reduce(
     (sum, item) => sum + getServiceMaxPrice(item),
     0,
   );
@@ -149,6 +170,16 @@ export default function ServiceSelect() {
         <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           One or more services in your cart are now coming soon. Remove them
           before continuing.
+        </div>
+      )}
+
+      {hasUnavailableInCart && (
+        <div className="mt-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <FiAlertCircle className="mt-0.5 shrink-0" />
+          <span>
+            A service in your cart is restricted in this city or has no price
+            allocated for the selected vehicle. Remove it before continuing.
+          </span>
         </div>
       )}
 
@@ -264,12 +295,19 @@ export default function ServiceSelect() {
                 <div className="flex shrink-0 items-center justify-between gap-3 text-right sm:w-44 sm:flex-col sm:items-end">
                   <div>
                     <div className="text-xs text-muted">Estimated</div>
-                    <div className="whitespace-nowrap text-lg font-bold leading-tight sm:text-xl">
+                    <div
+                      className={
+                        hasPrice || comingSoon
+                          ? "whitespace-nowrap text-lg font-bold leading-tight sm:text-xl"
+                          : "max-w-44 text-sm font-bold leading-5 text-amber-700"
+                      }
+                    >
                       {comingSoon
                         ? "Coming Soon"
                         : hasPrice
                           ? priceRange
-                          : "Not configured"}
+                          : service.priceUnavailableMessage ||
+                            "Price not allocated for this vehicle"}
                     </div>
                   </div>
 
@@ -313,6 +351,8 @@ export default function ServiceSelect() {
                       </>
                     ) : comingSoon ? (
                       "Coming Soon"
+                    ) : !hasPrice ? (
+                      "Price unavailable"
                     ) : (
                       <>
                         <FiPlus />
@@ -357,27 +397,48 @@ export default function ServiceSelect() {
           ) : (
             <div className="grid gap-2">
               {cart.map((item) => {
+                const currentService = serviceById.get(item.id);
+                const displayItem = currentService || item;
+                const unavailable = !currentService?.priceRange;
                 const comingSoon =
-                  isCartItemComingSoon(item) ||
+                  isCartItemComingSoon(displayItem) ||
                   comingSoonIds.has(item.id);
 
                 return (
                   <div
                     key={item.id}
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-sm"
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-line px-2.5 py-2 text-sm"
                   >
                     <div className="min-w-0">
-                      <span className="block truncate">{item.name}</span>
+                      <span className="block truncate">{displayItem.name}</span>
                       {comingSoon && (
-                        <span className="text-xs font-semibold text-amber-700">
+                        <span className="block text-xs font-semibold text-amber-700">
                           Coming Soon
+                        </span>
+                      )}
+                      {unavailable && !comingSoon && (
+                        <span className="block text-xs font-semibold text-red-700">
+                          {currentService?.priceUnavailableMessage ||
+                            "Unavailable for this city or vehicle"}
                         </span>
                       )}
                     </div>
 
-                    <span className="whitespace-nowrap text-right text-xs font-semibold sm:text-sm">
-                      {item.priceRange ? formatServicePriceRange(item) : ""}
-                    </span>
+                    <div className="flex items-start gap-2">
+                      <span className="whitespace-nowrap text-right text-xs font-semibold sm:text-sm">
+                        {currentService?.priceRange
+                          ? formatServicePriceRange(currentService)
+                          : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(item.id)}
+                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted transition hover:bg-red-50 hover:text-red-700"
+                        aria-label={`Remove ${displayItem.name}`}
+                      >
+                        <FiX />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -395,14 +456,20 @@ export default function ServiceSelect() {
 
           <Link
             to="/checkout"
-            aria-disabled={cart.length === 0 || hasComingSoonInCart}
+            aria-disabled={
+              cart.length === 0 || hasComingSoonInCart || hasUnavailableInCart
+            }
             className={`mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark ${
-              cart.length === 0 || hasComingSoonInCart
+              cart.length === 0 || hasComingSoonInCart || hasUnavailableInCart
                 ? "pointer-events-none opacity-50 grayscale"
                 : ""
             }`}
           >
-            {hasComingSoonInCart ? "Remove Coming Soon Items" : "Continue"}{" "}
+            {hasComingSoonInCart
+              ? "Remove Coming Soon Items"
+              : hasUnavailableInCart
+                ? "Remove Unavailable Items"
+                : "Continue"}{" "}
             <FiArrowRight />
           </Link>
         </aside>

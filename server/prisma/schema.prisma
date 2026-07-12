@@ -426,6 +426,7 @@ model Service {
   garageServices  GarageService[]
   category        ServiceCategory         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   media           ServiceMedia[]
+  cityRestrictions ServiceCityRestriction[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -502,9 +503,24 @@ model City {
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  serviceRestrictions ServiceCityRestriction[]
 
   @@index([isActive])
   @@index([name])
+}
+
+model ServiceCityRestriction {
+  id        String   @id @default(uuid())
+  serviceId String
+  cityId    String
+  createdAt DateTime @default(now())
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, cityId])
+  @@index([serviceId])
+  @@index([cityId])
+  @@map("service_city_restrictions")
 }
 
 model Booking {

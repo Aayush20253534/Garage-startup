@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { cityApi } from "@/api/cities";
 import { useApp } from "@/hooks/useApp";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import {
@@ -7,6 +8,7 @@ import {
   FiCheckCircle,
   FiEdit3,
   FiImage,
+  FiMapPin,
   FiPlus,
   FiRefreshCw,
   FiSearch,
@@ -32,6 +34,7 @@ const emptyServiceForm = {
   description: "",
   isActive: true,
   isComingSoon: false,
+  restrictedCityIds: [],
   thumbnail: null,
 };
 
@@ -75,10 +78,23 @@ const isServiceComingSoon = (service) =>
 const isCategoryComingSoon = (category) =>
   toBoolean(category?.isComingSoon);
 
+const getRestrictedCityIds = (service) =>
+  (service?.cityRestrictions || [])
+    .map((restriction) => restriction.cityId || restriction.city?.id)
+    .filter(Boolean);
+
+const getRestrictedCityNames = (service) =>
+  (service?.cityRestrictions || [])
+    .map((restriction) => restriction.city?.name)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
 export default function AdminServices() {
   const { user } = useApp();
   const isIntern = user?.role === "INTERN";
   const [categories, setCategories] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [citySearch, setCitySearch] = useState("");
   const [categoryForm, setCategoryForm] = useState(emptyCategoryForm);
   const [serviceForm, setServiceForm] = useState(emptyServiceForm);
   const [search, setSearch] = useState("");
@@ -94,6 +110,17 @@ export default function AdminServices() {
     () => categories.filter((category) => category.isActive).length,
     [categories]
   );
+
+  const filteredCities = useMemo(() => {
+    const query = citySearch.trim().toLowerCase();
+    if (!query) return cities;
+
+    return cities.filter((city) =>
+      [city.name, city.state]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [cities, citySearch]);
 
   const activeServiceCount = useMemo(
     () =>
@@ -112,12 +139,16 @@ export default function AdminServices() {
     setError("");
 
     try {
-      const data = await adminApi.getServiceCategories({
-        includeInactive,
-        ...(search.trim() && { search: search.trim() }),
-      });
+      const [data, cityData] = await Promise.all([
+        adminApi.getServiceCategories({
+          includeInactive,
+          ...(search.trim() && { search: search.trim() }),
+        }),
+        cityApi.getAdminCities({ includeInactive: true }),
+      ]);
 
       setCategories(data || []);
+      setCities(cityData || []);
       setServiceForm((current) => ({
         ...current,
         categoryId: current.categoryId || data?.[0]?.id || "",
@@ -303,6 +334,19 @@ export default function AdminServices() {
     await adminApi.uploadServiceThumbnail(serviceId, formData);
   };
 
+  const toggleRestrictedCity = (cityId) => {
+    setServiceForm((current) => {
+      const selected = current.restrictedCityIds.includes(cityId);
+
+      return {
+        ...current,
+        restrictedCityIds: selected
+          ? current.restrictedCityIds.filter((id) => id !== cityId)
+          : [...current.restrictedCityIds, cityId],
+      };
+    });
+  };
+
   const saveService = async (event) => {
     event.preventDefault();
     setError("");
@@ -322,6 +366,7 @@ export default function AdminServices() {
         description: serviceForm.description.trim() || null,
         isActive: serviceForm.isActive,
         isComingSoon: serviceForm.isComingSoon,
+        restrictedCityIds: serviceForm.restrictedCityIds,
       };
 
       let saved;
@@ -357,6 +402,7 @@ export default function AdminServices() {
       description: service.description || "",
       isActive: Boolean(service.isActive),
       isComingSoon: isServiceComingSoon(service),
+      restrictedCityIds: getRestrictedCityIds(service),
       thumbnail: null,
     });
 
@@ -654,6 +700,81 @@ export default function AdminServices() {
             Coming Soon
           </label>
 
+          <div className="rounded-xl border border-line bg-bg-soft/60 p-3 md:col-span-2 xl:col-span-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-bold text-ink">
+                  <FiMapPin />
+                  Restricted cities
+                  <span className="rounded-full bg-white px-2 py-0.5 text-xs text-muted">
+                    {serviceForm.restrictedCityIds.length}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-muted">
+                  Logged-in customers in selected cities will not see this service.
+                  Leave every city unselected to make it available everywhere.
+                </p>
+              </div>
+
+              {serviceForm.restrictedCityIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setServiceForm((current) => ({
+                      ...current,
+                      restrictedCityIds: [],
+                    }))
+                  }
+                  className="text-xs font-bold text-red-700 hover:underline"
+                >
+                  Clear restrictions
+                </button>
+              )}
+            </div>
+
+            <div className="mt-3">
+              <label className="relative block">
+                <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input
+                  value={citySearch}
+                  onChange={(event) => setCitySearch(event.target.value)}
+                  placeholder="Search cities"
+                  className="h-9 w-full rounded-lg border border-line bg-white pl-9 pr-3 text-sm outline-none focus:border-ink"
+                />
+              </label>
+
+              <div className="mt-2 flex max-h-36 flex-wrap gap-2 overflow-y-auto pr-1">
+                {filteredCities.map((city) => {
+                  const selected = serviceForm.restrictedCityIds.includes(city.id);
+                  const inactive = !toBoolean(city.isActive);
+
+                  return (
+                    <button
+                      key={city.id}
+                      type="button"
+                      disabled={inactive && !selected}
+                      onClick={() => toggleRestrictedCity(city.id)}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        selected
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : "border-line bg-white text-ink hover:border-ink"
+                      }`}
+                      title={inactive ? "Inactive city" : undefined}
+                    >
+                      {selected && <FiX />}
+                      {city.name}
+                      {inactive && " (inactive)"}
+                    </button>
+                  );
+                })}
+
+                {filteredCities.length === 0 && (
+                  <span className="py-2 text-xs text-muted">No cities found.</span>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="flex gap-2 xl:justify-end">
             <button
               type="submit"
@@ -916,6 +1037,16 @@ export default function AdminServices() {
                             {categoryComingSoon && (
                               <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-800">
                                 Category Coming Soon
+                              </span>
+                            )}
+
+                            {getRestrictedCityNames(service).length > 0 ? (
+                              <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">
+                                Restricted: {getRestrictedCityNames(service).join(", ")}
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">
+                                All cities
                               </span>
                             )}
                           </div>

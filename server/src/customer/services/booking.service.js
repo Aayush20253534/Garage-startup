@@ -79,11 +79,6 @@ const ALLOWED_BOOKING_STATUSES = [
   "EXPIRED",
 ];
 
-const getBookingCity = async (location = {}) => {
-  const city = await cityService.requireActiveCityFromLocation(location);
-  return city.name;
-};
-
 const getBookingServiceRange = (service, priceRangeMap = new Map()) => {
   const adminRange = priceRangeMap.get(service.id);
 
@@ -194,6 +189,9 @@ const createBooking = async (userId, data) => {
 
   await ensureVehicleHasNoActiveBooking(userId, vehicleId);
 
+  const bookingCityRecord = await cityService.requireActiveCityFromLocation(location);
+  const bookingCity = bookingCityRecord.name;
+
   const services = await prisma.service.findMany({
     where: {
       id: { in: uniqueServiceIds },
@@ -207,11 +205,32 @@ const createBooking = async (userId, data) => {
           isComingSoon: true,
         },
       },
+      cityRestrictions: {
+        where: { cityId: bookingCityRecord.id },
+        select: { id: true },
+      },
     },
   });
 
   if (services.length !== uniqueServiceIds.length) {
     throw new ApiError(404, "One or more services are invalid");
+  }
+
+  const restrictedServices = services.filter(
+    (service) => service.cityRestrictions.length > 0,
+  );
+
+  if (restrictedServices.length > 0) {
+    const serviceNames = restrictedServices
+      .map((service) => service.name)
+      .join(", ");
+
+    throw new ApiError(
+      409,
+      `${serviceNames} ${
+        restrictedServices.length === 1 ? "is" : "are"
+      } not available in ${bookingCity}.`,
+    );
   }
 
   const comingSoonServices = services.filter(
@@ -232,7 +251,6 @@ const createBooking = async (userId, data) => {
     );
   }
 
-  const bookingCity = await getBookingCity(location);
   const customerAddress = cityService.ensureAddressContainsCity(
     location.address || location.city || "",
     bookingCity,

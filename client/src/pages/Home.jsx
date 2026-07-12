@@ -614,6 +614,13 @@ export default function Home() {
                           <p className="mt-1 line-clamp-2 text-[15px] leading-6 text-muted sm:text-sm sm:leading-5">
                             {service.description}
                           </p>
+
+                          {user && !hasPrice && !comingSoon && (
+                            <p className="mt-2 text-xs font-bold text-amber-700">
+                              {service.priceUnavailableMessage ||
+                                "Price not allocated for this vehicle"}
+                            </p>
+                          )}
                         </div>
 
                         {hasPrice && !comingSoon && (
