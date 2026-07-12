@@ -271,9 +271,6 @@ export default function CategoryDetail() {
                   )}
 
                   <div className="mb-3 flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      <FiStar className="text-amber-400" fill="currentColor" />
-                    </div>
 
                     <span className="text-sm text-muted">Verified service</span>
                   </div>
