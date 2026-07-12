@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { FiArrowRight, FiSearch, FiSettings } from "react-icons/fi";
+import {
+  FiArrowRight,
+  FiSearch,
+  FiSettings,
+} from "react-icons/fi";
 
 import { CATEGORY_UI } from "@/data/services";
 import { useApp } from "@/hooks/useApp";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import SafeImage from "@/components/common/SafeImage";
-import {
-  getCategoryThumbnailUrl,
-  getServiceImageUrls,
-  warmImageCache,
-} from "@/utils/imageCache";
+import { getCategoryThumbnailUrl } from "@/utils/imageCache";
 import {
   formatRupees,
   getServiceMinPrice,
@@ -58,32 +58,30 @@ export default function Services() {
   const cartItems = Array.isArray(cart) ? cart : [];
 
   useEffect(() => {
-    let isMounted = true;
+    let cancelled = false;
 
     const loadCategories = async () => {
       try {
-        setLoading(true);
-
         const data = await fetchServiceCategories();
-        const normalizedData = Array.isArray(data) ? data : [];
 
-        if (!isMounted) {
+        if (cancelled) {
           return;
         }
 
-        setCategories(normalizedData);
-        warmImageCache(getServiceImageUrls(normalizedData));
+        setCategories(
+          Array.isArray(data) ? data : [],
+        );
       } catch (error) {
         console.error(
           "Failed to load service categories:",
           error,
         );
 
-        if (isMounted) {
+        if (!cancelled) {
           setCategories([]);
         }
       } finally {
-        if (isMounted) {
+        if (!cancelled) {
           setLoading(false);
         }
       }
@@ -92,9 +90,16 @@ export default function Services() {
     loadCategories();
 
     return () => {
-      isMounted = false;
+      cancelled = true;
     };
-  }, [fetchServiceCategories]);
+
+    /*
+     * Categories should load only once when the page mounts.
+     * Depending on fetchServiceCategories can cause repeated
+     * requests if the App context recreates the function.
+     */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredCategories = useMemo(() => {
     const searchQuery = q.trim().toLowerCase();
@@ -105,9 +110,14 @@ export default function Services() {
           ? category.name.trim()
           : "";
 
+      if (!categoryName) {
+        return false;
+      }
+
       if (
-        !categoryName ||
-        HIDDEN_CATEGORIES.has(categoryName.toLowerCase())
+        HIDDEN_CATEGORIES.has(
+          categoryName.toLowerCase(),
+        )
       ) {
         return false;
       }
@@ -122,24 +132,36 @@ export default function Services() {
     });
   }, [categories, q]);
 
-  const serviceById = useMemo(
-    () =>
-      new Map(
-        categories.flatMap((category) =>
-          (Array.isArray(category?.services)
-            ? category.services
-            : []
-          ).map((service) => [service.id, service]),
-        ),
-      ),
-    [categories],
-  );
+  const serviceById = useMemo(() => {
+    const map = new Map();
 
-  const hasUnavailableCartItems =
-    Boolean(user) &&
-    cartItems.some(
-      (item) => !serviceById.get(item.id)?.priceRange,
-    );
+    categories.forEach((category) => {
+      const services = Array.isArray(
+        category?.services,
+      )
+        ? category.services
+        : [];
+
+      services.forEach((service) => {
+        if (service?.id) {
+          map.set(service.id, service);
+        }
+      });
+    });
+
+    return map;
+  }, [categories]);
+
+  const hasUnavailableCartItems = useMemo(
+    () =>
+      Boolean(user) &&
+      cartItems.some((item) => {
+        const service = serviceById.get(item.id);
+
+        return !service?.priceRange;
+      }),
+    [user, cartItems, serviceById],
+  );
 
   const cartTotal = useMemo(
     () =>
@@ -147,41 +169,46 @@ export default function Services() {
         const service =
           serviceById.get(item.id) || item;
 
-        return total + getServiceMinPrice(service);
+        return (
+          total + getServiceMinPrice(service)
+        );
       }, 0),
     [cartItems, serviceById],
   );
 
-  const structuredData = [
-    {
-      "@context": "https://schema.org",
-      "@type": "Service",
-      name: "Vehicle repair and maintenance booking",
-      description:
-        "Browse vehicle repair, maintenance, detailing and roadside service categories available through Rovauto.",
-      provider: {
-        "@type": "Organization",
-        name: "Rovauto",
-        url: SITE_URL,
+  const structuredData = useMemo(
+    () => [
+      {
+        "@context": "https://schema.org",
+        "@type": "Service",
+        name: "Vehicle repair and maintenance booking",
+        description:
+          "Browse vehicle repair, maintenance, detailing and roadside service categories available through Rovauto.",
+        provider: {
+          "@type": "Organization",
+          name: "Rovauto",
+          url: SITE_URL,
+        },
+        areaServed: "India",
       },
-      areaServed: "India",
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "ItemList",
-      name: "Rovauto vehicle service categories",
-      itemListElement: categories.map(
-        (category, index) => ({
-          "@type": "ListItem",
-          position: index + 1,
-          name: category.name,
-          url: `${SITE_URL}${getServiceCategoryPath(
-            category,
-          )}`,
-        }),
-      ),
-    },
-  ];
+      {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        name: "Rovauto vehicle service categories",
+        itemListElement: categories.map(
+          (category, index) => ({
+            "@type": "ListItem",
+            position: index + 1,
+            name: category.name,
+            url: `${SITE_URL}${getServiceCategoryPath(
+              category,
+            )}`,
+          }),
+        ),
+      },
+    ],
+    [categories],
+  );
 
   return (
     <>
@@ -211,8 +238,8 @@ export default function Services() {
               </h1>
 
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted sm:text-base">
-                Curated services for your vehicle with clear,
-                transparent pricing.
+                Curated services for your vehicle
+                with clear, transparent pricing.
               </p>
             </div>
 
@@ -230,13 +257,16 @@ export default function Services() {
                 }
                 placeholder="Search service categories"
                 aria-label="Search service categories"
-                className="h-12 w-full rounded-2xl border border-line bg-white pl-11 pr-4 text-sm text-gray-950 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-[#9dcf00] focus:ring-4 focus:ring-[#b9f000]/15 sm:h-13 sm:rounded-full sm:text-base"
+                autoComplete="off"
+                className="h-12 w-full rounded-2xl border border-line bg-white pl-11 pr-4 text-sm text-gray-950 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-[#9dcf00] focus:ring-4 focus:ring-[#b9f000]/15 sm:rounded-full sm:text-base"
               />
             </div>
           </div>
         </header>
 
-        <section aria-labelledby="service-categories-heading">
+        <section
+          aria-labelledby="service-categories-heading"
+        >
           <h2
             id="service-categories-heading"
             className="sr-only"
@@ -246,7 +276,7 @@ export default function Services() {
 
           {loading ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-4">
-              {Array.from({ length: 8 }).map(
+              {Array.from({ length: 6 }).map(
                 (_, index) => (
                   <div
                     key={index}
@@ -261,86 +291,104 @@ export default function Services() {
             </div>
           ) : filteredCategories.length > 0 ? (
             <div className="grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-4">
-              {filteredCategories.map((category) => {
-                const ui =
-                  CATEGORY_UI[category.name] || {};
+              {filteredCategories.map(
+                (category) => {
+                  const ui =
+                    CATEGORY_UI[category.name] ||
+                    {};
 
-                const Icon = ui.icon || FiSettings;
-                const image =
-                  getCategoryThumbnailUrl(category);
-                const comingSoon =
-                  isCategoryComingSoon(category);
+                  const Icon =
+                    ui.icon || FiSettings;
 
-                const destination = ui.isSos
-                  ? "/sos"
-                  : getServiceCategoryPath(category);
+                  const image =
+                    getCategoryThumbnailUrl(
+                      category,
+                    );
 
-                return (
-                  <Link
-                    key={category.id}
-                    to={comingSoon ? "#" : destination}
-                    onClick={(event) => {
-                      if (comingSoon) {
-                        event.preventDefault();
+                  const comingSoon =
+                    isCategoryComingSoon(category);
+
+                  const destination = ui.isSos
+                    ? "/sos"
+                    : getServiceCategoryPath(
+                        category,
+                      );
+
+                  return (
+                    <Link
+                      key={category.id}
+                      to={
+                        comingSoon
+                          ? "#"
+                          : destination
                       }
-                    }}
-                    aria-disabled={comingSoon}
-                    tabIndex={comingSoon ? -1 : 0}
-                    className={`group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition duration-200 sm:rounded-3xl sm:p-5 ${
-                      comingSoon
-                        ? "cursor-not-allowed opacity-90"
-                        : "cursor-pointer active:scale-[0.98] sm:hover:-translate-y-1 sm:hover:border-[#b9f000]/40 sm:hover:shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
-                    }`}
-                  >
-                    <div className="mb-3 flex min-h-[68px] min-w-0 flex-col items-start gap-2 sm:mb-4 sm:min-h-[60px]">
-                      <h3 className="line-clamp-2 break-words text-base font-bold leading-snug text-gray-950 sm:text-lg">
-                        {category.name}
-                      </h3>
-
-                      {comingSoon && (
-                        <span className="inline-flex max-w-full rounded-full bg-amber-100 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-amber-800 sm:px-2.5 sm:text-[10px]">
-                          Coming soon
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="relative mt-auto aspect-[4/3] w-full overflow-hidden rounded-xl bg-bg-soft sm:aspect-[16/10] sm:rounded-2xl">
-                      <SafeImage
-                        src={image}
-                        alt={`${category.name} vehicle service category`}
-                        width="640"
-                        height="480"
-                        loading="lazy"
-                        decoding="async"
-                        className={`h-full w-full object-cover transition duration-300 ${
-                          comingSoon
-                            ? "scale-105 blur-sm grayscale"
-                            : "group-hover:scale-105"
-                        }`}
-                        fallback={
-                          <div
-                            className={`grid h-full w-full place-items-center text-3xl text-muted sm:text-4xl ${
-                              comingSoon
-                                ? "blur-[1px] grayscale"
-                                : ""
-                            }`}
-                          >
-                            <Icon />
-                          </div>
+                      onClick={(event) => {
+                        if (comingSoon) {
+                          event.preventDefault();
                         }
-                      />
+                      }}
+                      aria-disabled={comingSoon}
+                      tabIndex={
+                        comingSoon ? -1 : 0
+                      }
+                      className={`group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition duration-200 sm:rounded-3xl sm:p-5 ${
+                        comingSoon
+                          ? "cursor-not-allowed opacity-90"
+                          : "cursor-pointer active:scale-[0.98] sm:hover:-translate-y-1 sm:hover:border-[#b9f000]/40 sm:hover:shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+                      }`}
+                    >
+                      <div className="mb-3 flex min-h-[68px] min-w-0 flex-col items-start gap-2 sm:mb-4 sm:min-h-[60px]">
+                        <h3 className="line-clamp-2 break-words text-base font-bold leading-snug text-gray-950 sm:text-lg">
+                          {category.name}
+                        </h3>
 
-                      {!comingSoon && (
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/10 to-transparent opacity-0 transition group-hover:opacity-100" />
-                      )}
+                        {comingSoon && (
+                          <span className="inline-flex max-w-full rounded-full bg-amber-100 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-amber-800 sm:px-2.5 sm:text-[10px]">
+                            Coming soon
+                          </span>
+                        )}
+                      </div>
 
-                      {comingSoon && (
-                        <ComingSoonOverlay compact />
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
+                      <div className="relative mt-auto aspect-[4/3] w-full overflow-hidden rounded-xl bg-bg-soft sm:aspect-[16/10] sm:rounded-2xl">
+                        <SafeImage
+                          src={image}
+                          alt={`${category.name} vehicle service category`}
+                          width="640"
+                          height="480"
+                          loading="lazy"
+                          decoding="async"
+                          className={`h-full w-full object-cover transition duration-300 ${
+                            comingSoon
+                              ? "scale-105 blur-sm grayscale"
+                              : "group-hover:scale-105"
+                          }`}
+                          fallback={
+                            <div
+                              className={`grid h-full w-full place-items-center text-3xl text-muted sm:text-4xl ${
+                                comingSoon
+                                  ? "blur-[1px] grayscale"
+                                  : ""
+                              }`}
+                            >
+                              <Icon />
+                            </div>
+                          }
+                        />
+
+                        {!comingSoon && (
+                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                        )}
+
+                        {comingSoon && (
+                          <ComingSoonOverlay
+                            compact
+                          />
+                        )}
+                      </div>
+                    </Link>
+                  );
+                },
+              )}
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-line bg-bg-soft px-5 py-10 text-center sm:rounded-3xl sm:py-14">
@@ -353,7 +401,8 @@ export default function Services() {
               </h3>
 
               <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-muted">
-                Try searching with a different category name.
+                Try searching with a different
+                category name.
               </p>
             </div>
           )}
@@ -385,7 +434,8 @@ export default function Services() {
                     </span>
 
                     <span className="mt-0.5 block text-xs text-white/65">
-                      Some prices are not allocated
+                      Some prices are not
+                      allocated
                     </span>
                   </span>
 
@@ -398,11 +448,15 @@ export default function Services() {
                   <span className="min-w-0">
                     <span className="block text-xs font-medium text-white/65 sm:text-sm">
                       {cartItems.length} service
-                      {cartItems.length > 1 ? "s" : ""} selected
+                      {cartItems.length > 1
+                        ? "s"
+                        : ""}{" "}
+                      selected
                     </span>
 
                     <span className="mt-0.5 block truncate text-sm font-bold sm:text-base">
-                      {formatRupees(cartTotal)} · Continue
+                      {formatRupees(cartTotal)} ·
+                      Continue
                     </span>
                   </span>
 
