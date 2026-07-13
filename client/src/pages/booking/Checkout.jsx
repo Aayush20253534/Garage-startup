@@ -19,7 +19,10 @@ import {
   getServiceMaxPrice,
 } from "@/utils/priceRange";
 import { calculatePlatformFee } from "@/utils/platformFee";
-import { payForBooking } from "@/utils/bookingPayment";
+import {
+  payForBooking,
+  preloadCashfreeCheckout,
+} from "@/utils/bookingPayment";
 import { requireAvailableCityName } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 import {
@@ -183,6 +186,10 @@ export default function Checkout() {
   useEffect(() => {
     setPhoneDraft(user?.phone || "");
   }, [user?.phone]);
+
+  useEffect(() => {
+    preloadCashfreeCheckout();
+  }, []);
 
   useEffect(() => {
     let mounted = true;

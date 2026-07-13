@@ -19,6 +19,13 @@ const {
   assertCashfreeOrderMatchesPayment,
   getCashfreePayableAmount,
 } = require("../security/cashfreeVerification");
+const {
+  getCashfreeOrderStatus,
+  isReconcilingCashfreeOrder,
+  isReusableCashfreeOrder,
+  isTerminalCashfreeOrder,
+} = require("../security/cashfreeOrderStatus");
+const { getCashfreeIdempotencyKey } = require("../security/cashfreeIdempotency");
 const { buildOwnedResourceWhere } = require("../security/ownership");
 const activityService = require("./activity.service");
 const {
@@ -71,10 +78,6 @@ const invalidatePaymentBookingCaches = async (userId) => {
     deletePattern(`customer:${userId}:booking:*`),
   ]);
 };
-
-const getCashfreeOrderStatus = (cashfreeOrder) =>
-  String(cashfreeOrder?.order_status || "").toUpperCase();
-
 
 const fetchCashfreeOrder = async (cashfreeOrderId, fallback) => {
   try {
@@ -571,14 +574,18 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
   assertCashfreeOrderMatchesPayment(cashfreeOrder, booking.payment);
 
   if (orderStatus !== "PAID") {
-    if (TERMINAL_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
+    if (isTerminalCashfreeOrder(orderStatus)) {
       await failCreatedPaymentAndReleaseWallet({
         bookingId: booking.id,
         cashfreeOrderId: booking.payment.cashfreeOrderId,
       });
     }
 
-    throw new ApiError(400, "Cashfree payment is not completed yet");
+    throw new ApiError(
+      400,
+      "Cashfree payment is not completed yet",
+      "PAYMENT_INCOMPLETE",
+    );
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -950,6 +957,16 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
     );
   }
 
+  // A freshly created local session can be opened immediately. Avoiding an
+  // unnecessary Cashfree status request makes retries noticeably faster while
+  // webhook and post-checkout verification remain the source of truth.
+  if (
+    payment.cashfreePaymentSessionId &&
+    getPaymentAgeMs(payment) < 15 * 60 * 1000
+  ) {
+    return buildCashfreeOrderResult(payment);
+  }
+
   let cashfreeOrder;
 
   try {
@@ -980,7 +997,7 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
     return completePaidBookingPayment(booking, cashfreeOrder);
   }
 
-  if (REUSABLE_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
+  if (isReusableCashfreeOrder(orderStatus)) {
     const refreshedPayment = await prisma.$transaction(async (tx) => {
       await lockBookingFinance(booking.id, { tx });
 
@@ -1020,14 +1037,27 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
     );
   }
 
-  if (TERMINAL_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
+  if (isTerminalCashfreeOrder(orderStatus)) {
     await failCreatedPaymentAndReleaseWallet({
       bookingId: booking.id,
       cashfreeOrderId: payment.cashfreeOrderId,
     });
+    return null;
   }
 
-  return null;
+  if (isReconcilingCashfreeOrder(orderStatus)) {
+    throw new ApiError(
+      409,
+      "Cashfree is closing the previous payment session. Please retry shortly.",
+      "PAYMENT_ORDER_RECONCILING",
+    );
+  }
+
+  throw new ApiError(
+    409,
+    "Cashfree is reconciling the previous payment session. Please retry shortly.",
+    "PAYMENT_ORDER_RECONCILING",
+  );
 };
 
 const completeWalletOnlyBookingPayment = async (
@@ -1422,7 +1452,15 @@ const createPaymentOrder = async (
           upiAmountPaid: String(reservation.upiAmountPaid),
         },
       },
-      { headers: getCashfreeHeaders() },
+      {
+        headers: {
+          ...getCashfreeHeaders(),
+          "x-idempotency-key": getCashfreeIdempotencyKey(
+            reservation.cashfreeOrderId,
+          ),
+          "x-request-id": randomUUID(),
+        },
+      },
     );
 
     cashfreeOrder = cashfreeRes.data;
@@ -1455,7 +1493,7 @@ const createPaymentOrder = async (
       }
 
       throw new ApiError(
-        502,
+        409,
         "Cashfree is still confirming the payment session. Please retry in a few seconds; a second order will not be created.",
         "PAYMENT_ORDER_RECONCILING",
       );
@@ -1612,7 +1650,7 @@ const cancelPaymentOrder = async (userId, { bookingId }) => {
         return completePaidBookingPayment(booking, cashfreeOrder);
       }
 
-      if (TERMINAL_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
+      if (isTerminalCashfreeOrder(orderStatus)) {
         const releaseResult = await failCreatedPaymentAndReleaseWallet({
           bookingId,
           cashfreeOrderId: booking.payment.cashfreeOrderId,
@@ -1623,6 +1661,9 @@ const cancelPaymentOrder = async (userId, { bookingId }) => {
           : booking.payment;
         message =
           "The previous payment session ended. A fresh session will be created when you retry.";
+      } else if (isReconcilingCashfreeOrder(orderStatus)) {
+        message =
+          "Cashfree is closing the previous session. Wait a few seconds before retrying payment.";
       } else {
         // Do not mark an ACTIVE Cashfree order as failed locally. The same
         // order is reused on retry, so a late payment/webhook can always be
@@ -1741,7 +1782,7 @@ const syncUserPendingCashfreePayments = async (userId) => {
         return completePaidBookingPayment(booking, cashfreeOrder);
       }
 
-      if (TERMINAL_CASHFREE_ORDER_STATUSES.has(orderStatus)) {
+      if (isTerminalCashfreeOrder(orderStatus)) {
         return failCreatedPaymentAndReleaseWallet({
           bookingId: booking.id,
           cashfreeOrderId: booking.payment.cashfreeOrderId,

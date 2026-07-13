@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
-import { payForBooking } from "@/utils/bookingPayment";
+import {
+  getPaymentErrorCode,
+  isPaymentIncompleteError,
+  isPaymentSessionPreparingError,
+  payForBooking,
+  preloadCashfreeCheckout,
+} from "@/utils/bookingPayment";
 import { isServiceHoursError, SERVICE_HOURS_MESSAGE } from "@/utils/serviceHours";
 import { formatRupees, formatRupeeRange } from "@/utils/priceRange";
 import {
@@ -93,6 +99,7 @@ export default function PendingBookings() {
   };
 
   useEffect(() => {
+    preloadCashfreeCheckout();
     loadPendingBookings();
 
     let mounted = true;
@@ -181,12 +188,28 @@ export default function PendingBookings() {
         return;
       }
 
-      setNotice(
-        /not completed|cancelled|canceled|failed/i.test(message)
-          ? "Payment was not completed. Your booking is still pending and you can retry from this page."
-          : "Your pending booking is still saved. Please retry payment after fixing the issue."
-      );
-      setError(message);
+      if (isPaymentSessionPreparingError(err)) {
+        setNotice(
+          "Your secure payment session is still being prepared. Wait a few seconds, then tap Pay again.",
+        );
+        setError("");
+      } else if (isPaymentIncompleteError(err)) {
+        setNotice(
+          "Payment was not completed. Your booking remains pending and the secure payment session can be retried.",
+        );
+        setError("");
+      } else {
+        const referenceId = err.response?.data?.referenceId;
+        const errorCode = getPaymentErrorCode(err);
+
+        setNotice("");
+        setError(
+          [message, errorCode && `Code: ${errorCode}`, referenceId && `Reference: ${referenceId}`]
+            .filter(Boolean)
+            .join(" • "),
+        );
+      }
+
       await loadPendingBookings({ force: true });
     } finally {
       setPayingId(null);
