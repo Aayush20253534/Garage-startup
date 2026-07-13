@@ -1,0 +1,717 @@
+diff --git a/server/src/customer/constants/complaintUpload.js b/server/src/customer/constants/complaintUpload.js
+new file mode 100644
+index 0000000..f7e29df
+--- /dev/null
++++ b/server/src/customer/constants/complaintUpload.js
+@@ -0,0 +1,7 @@
++const COMPLAINT_MAX_FILES = 5;
++const COMPLAINT_MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
++
++module.exports = {
++  COMPLAINT_MAX_FILES,
++  COMPLAINT_MAX_FILE_SIZE_BYTES,
++};
+diff --git a/server/src/customer/routes/complaint.routes.js b/server/src/customer/routes/complaint.routes.js
+index ee6a762..87005ba 100644
+--- a/server/src/customer/routes/complaint.routes.js
++++ b/server/src/customer/routes/complaint.routes.js
+@@ -1,9 +1,15 @@
+ const express = require("express");
+ 
+ const complaintController = require("../controllers/complaint.controller");
+-const { protect } = require("../../middlewares/auth.middleware");
+-const validate = require("../../middlewares/validate.middleware");
+-const upload = require("../../middlewares/upload.middleware");
++const { protect } = require("../../middlewares/auth.middleware");
++const createKeyedConcurrencyLimit = require("../../middlewares/keyedConcurrencyLimit.middleware");
++const rateLimit = require("../../middlewares/rateLimit.middleware");
++const validate = require("../../middlewares/validate.middleware");
++const upload = require("../../middlewares/upload.middleware");
++const {
++  COMPLAINT_MAX_FILES,
++  COMPLAINT_MAX_FILE_SIZE_BYTES,
++} = require("../constants/complaintUpload");
+ 
+ const {
+   complaintIdValidation,
+@@ -12,17 +18,36 @@ const {
+ 
+ const router = express.Router();
+ 
+-const complaintImageUpload = upload.createUpload({
+-  fileSize: 10 * 1024 * 1024,
+-  files: 10,
++const complaintImageUpload = upload.createDiskUpload({
++  fileSize: COMPLAINT_MAX_FILE_SIZE_BYTES,
++  files: COMPLAINT_MAX_FILES,
+   allowedMimeTypes: upload.IMAGE_MIME_TYPES,
+ });
+ 
++const complaintCreateRateLimit = rateLimit({
++  name: "complaint-create",
++  windowMs: 15 * 60 * 1000,
++  max: 3,
++  fallbackMax: 2,
++  keyGenerator: (req) => `${req.user?.id || "customer"}:${req.ip}`,
++  message: "Too many complaints submitted. Please try again later.",
++});
++
++const complaintCreateConcurrencyLimit = createKeyedConcurrencyLimit({
++  name: "complaint upload",
++  maxGlobal: process.env.COMPLAINT_UPLOAD_MAX_CONCURRENCY || 4,
++  maxPerKey: 1,
++  keyGenerator: (req) => req.user?.id || req.ip,
++});
++
+ router.use(protect);
+ 
+ router.post(
+   "/",
+-  complaintImageUpload.array("images", 10),
++  complaintCreateRateLimit,
++  complaintCreateConcurrencyLimit,
++  upload.registerUploadCleanup,
++  complaintImageUpload.array("images", COMPLAINT_MAX_FILES),
+   upload.validateUploadedFiles,
+   createComplaintValidation,
+   validate,
+diff --git a/server/src/customer/services/complaint.service.js b/server/src/customer/services/complaint.service.js
+index 52189b1..a317ee7 100644
+--- a/server/src/customer/services/complaint.service.js
++++ b/server/src/customer/services/complaint.service.js
+@@ -2,7 +2,14 @@ const prisma = require("../../config/prisma");
+ const ApiError = require("../../utils/apiError");
+ const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
+ const { deletePattern } = require("../../utils/cache");
+-const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
++const {
++  uploadToCloudinary,
++  deleteFromCloudinary,
++} = require("../../utils/cloudinaryUpload");
++const {
++  COMPLAINT_MAX_FILES,
++  COMPLAINT_MAX_FILE_SIZE_BYTES,
++} = require("../constants/complaintUpload");
+ 
+ const invalidateComplaintBookingCaches = async (userId, bookingId) => {
+   if (!userId) return;
+@@ -21,17 +28,20 @@ const createComplaint = async (userId, data, files = []) => {
+     throw new ApiError(400, "At least 1 complaint image is required");
+   }
+ 
+-  if (files.length > 10) {
+-    throw new ApiError(400, "Maximum 10 complaint images allowed");
++  if (files.length > COMPLAINT_MAX_FILES) {
++    throw new ApiError(
++      400,
++      `Maximum ${COMPLAINT_MAX_FILES} complaint images allowed`,
++    );
+   }
+ 
+   for (const file of files) {
+-    if (!file.mimetype.startsWith("image/")) {
++    if (!file.mimetype?.startsWith("image/")) {
+       throw new ApiError(400, "Only images are allowed for complaints");
+     }
+ 
+-    if (file.size > 10 * 1024 * 1024) {
+-      throw new ApiError(400, "Each complaint image must be under 10 MB");
++    if (file.size > COMPLAINT_MAX_FILE_SIZE_BYTES) {
++      throw new ApiError(400, "Each complaint image must be 5 MB or smaller");
+     }
+   }
+ 
+@@ -50,45 +60,63 @@ const createComplaint = async (userId, data, files = []) => {
+ 
+   const uploadedImages = [];
+ 
+-  for (const file of files) {
+-    const uploaded = await uploadToCloudinary(
+-      file.buffer,
+-      "project-x/complaints",
+-      "image"
+-    );
+-
+-    uploadedImages.push({
+-      imageUrl: uploaded.secure_url,
+-      publicId: uploaded.public_id,
+-    });
+-  }
+-
+-  const complaint = await prisma.complaint.create({
+-    data: {
+-      userId,
+-      bookingId: data.bookingId || null,
+-      title: data.title,
+-      description: data.description,
+-      status: "OPEN",
+-      images: {
+-        create: uploadedImages.map((image, index) => ({
+-          imageUrl: image.imageUrl,
+-          publicId: image.publicId,
+-          order: index,
+-        })),
+-      },
+-    },
+-    include: {
+-      images: true,
+-      booking: {
+-        include: {
+-          garage: true,
+-          vehicle: true,
+-          service: true,
+-        },
+-      },
+-    },
+-  });
++  let complaint;
++
++  try {
++    for (const file of files) {
++      const fileSource = file.path || file.buffer;
++
++      if (!fileSource) {
++        throw new ApiError(400, "Complaint image data is missing");
++      }
++
++      const uploaded = await uploadToCloudinary(
++        fileSource,
++        "project-x/complaints",
++        "image",
++      );
++
++      uploadedImages.push({
++        imageUrl: uploaded.secure_url,
++        publicId: uploaded.public_id,
++      });
++    }
++
++    complaint = await prisma.complaint.create({
++      data: {
++        userId,
++        bookingId: data.bookingId || null,
++        title: data.title,
++        description: data.description,
++        status: "OPEN",
++        images: {
++          create: uploadedImages.map((image, index) => ({
++            imageUrl: image.imageUrl,
++            publicId: image.publicId,
++            order: index,
++          })),
++        },
++      },
++      include: {
++        images: true,
++        booking: {
++          include: {
++            garage: true,
++            vehicle: true,
++            service: true,
++          },
++        },
++      },
++    });
++  } catch (error) {
++    await Promise.allSettled(
++      uploadedImages.map((image) =>
++        deleteFromCloudinary(image.publicId, "image"),
++      ),
++    );
++
++    throw error;
++  }
+ 
+   await invalidateComplaintBookingCaches(userId, data.bookingId);
+   return complaint;
+diff --git a/server/src/middlewares/keyedConcurrencyLimit.middleware.js b/server/src/middlewares/keyedConcurrencyLimit.middleware.js
+new file mode 100644
+index 0000000..dfb8407
+--- /dev/null
++++ b/server/src/middlewares/keyedConcurrencyLimit.middleware.js
+@@ -0,0 +1,57 @@
++const ApiError = require("../utils/apiError");
++
++const normalizeLimit = (value, fallback) => {
++  const parsed = Number(value);
++  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
++};
++
++const createKeyedConcurrencyLimit = ({
++  name = "request",
++  maxGlobal = 4,
++  maxPerKey = 1,
++  keyGenerator = (req) => req.user?.id || req.ip || "anonymous",
++} = {}) => {
++  const activeByKey = new Map();
++  let activeGlobal = 0;
++  const globalLimit = normalizeLimit(maxGlobal, 4);
++  const perKeyLimit = normalizeLimit(maxPerKey, 1);
++
++  return (req, res, next) => {
++    const key = String(keyGenerator(req) || "anonymous").slice(0, 200);
++    const activeForKey = activeByKey.get(key) || 0;
++
++    if (activeGlobal >= globalLimit || activeForKey >= perKeyLimit) {
++      res.setHeader("Retry-After", "5");
++      return next(
++        new ApiError(
++          429,
++          `Another ${name} is already being processed. Please try again shortly.`,
++          "CONCURRENCY_LIMITED",
++        ),
++      );
++    }
++
++    activeGlobal += 1;
++    activeByKey.set(key, activeForKey + 1);
++
++    let released = false;
++    const release = () => {
++      if (released) return;
++      released = true;
++      activeGlobal = Math.max(0, activeGlobal - 1);
++
++      const remaining = (activeByKey.get(key) || 1) - 1;
++      if (remaining > 0) {
++        activeByKey.set(key, remaining);
++      } else {
++        activeByKey.delete(key);
++      }
++    };
++
++    res.once("finish", release);
++    res.once("close", release);
++    return next();
++  };
++};
++
++module.exports = createKeyedConcurrencyLimit;
+diff --git a/server/src/middlewares/upload.middleware.js b/server/src/middlewares/upload.middleware.js
+index 0924aa4..3fe488f 100644
+--- a/server/src/middlewares/upload.middleware.js
++++ b/server/src/middlewares/upload.middleware.js
+@@ -1,7 +1,22 @@
++const crypto = require("crypto");
++const fs = require("fs");
++const os = require("os");
++const path = require("path");
+ const multer = require("multer");
+ const ApiError = require("../utils/apiError");
+ 
+ const storage = multer.memoryStorage();
++const TEMP_UPLOAD_DIR =
++  process.env.UPLOAD_TEMP_DIR || path.join(os.tmpdir(), "rovauto-uploads");
++
++const diskStorage = multer.diskStorage({
++  destination: (req, file, cb) => {
++    fs.mkdir(TEMP_UPLOAD_DIR, { recursive: true, mode: 0o700 }, (error) => {
++      cb(error, TEMP_UPLOAD_DIR);
++    });
++  },
++  filename: (req, file, cb) => cb(null, crypto.randomUUID()),
++});
+ 
+ const IMAGE_MIME_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+ const VIDEO_MIME_TYPES = [
+@@ -27,9 +42,10 @@ const createUpload = ({
+   files = 10,
+   fields = 20,
+   allowedMimeTypes = DEFAULT_MIME_TYPES,
++  storageEngine = storage,
+ } = {}) =>
+   multer({
+-    storage,
++    storage: storageEngine,
+     fileFilter: createFileFilter(allowedMimeTypes),
+     limits: {
+       fileSize,
+@@ -38,6 +54,9 @@ const createUpload = ({
+     },
+   });
+ 
++const createDiskUpload = (options = {}) =>
++  createUpload({ ...options, storageEngine: diskStorage });
++
+ const hasPrefix = (buffer, signature) => {
+   if (!Buffer.isBuffer(buffer) || buffer.length < signature.length) {
+     return false;
+@@ -51,9 +70,7 @@ const hasAscii = (buffer, offset, value) =>
+   buffer.length >= offset + value.length &&
+   buffer.toString("ascii", offset, offset + value.length) === value;
+ 
+-const isValidImageSignature = (file) => {
+-  const buffer = file?.buffer;
+-
++const isValidImageSignature = (file, buffer) => {
+   if (file.mimetype === "image/jpeg" || file.mimetype === "image/jpg") {
+     return hasPrefix(buffer, [0xff, 0xd8, 0xff]);
+   }
+@@ -69,9 +86,7 @@ const isValidImageSignature = (file) => {
+   return false;
+ };
+ 
+-const isValidVideoSignature = (file) => {
+-  const buffer = file?.buffer;
+-
++const isValidVideoSignature = (file, buffer) => {
+   if (file.mimetype === "video/mp4" || file.mimetype === "video/quicktime") {
+     return hasAscii(buffer, 4, "ftyp");
+   }
+@@ -87,6 +102,24 @@ const isValidVideoSignature = (file) => {
+   return false;
+ };
+ 
++const readFileSignature = async (file) => {
++  if (Buffer.isBuffer(file?.buffer)) {
++    return file.buffer.subarray(0, 16);
++  }
++
++  if (!file?.path) return null;
++
++  const handle = await fs.promises.open(file.path, "r");
++
++  try {
++    const buffer = Buffer.alloc(16);
++    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
++    return buffer.subarray(0, bytesRead);
++  } finally {
++    await handle.close();
++  }
++};
++
+ const flattenFiles = (files) => {
+   if (!files) return [];
+   if (Array.isArray(files)) return files;
+@@ -96,23 +129,66 @@ const flattenFiles = (files) => {
+   );
+ };
+ 
+-const validateUploadedFiles = (req, res, next) => {
++const validateUploadedFiles = async (req, res, next) => {
++  try {
++    const files = flattenFiles(req.files);
++    if (req.file) files.push(req.file);
++
++    for (const file of files) {
++      const signature = await readFileSignature(file);
++      const valid =
++        IMAGE_MIME_TYPES.includes(file.mimetype)
++          ? isValidImageSignature(file, signature)
++          : VIDEO_MIME_TYPES.includes(file.mimetype)
++            ? isValidVideoSignature(file, signature)
++            : false;
++
++      if (!valid) {
++        return next(
++          new ApiError(400, "Uploaded file content does not match its type"),
++        );
++      }
++    }
++
++    return next();
++  } catch (error) {
++    return next(error);
++  }
++};
++
++const cleanupUploadedTempFiles = async (req) => {
+   const files = flattenFiles(req.files);
+   if (req.file) files.push(req.file);
+ 
+-  for (const file of files) {
+-    const valid =
+-      IMAGE_MIME_TYPES.includes(file.mimetype)
+-        ? isValidImageSignature(file)
+-        : VIDEO_MIME_TYPES.includes(file.mimetype)
+-          ? isValidVideoSignature(file)
+-          : false;
++  const paths = [
++    ...new Set(files.map((file) => file?.path).filter(Boolean)),
++  ];
++
++  await Promise.all(
++    paths.map(async (filePath) => {
++      try {
++        await fs.promises.unlink(filePath);
++      } catch (error) {
++        if (error.code !== "ENOENT") throw error;
++      }
++    }),
++  );
++};
+ 
+-    if (!valid) {
+-      return next(new ApiError(400, "Uploaded file content does not match its type"));
+-    }
+-  }
++const registerUploadCleanup = (req, res, next) => {
++  let cleanupStarted = false;
++
++  const cleanup = () => {
++    if (cleanupStarted) return;
++    cleanupStarted = true;
++
++    cleanupUploadedTempFiles(req).catch((error) => {
++      console.error("Failed to clean up temporary upload files:", error.message);
++    });
++  };
+ 
++  res.once("finish", cleanup);
++  res.once("close", cleanup);
+   return next();
+ };
+ 
+@@ -122,7 +198,10 @@ const upload = createUpload({
+ });
+ 
+ upload.createUpload = createUpload;
++upload.createDiskUpload = createDiskUpload;
+ upload.validateUploadedFiles = validateUploadedFiles;
++upload.cleanupUploadedTempFiles = cleanupUploadedTempFiles;
++upload.registerUploadCleanup = registerUploadCleanup;
+ upload.IMAGE_MIME_TYPES = IMAGE_MIME_TYPES;
+ upload.VIDEO_MIME_TYPES = VIDEO_MIME_TYPES;
+ upload.DEFAULT_MIME_TYPES = DEFAULT_MIME_TYPES;
+diff --git a/server/src/utils/cloudinaryUpload.js b/server/src/utils/cloudinaryUpload.js
+index bc595be..589fcac 100644
+--- a/server/src/utils/cloudinaryUpload.js
++++ b/server/src/utils/cloudinaryUpload.js
+@@ -1,8 +1,21 @@
+ const streamifier = require("streamifier");
+ const cloudinary = require("../config/cloudinary");
+ 
+-const uploadToCloudinary = (fileBuffer, folder, resourceType = "image") => {
+-  return new Promise((resolve, reject) => {
++const uploadToCloudinary = (fileSource, folder, resourceType = "image") => {
++  if (typeof fileSource === "string") {
++    return cloudinary.uploader.upload(fileSource, {
++      folder,
++      resource_type: resourceType,
++    });
++  }
++
++  if (!Buffer.isBuffer(fileSource)) {
++    return Promise.reject(
++      new TypeError("Cloudinary upload requires a file path or buffer"),
++    );
++  }
++
++  return new Promise((resolve, reject) => {
+     const stream = cloudinary.uploader.upload_stream(
+       {
+         folder,
+@@ -11,12 +24,12 @@ const uploadToCloudinary = (fileBuffer, folder, resourceType = "image") => {
+       (error, result) => {
+         if (error) return reject(error);
+         resolve(result);
+-      }
+-    );
+-
+-    streamifier.createReadStream(fileBuffer).pipe(stream);
+-  });
+-};
++      },
++    );
++
++    streamifier.createReadStream(fileSource).pipe(stream);
++  });
++};
+ 
+ const deleteFromCloudinary = async (publicId, resourceType = "image") => {
+   if (!publicId) return;
+@@ -29,4 +42,4 @@ const deleteFromCloudinary = async (publicId, resourceType = "image") => {
+ module.exports = {
+   uploadToCloudinary,
+   deleteFromCloudinary,
+-};
+\ No newline at end of file
++};
+diff --git a/server/test/security/complaintUploadHardening.test.js b/server/test/security/complaintUploadHardening.test.js
+new file mode 100644
+index 0000000..8878abe
+--- /dev/null
++++ b/server/test/security/complaintUploadHardening.test.js
+@@ -0,0 +1,182 @@
++const assert = require("node:assert/strict");
++const { EventEmitter } = require("node:events");
++const fs = require("node:fs");
++const os = require("node:os");
++const path = require("node:path");
++const test = require("node:test");
++
++const createKeyedConcurrencyLimit = require("../../src/middlewares/keyedConcurrencyLimit.middleware");
++const upload = require("../../src/middlewares/upload.middleware");
++
++const runValidation = (req) =>
++  new Promise((resolve) => {
++    upload.validateUploadedFiles(req, {}, resolve);
++  });
++
++class ResponseStub extends EventEmitter {
++  constructor() {
++    super();
++    this.headers = new Map();
++  }
++
++  setHeader(name, value) {
++    this.headers.set(name, value);
++  }
++}
++
++test("complaint upload signature validation reads disk-backed files", async () => {
++  const tempDir = await fs.promises.mkdtemp(
++    path.join(os.tmpdir(), "complaint-upload-test-"),
++  );
++  const filePath = path.join(tempDir, "upload");
++
++  try {
++    await fs.promises.writeFile(
++      filePath,
++      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
++    );
++
++    const req = {
++      files: [{ path: filePath, mimetype: "image/png" }],
++    };
++
++    assert.equal(await runValidation(req), undefined);
++    await upload.cleanupUploadedTempFiles(req);
++    await assert.rejects(fs.promises.access(filePath), { code: "ENOENT" });
++  } finally {
++    await fs.promises.rm(tempDir, { recursive: true, force: true });
++  }
++});
++
++test("complaint upload signature validation rejects spoofed disk files", async () => {
++  const tempDir = await fs.promises.mkdtemp(
++    path.join(os.tmpdir(), "complaint-upload-test-"),
++  );
++  const filePath = path.join(tempDir, "upload");
++
++  try {
++    await fs.promises.writeFile(filePath, "not an image");
++
++    const req = {
++      files: [{ path: filePath, mimetype: "image/png" }],
++    };
++    const error = await runValidation(req);
++
++    assert.equal(error.statusCode, 400);
++    assert.match(error.message, /does not match/i);
++    await upload.cleanupUploadedTempFiles(req);
++  } finally {
++    await fs.promises.rm(tempDir, { recursive: true, force: true });
++  }
++});
++
++test("complaint concurrency limit rejects overlapping work and releases slots", () => {
++  const middleware = createKeyedConcurrencyLimit({
++    name: "complaint upload",
++    maxGlobal: 2,
++    maxPerKey: 1,
++    keyGenerator: (req) => req.user.id,
++  });
++  const firstResponse = new ResponseStub();
++  let firstError;
++
++  middleware({ user: { id: "customer-1" } }, firstResponse, (error) => {
++    firstError = error;
++  });
++  assert.equal(firstError, undefined);
++
++  const blockedResponse = new ResponseStub();
++  let blockedError;
++  middleware({ user: { id: "customer-1" } }, blockedResponse, (error) => {
++    blockedError = error;
++  });
++
++  assert.equal(blockedError.statusCode, 429);
++  assert.equal(blockedError.code, "CONCURRENCY_LIMITED");
++  assert.equal(blockedResponse.headers.get("Retry-After"), "5");
++
++  firstResponse.emit("finish");
++
++  const retryResponse = new ResponseStub();
++  let retryError;
++  middleware({ user: { id: "customer-1" } }, retryResponse, (error) => {
++    retryError = error;
++  });
++  assert.equal(retryError, undefined);
++  retryResponse.emit("finish");
++});
++
++test("complaint creation rolls back Cloudinary uploads when the database fails", async () => {
++  const prisma = require("../../src/config/prisma");
++  const cloudinaryUpload = require("../../src/utils/cloudinaryUpload");
++  const complaintServicePath = require.resolve(
++    "../../src/customer/services/complaint.service",
++  );
++  const originalCreate = prisma.complaint.create;
++  const originalUpload = cloudinaryUpload.uploadToCloudinary;
++  const originalDelete = cloudinaryUpload.deleteFromCloudinary;
++  const uploadedSources = [];
++  const deletedPublicIds = [];
++
++  try {
++    prisma.complaint.create = async () => {
++      throw new Error("database unavailable");
++    };
++    cloudinaryUpload.uploadToCloudinary = async (source) => {
++      uploadedSources.push(source);
++      const number = uploadedSources.length;
++      return {
++        secure_url: `https://example.test/image-${number}`,
++        public_id: `complaint-${number}`,
++      };
++    };
++    cloudinaryUpload.deleteFromCloudinary = async (publicId) => {
++      deletedPublicIds.push(publicId);
++    };
++
++    delete require.cache[complaintServicePath];
++    const complaintService = require(complaintServicePath);
++
++    await assert.rejects(
++      complaintService.createComplaint(
++        "customer-1",
++        { title: "Test", description: "Test complaint" },
++        [
++          { path: "/tmp/complaint-1", mimetype: "image/png", size: 100 },
++          { path: "/tmp/complaint-2", mimetype: "image/png", size: 100 },
++        ],
++      ),
++      /database unavailable/,
++    );
++
++    assert.deepEqual(uploadedSources, [
++      "/tmp/complaint-1",
++      "/tmp/complaint-2",
++    ]);
++    assert.deepEqual(deletedPublicIds.sort(), [
++      "complaint-1",
++      "complaint-2",
++    ]);
++  } finally {
++    prisma.complaint.create = originalCreate;
++    cloudinaryUpload.uploadToCloudinary = originalUpload;
++    cloudinaryUpload.deleteFromCloudinary = originalDelete;
++    delete require.cache[complaintServicePath];
++  }
++});
++
++test("complaint route keeps disk, size, rate, concurrency, and cleanup guards", async () => {
++  const routeSource = await fs.promises.readFile(
++    path.join(
++      __dirname,
++      "../../src/customer/routes/complaint.routes.js",
++    ),
++    "utf8",
++  );
++
++  assert.match(routeSource, /createDiskUpload/);
++  assert.match(routeSource, /COMPLAINT_MAX_FILE_SIZE_BYTES/);
++  assert.match(routeSource, /complaintCreateRateLimit/);
++  assert.match(routeSource, /complaintCreateConcurrencyLimit/);
++  assert.match(routeSource, /registerUploadCleanup/);
++});

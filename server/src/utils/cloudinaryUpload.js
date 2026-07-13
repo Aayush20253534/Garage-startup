@@ -1,7 +1,20 @@
 const streamifier = require("streamifier");
 const cloudinary = require("../config/cloudinary");
 
-const uploadToCloudinary = (fileBuffer, folder, resourceType = "image") => {
+const uploadToCloudinary = (fileSource, folder, resourceType = "image") => {
+  if (typeof fileSource === "string") {
+    return cloudinary.uploader.upload(fileSource, {
+      folder,
+      resource_type: resourceType,
+    });
+  }
+
+  if (!Buffer.isBuffer(fileSource)) {
+    return Promise.reject(
+      new TypeError("Cloudinary upload requires a file path or buffer"),
+    );
+  }
+
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
@@ -11,10 +24,10 @@ const uploadToCloudinary = (fileBuffer, folder, resourceType = "image") => {
       (error, result) => {
         if (error) return reject(error);
         resolve(result);
-      }
+      },
     );
 
-    streamifier.createReadStream(fileBuffer).pipe(stream);
+    streamifier.createReadStream(fileSource).pipe(stream);
   });
 };
 

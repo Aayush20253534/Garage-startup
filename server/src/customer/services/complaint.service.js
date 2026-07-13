@@ -2,7 +2,14 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const { deletePattern } = require("../../utils/cache");
-const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
+const {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} = require("../../utils/cloudinaryUpload");
+const {
+  COMPLAINT_MAX_FILES,
+  COMPLAINT_MAX_FILE_SIZE_BYTES,
+} = require("../constants/complaintUpload");
 
 const invalidateComplaintBookingCaches = async (userId, bookingId) => {
   if (!userId) return;
@@ -21,17 +28,20 @@ const createComplaint = async (userId, data, files = []) => {
     throw new ApiError(400, "At least 1 complaint image is required");
   }
 
-  if (files.length > 10) {
-    throw new ApiError(400, "Maximum 10 complaint images allowed");
+  if (files.length > COMPLAINT_MAX_FILES) {
+    throw new ApiError(
+      400,
+      `Maximum ${COMPLAINT_MAX_FILES} complaint images allowed`,
+    );
   }
 
   for (const file of files) {
-    if (!file.mimetype.startsWith("image/")) {
+    if (!file.mimetype?.startsWith("image/")) {
       throw new ApiError(400, "Only images are allowed for complaints");
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      throw new ApiError(400, "Each complaint image must be under 10 MB");
+    if (file.size > COMPLAINT_MAX_FILE_SIZE_BYTES) {
+      throw new ApiError(400, "Each complaint image must be 5 MB or smaller");
     }
   }
 
@@ -50,45 +60,63 @@ const createComplaint = async (userId, data, files = []) => {
 
   const uploadedImages = [];
 
-  for (const file of files) {
-    const uploaded = await uploadToCloudinary(
-      file.buffer,
-      "project-x/complaints",
-      "image"
-    );
+  let complaint;
 
-    uploadedImages.push({
-      imageUrl: uploaded.secure_url,
-      publicId: uploaded.public_id,
-    });
-  }
+  try {
+    for (const file of files) {
+      const fileSource = file.path || file.buffer;
 
-  const complaint = await prisma.complaint.create({
-    data: {
-      userId,
-      bookingId: data.bookingId || null,
-      title: data.title,
-      description: data.description,
-      status: "OPEN",
-      images: {
-        create: uploadedImages.map((image, index) => ({
-          imageUrl: image.imageUrl,
-          publicId: image.publicId,
-          order: index,
-        })),
-      },
-    },
-    include: {
-      images: true,
-      booking: {
-        include: {
-          garage: true,
-          vehicle: true,
-          service: true,
+      if (!fileSource) {
+        throw new ApiError(400, "Complaint image data is missing");
+      }
+
+      const uploaded = await uploadToCloudinary(
+        fileSource,
+        "project-x/complaints",
+        "image",
+      );
+
+      uploadedImages.push({
+        imageUrl: uploaded.secure_url,
+        publicId: uploaded.public_id,
+      });
+    }
+
+    complaint = await prisma.complaint.create({
+      data: {
+        userId,
+        bookingId: data.bookingId || null,
+        title: data.title,
+        description: data.description,
+        status: "OPEN",
+        images: {
+          create: uploadedImages.map((image, index) => ({
+            imageUrl: image.imageUrl,
+            publicId: image.publicId,
+            order: index,
+          })),
         },
       },
-    },
-  });
+      include: {
+        images: true,
+        booking: {
+          include: {
+            garage: true,
+            vehicle: true,
+            service: true,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    await Promise.allSettled(
+      uploadedImages.map((image) =>
+        deleteFromCloudinary(image.publicId, "image"),
+      ),
+    );
+
+    throw error;
+  }
 
   await invalidateComplaintBookingCaches(userId, data.bookingId);
   return complaint;

@@ -1,7 +1,22 @@
+const crypto = require("crypto");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const multer = require("multer");
 const ApiError = require("../utils/apiError");
 
 const storage = multer.memoryStorage();
+const TEMP_UPLOAD_DIR =
+  process.env.UPLOAD_TEMP_DIR || path.join(os.tmpdir(), "rovauto-uploads");
+
+const diskStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    fs.mkdir(TEMP_UPLOAD_DIR, { recursive: true, mode: 0o700 }, (error) => {
+      cb(error, TEMP_UPLOAD_DIR);
+    });
+  },
+  filename: (req, file, cb) => cb(null, crypto.randomUUID()),
+});
 
 const IMAGE_MIME_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const VIDEO_MIME_TYPES = [
@@ -27,9 +42,10 @@ const createUpload = ({
   files = 10,
   fields = 20,
   allowedMimeTypes = DEFAULT_MIME_TYPES,
+  storageEngine = storage,
 } = {}) =>
   multer({
-    storage,
+    storage: storageEngine,
     fileFilter: createFileFilter(allowedMimeTypes),
     limits: {
       fileSize,
@@ -37,6 +53,9 @@ const createUpload = ({
       fields,
     },
   });
+
+const createDiskUpload = (options = {}) =>
+  createUpload({ ...options, storageEngine: diskStorage });
 
 const hasPrefix = (buffer, signature) => {
   if (!Buffer.isBuffer(buffer) || buffer.length < signature.length) {
@@ -51,9 +70,7 @@ const hasAscii = (buffer, offset, value) =>
   buffer.length >= offset + value.length &&
   buffer.toString("ascii", offset, offset + value.length) === value;
 
-const isValidImageSignature = (file) => {
-  const buffer = file?.buffer;
-
+const isValidImageSignature = (file, buffer) => {
   if (file.mimetype === "image/jpeg" || file.mimetype === "image/jpg") {
     return hasPrefix(buffer, [0xff, 0xd8, 0xff]);
   }
@@ -69,9 +86,7 @@ const isValidImageSignature = (file) => {
   return false;
 };
 
-const isValidVideoSignature = (file) => {
-  const buffer = file?.buffer;
-
+const isValidVideoSignature = (file, buffer) => {
   if (file.mimetype === "video/mp4" || file.mimetype === "video/quicktime") {
     return hasAscii(buffer, 4, "ftyp");
   }
@@ -87,6 +102,24 @@ const isValidVideoSignature = (file) => {
   return false;
 };
 
+const readFileSignature = async (file) => {
+  if (Buffer.isBuffer(file?.buffer)) {
+    return file.buffer.subarray(0, 16);
+  }
+
+  if (!file?.path) return null;
+
+  const handle = await fs.promises.open(file.path, "r");
+
+  try {
+    const buffer = Buffer.alloc(16);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    return buffer.subarray(0, bytesRead);
+  } finally {
+    await handle.close();
+  }
+};
+
 const flattenFiles = (files) => {
   if (!files) return [];
   if (Array.isArray(files)) return files;
@@ -96,23 +129,66 @@ const flattenFiles = (files) => {
   );
 };
 
-const validateUploadedFiles = (req, res, next) => {
+const validateUploadedFiles = async (req, res, next) => {
+  try {
+    const files = flattenFiles(req.files);
+    if (req.file) files.push(req.file);
+
+    for (const file of files) {
+      const signature = await readFileSignature(file);
+      const valid =
+        IMAGE_MIME_TYPES.includes(file.mimetype)
+          ? isValidImageSignature(file, signature)
+          : VIDEO_MIME_TYPES.includes(file.mimetype)
+            ? isValidVideoSignature(file, signature)
+            : false;
+
+      if (!valid) {
+        return next(
+          new ApiError(400, "Uploaded file content does not match its type"),
+        );
+      }
+    }
+
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const cleanupUploadedTempFiles = async (req) => {
   const files = flattenFiles(req.files);
   if (req.file) files.push(req.file);
 
-  for (const file of files) {
-    const valid =
-      IMAGE_MIME_TYPES.includes(file.mimetype)
-        ? isValidImageSignature(file)
-        : VIDEO_MIME_TYPES.includes(file.mimetype)
-          ? isValidVideoSignature(file)
-          : false;
+  const paths = [
+    ...new Set(files.map((file) => file?.path).filter(Boolean)),
+  ];
 
-    if (!valid) {
-      return next(new ApiError(400, "Uploaded file content does not match its type"));
-    }
-  }
+  await Promise.all(
+    paths.map(async (filePath) => {
+      try {
+        await fs.promises.unlink(filePath);
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+    }),
+  );
+};
 
+const registerUploadCleanup = (req, res, next) => {
+  let cleanupStarted = false;
+
+  const cleanup = () => {
+    if (cleanupStarted) return;
+    cleanupStarted = true;
+
+    cleanupUploadedTempFiles(req).catch((error) => {
+      console.error("Failed to clean up temporary upload files:", error.message);
+    });
+  };
+
+  res.once("finish", cleanup);
+  res.once("close", cleanup);
   return next();
 };
 
@@ -122,7 +198,10 @@ const upload = createUpload({
 });
 
 upload.createUpload = createUpload;
+upload.createDiskUpload = createDiskUpload;
 upload.validateUploadedFiles = validateUploadedFiles;
+upload.cleanupUploadedTempFiles = cleanupUploadedTempFiles;
+upload.registerUploadCleanup = registerUploadCleanup;
 upload.IMAGE_MIME_TYPES = IMAGE_MIME_TYPES;
 upload.VIDEO_MIME_TYPES = VIDEO_MIME_TYPES;
 upload.DEFAULT_MIME_TYPES = DEFAULT_MIME_TYPES;
