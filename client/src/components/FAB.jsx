@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   FiHeadphones,
   FiMessageCircle,
@@ -34,8 +35,10 @@ const supportOptions = [
 ];
 
 export default function FAB() {
+  const { pathname } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const hasMobileBookingBar = pathname === "/booking/services";
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -77,7 +80,13 @@ export default function FAB() {
       )}
 
       {!showChat && (
-        <div className="fixed bottom-5 right-4 z-40 sm:bottom-6 sm:right-6">
+        <div
+          className={`fixed right-4 sm:bottom-6 sm:right-6 sm:z-40 ${
+            hasMobileBookingBar
+              ? "bottom-[calc(env(safe-area-inset-bottom)+6.75rem)] z-20"
+              : "bottom-5 z-40"
+          }`}
+        >
           {isOpen && (
             <>
               <button
