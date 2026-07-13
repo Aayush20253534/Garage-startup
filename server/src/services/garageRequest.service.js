@@ -874,19 +874,21 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
   const etaMinutes = estimateArrivalMinutes(distanceKm);
 
   const sendCustomerAcceptanceWhatsapp = async () => {
-    await sendCustomerGarageDetailsWhatsapp({
+    const garageDetails = await sendCustomerGarageDetailsWhatsapp({
       customer: result.request.booking.user,
       garage: result.request.garage,
       booking: result.request.booking,
     });
 
-    return sendCustomerHandoverOtpWhatsapp({
+    const handoverOtp = await sendCustomerHandoverOtpWhatsapp({
       customer: result.request.booking.user,
       garage: result.request.garage,
       booking: result.request.booking,
       otp: result.handoverOtp.otp,
       otpExpiresAt: result.handoverOtp.expiresAt,
     });
+
+    return { garageDetails, handoverOtp };
   };
 
   const acceptanceNotificationResults = await Promise.allSettled([
@@ -917,6 +919,44 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
   ]);
 
   if (process.env.NODE_ENV !== "test") {
+    const customerWhatsappResult = acceptanceNotificationResults[3];
+    const customerDeliveries =
+      customerWhatsappResult?.status === "fulfilled"
+        ? customerWhatsappResult.value
+        : null;
+    const customerGarageDetails = customerDeliveries?.garageDetails || null;
+    const customerHandoverOtp = customerDeliveries?.handoverOtp || null;
+
+    console.info("[garage-request:accept] customer WhatsApp results", {
+      bookingId: result.request.booking.id,
+      bookingCode: result.request.booking.bookingCode,
+      customerId: result.request.booking.user?.id || null,
+      settled: customerWhatsappResult?.status || "missing",
+      garageDetailsSent: Boolean(customerGarageDetails?.sent),
+      garageDetailsFailed: Boolean(customerGarageDetails?.failed),
+      garageDetailsStatus: customerGarageDetails?.status || null,
+      garageDetailsMetaErrorCode:
+        customerGarageDetails?.providerErrorCode || null,
+      garageDetailsReason:
+        customerGarageDetails?.errorMessage ||
+        customerGarageDetails?.reason ||
+        null,
+      handoverOtpSent: Boolean(customerHandoverOtp?.sent),
+      handoverOtpFailed: Boolean(customerHandoverOtp?.failed),
+      handoverOtpStatus: customerHandoverOtp?.status || null,
+      handoverOtpMetaErrorCode:
+        customerHandoverOtp?.providerErrorCode || null,
+      handoverOtpReason:
+        customerHandoverOtp?.errorMessage ||
+        customerHandoverOtp?.reason ||
+        null,
+      rejectedReason:
+        customerWhatsappResult?.status === "rejected"
+          ? customerWhatsappResult.reason?.message ||
+            String(customerWhatsappResult.reason)
+          : null,
+    });
+
     const garageWhatsappResult = acceptanceNotificationResults[4];
     const delivery =
       garageWhatsappResult?.status === "fulfilled"

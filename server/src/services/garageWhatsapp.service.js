@@ -45,6 +45,12 @@ const GARAGE_REQUEST_TEMPLATE =
 const GARAGE_ACCEPTED_DETAILS_TEMPLATE =
   process.env.WHATSAPP_GARAGE_ACCEPTED_DETAILS_TEMPLATE ||
   "garage_booking_accepted_details";
+const CUSTOMER_BOOKING_CONFIRMED_TEMPLATE =
+  process.env.WHATSAPP_CUSTOMER_BOOKING_CONFIRMED_TEMPLATE ||
+  "customer_booking_confirmed";
+const CUSTOMER_HANDOVER_OTP_TEMPLATE =
+  process.env.WHATSAPP_CUSTOMER_HANDOVER_OTP_TEMPLATE ||
+  "customer_handover_otp";
 
 const shouldUseTemplates = () => {
   const value = String(process.env.WHATSAPP_USE_TEMPLATES || "true").toLowerCase();
@@ -497,19 +503,36 @@ const sendCustomerGarageDetailsWhatsapp = async ({
   garage,
   booking,
 }) => {
-  const mapsLink = getMapsLink(garage.latitude, garage.longitude);
+  const mapsLink =
+    getMapsLink(garage.latitude, garage.longitude) ||
+    (garage.address
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          garage.address,
+        )}`
+      : "Location not available");
+  const garagePhone = garage.phone || garage.whatsappNo || "Not available";
+  const garageAddress = garage.address || "Address not available";
   const message = [
     `Rovauto booking ${booking.bookingCode} confirmed.`,
     `Garage: ${garage.name}`,
-    `Phone: ${garage.phone}`,
-    garage.address ? `Address: ${garage.address}` : null,
-    mapsLink ? `Garage location: ${mapsLink}` : null,
+    `Phone: ${garagePhone}`,
+    `Address: ${garageAddress}`,
+    `Garage location: ${mapsLink}`,
     "Your handover OTP will arrive in a separate WhatsApp message.",
-  ].filter(Boolean).join("\n");
+  ].join("\n");
 
-  return sendWhatsappMessage({
+  return sendWhatsappTemplateMessage({
     to: customer.phone,
-    message,
+    templateName: CUSTOMER_BOOKING_CONFIRMED_TEMPLATE,
+    languageCode: DEFAULT_TEMPLATE_LANGUAGE,
+    parameters: [
+      booking.bookingCode || booking.id,
+      garage.name || "Assigned garage",
+      garagePhone,
+      garageAddress,
+      mapsLink,
+    ],
+    fallbackMessage: message,
     context: {
       type: "customer_garage_details",
       customerId: customer.id,
@@ -543,9 +566,17 @@ const sendCustomerHandoverOtpWhatsapp = async ({
     "Do not share this OTP before physical vehicle handover.",
   ].filter(Boolean).join("\n");
 
-  return sendWhatsappMessage({
+  return sendWhatsappTemplateMessage({
     to: customer.phone,
-    message,
+    templateName: CUSTOMER_HANDOVER_OTP_TEMPLATE,
+    languageCode: DEFAULT_TEMPLATE_LANGUAGE,
+    parameters: [
+      booking.bookingCode || booking.id,
+      otp,
+      otpExpiry || "Use before the displayed expiry in Rovauto",
+      garage?.name || "the assigned garage",
+    ],
+    fallbackMessage: message,
     context: {
       type: "customer_handover_otp",
       customerId: customer.id,
