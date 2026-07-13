@@ -189,7 +189,7 @@ export default function PendingBookings() {
 
       if (isPaymentSessionPreparingError(err)) {
         setNotice(
-          "Your secure payment session is still being prepared. Wait a few seconds, then tap Pay again.",
+          "Cashfree could not prepare a usable payment session right now. No money was deducted. Please try again.",
         );
         setError("");
       } else if (isPaymentIncompleteError(err)) {

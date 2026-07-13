@@ -1,4 +1,5 @@
-const CASHFREE_API_VERSION = "2023-08-01";
+const CASHFREE_API_VERSION =
+  String(process.env.CASHFREE_API_VERSION || "2025-01-01").trim();
 
 const getCashfreeMode = () =>
   process.env.CASHFREE_ENV === "production" ? "production" : "sandbox";

@@ -5,10 +5,12 @@ const PAYMENT_AUTH_REQUIRED = "PAYMENT_AUTH_REQUIRED";
 const PAYMENT_INCOMPLETE = "PAYMENT_INCOMPLETE";
 const PAYMENT_ORDER_PREPARING = "PAYMENT_ORDER_PREPARING";
 const PAYMENT_ORDER_RECONCILING = "PAYMENT_ORDER_RECONCILING";
+const PAYMENT_SESSION_UNAVAILABLE = "PAYMENT_SESSION_UNAVAILABLE";
 const CASHFREE_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
 const CASHFREE_SCRIPT_ID = "cashfree-checkout-sdk";
 const CASHFREE_LOAD_TIMEOUT_MS = 15_000;
 const VERIFY_RETRY_DELAYS_MS = [0, 500, 1_000, 1_800];
+const PAYMENT_ORDER_RETRY_DELAYS_MS = [0, 500, 1_200];
 
 let cashfreeSdkPromise = null;
 const cashfreeClients = new Map();
@@ -35,7 +37,11 @@ const getPaymentErrorMessage = (error, fallback) =>
   error?.response?.data?.message || error?.message || fallback;
 
 export const isPaymentSessionPreparingError = (error) =>
-  [PAYMENT_ORDER_PREPARING, PAYMENT_ORDER_RECONCILING].includes(
+  [
+    PAYMENT_ORDER_PREPARING,
+    PAYMENT_ORDER_RECONCILING,
+    PAYMENT_SESSION_UNAVAILABLE,
+  ].includes(
     getPaymentErrorCode(error),
   );
 
@@ -53,6 +59,54 @@ const createPaymentIncompleteError = (message) => {
   );
   error.code = PAYMENT_INCOMPLETE;
   return error;
+};
+
+const createPaymentSessionPreparingError = (message) => {
+  const error = new Error(
+    message ||
+      "Cashfree could not prepare a usable payment session. No money was deducted.",
+  );
+  error.code = PAYMENT_ORDER_PREPARING;
+  return error;
+};
+
+const requestBookingPaymentOrder = async ({ bookingId, useWallet }) => {
+  let lastError = null;
+
+  for (const delay of PAYMENT_ORDER_RETRY_DELAYS_MS) {
+    if (delay > 0) await wait(delay);
+
+    try {
+      const orderRes = await api.post("/payments/create-order", {
+        bookingId,
+        useWallet: Boolean(useWallet),
+      });
+      const result = orderRes.data?.data || {};
+
+      if (result.booking && result.payment?.status === "PAID") {
+        return result;
+      }
+
+      if (result.cashfreeOrder?.paymentSessionId) {
+        return result;
+      }
+
+      lastError = createPaymentSessionPreparingError();
+    } catch (error) {
+      if (!isPaymentSessionPreparingError(error)) {
+        throw error;
+      }
+
+      lastError = error;
+    }
+  }
+
+  throw (
+    lastError ||
+    createPaymentSessionPreparingError(
+      "Cashfree could not prepare a payment session right now. No money was deducted; please try again.",
+    )
+  );
 };
 
 const getCashfreeScript = () =>
@@ -247,15 +301,13 @@ export const payForBooking = async ({ booking, useWallet = false } = {}) => {
     return false;
   });
 
-  const orderRes = await api.post("/payments/create-order", {
+  const result = await requestBookingPaymentOrder({
     bookingId: booking.id,
-    useWallet: Boolean(useWallet),
+    useWallet,
   });
-
-  const result = orderRes.data?.data || {};
   const { cashfreeOrder, mode } = result;
 
-  if (result.booking && (!cashfreeOrder || result.payment?.status === "PAID")) {
+  if (result.booking && result.payment?.status === "PAID") {
     return result.booking;
   }
 
@@ -266,11 +318,9 @@ export const payForBooking = async ({ booking, useWallet = false } = {}) => {
   }
 
   if (!cashfreeOrder?.paymentSessionId) {
-    const error = new Error(
-      "Cashfree payment session is still being prepared. Please retry shortly.",
+    throw createPaymentSessionPreparingError(
+      "Cashfree did not return a usable payment session. No money was deducted; please try again.",
     );
-    error.code = PAYMENT_ORDER_PREPARING;
-    throw error;
   }
 
   const cashfree = getCashfreeClient(mode);

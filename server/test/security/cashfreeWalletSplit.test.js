@@ -72,6 +72,10 @@ test("wallet split changes terminate the stale Cashfree order before replacement
   );
   assert.match(
     paymentClient,
-    /result\.booking && \(!cashfreeOrder \|\| result\.payment\?\.status === "PAID"\)/,
+    /result\.booking && result\.payment\?\.status === "PAID"/,
+  );
+  assert.doesNotMatch(
+    paymentClient,
+    /result\.booking && \(!cashfreeOrder/,
   );
 });

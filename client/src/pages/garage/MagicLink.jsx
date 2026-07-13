@@ -2,13 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
+  FiArrowRight,
   FiCheckCircle,
-  FiPhone,
-  FiMessageSquare,
+  FiClock,
+  FiCreditCard,
   FiMapPin,
+  FiMessageSquare,
+  FiNavigation,
+  FiPhone,
+  FiShield,
+  FiTruck,
   FiXCircle,
 } from "react-icons/fi";
-import Logo from "@/components/common/Logo";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
@@ -26,6 +31,52 @@ const getWhatsappUrl = (phone) => {
 
   return digits ? `https://wa.me/${digits}` : null;
 };
+
+function RequestTable({ rows }) {
+  return (
+    <dl className="overflow-hidden rounded-xl border border-line bg-white divide-y divide-line">
+      {rows.map(({ label, value, strong = false }) => (
+        <div
+          key={label}
+          className="grid grid-cols-[minmax(105px,0.42fr)_minmax(0,1fr)] gap-3 px-4 py-3.5 sm:grid-cols-[180px_minmax(0,1fr)]"
+        >
+          <dt className="text-xs font-bold uppercase tracking-[0.1em] text-muted">
+            {label}
+          </dt>
+          <dd
+            className={[
+              "min-w-0 break-words text-right text-sm text-ink sm:text-left",
+              strong ? "font-extrabold" : "font-semibold",
+            ].join(" ")}
+          >
+            {value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function StatusBadge({ accepted }) {
+  return (
+    <span
+      className={[
+        "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.1em]",
+        accepted
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          : "border-brand/40 bg-brand/15 text-ink",
+      ].join(" ")}
+    >
+      <span
+        className={[
+          "h-2 w-2 rounded-full",
+          accepted ? "bg-emerald-500" : "bg-brand-dark",
+        ].join(" ")}
+      />
+      {accepted ? "Booking accepted" : "New booking request"}
+    </span>
+  );
+}
 
 export default function MagicLink() {
   const { id } = useParams();
@@ -84,6 +135,19 @@ export default function MagicLink() {
   const hasWalletBalance = Number.isFinite(walletBalance);
   const needsRecharge =
     isPending && acceptFee > 0 && hasWalletBalance && walletBalance < acceptFee;
+  const walletShortfall =
+    needsRecharge && hasWalletBalance
+      ? Math.max(acceptFee - walletBalance, 0)
+      : 0;
+
+  const serviceNames = useMemo(
+    () =>
+      (Array.isArray(booking?.services) ? booking.services : [])
+        .map((service) => service?.name)
+        .filter(Boolean)
+        .join(", ") || "Service request",
+    [booking?.services],
+  );
 
   const handleAccept = async () => {
     if (!booking) return;
@@ -127,266 +191,353 @@ export default function MagicLink() {
 
   const openGoogleMaps = () => {
     if (booking?.customerLocationLink) {
-      window.open(booking.customerLocationLink, "_blank");
+      window.open(booking.customerLocationLink, "_blank", "noopener,noreferrer");
       return;
     }
 
     const { lat, lng } = booking?.customer?.location || {};
     if (lat && lng) {
-      window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank");
+      window.open(
+        `https://www.google.com/maps?q=${lat},${lng}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
     }
   };
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-bg-soft">
-        <div className="container-x py-6">
-          <Logo />
-        </div>
-        <div className="container-x">
-          <div className="mx-auto max-w-lg rounded-2xl border border-line bg-white p-6 text-muted shadow-soft">
-            Loading booking request...
+      <main className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-5 sm:py-10">
+        <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
+          <div className="animate-pulse space-y-5 p-5 sm:p-7">
+            <div className="h-6 w-40 rounded-full bg-slate-100" />
+            <div className="h-20 rounded-xl bg-slate-100" />
+            <div className="h-44 rounded-xl bg-slate-100" />
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
   if (!garage || !garageToken) {
     return (
-      <div className="min-h-screen bg-bg-soft">
-        <div className="container-x py-6">
-          <Logo />
-        </div>
-        <div className="container-x">
-          <div className="mx-auto max-w-lg rounded-2xl border border-line bg-white p-8 shadow-soft">
-            <span className="chip-brand">Garage request</span>
-            <h1 className="mt-4 text-3xl font-bold">Sign in to respond</h1>
-            <p className="mt-3 text-muted">
-              This booking link is for the garage account that received the
-              WhatsApp request.
+      <main className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-5 sm:py-10">
+        <div className="mx-auto max-w-xl overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
+          <div className="border-b border-line bg-slate-50/80 px-5 py-5 sm:px-7">
+            <span className="inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand/15 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.1em] text-ink">
+              <FiTruck className="h-4 w-4" />
+              Garage request
+            </span>
+            <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
+              Sign in to review this booking
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              Use the approved garage-owner account that received the WhatsApp
+              notification. You will return directly to this request after login.
             </p>
+          </div>
+
+          <div className="space-y-5 p-5 sm:p-7">
+            <RequestTable
+              rows={[
+                { label: "Request ID", value: id || "Booking request", strong: true },
+                { label: "Access", value: "Approved garage owner" },
+                { label: "After login", value: "Return to this booking request" },
+              ]}
+            />
+
+            <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              <FiShield className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                Customer contact and exact location remain hidden until the garage
+                accepts the booking.
+              </p>
+            </div>
+
             <Link
               to="/garage/login"
               state={returnState}
-              className="btn-primary mt-6 w-full py-4"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-extrabold text-black shadow-sm shadow-brand/20 transition hover:bg-brand-dark"
             >
-              Login and continue
+              Continue to garage login
+              <FiArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
+  const vehicleTitle = [booking?.vehicle?.brand, booking?.vehicle?.model]
+    .filter(Boolean)
+    .join(" ") || "Vehicle details";
+  const vehicleMeta = [booking?.vehicle?.year, booking?.vehicle?.number]
+    .filter(Boolean)
+    .join(" • ") || "Details not provided";
+  const requestId = booking?.bookingId || booking?.requestId || id;
+
   return (
-    <div className="min-h-screen bg-bg-soft">
-      <div className="container-x py-6">
-        <Logo />
-      </div>
-      <div className="container-x">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mx-auto max-w-xl"
-        >
-          <div className="card-soft mb-6 p-8">
-            <div className="mb-8 text-center">
-              <span className="chip-brand inline-flex items-center gap-2">
-                {accepted ? "Booking Accepted" : "New Booking Request"}
-              </span>
-              <h1 className="mt-4 text-2xl font-bold">
-                {booking?.bookingId || id}
+    <main className="min-h-[calc(100vh-4rem)] bg-slate-50 px-3 py-4 sm:px-6 sm:py-8">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-line bg-white shadow-soft"
+      >
+        <header className="border-b border-line bg-slate-50/80 px-4 py-5 sm:px-7 sm:py-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <StatusBadge accepted={accepted} />
+              <h1 className="mt-3 break-all text-xl font-extrabold tracking-tight text-ink sm:text-2xl">
+                Request {requestId}
               </h1>
               {garage?.name && (
-                <p className="mt-1 text-sm text-muted">{garage.name}</p>
+                <p className="mt-1 text-sm font-medium text-muted">
+                  Assigned to {garage.name}
+                </p>
               )}
             </div>
 
-            {error && (
-              <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
+            <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-muted shadow-sm">
+              <FiClock className="h-4 w-4 text-brand-dark" />
+              Respond promptly to keep the request active
+            </div>
+          </div>
+        </header>
 
-            {booking ? (
-              <div className="space-y-6">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold">
-                    {booking.vehicle.brand} {booking.vehicle.model}
-                  </h2>
-                  <p className="text-muted">
-                    {[booking.vehicle.year, booking.vehicle.number]
-                      .filter(Boolean)
-                      .join(" | ") || "Vehicle details"}
-                  </p>
-                </div>
+        <div className="space-y-5 p-4 sm:p-7">
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {error}
+            </div>
+          )}
 
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="card-soft p-4 text-center">
-                    <p className="text-sm text-muted">Services</p>
-                    <p className="font-bold">
-                      {booking.services.map((s) => s.name).join(", ") ||
-                        "Service request"}
+          {booking ? (
+            <>
+              <section className="rounded-xl border border-line bg-white p-4">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand/20 text-ink">
+                    <FiTruck className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted">
+                      Vehicle
                     </p>
-                  </div>
-                  <div className="card-soft p-4 text-center">
-                    <p className="text-sm text-muted">Est. Bill</p>
-                    <p className="text-xl font-bold">
-                      {formatRupees(booking.estimatedBill || 0)}
+                    <h2 className="truncate text-lg font-extrabold text-ink sm:text-xl">
+                      {vehicleTitle}
+                    </h2>
+                    <p className="mt-0.5 text-sm font-medium text-muted">
+                      {vehicleMeta}
                     </p>
-                  </div>
-                  <div className="card-soft p-4 text-center">
-                    <p className="text-sm text-muted">Distance</p>
-                    <p className="text-xl font-bold">
-                      {Number(booking.distance || 0).toFixed(1)} km
-                    </p>
-                    {booking.etaMinutes && (
-                      <p className="text-xs text-muted">
-                        About {booking.etaMinutes} min
-                      </p>
-                    )}
                   </div>
                 </div>
+              </section>
 
-                {accepted && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="space-y-4 border-t border-line pt-4"
-                  >
-                    <div className="card-soft p-5">
-                      <h3 className="mb-4 flex items-center gap-2 font-bold">
-                        <FiCheckCircle className="text-brand" />
-                        Customer Details
-                      </h3>
-                      <div className="space-y-3 text-sm">
-                        <p>
-                          <span className="text-muted">Name:</span>{" "}
-                          <span className="font-semibold">
-                            {booking.customer.name || "Customer"}
-                          </span>
-                        </p>
-                        <p>
-                          <span className="text-muted">Phone:</span>{" "}
-                          <span className="font-semibold">
-                            {booking.customer.phone || "N/A"}
-                          </span>
-                        </p>
-                        <p>
-                          <span className="text-muted">Address:</span>{" "}
-                          <span className="font-semibold">
-                            {booking.customer.address || "N/A"}
-                          </span>
-                        </p>
+              <section>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-extrabold text-ink">Request summary</h2>
+                  <span className="text-xs font-semibold text-muted">
+                    Before acceptance
+                  </span>
+                </div>
+                <RequestTable
+                  rows={[
+                    { label: "Services", value: serviceNames, strong: true },
+                    {
+                      label: "Estimated bill",
+                      value: formatRupees(booking.estimatedBill || 0),
+                      strong: true,
+                    },
+                    {
+                      label: "Distance",
+                      value: `${Number(booking.distance || 0).toFixed(1)} km`,
+                      strong: true,
+                    },
+                    ...(booking.etaMinutes
+                      ? [
+                          {
+                            label: "Estimated travel",
+                            value: `About ${booking.etaMinutes} min`,
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              </section>
+
+              {accepted && (
+                <motion.section
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <FiCheckCircle className="h-4 w-4 text-emerald-600" />
+                    <h2 className="text-sm font-extrabold text-ink">
+                      Customer details
+                    </h2>
+                  </div>
+
+                  <RequestTable
+                    rows={[
+                      {
+                        label: "Customer",
+                        value: booking.customer?.name || "Customer",
+                        strong: true,
+                      },
+                      {
+                        label: "Phone",
+                        value: booking.customer?.phone || "Not available",
+                      },
+                      {
+                        label: "Address",
+                        value: booking.customer?.address || "Not available",
+                      },
+                    ]}
+                  />
+
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <button
+                      type="button"
+                      disabled={!booking.customer?.phone}
+                      onClick={() =>
+                        booking.customer?.phone &&
+                        window.open(`tel:${booking.customer.phone}`, "_blank")
+                      }
+                      className="inline-flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-2 py-3 text-xs font-bold text-ink transition hover:border-ink disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
+                    >
+                      <FiPhone className="h-5 w-5" />
+                      Call
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!getWhatsappUrl(booking.customer?.phone)}
+                      onClick={() => {
+                        const whatsappUrl = getWhatsappUrl(booking.customer?.phone);
+                        if (whatsappUrl) {
+                          window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+                        }
+                      }}
+                      className="inline-flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-2 py-3 text-xs font-bold text-ink transition hover:border-ink disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
+                    >
+                      <FiMessageSquare className="h-5 w-5" />
+                      WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openGoogleMaps}
+                      className="inline-flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl bg-brand px-2 py-3 text-xs font-extrabold text-black transition hover:bg-brand-dark sm:text-sm"
+                    >
+                      <FiNavigation className="h-5 w-5" />
+                      Navigate
+                    </button>
+                  </div>
+                </motion.section>
+              )}
+
+              {isPending && acceptFee > 0 && (
+                <section
+                  className={[
+                    "overflow-hidden rounded-xl border",
+                    needsRecharge
+                      ? "border-amber-200 bg-amber-50/60"
+                      : "border-emerald-200 bg-emerald-50/60",
+                  ].join(" ")}
+                >
+                  <div className="flex items-center gap-2 border-b border-current/10 px-4 py-3">
+                    <FiCreditCard className="h-4 w-4" />
+                    <h2 className="text-sm font-extrabold text-ink">
+                      Acceptance wallet check
+                    </h2>
+                  </div>
+                  <dl className="divide-y divide-current/10 px-4">
+                    <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                      <dt className="font-medium text-muted">Acceptance fee</dt>
+                      <dd className="font-extrabold text-ink">
+                        {formatRupees(acceptFee)}
+                      </dd>
+                    </div>
+                    {hasWalletBalance && (
+                      <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                        <dt className="font-medium text-muted">Wallet balance</dt>
+                        <dd className="font-extrabold text-ink">
+                          {formatRupees(walletBalance)}
+                        </dd>
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          booking.customer.phone &&
-                          window.open(`tel:${booking.customer.phone}`, "_blank")
-                        }
-                        className="btn-ghost flex-col gap-2 py-4"
-                      >
-                        <FiPhone className="h-6 w-6" />
-                        <span className="text-sm font-semibold">Call</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          getWhatsappUrl(booking.customer.phone) &&
-                          window.open(
-                            getWhatsappUrl(booking.customer.phone),
-                            "_blank",
-                          )
-                        }
-                        className="btn-ghost flex-col gap-2 py-4"
-                      >
-                        <FiMessageSquare className="h-6 w-6" />
-                        <span className="text-sm font-semibold">WhatsApp</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={openGoogleMaps}
-                        className="btn-primary flex-col gap-2 py-4"
-                      >
-                        <FiMapPin className="h-6 w-6" />
-                        <span className="text-sm font-semibold">Navigate</span>
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {isPending && acceptFee > 0 && (
-                  <div
-                    className={[
-                      "rounded-xl border px-4 py-3 text-sm",
-                      needsRecharge
-                        ? "border-amber-200 bg-amber-50 text-amber-800"
-                        : "border-green-200 bg-green-50 text-green-700",
-                    ].join(" ")}
-                  >
-                    Accept fee: <strong>{formatRupees(acceptFee)}</strong>
-                    {hasWalletBalance ? (
-                      <> · Wallet: <strong>{formatRupees(walletBalance)}</strong></>
-                    ) : null}
+                    )}
+                    {needsRecharge && (
+                      <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                        <dt className="font-semibold text-amber-800">Required recharge</dt>
+                        <dd className="font-extrabold text-amber-900">
+                          {formatRupees(walletShortfall)}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                  <p className="border-t border-current/10 px-4 py-3 text-xs font-medium leading-5 text-muted">
                     {needsRecharge
-                      ? ". Recharge wallet before accepting this booking."
-                      : ". This will be deducted when you accept."}
-                  </div>
-                )}
+                      ? "Recharge the shortfall, then return here to accept the booking."
+                      : "The acceptance fee will be deducted only when you confirm."}
+                  </p>
+                </section>
+              )}
 
-                {isPending && (
-                  <div className="grid gap-3 sm:grid-cols-2">
+              {isPending && (
+                <section className="space-y-3 border-t border-line pt-5">
+                  <h2 className="text-sm font-extrabold text-ink">Decision</h2>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={handleAccept}
                       disabled={Boolean(actionLoading)}
-                      className={needsRecharge ? "btn-dark py-4 text-lg" : "btn-primary py-4 text-lg"}
+                      className={[
+                        "inline-flex h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60",
+                        needsRecharge
+                          ? "bg-ink text-white hover:bg-ink-soft"
+                          : "bg-brand text-black hover:bg-brand-dark",
+                      ].join(" ")}
                     >
                       {actionLoading === "accept"
-                        ? "Accepting..."
+                        ? "Working..."
                         : needsRecharge
-                          ? "Recharge to Accept"
-                          : "Accept Booking"}
+                          ? "Recharge to accept"
+                          : "Accept booking"}
+                      <FiArrowRight className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
                       onClick={handleReject}
                       disabled={Boolean(actionLoading)}
-                      className="btn-ghost py-4 text-lg text-red-600"
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 text-sm font-extrabold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <FiXCircle />
-                      {actionLoading === "reject" ? "Rejecting..." : "Reject"}
+                      <FiXCircle className="h-4 w-4" />
+                      {actionLoading === "reject" ? "Rejecting..." : "Reject request"}
                     </button>
                   </div>
-                )}
+                </section>
+              )}
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(
-                      accepted
-                        ? `/garage/bookings/${booking.id}`
-                        : "/garage/bookings",
-                    )
-                  }
-                  className="btn-dark w-full py-4 text-lg"
-                >
-                  Open Garage Dashboard
-                </button>
-              </div>
-            ) : (
-              <div className="card-soft p-6 text-muted">
-                {error || "This request could not be found."}
-              </div>
-            )}
-          </div>
-        </motion.div>
-      </div>
-    </div>
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    accepted
+                      ? `/garage/bookings/${booking.id}`
+                      : "/garage/bookings",
+                  )
+                }
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-slate-50 px-4 text-sm font-extrabold text-ink transition hover:border-ink hover:bg-white"
+              >
+                {accepted ? "Open booking workspace" : "Open garage dashboard"}
+                <FiArrowRight className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <div className="rounded-xl border border-line bg-slate-50 p-5 text-sm font-medium text-muted">
+              {error || "This request could not be found."}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </main>
   );
 }

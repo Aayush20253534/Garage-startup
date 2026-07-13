@@ -927,10 +927,70 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
 };
 
 const PAYMENT_ORDER_PREPARATION_GRACE_MS = 30 * 1000;
+const CASHFREE_PAYMENT_SESSION_POLL_DELAYS_MS = [0, 200, 450, 800, 1_200];
 const CASHFREE_TERMINATION_POLL_DELAYS_MS = [350, 800, 1_400];
 
 const wait = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+const getCashfreePaymentSessionId = (cashfreeOrder) => {
+  const paymentSessionId = String(
+    cashfreeOrder?.payment_session_id || "",
+  ).trim();
+
+  return paymentSessionId || null;
+};
+
+const fetchCashfreeOrderUntilSessionReady = async ({
+  cashfreeOrderId,
+  initialOrder = null,
+  fallbackMessage,
+  tolerateFreshNotFound = false,
+}) => {
+  let cashfreeOrder = initialOrder;
+  let lastError = null;
+
+  if (getCashfreePaymentSessionId(cashfreeOrder)) {
+    return cashfreeOrder;
+  }
+
+  for (const delay of CASHFREE_PAYMENT_SESSION_POLL_DELAYS_MS) {
+    if (delay > 0) await wait(delay);
+
+    try {
+      cashfreeOrder = await fetchCashfreeOrder(
+        cashfreeOrderId,
+        fallbackMessage || "Unable to prepare the Cashfree payment session",
+      );
+      lastError = null;
+    } catch (error) {
+      lastError = error;
+
+      if (
+        tolerateFreshNotFound &&
+        [404, 409, 429, 500, 502, 503, 504].includes(error.statusCode)
+      ) {
+        continue;
+      }
+
+      throw error;
+    }
+
+    const orderStatus = getCashfreeOrderStatus(cashfreeOrder);
+
+    if (
+      getCashfreePaymentSessionId(cashfreeOrder) ||
+      orderStatus === "PAID" ||
+      isTerminalCashfreeOrder(orderStatus)
+    ) {
+      return cashfreeOrder;
+    }
+  }
+
+  if (!cashfreeOrder && lastError) throw lastError;
+
+  return cashfreeOrder;
+};
 
 const getPaymentAgeMs = (payment) => {
   const timestamp = new Date(
@@ -971,16 +1031,8 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
     return null;
   }
 
-  if (
-    !payment.cashfreePaymentSessionId &&
-    getPaymentAgeMs(payment) < PAYMENT_ORDER_PREPARATION_GRACE_MS
-  ) {
-    throw new ApiError(
-      409,
-      "Your payment session is being prepared. Please retry in a few seconds.",
-      "PAYMENT_ORDER_PREPARING",
-    );
-  }
+  const paymentIsFresh =
+    getPaymentAgeMs(payment) < PAYMENT_ORDER_PREPARATION_GRACE_MS;
 
   // A freshly created local session can be opened immediately. Avoiding an
   // unnecessary Cashfree status request makes retries noticeably faster while
@@ -995,10 +1047,11 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
   let cashfreeOrder;
 
   try {
-    cashfreeOrder = await fetchCashfreeOrder(
-      payment.cashfreeOrderId,
-      "Unable to check existing Cashfree order",
-    );
+    cashfreeOrder = await fetchCashfreeOrderUntilSessionReady({
+      cashfreeOrderId: payment.cashfreeOrderId,
+      fallbackMessage: "Unable to check existing Cashfree order",
+      tolerateFreshNotFound: paymentIsFresh,
+    });
   } catch (error) {
     if (
       !payment.cashfreePaymentSessionId &&
@@ -1012,6 +1065,14 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
     }
 
     throw error;
+  }
+
+  if (!cashfreeOrder) {
+    throw new ApiError(
+      502,
+      "Cashfree did not return a usable payment order. No money was deducted; please try again.",
+      "PAYMENT_SESSION_UNAVAILABLE",
+    );
   }
 
   const orderStatus = getCashfreeOrderStatus(cashfreeOrder);
@@ -1628,6 +1689,21 @@ const createPaymentOrder = async (
         "PAYMENT_ORDER_RECONCILING",
       );
     }
+  }
+
+  cashfreeOrder = await fetchCashfreeOrderUntilSessionReady({
+    cashfreeOrderId: reservation.cashfreeOrderId,
+    initialOrder: cashfreeOrder,
+    fallbackMessage: "Unable to finish preparing the Cashfree payment session",
+    tolerateFreshNotFound: true,
+  });
+
+  if (!cashfreeOrder) {
+    throw new ApiError(
+      502,
+      "Cashfree did not return a usable payment order. No money was deducted; please try again.",
+      "PAYMENT_SESSION_UNAVAILABLE",
+    );
   }
 
   assertCashfreeOrderMatchesPayment(

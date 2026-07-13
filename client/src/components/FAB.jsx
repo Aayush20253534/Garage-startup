@@ -39,6 +39,10 @@ export default function FAB() {
   const [isOpen, setIsOpen] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const hasMobileBookingBar = pathname === "/booking/services";
+  const hideOnGarageRequestFlow =
+    pathname === "/garage/login" ||
+    pathname.startsWith("/garage/magic/") ||
+    pathname.startsWith("/garage/requests/");
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -70,6 +74,8 @@ export default function FAB() {
       "noopener,noreferrer",
     );
   };
+
+  if (hideOnGarageRequestFlow) return null;
 
   return (
     <>
