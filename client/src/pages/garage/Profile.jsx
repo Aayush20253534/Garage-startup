@@ -25,6 +25,29 @@ import {
   resolveMediaUrl,
 } from "@/utils/mediaUrl";
 
+const INDIA_PHONE_REGEX = /^\+91[6-9]\d{9}$/;
+
+const normalizeIndianPhone = (value = "") => {
+  let digits = String(value).replace(/\D/g, "");
+
+  if (digits.startsWith("0091")) {
+    digits = digits.slice(4);
+  } else if (digits.length === 12 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  } else if (digits.length === 11 && digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+
+  return digits.length === 10 ? `+91${digits}` : "";
+};
+
+const areSameIndianPhone = (left, right) => {
+  const normalizedLeft = normalizeIndianPhone(left);
+  const normalizedRight = normalizeIndianPhone(right);
+
+  return Boolean(normalizedLeft && normalizedLeft === normalizedRight);
+};
+
 // Enhanced modern inputs with focus rings and smooth transitions
 const inputClass =
   "h-11 w-full rounded-xl border border-line bg-white px-3.5 text-sm outline-none transition-all duration-200 focus:border-ink focus:ring-2 focus:ring-ink/5 placeholder:text-muted/60";
@@ -246,6 +269,23 @@ export default function GarageProfile() {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  const updateGaragePhone = (value) => {
+    setForm((current) => {
+      const whatsappFollowsGaragePhone =
+        !current.whatsappNo ||
+        current.whatsappNo === current.phone ||
+        areSameIndianPhone(current.whatsappNo, current.phone);
+
+      return {
+        ...current,
+        phone: value,
+        whatsappNo: whatsappFollowsGaragePhone
+          ? value
+          : current.whatsappNo,
+      };
+    });
+  };
+
   const toggleBrand = (brandName) => {
     setForm((current) => {
       const exists = current.supportedBrands.includes(brandName);
@@ -267,8 +307,35 @@ export default function GarageProfile() {
     setSuccess("");
 
     try {
+      const phone = normalizeIndianPhone(form.phone);
+      const whatsappNo = form.whatsappNo.trim()
+        ? normalizeIndianPhone(form.whatsappNo)
+        : "";
+
+      if (!INDIA_PHONE_REGEX.test(phone)) {
+        setError(
+          "Enter a valid 10-digit Indian garage phone number starting with 6, 7, 8 or 9.",
+        );
+        return;
+      }
+
+      if (form.whatsappNo.trim() && !INDIA_PHONE_REGEX.test(whatsappNo)) {
+        setError(
+          "Enter a valid 10-digit Indian WhatsApp number starting with 6, 7, 8 or 9.",
+        );
+        return;
+      }
+
+      setForm((current) => ({
+        ...current,
+        phone,
+        whatsappNo: whatsappNo || "",
+      }));
+
       await garageApi.updateProfile(garageToken, {
         ...form,
+        phone,
+        whatsappNo: whatsappNo || null,
         supportedBrands: form.supportedBrands,
       });
 
@@ -566,8 +633,16 @@ export default function GarageProfile() {
                   Primary Mobile Channel
                   <input
                     value={form.phone}
-                    onChange={(event) => setField("phone", event.target.value)}
-                    placeholder="e.g., +1 555-0199"
+                    onChange={(event) => updateGaragePhone(event.target.value)}
+                    onBlur={() => {
+                      const normalized = normalizeIndianPhone(form.phone);
+                      if (normalized) updateGaragePhone(normalized);
+                    }}
+                    placeholder="e.g., 9812345678"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={18}
                     className={inputClass}
                     required
                   />
@@ -578,7 +653,15 @@ export default function GarageProfile() {
                   <input
                     value={form.whatsappNo}
                     onChange={(event) => setField("whatsappNo", event.target.value)}
-                    placeholder="e.g., +1 555-0199"
+                    onBlur={() => {
+                      const normalized = normalizeIndianPhone(form.whatsappNo);
+                      if (normalized) setField("whatsappNo", normalized);
+                    }}
+                    placeholder="e.g., 9812345678"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={18}
                     className={inputClass}
                   />
                 </label>
