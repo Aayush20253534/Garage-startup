@@ -1,4 +1,7 @@
 const axios = require("axios");
+const {
+  getCustomerMapButtonParameter,
+} = require("./garageAcceptedWhatsappTemplate");
 const { buildTemplatePayload } = require("./whatsappTemplatePayload");
 const {
   createWhatsappLink,
@@ -442,6 +445,7 @@ const sendGarageCustomerLocationWhatsapp = async ({ garage, booking }) => {
   const customerPhone = booking.user?.phone || "Phone not available";
   const location = getCustomerLocationText(booking);
   const mapsLink = getCustomerMapsLink(booking);
+  const mapButtonParameter = getCustomerMapButtonParameter(booking);
   const fallbackMessage = [
     `Rovauto booking ${booking.bookingCode} accepted.`,
     `Customer: ${customerName}`,
@@ -455,6 +459,16 @@ const sendGarageCustomerLocationWhatsapp = async ({ garage, booking }) => {
     templateName: GARAGE_ACCEPTED_DETAILS_TEMPLATE,
     languageCode: DEFAULT_TEMPLATE_LANGUAGE,
     parameters: [customerName, customerPhone, location, mapsLink],
+    buttons: [
+      {
+        subType: "url",
+        index: 0,
+        // The approved template must use this fixed URL prefix:
+        // https://maps.google.com/?q={{1}}
+        // Meta expects only the dynamic suffix at send time.
+        parameters: [mapButtonParameter],
+      },
+    ],
     fallbackMessage,
     context: {
       type: "garage_customer_location",
@@ -572,6 +586,7 @@ const sendCustomerVehicleDeliveredWhatsapp = async ({
 module.exports = {
   getWhatsappAccessToken,
   getGarageAcceptUrl,
+  getCustomerMapButtonParameter,
   getCustomerMapsLink,
   getMapsLink,
   getWhatsappPhoneNumberId,

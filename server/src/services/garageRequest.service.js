@@ -889,7 +889,7 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
     });
   };
 
-  await Promise.allSettled([
+  const acceptanceNotificationResults = await Promise.allSettled([
     bookingLifecycleService.notifyGarageAccepted({
       booking: result.request.booking,
       garage: result.request.garage,
@@ -915,6 +915,34 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       booking: result.request.booking,
     }),
   ]);
+
+  if (process.env.NODE_ENV !== "test") {
+    const garageWhatsappResult = acceptanceNotificationResults[4];
+    const delivery =
+      garageWhatsappResult?.status === "fulfilled"
+        ? garageWhatsappResult.value
+        : null;
+
+    console.info("[garage-request:accept] garage details WhatsApp result", {
+      bookingId: result.request.booking.id,
+      bookingCode: result.request.booking.bookingCode,
+      requestId: result.request.id,
+      garageId: result.request.garage.id,
+      settled: garageWhatsappResult?.status || "missing",
+      sent: Boolean(delivery?.sent),
+      failed:
+        garageWhatsappResult?.status === "rejected" ||
+        Boolean(delivery?.failed),
+      status: delivery?.status || null,
+      metaErrorCode: delivery?.providerErrorCode || null,
+      metaErrorSubcode: delivery?.providerErrorSubcode || null,
+      reason:
+        garageWhatsappResult?.status === "rejected"
+          ? garageWhatsappResult.reason?.message ||
+            String(garageWhatsappResult.reason)
+          : delivery?.errorMessage || delivery?.reason || null,
+    });
+  }
 
   await invalidateBookingReadCaches(result.request.booking.userId);
 
