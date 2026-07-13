@@ -14,6 +14,7 @@ const invalidateGarageReviewCaches = async (garageId) => {
     deleteCache(`garages:detail:${garageId}`),
     deletePattern("garages:list:*"),
     deletePattern("garages:public:*"),
+    deleteCache("public:stats:v2"),
   ]);
 };
 

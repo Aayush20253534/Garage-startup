@@ -81,6 +81,13 @@ const formatCount = (value) => {
   );
 };
 
+const formatAverageRating = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return "0";
+
+  return `${Math.min(5, number).toFixed(1)}★`;
+};
+
 export default function Home() {
   const { user, vehicle, location, fetchServiceCategories } = useApp();
 
@@ -90,6 +97,7 @@ export default function Home() {
   const [partnerStats, setPartnerStats] = useState({
     garages: null,
     customers: null,
+    averageRating: null,
   });
   const cityName = String(location?.city || "").trim();
   const garageSearch = cityName
@@ -116,11 +124,16 @@ export default function Home() {
         setPartnerStats({
           garages: formatCount(stats.garages),
           customers: formatCount(stats.customers),
+          averageRating: formatAverageRating(stats.averageRating),
         });
       })
       .catch(() => {
         if (!mounted) return;
-        setPartnerStats({ garages: null, customers: null });
+        setPartnerStats({
+          garages: null,
+          customers: null,
+          averageRating: null,
+        });
       });
 
     return () => {
@@ -759,7 +772,7 @@ export default function Home() {
                 {[
                   [partnerStats.garages, "Garages"],
                   [partnerStats.customers, "Customers"],
-                  ["4.8★", "Avg rating"],
+                  [partnerStats.averageRating, "Avg rating"],
                 ].map(([number, label]) => (
                   <div
                     key={label}
