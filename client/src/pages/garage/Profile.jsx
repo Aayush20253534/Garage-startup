@@ -10,6 +10,9 @@ import {
   FiPhone,
   FiSave,
   FiX,
+  FiBriefcase,
+  FiDollarSign,
+  FiEye,
 } from "react-icons/fi";
 import CitySelect from "@/components/common/CitySelect";
 import ImageUpload from "@/components/garage/ImageUpload";
@@ -22,11 +25,12 @@ import {
   resolveMediaUrl,
 } from "@/utils/mediaUrl";
 
+// Enhanced modern inputs with focus rings and smooth transitions
 const inputClass =
-  "h-10 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink";
+  "h-11 w-full rounded-xl border border-line bg-white px-3.5 text-sm outline-none transition-all duration-200 focus:border-ink focus:ring-2 focus:ring-ink/5 placeholder:text-muted/60";
 
 const textareaClass =
-  "w-full resize-none rounded-lg border border-line px-3 py-2 text-sm outline-none transition focus:border-ink";
+  "w-full resize-none rounded-xl border border-line bg-white px-3.5 py-3 text-sm outline-none transition-all duration-200 focus:border-ink focus:ring-2 focus:ring-ink/5 placeholder:text-muted/60";
 
 const getSupportedBrands = (garage) => {
   const value = garage?.supportedBrands;
@@ -126,7 +130,7 @@ function GaragePhoto({ image, index }) {
 
   if (!imageSrc || failed) {
     return (
-      <div className="grid aspect-square place-items-center rounded-xl border border-dashed border-line bg-bg-soft p-3 text-center text-xs font-semibold text-muted">
+      <div className="grid aspect-square place-items-center rounded-xl border border-dashed border-line bg-bg-soft p-4 text-center text-xs font-semibold text-muted/80">
         Photo unavailable
       </div>
     );
@@ -134,7 +138,7 @@ function GaragePhoto({ image, index }) {
 
   if (waitingForRetry) {
     return (
-      <div className="grid aspect-square animate-pulse place-items-center rounded-xl border border-line bg-bg-soft p-3 text-center text-xs font-semibold text-muted">
+      <div className="grid aspect-square animate-pulse place-items-center rounded-xl border border-line bg-bg-soft/60 p-4 text-center text-xs font-semibold text-muted/80">
         Loading photo...
       </div>
     );
@@ -145,7 +149,7 @@ function GaragePhoto({ image, index }) {
       href={openUrl}
       target="_blank"
       rel="noreferrer"
-      className="group block aspect-square overflow-hidden rounded-xl border border-line bg-bg-soft"
+      className="group relative block aspect-square overflow-hidden rounded-xl border border-line bg-bg-soft shadow-sm transition-all duration-300 hover:shadow-md hover:border-ink/30"
       aria-label={`Open garage photo ${index + 1}`}
     >
       <img
@@ -156,8 +160,9 @@ function GaragePhoto({ image, index }) {
         decoding="async"
         onLoad={handleLoad}
         onError={handleError}
-        className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+        className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-105"
       />
+      <div className="absolute inset-0 bg-ink/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
     </a>
   );
 }
@@ -269,7 +274,7 @@ export default function GarageProfile() {
 
       await refreshGarage(garageToken);
       setEditingDetails(false);
-      setSuccess("Garage profile updated.");
+      setSuccess("Garage profile updated successfully.");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to update garage profile");
     } finally {
@@ -305,7 +310,7 @@ export default function GarageProfile() {
 
       setPhotoFiles([]);
       setEditingPhotos(false);
-      setSuccess("Garage photos updated.");
+      setSuccess("Garage photos updated successfully.");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to update garage photos");
     } finally {
@@ -314,116 +319,122 @@ export default function GarageProfile() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 overflow-x-hidden">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-2 overflow-x-hidden antialiased">
+      {/* Premium Header Layout */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-line pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-ink sm:text-3xl">Profile</h1>
-          <p className="mt-1 text-sm text-muted">
-            Manage your garage information and listing status.
+          <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Profile Settings</h1>
+          <p className="mt-1.5 text-sm text-muted">
+            Manage your garage digital storefront, core configurations, and operational status.
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => setEditingDetails(true)}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-bold text-black transition-all duration-200 hover:bg-brand-dark active:scale-[0.98] shadow-sm shadow-brand/10"
         >
-          <FiEdit2 />
+          <FiEdit2 className="w-4 h-4" />
           Edit Profile
         </button>
       </div>
 
+      {/* Global Toast Alerts */}
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <FiAlertCircle className="shrink-0" />
-          <span>{error}</span>
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50/60 p-4 text-sm text-red-800 backdrop-blur-sm animate-fadeIn">
+          <FiAlertCircle className="shrink-0 mt-0.5 w-4 h-4 text-red-600" />
+          <span className="font-medium">{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          <FiCheckCircle className="shrink-0" />
-          <span>{success}</span>
+        <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50/60 p-4 text-sm text-green-800 backdrop-blur-sm animate-fadeIn">
+          <FiCheckCircle className="shrink-0 mt-0.5 w-4 h-4 text-green-600" />
+          <span className="font-medium">{success}</span>
         </div>
       )}
 
-      <section className="card-soft rounded-2xl p-4 shadow-sm">
-        <div className="flex flex-col gap-5 md:flex-row md:items-start">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-3xl font-bold text-ink">
+      {/* Main Corporate Workspace Summary Card */}
+      <section className="rounded-2xl border border-line bg-white p-5 sm:p-6 shadow-sm transition-all hover:shadow-md">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start">
+          {/* Enhanced Avatar Unit */}
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-3xl font-black text-ink shadow-inner border border-brand/10">
             {garage?.name?.[0] || "G"}
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <h2 className="truncate text-2xl font-bold text-ink">
+                <h2 className="truncate text-xl font-bold tracking-tight text-ink sm:text-2xl">
                   {garage?.name || "Garage"}
                 </h2>
-
-                <p className="mt-1 text-sm text-muted">
+                <p className="mt-1 text-sm text-muted font-medium">
                   Owned by{" "}
-                  {garage?.ownerName || garage?.owner?.name || "Garage owner"}
+                  <span className="text-ink font-semibold">
+                    {garage?.ownerName || garage?.owner?.name || "Garage owner"}
+                  </span>
                 </p>
               </div>
 
               <span
                 className={[
-                  "w-fit rounded-full px-3 py-1 text-xs font-bold",
+                  "inline-flex items-center gap-1.5 w-fit rounded-full px-3 py-1 text-xs font-bold tracking-wide uppercase border",
                   garage?.isActive
-                    ? "bg-green-100 text-green-700"
-                    : "bg-yellow-100 text-yellow-700",
+                    ? "bg-green-50 border-green-200 text-green-700"
+                    : "bg-amber-50 border-amber-200 text-amber-700",
                 ].join(" ")}
               >
-                {garage?.isActive ? "Active" : "Activation pending"}
+                <span className={["h-1.5 w-1.5 rounded-full", garage?.isActive ? "bg-green-500" : "bg-amber-500 animate-pulse"].join(" ")} />
+                {garage?.isActive ? "Active" : "Activation Pending"}
               </span>
             </div>
 
-            <div className="mt-5 grid gap-3 text-sm md:grid-cols-2">
-              <p className="flex min-w-0 items-center gap-2 text-muted">
-                <FiMapPin className="shrink-0" />
-                <span className="truncate">
+            {/* Structured Clean Meta Details Grid */}
+            <div className="mt-6 grid gap-x-6 gap-y-3.5 text-sm sm:grid-cols-2 border-t border-line/60 pt-5">
+              <p className="flex min-w-0 items-center gap-3 text-muted">
+                <FiMapPin className="shrink-0 text-ink/40 w-4 h-4" />
+                <span className="truncate font-medium text-ink/80">
                   {garage?.address || "Address not available"}
                 </span>
               </p>
 
-              <p className="flex min-w-0 items-center gap-2 text-muted">
-                <FiPhone className="shrink-0" />
-                <span>{garage?.phone || "Phone not available"}</span>
+              <p className="flex min-w-0 items-center gap-3 text-muted">
+                <FiPhone className="shrink-0 text-ink/40 w-4 h-4" />
+                <span className="font-medium text-ink/80">{garage?.phone || "Phone not available"}</span>
               </p>
 
-              <p className="flex min-w-0 items-center gap-2 text-muted">
-                <FiMail className="shrink-0" />
-                <span className="truncate">
+              <p className="flex min-w-0 items-center gap-3 text-muted">
+                <FiMail className="shrink-0 text-ink/40 w-4 h-4" />
+                <span className="truncate font-medium text-ink/80">
                   {garage?.email || "Email not available"}
                 </span>
               </p>
 
-              <p className="flex min-w-0 items-center gap-2 text-muted">
-                <FiImage className="shrink-0" />
-                <span>{uploadedImages.length} uploaded photos</span>
+              <p className="flex min-w-0 items-center gap-3 text-muted">
+                <FiImage className="shrink-0 text-ink/40 w-4 h-4" />
+                <span className="font-medium text-ink/80">{uploadedImages.length} verified photos uploaded</span>
               </p>
             </div>
 
-            <div className="mt-5">
-              <p className="text-sm font-bold text-ink">
-                {garage?.garageType === "AUTHORIZED"
-                  ? "Authorized brands"
-                  : "Brands serviced"}
+            {/* Segmented Brand Catalog Section */}
+            <div className="mt-6 border-t border-line/60 pt-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted">
+                {garage?.garageType === "AUTHORIZED" ? "Authorized Brands Portfolio" : "Brands Serviced Capabilities"}
               </p>
 
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
                 {supportedBrands.length > 0 ? (
                   supportedBrands.map((brand) => (
                     <span
                       key={brand}
-                      className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-ink"
+                      className="rounded-lg bg-bg-soft border border-line/70 px-3 py-1 text-xs font-semibold text-ink shadow-sm"
                     >
                       {brand}
                     </span>
                   ))
                 ) : (
-                  <span className="text-sm text-muted">
-                    No brands selected
+                  <span className="text-xs italic text-muted/80">
+                    No selective brands configured.
                   </span>
                 )}
               </div>
@@ -432,70 +443,73 @@ export default function GarageProfile() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      {/* Corporate Dashboard KPI Matrix Cards */}
+      <section className="grid gap-4 sm:grid-cols-3">
         {[
           {
-            title: "Garage Photos",
-            value: `${uploadedImages.length} uploaded`,
+            title: "Garage Gallery Status",
+            value: `${uploadedImages.length} Assets Active`,
             active: uploadedImages.length > 0,
+            icon: <FiBriefcase className="w-4 h-4" />,
           },
           {
-            title: "Wallet Balance",
+            title: "Available Wallet Balance",
             value: `Rs. ${Number(balance).toLocaleString()}`,
             active: garage?.isActive || balance >= minimumActivationAmount,
+            icon: <FiDollarSign className="w-4 h-4" />,
           },
           {
-            title: "Customer Visibility",
+            title: "Discovery & Visibility",
             value: garage?.isActive
-              ? "Garage is visible"
-              : `Recharge Rs. ${Number(
-                  minimumActivationAmount
-                ).toLocaleString()} once to activate`,
+              ? "Live to Customers"
+              : `Minimum recharge Rs. ${Number(minimumActivationAmount).toLocaleString()} needed`,
             active: garage?.isActive,
+            icon: <FiEye className="w-4 h-4" />,
           },
         ].map((item) => (
           <div
             key={item.title}
-            className="card-soft rounded-2xl p-4 shadow-sm transition hover:shadow-md"
+            className="rounded-2xl border border-line bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
           >
             <div
               className={[
-                "flex h-10 w-10 items-center justify-center rounded-xl",
+                "flex h-9 w-9 items-center justify-center rounded-xl border",
                 item.active
-                  ? "bg-green-100 text-green-700"
-                  : "bg-bg-soft text-muted",
+                  ? "bg-green-50 border-green-200 text-green-600"
+                  : "bg-bg-soft border-line text-muted",
               ].join(" ")}
             >
-              <FiCheckCircle />
+              {item.icon}
             </div>
 
-            <h3 className="mt-3 font-bold text-ink">{item.title}</h3>
-            <p className="mt-1 text-sm text-muted">{item.value}</p>
+            <h3 className="mt-3.5 font-bold tracking-tight text-ink text-sm">{item.title}</h3>
+            <p className="mt-1 text-xs font-medium text-muted">{item.value}</p>
           </div>
         ))}
       </section>
 
-      <section className="card-soft rounded-2xl p-4 shadow-sm">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Premium Standalone Visual Media Manager Canvas */}
+      <section className="rounded-2xl border border-line bg-white p-5 sm:p-6 shadow-sm">
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-line/60 pb-4">
           <div>
-            <h3 className="text-lg font-bold text-ink">Current Photos</h3>
-            <p className="mt-1 text-sm text-muted">
-              Photos visible on your garage listing.
+            <h3 className="text-lg font-bold tracking-tight text-ink">Active Visual Gallery</h3>
+            <p className="mt-1 text-xs text-muted font-medium">
+              High-resolution storefront media displayed prominently across consumer channels.
             </p>
           </div>
 
           <button
             type="button"
             onClick={() => setEditingPhotos(true)}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-xs font-bold text-ink transition-all duration-200 hover:border-ink hover:bg-bg-soft active:scale-98 shadow-xs"
           >
-            <FiImage />
-            Change Photos
+            <FiImage className="w-3.5 h-3.5 text-muted" />
+            Modify Showcase Images
           </button>
         </div>
 
         {uploadedImages.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {uploadedImages.map((image, index) => (
               <GaragePhoto
                 key={image.id || getGarageImageUrl(image) || index}
@@ -505,242 +519,276 @@ export default function GarageProfile() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-line bg-bg-soft p-5 text-sm text-muted">
-            No garage photos uploaded yet.
+          <div className="rounded-xl border border-dashed border-line bg-bg-soft/50 p-6 text-center text-sm font-medium text-muted">
+            No profile photos uploaded yet. Complete your gallery to scale discovery metrics.
           </div>
         )}
       </section>
 
+      {/* Contextual Full-Screen Premium Blur Modals */}
       {editingDetails && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 py-6">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
           <form
             onSubmit={saveDetails}
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl border border-line animate-slideUp"
           >
-            <div className="mb-4 flex items-center justify-between gap-3">
+            {/* Modal Navigation Top-Bar */}
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-line bg-white/95 px-6 py-4 backdrop-blur-md">
               <div>
-                <h2 className="text-xl font-bold text-ink">
-                  Edit Garage Profile
-                </h2>
-                <p className="mt-1 text-sm text-muted">
-                  Update public garage details.
-                </p>
+                <h2 className="text-lg font-bold tracking-tight text-ink">Update Garage Specifications</h2>
+                <p className="text-xs text-muted font-medium">Ensure configurations align with verified commercial documents.</p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setEditingDetails(false)}
-                className="grid h-9 w-9 place-items-center rounded-lg border border-line transition hover:border-ink hover:bg-bg-soft"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-line transition-all hover:border-ink hover:bg-bg-soft text-muted hover:text-ink"
               >
-                <FiX />
+                <FiX className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <input
-                value={form.name}
-                onChange={(event) => setField("name", event.target.value)}
-                placeholder="Garage name"
-                className={inputClass}
-                required
-              />
-
-              <input
-                value={form.phone}
-                onChange={(event) => setField("phone", event.target.value)}
-                placeholder="Phone number"
-                className={inputClass}
-                required
-              />
-
-              <input
-                value={form.whatsappNo}
-                onChange={(event) =>
-                  setField("whatsappNo", event.target.value)
-                }
-                placeholder="WhatsApp number"
-                className={inputClass}
-              />
-
-              <input
-                value={form.email}
-                onChange={(event) => setField("email", event.target.value)}
-                placeholder="Email"
-                type="email"
-                className={inputClass}
-              />
-            </div>
-
-            <textarea
-              value={form.description}
-              onChange={(event) => setField("description", event.target.value)}
-              placeholder="Garage description"
-              rows={3}
-              className={`${textareaClass} mt-3`}
-            />
-
-            <div className="mt-3 rounded-2xl border border-line p-4">
-              <h3 className="font-bold text-ink">Location</h3>
-              <p className="mb-3 text-sm text-muted">
-                Saving address changes will refresh garage coordinates.
-              </p>
-
-              <textarea
-                value={form.address}
-                onChange={(event) => setField("address", event.target.value)}
-                placeholder="Full address"
-                rows={3}
-                className={textareaClass}
-                required
-              />
-
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <label className="grid gap-1.5 text-sm font-semibold text-ink">
-                  City
-                  <CitySelect
-                    value={form.city}
-                    onChange={(city) => setField("city", city)}
-                    required
-                    className={inputClass}
-                  />
-                </label>
-
-                <label className="grid gap-1.5 text-sm font-semibold text-ink">
-                  Area
+            <div className="p-6 space-y-5">
+              {/* Dynamic Field Matrices */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                  Garage Enterprise Name
                   <input
-                    value={form.area}
-                    onChange={(event) => setField("area", event.target.value)}
-                    placeholder="Area"
+                    value={form.name}
+                    onChange={(event) => setField("name", event.target.value)}
+                    placeholder="e.g., Apex Automotive Works"
                     className={inputClass}
                     required
                   />
                 </label>
 
-                <label className="grid gap-1.5 text-sm font-semibold text-ink">
-                  Radius km
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                  Primary Mobile Channel
                   <input
-                    value={form.workingRadiusKm}
-                    onChange={(event) =>
-                      setField("workingRadiusKm", Number(event.target.value))
-                    }
-                    placeholder="Radius in km"
-                    type="number"
-                    min="1"
-                    max="100"
+                    value={form.phone}
+                    onChange={(event) => setField("phone", event.target.value)}
+                    placeholder="e.g., +1 555-0199"
+                    className={inputClass}
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                  Official WhatsApp Contact
+                  <input
+                    value={form.whatsappNo}
+                    onChange={(event) => setField("whatsappNo", event.target.value)}
+                    placeholder="e.g., +1 555-0199"
+                    className={inputClass}
+                  />
+                </label>
+
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                  Enterprise Communication Email
+                  <input
+                    value={form.email}
+                    onChange={(event) => setField("email", event.target.value)}
+                    placeholder="e.g., contact@apexauto.com"
+                    type="email"
                     className={inputClass}
                   />
                 </label>
               </div>
-            </div>
 
-            <div className="mt-3 rounded-2xl border border-line p-4">
-              <h3 className="font-bold text-ink">Brands Catered</h3>
+              <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                Corporate Description / Bio
+                <textarea
+                  value={form.description}
+                  onChange={(event) => setField("description", event.target.value)}
+                  placeholder="Provide details about certifications, service excellence, specializations, etc..."
+                  rows={3}
+                  className={textareaClass}
+                />
+              </label>
 
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {["MULTI_BRAND", "AUTHORIZED"].map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() =>
-                      setForm((current) => ({
-                        ...current,
-                        garageType: type,
-                        supportedBrands:
-                          type === "AUTHORIZED"
-                            ? current.supportedBrands.slice(0, 1)
-                            : current.supportedBrands,
-                      }))
-                    }
-                    className={[
-                      "rounded-lg border px-4 py-2.5 text-left text-sm font-bold transition",
-                      form.garageType === type
-                        ? "border-brand bg-brand-soft text-ink"
-                        : "border-line text-muted hover:border-ink",
-                    ].join(" ")}
-                  >
-                    {type === "MULTI_BRAND" ? "Multi-brand" : "Authorized"}
-                  </button>
-                ))}
-              </div>
+              {/* Geographic Parameter Panel */}
+              <div className="rounded-xl border border-line bg-bg-soft/40 p-4 space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold tracking-tight text-ink">Geographic Location Configurations</h3>
+                  <p className="text-xs text-muted">Physical base adjustments dynamically synchronize geospatial visibility matrices.</p>
+                </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-                {vehicleBrands.map((brand) => (
-                  <button
-                    key={brand.id || brand.name}
-                    type="button"
-                    onClick={() => toggleBrand(brand.name)}
-                    className={[
-                      "rounded-lg border p-3 text-center text-sm font-bold transition",
-                      selectedBrandSet.has(brand.name)
-                        ? "border-brand bg-brand-soft text-ink"
-                        : "border-line text-muted hover:border-ink",
-                    ].join(" ")}
-                  >
-                    {brand.logoUrl && (
-                      <img
-                        src={brand.logoUrl}
-                        alt={brand.name}
-                        className="mx-auto mb-2 h-8 w-12 object-contain"
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                  Full Physical Street Address
+                  <textarea
+                    value={form.address}
+                    onChange={(event) => setField("address", event.target.value)}
+                    placeholder="Complete corporate address location mapping details..."
+                    rows={2}
+                    className={textareaClass}
+                    required
+                  />
+                </label>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                    City Center Hub
+                    <CitySelect
+                      value={form.city}
+                      onChange={(city) => setField("city", city)}
+                      required
+                      className={inputClass}
+                    />
+                  </label>
+
+                  <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                    Sub-District / Area Zone
+                    <input
+                      value={form.area}
+                      onChange={(event) => setField("area", event.target.value)}
+                      placeholder="e.g., Silicon District"
+                      className={inputClass}
+                      required
+                    />
+                  </label>
+
+                  <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                    Operational Radius Limit
+                    <div className="relative flex items-center">
+                      <input
+                        value={form.workingRadiusKm}
+                        onChange={(event) => setField("workingRadiusKm", Number(event.target.value))}
+                        placeholder="15"
+                        type="number"
+                        min="1"
+                        max="100"
+                        className={`${inputClass} pr-10`}
                       />
-                    )}
-                    {brand.name}
-                  </button>
-                ))}
+                      <span className="absolute right-3 text-xs font-semibold text-muted">KM</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Industrial Brand Portfolio Selection Grid */}
+              <div className="rounded-xl border border-line bg-bg-soft/40 p-4 space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold tracking-tight text-ink">Operational Strategy Selection</h3>
+                  <p className="text-xs text-muted">Select categorization depending on authorized franchising architectures.</p>
+                </div>
+
+                <div className="grid gap-3 grid-cols-2">
+                  {["MULTI_BRAND", "AUTHORIZED"].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() =>
+                        setForm((current) => ({
+                          ...current,
+                          garageType: type,
+                          supportedBrands:
+                            type === "AUTHORIZED"
+                              ? current.supportedBrands.slice(0, 1)
+                              : current.supportedBrands,
+                        }))
+                      }
+                      className={[
+                        "rounded-xl border px-4 py-3 text-center text-sm font-bold transition-all duration-200 shadow-xs",
+                        form.garageType === type
+                          ? "border-ink bg-ink text-white"
+                          : "border-line bg-white text-muted hover:border-ink/50 hover:text-ink",
+                      ].join(" ")}
+                    >
+                      {type === "MULTI_BRAND" ? "Multi-Brand Workshop" : "Authorized Single Hub"}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted">Select Enterprise Capabilities</p>
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 max-h-[220px] overflow-y-auto pr-1">
+                    {vehicleBrands.map((brand) => {
+                      const isSelected = selectedBrandSet.has(brand.name);
+                      return (
+                        <button
+                          key={brand.id || brand.name}
+                          type="button"
+                          onClick={() => toggleBrand(brand.name)}
+                          className={[
+                            "flex flex-col items-center justify-center rounded-xl border p-3 text-center transition-all duration-200 bg-white shadow-xs min-h-[84px]",
+                            isSelected
+                              ? "border-brand bg-brand-soft/40 ring-1 ring-brand text-ink"
+                              : "border-line text-muted hover:border-ink/40 hover:text-ink",
+                          ].join(" ")}
+                        >
+                          {brand.logoUrl && (
+                            <img
+                              src={brand.logoUrl}
+                              alt={brand.name}
+                              className="mb-2 h-7 w-12 object-contain filter contrast-125 brightness-95"
+                            />
+                          )}
+                          <span className="text-xs font-bold leading-tight tracking-tight">{brand.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={saving === "details"}
-              className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <FiSave />
-              {saving === "details" ? "Saving..." : "Save Profile"}
-            </button>
+            {/* Modal Commit Action Panel */}
+            <div className="sticky bottom-0 border-t border-line bg-bg-soft p-4 px-6 flex items-center justify-end">
+              <button
+                type="submit"
+                disabled={saving === "details"}
+                className="inline-flex h-11 w-full sm:w-auto min-w-[160px] items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-bold text-black transition-all duration-200 hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+              >
+                <FiSave className="w-4 h-4" />
+                {saving === "details" ? "Synchronizing..." : "Save Configuration"}
+              </button>
+            </div>
           </form>
         </div>
       )}
 
+      {/* Showcase Image Upload Management Layer Modal */}
       {editingPhotos && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 py-6">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
-            <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-line animate-slideUp overflow-hidden">
+            <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-4">
               <div>
-                <h2 className="text-xl font-bold text-ink">
-                  Change Garage Photos
-                </h2>
-
-                <p className="mt-1 text-sm text-muted">
-                  Upload a new set. This replaces the current photos.
-                </p>
+                <h2 className="text-lg font-bold tracking-tight text-ink">Modify Media Portfolio Assets</h2>
+                <p className="text-xs text-muted font-medium">Replaces current visual assets across active listing components.</p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setEditingPhotos(false)}
-                className="grid h-9 w-9 place-items-center rounded-lg border border-line transition hover:border-ink hover:bg-bg-soft"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-line transition-all hover:border-ink hover:bg-bg-soft text-muted hover:text-ink"
               >
-                <FiX />
+                <FiX className="w-4 h-4" />
               </button>
             </div>
 
-            <ImageUpload
-              min={1}
-              max={15}
-              maxSizeMb={1}
-              value={photoFiles}
-              onChange={setPhotoFiles}
-            />
+            <div className="p-6">
+              <div className="rounded-xl border border-line bg-bg-soft/30 p-1">
+                <ImageUpload
+                  min={1}
+                  max={15}
+                  maxSizeMb={1}
+                  value={photoFiles}
+                  onChange={setPhotoFiles}
+                />
+              </div>
+            </div>
 
-            <button
-              type="button"
-              onClick={savePhotos}
-              disabled={saving === "photos" || photoFiles.length === 0}
-              className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <FiSave />
-              {saving === "photos" ? "Uploading..." : "Save Photos"}
-            </button>
+            <div className="border-t border-line bg-bg-soft p-4 px-6 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={savePhotos}
+                disabled={saving === "photos" || photoFiles.length === 0}
+                className="inline-flex h-11 w-full sm:w-auto min-w-[160px] items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-bold text-black transition-all duration-200 hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+              >
+                <FiSave className="w-4 h-4" />
+                {saving === "photos" ? "Uploading Infrastructure..." : "Publish Photos"}
+              </button>
+            </div>
           </div>
         </div>
       )}
