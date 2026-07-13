@@ -48,9 +48,6 @@ const GARAGE_ACCEPTED_DETAILS_TEMPLATE =
 const CUSTOMER_BOOKING_CONFIRMED_TEMPLATE =
   process.env.WHATSAPP_CUSTOMER_BOOKING_CONFIRMED_TEMPLATE ||
   "customer_booking_confirmed";
-const CUSTOMER_HANDOVER_OTP_TEMPLATE =
-  process.env.WHATSAPP_CUSTOMER_HANDOVER_OTP_TEMPLATE ||
-  "customer_handover_otp";
 
 const shouldUseTemplates = () => {
   const value = String(process.env.WHATSAPP_USE_TEMPLATES || "true").toLowerCase();
@@ -509,19 +506,6 @@ const sendGarageCustomerLocationWhatsapp = async ({ garage, booking }) => {
   });
 };
 
-const formatOtpExpiry = (value) => {
-  if (!value) return null;
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-
-  return date.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: process.env.APP_TIME_ZONE || "Asia/Kolkata",
-  });
-};
-
 const sendCustomerGarageDetailsWhatsapp = async ({
   customer,
   garage,
@@ -543,7 +527,7 @@ const sendCustomerGarageDetailsWhatsapp = async ({
     `Phone: ${garagePhone}`,
     `Address: ${garageAddress}`,
     `Garage location: ${mapsLink}`,
-    "Your handover OTP will arrive in a separate WhatsApp message.",
+    "Your vehicle handover OTP has been sent to your registered email address.",
   ].join("\n");
 
   return sendWhatsappTemplateMessage({
@@ -574,51 +558,6 @@ const sendCustomerGarageDetailsWhatsapp = async ({
       garageId: garage.id,
       bookingId: booking.id,
       bookingCode: booking.bookingCode,
-    },
-  });
-};
-
-const sendCustomerHandoverOtpWhatsapp = async ({
-  customer,
-  garage,
-  booking,
-  otp,
-  otpExpiresAt,
-  isRegenerated = false,
-}) => {
-  if (!otp) return { sent: false, reason: "missing_otp" };
-
-  const otpExpiry = formatOtpExpiry(otpExpiresAt);
-  const message = [
-    isRegenerated
-      ? `New handover OTP for Rovauto booking ${booking.bookingCode}.`
-      : `Vehicle handover OTP for Rovauto booking ${booking.bookingCode}.`,
-    `OTP: ${otp}`,
-    otpExpiry ? `Valid until: ${otpExpiry}` : null,
-    garage?.name
-      ? `Use this only while handing your vehicle to ${garage.name}.`
-      : "Use this only while handing over your vehicle.",
-    "Do not share this OTP before physical vehicle handover.",
-  ].filter(Boolean).join("\n");
-
-  return sendWhatsappTemplateMessage({
-    to: customer.phone,
-    templateName: CUSTOMER_HANDOVER_OTP_TEMPLATE,
-    languageCode: DEFAULT_TEMPLATE_LANGUAGE,
-    parameters: [
-      booking.bookingCode || booking.id,
-      otp,
-      otpExpiry || "Use before the displayed expiry in Rovauto",
-      garage?.name || "the assigned garage",
-    ],
-    fallbackMessage: message,
-    context: {
-      type: "customer_handover_otp",
-      customerId: customer.id,
-      garageId: garage?.id,
-      bookingId: booking.id,
-      bookingCode: booking.bookingCode,
-      isRegenerated,
     },
   });
 };
@@ -659,7 +598,6 @@ module.exports = {
   getWhatsappProviderUrl,
   isWhatsappConfigured,
   sendCustomerGarageDetailsWhatsapp,
-  sendCustomerHandoverOtpWhatsapp,
   sendCustomerVehicleDeliveredWhatsapp,
   sendGarageBookingRequestWhatsapp,
   sendGarageCustomerLocationWhatsapp,

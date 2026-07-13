@@ -10,7 +10,6 @@ const BROADCAST_STATUS = require("../constants/broadcastStatus");
 const notificationService = require("../customer/services/notification.service");
 const activityService = require("../customer/services/activity.service");
 const {
-  sendCustomerHandoverOtpWhatsapp,
   sendCustomerVehicleDeliveredWhatsapp,
 } = require("./garageWhatsapp.service");
 const {
@@ -405,7 +404,7 @@ const notifyGarageAccepted = async ({
     userId: booking.userId,
     type: "BOOKING",
     title: "Garage accepted your request",
-    message: `${garage.name} has accepted your service request.${etaText} Your handover OTP has been sent separately.`,
+    message: `${garage.name} has accepted your service request.${etaText} Your handover OTP has been sent to your registered email address.`,
     link: "/dashboard/bookings",
     metadata: {
       bookingId: booking.id,
@@ -546,14 +545,6 @@ const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
       garage: booking.garage,
       otp: handoverOtp.otp,
       expiresAt: handoverOtp.expiresAt,
-      isRegenerated: true,
-    }),
-    sendCustomerHandoverOtpWhatsapp({
-      customer: booking.user,
-      garage: booking.garage,
-      booking,
-      otp: handoverOtp.otp,
-      otpExpiresAt: handoverOtp.expiresAt,
       isRegenerated: true,
     }),
     sendCustomerHandoverOtpEmail({

@@ -3,14 +3,19 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const whatsappServiceSource = fs.readFileSync(
-  path.join(__dirname, "../../src/services/garageWhatsapp.service.js"),
-  "utf8",
+const readSource = (relativePath) =>
+  fs.readFileSync(path.join(__dirname, "../..", relativePath), "utf8");
+
+const whatsappServiceSource = readSource(
+  "src/services/garageWhatsapp.service.js",
 );
-const garageRequestSource = fs.readFileSync(
-  path.join(__dirname, "../../src/services/garageRequest.service.js"),
-  "utf8",
+const garageRequestSource = readSource(
+  "src/services/garageRequest.service.js",
 );
+const bookingLifecycleSource = readSource(
+  "src/services/bookingLifecycle.service.js",
+);
+const envExampleSource = readSource(".env.example");
 
 const extractFunction = (name, nextName) => {
   const start = whatsappServiceSource.indexOf(`const ${name} =`);
@@ -21,10 +26,10 @@ const extractFunction = (name, nextName) => {
   return whatsappServiceSource.slice(start, end);
 };
 
-test("customer booking confirmation uses an approved WhatsApp template", () => {
+test("customer garage details use the single approved customer WhatsApp template", () => {
   const source = extractFunction(
     "sendCustomerGarageDetailsWhatsapp",
-    "sendCustomerHandoverOtpWhatsapp",
+    "sendCustomerVehicleDeliveredWhatsapp",
   );
 
   assert.match(source, /sendWhatsappTemplateMessage\s*\(/);
@@ -38,32 +43,59 @@ test("customer booking confirmation uses an approved WhatsApp template", () => {
   assert.match(source, /buttons:\s*\[/);
   assert.match(source, /subType:\s*"url"/);
   assert.match(source, /parameters:\s*\[mapButtonParameter\]/);
+  assert.match(source, /registered email address/);
   assert.doesNotMatch(source, /return sendWhatsappMessage\s*\(/);
 });
 
-test("customer handover OTP uses an approved WhatsApp template", () => {
-  const source = extractFunction(
-    "sendCustomerHandoverOtpWhatsapp",
-    "sendCustomerVehicleDeliveredWhatsapp",
+test("handover OTP is email-only and no customer OTP WhatsApp template remains", () => {
+  assert.doesNotMatch(
+    whatsappServiceSource,
+    /sendCustomerHandoverOtpWhatsapp|CUSTOMER_HANDOVER_OTP_TEMPLATE|customer_handover_otp/,
   );
-
-  assert.match(source, /sendWhatsappTemplateMessage\s*\(/);
-  assert.match(source, /CUSTOMER_HANDOVER_OTP_TEMPLATE/);
-  assert.match(source, /booking\.bookingCode \|\| booking\.id/);
-  assert.match(source, /otpExpiry/);
-  assert.match(source, /garage\?\.name \|\| "the assigned garage"/);
-  assert.doesNotMatch(source, /return sendWhatsappMessage\s*\(/);
+  assert.doesNotMatch(
+    bookingLifecycleSource,
+    /sendCustomerHandoverOtpWhatsapp/,
+  );
+  assert.doesNotMatch(
+    garageRequestSource,
+    /sendCustomerHandoverOtpWhatsapp/,
+  );
+  assert.doesNotMatch(
+    envExampleSource,
+    /WHATSAPP_CUSTOMER_HANDOVER_OTP_TEMPLATE/,
+  );
+  assert.match(
+    bookingLifecycleSource,
+    /sendCustomerHandoverOtpEmail\s*\(/,
+  );
 });
 
-test("garage acceptance logs both customer template delivery results", () => {
+test("garage acceptance sends one customer WhatsApp and logs OTP email delivery", () => {
   assert.match(
     garageRequestSource,
-    /\[garage-request:accept\] customer WhatsApp results/,
+    /sendCustomerGarageDetailsWhatsapp\s*\(/,
   );
-  assert.match(garageRequestSource, /garageDetailsSent/);
-  assert.match(garageRequestSource, /handoverOtpSent/);
   assert.match(
     garageRequestSource,
-    /return \{ garageDetails, handoverOtp \};/,
+    /bookingLifecycleService\.sendCustomerHandoverOtpEmail\s*\(/,
   );
+  assert.match(
+    garageRequestSource,
+    /\[garage-request:accept\] customer notification results/,
+  );
+  assert.match(garageRequestSource, /garageDetailsWhatsappSent/);
+  assert.match(garageRequestSource, /handoverOtpEmailSent/);
+  assert.doesNotMatch(garageRequestSource, /handoverOtpWhatsapp/i);
+});
+
+test("WhatsApp environment exposes exactly the three required template names", () => {
+  const templateVariables = envExampleSource
+    .split(/\r?\n/)
+    .filter((line) => /^WHATSAPP_.+_TEMPLATE=/.test(line));
+
+  assert.deepEqual(templateVariables, [
+    "WHATSAPP_GARAGE_REQUEST_TEMPLATE=garage_booking_request",
+    "WHATSAPP_GARAGE_ACCEPTED_DETAILS_TEMPLATE=garage_booking_accepted_details",
+    "WHATSAPP_CUSTOMER_BOOKING_CONFIRMED_TEMPLATE=customer_booking_confirmed",
+  ]);
 });
