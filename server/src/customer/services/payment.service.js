@@ -25,6 +25,9 @@ const {
   isReusableCashfreeOrder,
   isTerminalCashfreeOrder,
 } = require("../security/cashfreeOrderStatus");
+const {
+  isSamePaymentSplit,
+} = require("../security/cashfreePaymentSplit");
 const { getCashfreeIdempotencyKey } = require("../security/cashfreeIdempotency");
 const { buildOwnedResourceWhere } = require("../security/ownership");
 const activityService = require("./activity.service");
@@ -91,6 +94,23 @@ const fetchCashfreeOrder = async (cashfreeOrderId, fallback) => {
     throw getCashfreeApiError(
       error,
       fallback || "Unable to verify Cashfree payment",
+    );
+  }
+};
+
+const terminateCashfreeOrder = async (cashfreeOrderId) => {
+  try {
+    const cashfreeRes = await axios.patch(
+      `${getCashfreeBaseUrl()}/orders/${cashfreeOrderId}`,
+      { order_status: "TERMINATED" },
+      { headers: getCashfreeHeaders() },
+    );
+
+    return cashfreeRes.data;
+  } catch (error) {
+    throw getCashfreeApiError(
+      error,
+      "Unable to close the previous Cashfree payment session",
     );
   }
 };
@@ -380,6 +400,7 @@ const refundWalletPaymentTx = async (
 const failCreatedPaymentAndReleaseWallet = async ({
   bookingId,
   cashfreeOrderId = null,
+  recordFailureActivity = true,
 }) => {
   const result = await prisma.$transaction(async (tx) => {
     await lockBookingFinance(bookingId, { tx });
@@ -429,7 +450,7 @@ const failCreatedPaymentAndReleaseWallet = async ({
     return { payment, booking };
   });
 
-  if (result?.booking?.userId) {
+  if (result?.booking?.userId && recordFailureActivity) {
     await activityService.createActivitySafely(
       result.booking.userId,
       {
@@ -906,6 +927,10 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
 };
 
 const PAYMENT_ORDER_PREPARATION_GRACE_MS = 30 * 1000;
+const CASHFREE_TERMINATION_POLL_DELAYS_MS = [350, 800, 1_400];
+
+const wait = (milliseconds) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const getPaymentAgeMs = (payment) => {
   const timestamp = new Date(
@@ -1056,6 +1081,80 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
   throw new ApiError(
     409,
     "Cashfree is reconciling the previous payment session. Please retry shortly.",
+    "PAYMENT_ORDER_RECONCILING",
+  );
+};
+
+const closeCashfreeOrderForPaymentSplitChange = async (reservation) => {
+  const { booking, payment } = reservation;
+
+  let cashfreeOrder = await fetchCashfreeOrder(
+    payment.cashfreeOrderId,
+    "Unable to check the previous Cashfree payment session",
+  );
+
+  assertCashfreeOrderMatchesPayment(cashfreeOrder, payment);
+
+  let orderStatus = getCashfreeOrderStatus(cashfreeOrder);
+
+  if (orderStatus === "PAID") {
+    return completePaidBookingPayment(booking, cashfreeOrder);
+  }
+
+  if (isTerminalCashfreeOrder(orderStatus)) {
+    await failCreatedPaymentAndReleaseWallet({
+      bookingId: booking.id,
+      cashfreeOrderId: payment.cashfreeOrderId,
+      recordFailureActivity: false,
+    });
+
+    return null;
+  }
+
+  if (isReusableCashfreeOrder(orderStatus)) {
+    cashfreeOrder = await terminateCashfreeOrder(payment.cashfreeOrderId);
+    assertCashfreeOrderMatchesPayment(cashfreeOrder, payment);
+    orderStatus = getCashfreeOrderStatus(cashfreeOrder);
+  }
+
+  for (const delay of CASHFREE_TERMINATION_POLL_DELAYS_MS) {
+    if (
+      orderStatus === "PAID" ||
+      isTerminalCashfreeOrder(orderStatus)
+    ) {
+      break;
+    }
+
+    if (!isReconcilingCashfreeOrder(orderStatus)) {
+      break;
+    }
+
+    await wait(delay);
+    cashfreeOrder = await fetchCashfreeOrder(
+      payment.cashfreeOrderId,
+      "Unable to confirm the previous Cashfree session was closed",
+    );
+    assertCashfreeOrderMatchesPayment(cashfreeOrder, payment);
+    orderStatus = getCashfreeOrderStatus(cashfreeOrder);
+  }
+
+  if (orderStatus === "PAID") {
+    return completePaidBookingPayment(booking, cashfreeOrder);
+  }
+
+  if (isTerminalCashfreeOrder(orderStatus)) {
+    await failCreatedPaymentAndReleaseWallet({
+      bookingId: booking.id,
+      cashfreeOrderId: payment.cashfreeOrderId,
+      recordFailureActivity: false,
+    });
+
+    return null;
+  }
+
+  throw new ApiError(
+    409,
+    "Your wallet selection changed. Cashfree is closing the previous payment session; please tap Pay again in a few seconds.",
     "PAYMENT_ORDER_RECONCILING",
   );
 };
@@ -1255,10 +1354,27 @@ const reserveCashfreeOrderForBooking = async (
       throw new ApiError(400, "No online payment required for this booking");
     }
 
+    const split = await getWalletPaymentSplit(
+      userId,
+      amount,
+      useWallet,
+      { tx },
+    );
+
     if (
       booking.payment?.status === "CREATED" &&
       booking.payment.cashfreeOrderId
     ) {
+      if (!isSamePaymentSplit(booking.payment, split)) {
+        return {
+          kind: "SPLIT_CHANGED",
+          booking,
+          payment: booking.payment,
+          amount,
+          ...split,
+        };
+      }
+
       return {
         kind: "EXISTING",
         booking,
@@ -1266,13 +1382,6 @@ const reserveCashfreeOrderForBooking = async (
         amount,
       };
     }
-
-    const split = await getWalletPaymentSplit(
-      userId,
-      amount,
-      useWallet,
-      { tx },
-    );
 
     if (
       split.walletAmountUsed >= amount &&
@@ -1363,6 +1472,27 @@ const createPaymentOrder = async (
       reservation.booking,
       reservation.amount,
       reservation.walletAmountUsed,
+    );
+  }
+
+  if (reservation.kind === "SPLIT_CHANGED") {
+    if (retryCount >= 2) {
+      throw new ApiError(
+        409,
+        "The previous payment session is still closing. Please tap Pay again in a few seconds.",
+        "PAYMENT_ORDER_RECONCILING",
+      );
+    }
+
+    const completedPayment =
+      await closeCashfreeOrderForPaymentSplitChange(reservation);
+
+    if (completedPayment) return completedPayment;
+
+    return createPaymentOrder(
+      userId,
+      { bookingId, useWallet },
+      retryCount + 1,
     );
   }
 

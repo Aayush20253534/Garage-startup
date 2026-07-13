@@ -124,35 +124,34 @@ export default function PendingBookings() {
   const getExistingWalletAmount = (booking) =>
     Number(booking.payment?.walletAmountUsed || booking.walletAmountUsed || 0);
 
-  const getExistingCashfreeAmount = (booking) =>
-    Number(booking.payment?.upiAmountPaid || booking.payableAmount || 0);
-
-  const hasCreatedCashfreeWalletOrder = (booking) =>
+  const hasActiveCashfreeOrder = (booking) =>
     booking.payment?.status === "CREATED" &&
-    Boolean(booking.payment?.cashfreeOrderId) &&
-    getExistingWalletAmount(booking) > 0;
+    Boolean(booking.payment?.cashfreeOrderId);
 
-  const isWalletSelected = (booking) =>
-    hasCreatedCashfreeWalletOrder(booking) ||
-    (Boolean(useWalletByBookingId[booking.id]) && walletBalance > 0);
+  const hasWalletSelectionOverride = (bookingId) =>
+    Object.prototype.hasOwnProperty.call(
+      useWalletByBookingId,
+      bookingId,
+    );
 
-  const getWalletAmountForBooking = (booking) => {
-    if (hasCreatedCashfreeWalletOrder(booking)) {
-      return getExistingWalletAmount(booking);
+  const isWalletSelected = (booking) => {
+    if (hasWalletSelectionOverride(booking.id)) {
+      return Boolean(useWalletByBookingId[booking.id]) && walletBalance > 0;
     }
 
-    return isWalletSelected(booking)
+    return getExistingWalletAmount(booking) > 0 && walletBalance > 0;
+  };
+
+  const getWalletAmountForBooking = (booking) =>
+    isWalletSelected(booking)
       ? Math.min(walletBalance, getBookingOnlineAmount(booking))
       : 0;
-  };
 
-  const getCashfreeAmountForBooking = (booking) => {
-    if (hasCreatedCashfreeWalletOrder(booking)) {
-      return getExistingCashfreeAmount(booking);
-    }
-
-    return Math.max(getBookingOnlineAmount(booking) - getWalletAmountForBooking(booking), 0);
-  };
+  const getCashfreeAmountForBooking = (booking) =>
+    Math.max(
+      getBookingOnlineAmount(booking) - getWalletAmountForBooking(booking),
+      0,
+    );
 
   const toggleWalletForBooking = (bookingId, checked) => {
     setUseWalletByBookingId((current) => ({
@@ -372,7 +371,6 @@ export default function PendingBookings() {
                       type="checkbox"
                       checked={isWalletSelected(booking)}
                       disabled={
-                        hasCreatedCashfreeWalletOrder(booking) ||
                         walletBalance <= 0 ||
                         onlineAmount <= 0 ||
                         Boolean(payingId)
@@ -387,8 +385,8 @@ export default function PendingBookings() {
                         Use wallet balance
                       </span>
                       <span className="mt-0.5 block text-muted">
-                        {hasCreatedCashfreeWalletOrder(booking)
-                          ? "Wallet will apply after successful payment"
+                        {hasActiveCashfreeOrder(booking)
+                          ? "Changing this option safely refreshes the payment amount"
                           : `Available: ${formatRupees(walletBalance)}`}
                       </span>
                     </span>
@@ -403,9 +401,9 @@ export default function PendingBookings() {
                         </span>
                       </div>
                     )}
-                    {hasCreatedCashfreeWalletOrder(booking) && (
+                    {hasActiveCashfreeOrder(booking) && (
                       <p className="mb-2 text-[11px] leading-4 text-muted">
-                        Wallet is finalized only after Cashfree confirms payment.
+                        An older Cashfree session is replaced if this amount changes.
                       </p>
                     )}
                     <div className="flex items-center justify-between gap-2 text-sm">
