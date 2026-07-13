@@ -14,6 +14,10 @@ import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
 import {
+  BOOKING_TIMELINE_STEPS,
+  getBookingTimelineState,
+} from "@/utils/bookingTimeline";
+import {
   FiCheck,
   FiCheckCircle,
   FiClock,
@@ -29,33 +33,6 @@ import {
   FiX,
 } from "react-icons/fi";
 
-const TRACKING_STEPS = [
-  {
-    key: "searching",
-    label: "Selecting a Garage",
-    desc: "Nearby verified garages are receiving your request.",
-  },
-  {
-    key: "confirmed",
-    label: "Garage Confirmed",
-    desc: "A garage accepted the booking and received your service details.",
-  },
-  {
-    key: "progress",
-    label: "Service In Progress",
-    desc: "The garage verified handover and started working on your vehicle.",
-  },
-  {
-    key: "delivery",
-    label: "Ready for Delivery",
-    desc: "The garage uploaded the post-service inspection photos.",
-  },
-  {
-    key: "completed",
-    label: "Service Completed",
-    desc: "Delivery was accepted and the booking is complete.",
-  },
-];
 
 const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
 
@@ -90,14 +67,6 @@ const getServicesTotal = (booking) => {
   );
 };
 
-const getCurrentStep = (booking) => {
-  if (!booking) return 0;
-  if (booking.status === "COMPLETED") return 4;
-  if (booking.deliveredAt) return 3;
-  if (booking.status === "IN_PROGRESS") return 2;
-  if (["GARAGE_ASSIGNED", "CONFIRMED"].includes(booking.status)) return 1;
-  return 0;
-};
 
 const getHeaderCopy = (booking, remainingSeconds) => {
   if (!booking) {
@@ -600,7 +569,7 @@ function Tracking() {
   }
 
 
-  const currentStep = getCurrentStep(booking);
+  const { currentIndex: currentStep } = getBookingTimelineState(booking);
   const searching = booking.status === "SEARCHING_GARAGE";
   const searchExpiry = booking.searchExpiresAt
     ? new Date(booking.searchExpiresAt).getTime()
@@ -721,7 +690,7 @@ function Tracking() {
         <div className="card-soft mt-8 p-6">
           <h2 className="mb-5 text-lg font-semibold">Live booking timeline</h2>
           <div className="grid gap-1">
-            {TRACKING_STEPS.map((step, index) => {
+            {BOOKING_TIMELINE_STEPS.map((step, index) => {
               const completed = index < currentStep;
               const current = index === currentStep;
 
@@ -744,7 +713,7 @@ function Tracking() {
                         index + 1
                       )}
                     </motion.div>
-                    {index < TRACKING_STEPS.length - 1 && (
+                    {index < BOOKING_TIMELINE_STEPS.length - 1 && (
                       <div
                         className={`my-1 min-h-10 w-px flex-1 ${
                           completed ? "bg-brand" : "bg-line"
@@ -760,7 +729,7 @@ function Tracking() {
                     >
                       {step.label}
                     </div>
-                    <div className="text-sm text-muted">{step.desc}</div>
+                    <div className="text-sm text-muted">{step.description}</div>
                   </div>
                 </div>
               );

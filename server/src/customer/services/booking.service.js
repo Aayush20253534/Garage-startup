@@ -10,6 +10,7 @@ const {
 } = require("../../utils/whatsapp");
 const bookingLifecycleService = require("../../services/bookingLifecycle.service");
 const garageRequestService = require("../../services/garageRequest.service");
+const activityService = require("./activity.service");
 const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
 const cityService = require("../../services/city.service");
 const { calculatePlatformFee } = require("../../utils/platformFee");
@@ -553,7 +554,7 @@ const getRefundAmountForCancelledBooking = (booking) => {
 };
 
 const cancelBooking = async (userId, bookingId) => {
-  const cancelledBooking = await prisma.$transaction(async (tx) => {
+  const cancellationResult = await prisma.$transaction(async (tx) => {
     await lockBookingFinance(bookingId, { tx });
 
     const booking = await tx.booking.findFirst({
@@ -566,10 +567,14 @@ const cancelBooking = async (userId, bookingId) => {
     }
 
     if (booking.status === "CANCELLED") {
-      return tx.booking.findUnique({
-        where: { id: bookingId },
-        include: bookingInclude,
-      });
+      return {
+        booking: await tx.booking.findUnique({
+          where: { id: bookingId },
+          include: bookingInclude,
+        }),
+        cancelledNow: false,
+        refundAmount: 0,
+      };
     }
 
     const cancellableStatuses = [
@@ -677,14 +682,41 @@ const cancelBooking = async (userId, bookingId) => {
       }
     }
 
-    return tx.booking.findUnique({
-      where: { id: bookingId },
-      include: bookingInclude,
-    });
+    return {
+      booking: await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: bookingInclude,
+      }),
+      cancelledNow: true,
+      refundAmount,
+    };
   });
 
+  if (cancellationResult.cancelledNow && cancellationResult.booking) {
+    const { booking, refundAmount } = cancellationResult;
+
+    await activityService.createActivitySafely(
+      userId,
+      {
+        type: "BOOKING_CANCELLED",
+        title: "Booking cancelled",
+        detail:
+          refundAmount > 0
+            ? `Booking ${booking.bookingCode || booking.id} was cancelled and ₹${refundAmount} was credited to your wallet.`
+            : `Booking ${booking.bookingCode || booking.id} was cancelled.`,
+        path: "/dashboard/bookings",
+        metadata: {
+          bookingId: booking.id,
+          bookingCode: booking.bookingCode,
+          refundAmount,
+        },
+      },
+      { eventKey: `booking:${booking.id}:cancelled` },
+    );
+  }
+
   await invalidateBookingCaches(userId);
-  return cancelledBooking;
+  return cancellationResult.booking;
 };
 
 module.exports = {

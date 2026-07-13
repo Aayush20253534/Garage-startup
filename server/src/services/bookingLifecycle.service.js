@@ -8,6 +8,7 @@ const { deletePattern } = require("../utils/cache");
 const BOOKING_STATUS = require("../constants/bookingStatus");
 const BROADCAST_STATUS = require("../constants/broadcastStatus");
 const notificationService = require("../customer/services/notification.service");
+const activityService = require("../customer/services/activity.service");
 const {
   sendCustomerHandoverOtpWhatsapp,
   sendCustomerVehicleDeliveredWhatsapp,
@@ -776,6 +777,22 @@ const verifyBookingHandoverOtp = async ({
     throw new ApiError(409, "Booking changed during handover verification");
   }
 
+  await activityService.createActivitySafely(
+    updatedBooking.userId,
+    {
+      type: "SERVICE_STARTED",
+      title: "Vehicle handover verified",
+      detail: `Booking ${updatedBooking.bookingCode || updatedBooking.id} moved to service in progress.`,
+      path: `/tracking?bookingId=${updatedBooking.id}`,
+      metadata: {
+        bookingId: updatedBooking.id,
+        bookingCode: updatedBooking.bookingCode,
+        garageId,
+      },
+    },
+    { eventKey: `booking:${updatedBooking.id}:handover-verified` },
+  );
+
   await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
 
   return { request, booking: updatedBooking };
@@ -851,6 +868,22 @@ const markBookingDeliveredByGarage = async ({
     }),
   ]);
 
+  await activityService.createActivitySafely(
+    updatedBooking.userId,
+    {
+      type: "READY_FOR_DELIVERY",
+      title: "Vehicle ready for acceptance",
+      detail: `Booking ${updatedBooking.bookingCode || updatedBooking.id} was marked ready by ${request.garage.name}.`,
+      path: `/tracking?bookingId=${updatedBooking.id}`,
+      metadata: {
+        bookingId: updatedBooking.id,
+        bookingCode: updatedBooking.bookingCode,
+        garageId,
+      },
+    },
+    { eventKey: `booking:${updatedBooking.id}:delivered` },
+  );
+
   await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
 
   return { request, booking: updatedBooking };
@@ -900,6 +933,22 @@ const acceptDeliveredBookingByCustomer = async ({
       },
     },
   });
+
+  await activityService.createActivitySafely(
+    updatedBooking.userId,
+    {
+      type: "BOOKING_COMPLETED",
+      title: "Service completed",
+      detail: `Booking ${updatedBooking.bookingCode || updatedBooking.id} was completed after delivery acceptance.`,
+      path: "/dashboard/history",
+      metadata: {
+        bookingId: updatedBooking.id,
+        bookingCode: updatedBooking.bookingCode,
+        finalAmount: parsedFinalAmount,
+      },
+    },
+    { eventKey: `booking:${updatedBooking.id}:completed` },
+  );
 
   await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
 

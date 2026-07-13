@@ -17,15 +17,11 @@ import { setBookings } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
+import {
+  BOOKING_TIMELINE_STEPS,
+  getBookingTimelineState,
+} from "@/utils/bookingTimeline";
 
-const timelineSteps = [
-  { status: "NEW", label: "Request Sent" },
-  { status: "ACCEPTED", label: "Booking Accepted" },
-  { status: "CONFIRMED", label: "Vehicle Handover" },
-  { status: "IN_PROGRESS", label: "Service In Progress" },
-  { status: "DELIVERED", label: "Awaiting Customer Acceptance" },
-  { status: "COMPLETED", label: "Completed" },
-];
 
 
 const getWhatsappUrl = (phone) => {
@@ -343,10 +339,8 @@ export default function GarageBookingDetail() {
     }
   };
 
-  const currentStepIndex = Math.max(
-    0,
-    timelineSteps.findIndex((step) => step.status === booking.status),
-  );
+  const { currentIndex: currentStepIndex } =
+    getBookingTimelineState(booking);
   const inspectionImages = booking.inspectionImages || [];
   const isCompletedByCustomer =
     booking.status === "COMPLETED" || Boolean(booking.customerAcceptedAt);
@@ -607,7 +601,7 @@ export default function GarageBookingDetail() {
           <div className="card-soft p-6">
             <h3 className="mb-4 text-xl font-bold">Live Timeline</h3>
             <div className="space-y-4">
-              {timelineSteps
+              {BOOKING_TIMELINE_STEPS
                 .slice(0, currentStepIndex + 1)
                 .map((step, index) => (
                   <div key={step.status} className="flex gap-4">

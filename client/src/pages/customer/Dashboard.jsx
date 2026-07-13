@@ -5,6 +5,10 @@ import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
 import CustomerPwaInstall from "@/components/pwa/CustomerPwaInstall";
 import {
+  BOOKING_TIMELINE_STEPS,
+  getBookingTimelineState,
+} from "@/utils/bookingTimeline";
+import {
   fetchRecentActivities,
   getRecentActivities,
 } from "@/utils/activityLog";
@@ -17,7 +21,15 @@ import {
   FiRefreshCcw,
   FiTruck,
   FiCreditCard,
+  FiDollarSign,
   FiAlertCircle,
+  FiBell,
+  FiList,
+  FiMapPin,
+  FiRotateCcw,
+  FiTool,
+  FiUser,
+  FiXCircle,
 } from "react-icons/fi";
 
 const activeStatuses = [
@@ -27,13 +39,41 @@ const activeStatuses = [
   "IN_PROGRESS",
 ];
 
-const getProgress = (status) => {
-  if (status === "SEARCHING_GARAGE") return "40%";
-  if (status === "GARAGE_ASSIGNED") return "55%";
-  if (status === "CONFIRMED") return "65%";
-  if (status === "IN_PROGRESS") return "80%";
-  return "100%";
+const ACTIVITY_ICON_MAP = {
+  BOOKING_CREATED: FiCalendar,
+  BOOKING_CANCELLED: FiXCircle,
+  BOOKING_EXPIRED: FiClock,
+  PAYMENT_PAID: FiCreditCard,
+  PAYMENT_FAILED: FiAlertCircle,
+  PAYMENT_REFUNDED: FiRotateCcw,
+  WALLET_PAYMENT: FiCreditCard,
+  WALLET_REFUND: FiRotateCcw,
+  WALLET_RECHARGE: FiDollarSign,
+  WALLET_CASHBACK: FiDollarSign,
+  WALLET_CREDIT: FiDollarSign,
+  WALLET_DEBIT: FiCreditCard,
+  WALLET_PENDING: FiClock,
+  WALLET_FAILED: FiAlertCircle,
+  SOS_PAYMENT: FiAlertCircle,
+  GARAGE_ACCEPTED: FiMapPin,
+  SERVICE_STARTED: FiTool,
+  READY_FOR_DELIVERY: FiTruck,
+  BOOKING_COMPLETED: FiCheckCircle,
+  LOCATION: FiMapPin,
+  PROFILE: FiUser,
+  SOS: FiAlertCircle,
 };
+
+const formatActivityTime = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Recently";
+
+  return date.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
+
 
 function Dashboard() {
   const {
@@ -75,6 +115,9 @@ function Dashboard() {
     activeStatuses.includes(booking.status)
   );
   const activeBooking = activeBookings[0];
+  const activeTimeline = activeBooking
+    ? getBookingTimelineState(activeBooking)
+    : null;
 
   const syncVehicleState = (list = []) => {
     const safeList = Array.isArray(list) ? list : [];
@@ -92,14 +135,16 @@ function Dashboard() {
         setLoading(true);
       }
 
-      const [dashboard, vehicleList, pendingBookings] = await Promise.all([
-        fetchDashboard({ force }),
-        fetchVehicles ? fetchVehicles({ force }) : Promise.resolve([]),
-        api
-          .get("/bookings/pending-payment")
-          .then((response) => response.data?.data || [])
-          .catch(() => []),
-      ]);
+      const [dashboard, vehicleList, pendingBookings, activities] =
+        await Promise.all([
+          fetchDashboard({ force }),
+          fetchVehicles ? fetchVehicles({ force }) : Promise.resolve([]),
+          api
+            .get("/bookings/pending-payment")
+            .then((response) => response.data?.data || [])
+            .catch(() => []),
+          fetchRecentActivities(),
+        ]);
 
       setBookings(dashboard?.activeBookings || []);
       setPendingBookingsCount(pendingBookings.length || 0);
@@ -110,6 +155,7 @@ function Dashboard() {
       );
       setWallet(dashboard?.wallet || null);
       setCompletedCount(dashboard?.completedBookingsCount || 0);
+      setRecentActivities(Array.isArray(activities) ? activities : []);
 
       syncVehicleState(vehicleList || []);
     } catch (error) {
@@ -127,13 +173,6 @@ function Dashboard() {
     const refreshActivities = () => {
       setRecentActivities(getRecentActivities());
     };
-
-    const refreshActivitiesFromDb = async () => {
-      const activities = await fetchRecentActivities();
-      setRecentActivities(activities);
-    };
-
-    refreshActivitiesFromDb();
 
     window.addEventListener("rov:activity", refreshActivities);
     window.addEventListener("rov:activity-sync", refreshActivities);
@@ -206,25 +245,65 @@ function Dashboard() {
     },
   ];
 
-  const fallbackActions = [
-    hasVehicles
-      ? [
-          "Book Service",
-          "Choose services and request nearby garages",
-          "/booking/vehicle",
-        ]
-      : [
-          "Add Vehicle",
-          "Save your first vehicle to start booking",
-          "/booking/vehicle",
-        ],
-    ["SOS", "Emergency roadside request", "/sos"],
-    [
-      "My Vehicles",
-      hasVehicles ? "Manage your saved vehicles" : "Add and manage vehicles",
-      "/dashboard/vehicles",
-    ],
-  ];
+  const quickActions = (() => {
+    const actions = [];
+
+    if (activeBooking) {
+      actions.push({
+        name: "Track Active Service",
+        description: `${activeTimeline?.step?.label || "View current progress"} for ${activeBooking.bookingCode || "your booking"}`,
+        to: `/tracking?bookingId=${activeBooking.id}`,
+        icon: FiMapPin,
+      });
+    }
+
+    if (pendingBookingsCount > 0) {
+      actions.push({
+        name: "Pay Pending Booking",
+        description: `${pendingBookingsCount} booking${pendingBookingsCount === 1 ? " is" : "s are"} waiting for payment`,
+        to: "/dashboard/pending-bookings",
+        icon: FiCreditCard,
+      });
+    }
+
+    actions.push(
+      hasVehicles
+        ? {
+            name: "Book Service",
+            description: "Choose services and request nearby garages",
+            to: "/booking/vehicle",
+            icon: FiPlusCircle,
+          }
+        : {
+            name: "Add Vehicle",
+            description: "Save your first vehicle to start booking",
+            to: "/booking/vehicle",
+            icon: FiPlusCircle,
+          },
+      {
+        name: "SOS Assistance",
+        description: "Start an emergency roadside request",
+        to: "/sos",
+        icon: FiAlertCircle,
+      },
+      {
+        name: "My Vehicles",
+        description: hasVehicles
+          ? "Manage your saved vehicles"
+          : "Add and manage vehicles",
+        to: "/dashboard/vehicles",
+        icon: FiTruck,
+      },
+      {
+        name: "Service History",
+        description: "View completed services and warranty records",
+        to: "/dashboard/history",
+        icon: FiList,
+      },
+    );
+
+    return actions.slice(0, 6);
+  })();
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-4 sm:space-y-6">
@@ -406,16 +485,48 @@ function Dashboard() {
                 </div>
 
                 <div className="mt-6">
-                  <div className="mb-2 flex justify-between text-xs text-muted">
-                    <span>Progress</span>
-                    <span>{getProgress(activeBooking.status)}</span>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div>
+                      <span className="text-muted">Current stage</span>
+                      <p className="mt-0.5 text-sm font-bold text-ink">
+                        {activeTimeline.step.label}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-brand/15 px-2.5 py-1 font-bold text-brand-dark">
+                      {activeTimeline.percent}%
+                    </span>
                   </div>
 
                   <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                     <div
                       className="h-full rounded-full bg-brand transition-all duration-500 ease-in-out"
-                      style={{ width: getProgress(activeBooking.status) }}
+                      style={{ width: `${activeTimeline.percent}%` }}
                     />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-6 gap-1" aria-label="Booking progress timeline">
+                    {BOOKING_TIMELINE_STEPS.map((step, index) => {
+                      const reached = index <= activeTimeline.currentIndex;
+                      const current = index === activeTimeline.currentIndex;
+
+                      return (
+                        <div key={step.key} className="min-w-0 text-center">
+                          <div
+                            className={`mx-auto h-2.5 w-2.5 rounded-full ${
+                              reached ? "bg-brand" : "bg-slate-200"
+                            } ${current ? "ring-4 ring-brand/20" : ""}`}
+                          />
+                          <p
+                            className={`mt-2 hidden truncate text-[10px] font-semibold sm:block ${
+                              reached ? "text-ink" : "text-muted"
+                            }`}
+                            title={step.label}
+                          >
+                            {step.shortLabel}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -446,51 +557,91 @@ function Dashboard() {
               </p>
             </div>
 
-            <div>
-              <ul className="space-y-2">
-                {recentActivities.length > 0
-                  ? recentActivities.slice(0, 5).map((activity) => (
-                      <li key={activity.id}>
-                        <Link
-                          to={activity.path || "/dashboard"}
-                          className="group flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50"
-                        >
-                          <FiCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted transition-colors group-hover:text-brand-dark" />
+            <div className="space-y-5">
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h4 className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+                    Recent Activity
+                  </h4>
+                  <Link
+                    to="/dashboard/notifications"
+                    className="text-xs font-semibold text-brand-dark hover:underline"
+                  >
+                    Notifications
+                  </Link>
+                </div>
 
-                          <div className="min-w-0">
-                            <p className="line-clamp-2 text-sm font-semibold text-ink">
-                              {activity.title}
+                {recentActivities.length > 0 ? (
+                  <ul className="space-y-1">
+                    {recentActivities.slice(0, 6).map((activity) => {
+                      const ActivityIcon =
+                        ACTIVITY_ICON_MAP[activity.type] || FiBell;
+
+                      return (
+                        <li key={activity.id}>
+                          <Link
+                            to={activity.path || "/dashboard"}
+                            className="group flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50"
+                          >
+                            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-muted transition-colors group-hover:bg-brand/15 group-hover:text-brand-dark">
+                              <ActivityIcon className="h-4 w-4" />
+                            </span>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="line-clamp-2 text-sm font-semibold text-ink">
+                                {activity.title}
+                              </p>
+                              <p className="line-clamp-2 text-xs leading-5 text-muted">
+                                {activity.detail || "System update"}
+                              </p>
+                              <p className="mt-0.5 text-[10px] text-muted">
+                                {formatActivityTime(activity.createdAt)}
+                              </p>
+                            </div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-line bg-slate-50 p-3 text-xs leading-5 text-muted">
+                    Booking, payment, cancellation, refund and service updates will appear here.
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-line pt-4">
+                <h4 className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-muted">
+                  Shortcuts
+                </h4>
+                <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                  {quickActions.map((action) => {
+                    const ActionIcon = action.icon;
+
+                    return (
+                      <li key={`${action.name}-${action.to}`}>
+                        <Link
+                          to={action.to}
+                          className="group flex h-full items-start gap-3 rounded-xl border border-transparent p-2.5 transition hover:border-brand/20 hover:bg-brand/5"
+                        >
+                          <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand/10 text-brand-dark">
+                            <ActionIcon className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-ink">
+                              {action.name}
                             </p>
-                            <p className="line-clamp-2 text-xs leading-5 text-muted">
-                              {activity.detail || "System Update"}
-                            </p>
-                            <p className="mt-0.5 text-[10px] text-muted">
-                              {new Date(
-                                activity.createdAt
-                              ).toLocaleDateString()}
+                            <p className="text-xs leading-5 text-muted">
+                              {action.description}
                             </p>
                           </div>
+                          <FiArrowRight className="mt-2 h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-brand-dark" />
                         </Link>
                       </li>
-                    ))
-                  : fallbackActions.map(([name, desc, to]) => (
-                      <li key={name}>
-                        <Link
-                          to={to}
-                          className="group flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50"
-                        >
-                          <FiArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-muted transition-colors group-hover:text-brand-dark" />
-
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-ink">
-                              {name}
-                            </p>
-                            <p className="text-xs text-muted">{desc}</p>
-                          </div>
-                        </Link>
-                      </li>
-                    ))}
-              </ul>
+                    );
+                  })}
+                </ul>
+              </div>
             </div>
           </div>
         </div>

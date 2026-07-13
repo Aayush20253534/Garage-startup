@@ -171,6 +171,7 @@ model CustomerActivity {
   detail    String?
   path      String?
   metadata  Json?
+  eventKey  String?  @unique
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

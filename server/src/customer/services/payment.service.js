@@ -20,6 +20,7 @@ const {
   getCashfreePayableAmount,
 } = require("../security/cashfreeVerification");
 const { buildOwnedResourceWhere } = require("../security/ownership");
+const activityService = require("./activity.service");
 const {
   getCashfreeOrderIdFromWebhook,
   verifyCashfreeWebhookSignature,
@@ -426,6 +427,24 @@ const failCreatedPaymentAndReleaseWallet = async ({
   });
 
   if (result?.booking?.userId) {
+    await activityService.createActivitySafely(
+      result.booking.userId,
+      {
+        type: "PAYMENT_FAILED",
+        title: "Booking payment failed",
+        detail: `The booking-fee payment for ${result.booking.bookingCode || result.booking.id} did not complete. You can retry securely.`,
+        path: "/dashboard/pending-bookings",
+        metadata: {
+          bookingId: result.booking.id,
+          bookingCode: result.booking.bookingCode,
+          paymentId: result.payment.id,
+          cashfreeOrderId: result.payment.cashfreeOrderId,
+          amount: result.payment.amount,
+        },
+      },
+      { eventKey: `booking:${result.booking.id}:payment:failed` },
+    );
+
     await invalidatePaymentBookingCaches(result.booking.userId);
   }
 
@@ -829,6 +848,25 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
     };
   });
 
+  if (result.completedNow && result.booking) {
+    await activityService.createActivitySafely(
+      result.booking.userId,
+      {
+        type: "PAYMENT_PAID",
+        title: "Booking fee paid",
+        detail: `₹${result.payment.amount} was paid for booking ${result.booking.bookingCode || result.booking.id}. Garage matching started.`,
+        path: "/dashboard/payments",
+        metadata: {
+          bookingId: result.booking.id,
+          bookingCode: result.booking.bookingCode,
+          paymentId: result.payment.id,
+          amount: result.payment.amount,
+        },
+      },
+      { eventKey: `booking:${result.booking.id}:payment:paid` },
+    );
+  }
+
   let broadcastRequests = [];
 
   if (
@@ -1086,6 +1124,26 @@ const completeWalletOnlyBookingPayment = async (
 
     return { payment, booking: updatedBooking, completedNow: true };
   });
+
+  if (result.completedNow && result.booking) {
+    await activityService.createActivitySafely(
+      userId,
+      {
+        type: "PAYMENT_PAID",
+        title: "Booking fee paid",
+        detail: `₹${result.payment.amount} was paid from your wallet for booking ${result.booking.bookingCode || result.booking.id}. Garage matching started.`,
+        path: "/dashboard/payments",
+        metadata: {
+          bookingId: result.booking.id,
+          bookingCode: result.booking.bookingCode,
+          paymentId: result.payment.id,
+          amount: result.payment.amount,
+          walletAmountUsed,
+        },
+      },
+      { eventKey: `booking:${result.booking.id}:payment:paid` },
+    );
+  }
 
   let broadcastRequests = [];
 

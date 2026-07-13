@@ -561,16 +561,6 @@ export default function Checkout() {
 
       const paidBooking = await payForBooking({ booking, useWallet });
 
-      addRecentActivity({
-        type: "BOOKING",
-        title: "Paid booking fee",
-        detail:
-          paidBooking?.bookingCode ||
-          booking.bookingCode ||
-          cart.map((item) => item.name).join(", "),
-        path: "/dashboard/bookings",
-      });
-
       clearCart();
       clearBookingCaches?.();
       setPendingBooking(null);

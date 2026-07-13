@@ -22,6 +22,7 @@ const {
   sendGarageCustomerLocationWhatsapp,
 } = require("./garageWhatsapp.service");
 const bookingLifecycleService = require("./bookingLifecycle.service");
+const activityService = require("../customer/services/activity.service");
 
 const SOS_CHARGE = 50;
 const DEFAULT_GARAGE_SEARCH_BATCH_SIZE = 5;
@@ -851,6 +852,23 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
 
     return { request: acceptedRequest, handoverOtp };
   });
+
+  await activityService.createActivitySafely(
+    result.request.booking.userId,
+    {
+      type: "GARAGE_ACCEPTED",
+      title: "Garage accepted booking",
+      detail: `${result.request.garage.name} accepted booking ${result.request.booking.bookingCode || result.request.booking.id}.`,
+      path: `/tracking?bookingId=${result.request.booking.id}`,
+      metadata: {
+        bookingId: result.request.booking.id,
+        bookingCode: result.request.booking.bookingCode,
+        garageId,
+        garageName: result.request.garage.name,
+      },
+    },
+    { eventKey: `booking:${result.request.booking.id}:garage-accepted` },
+  );
 
   const distanceKm = getRequestDistanceKm(result.request);
   const etaMinutes = estimateArrivalMinutes(distanceKm);
