@@ -34,6 +34,10 @@ test("customer booking confirmation uses an approved WhatsApp template", () => {
   assert.match(source, /garagePhone/);
   assert.match(source, /garageAddress/);
   assert.match(source, /mapsLink/);
+  assert.match(source, /mapButtonParameter/);
+  assert.match(source, /buttons:\s*\[/);
+  assert.match(source, /subType:\s*"url"/);
+  assert.match(source, /parameters:\s*\[mapButtonParameter\]/);
   assert.doesNotMatch(source, /return sendWhatsappMessage\s*\(/);
 });
 

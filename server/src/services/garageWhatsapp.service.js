@@ -131,6 +131,30 @@ const getCustomerMapsLink = (booking = {}) => {
   return "Location map not available";
 };
 
+const getGarageMapButtonParameter = (garage = {}) => {
+  const hasLatitude =
+    garage.latitude !== null &&
+    garage.latitude !== undefined &&
+    String(garage.latitude).trim() !== "";
+  const hasLongitude =
+    garage.longitude !== null &&
+    garage.longitude !== undefined &&
+    String(garage.longitude).trim() !== "";
+  const latitude = Number(garage.latitude);
+  const longitude = Number(garage.longitude);
+
+  if (
+    hasLatitude &&
+    hasLongitude &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude)
+  ) {
+    return encodeURIComponent(`${latitude},${longitude}`);
+  }
+
+  return encodeURIComponent(String(garage.address || "India").trim() || "India");
+};
+
 const sendWhatsappMessage = async ({ to, message, context = {} }) => {
   const phone = normalizeWhatsappNumber(to);
   const messagePreview = String(message || "").slice(0, 140);
@@ -512,6 +536,7 @@ const sendCustomerGarageDetailsWhatsapp = async ({
       : "Location not available");
   const garagePhone = garage.phone || garage.whatsappNo || "Not available";
   const garageAddress = garage.address || "Address not available";
+  const mapButtonParameter = getGarageMapButtonParameter(garage);
   const message = [
     `Rovauto booking ${booking.bookingCode} confirmed.`,
     `Garage: ${garage.name}`,
@@ -531,6 +556,16 @@ const sendCustomerGarageDetailsWhatsapp = async ({
       garagePhone,
       garageAddress,
       mapsLink,
+    ],
+    buttons: [
+      {
+        subType: "url",
+        index: 0,
+        // The approved customer template must use this fixed URL prefix:
+        // https://maps.google.com/?q={{1}}
+        // Meta expects only the dynamic location suffix at send time.
+        parameters: [mapButtonParameter],
+      },
     ],
     fallbackMessage: message,
     context: {
