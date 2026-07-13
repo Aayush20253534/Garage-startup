@@ -33,6 +33,20 @@ test("OTP records are unique per identity and purpose", () => {
   assert.match(schema, /model PhoneOtp[\s\S]*@@unique\(\[phone\]\)/);
 });
 
+test("garage email OTPs remain valid for two hours without changing customer OTPs", () => {
+  assert.match(otpService, /OTP_EXPIRY_MS = 5 \* 60 \* 1000/);
+  assert.match(otpService, /GARAGE_EMAIL_OTP_EXPIRY_MS = 120 \* 60 \* 1000/);
+  assert.match(
+    otpService,
+    /createGarageResetPasswordOtp[\s\S]*expiryMs: GARAGE_EMAIL_OTP_EXPIRY_MS/,
+  );
+  assert.match(
+    otpService,
+    /createDeleteAccountOtp[\s\S]*GARAGE_EMAIL_OTP_EXPIRY_MS/,
+  );
+  assert.match(otpService, /120 minutes \(2 hours\)/);
+});
+
 test("authentication OTP success paths use compare-and-set consumption", () => {
   assert.ok(count(otpVerificationSource, /updateMany\(/g) >= 3);
   assert.match(otpVerificationSource, /usedAt: null/);

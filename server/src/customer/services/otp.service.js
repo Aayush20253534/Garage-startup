@@ -15,6 +15,9 @@ const {
 } = require("../security/otpVerification");
 
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
+const GARAGE_EMAIL_OTP_EXPIRY_MS = 120 * 60 * 1000;
+const DEFAULT_OTP_EXPIRY_TEXT = "5 minutes";
+const GARAGE_EMAIL_OTP_EXPIRY_TEXT = "120 minutes (2 hours)";
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 
 let resendClient = null;
@@ -66,7 +69,11 @@ const assertOtpCooldown = (latestOtp) => {
   }
 };
 
-const buildOtpEmail = ({ otp, subject }) => {
+const buildOtpEmail = ({
+  otp,
+  subject,
+  expiryText = DEFAULT_OTP_EXPIRY_TEXT,
+}) => {
   const html = `
     <!doctype html>
     <html>
@@ -130,7 +137,7 @@ const buildOtpEmail = ({ otp, subject }) => {
                 line-height: 1.6;
               "
             >
-              This OTP expires in 5 minutes. Do not share it with anyone.
+              This OTP expires in ${expiryText}. Do not share it with anyone.
             </p>
 
             <p
@@ -154,7 +161,7 @@ const buildOtpEmail = ({ otp, subject }) => {
     "",
     `Your Rovauto OTP is: ${otp}`,
     "",
-    "This OTP expires in 5 minutes.",
+    `This OTP expires in ${expiryText}.`,
     "Do not share this OTP with anyone.",
   ].join("\n");
 
@@ -168,6 +175,7 @@ const sendEmailOtp = async ({
   to,
   otp,
   subject = "Verify your Rovauto account",
+  expiryText = DEFAULT_OTP_EXPIRY_TEXT,
 }) => {
   const cleanEmail = normalizeEmail(to);
   const deliveryMode = String(
@@ -212,6 +220,7 @@ const sendEmailOtp = async ({
   const { html, text } = buildOtpEmail({
     otp,
     subject,
+    expiryText,
   });
 
   try {
@@ -458,7 +467,15 @@ const verifyPhoneOtp = async ({ phone, otp }) => {
 const verifySignupOtp = async ({ email, otp }) =>
   verifyEmailOtp({ email, otp });
 
-const createResetPasswordOtp = async (userId, email) => {
+const createResetPasswordOtp = async (
+  userId,
+  email,
+  {
+    expiryMs = OTP_EXPIRY_MS,
+    expiryText = DEFAULT_OTP_EXPIRY_TEXT,
+    subject = "Rovauto password reset OTP",
+  } = {},
+) => {
   const otp = generateOtp();
   const cleanEmail = normalizeEmail(email);
 
@@ -469,7 +486,7 @@ const createResetPasswordOtp = async (userId, email) => {
     },
     update: {
       otpHash: hashOtp(otp),
-      expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
+      expiresAt: new Date(now.getTime() + expiryMs),
       usedAt: null,
       attempts: 0,
       createdAt: now,
@@ -478,7 +495,7 @@ const createResetPasswordOtp = async (userId, email) => {
       userId,
       otpHash: hashOtp(otp),
       purpose: "RESET_PASSWORD",
-      expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
+      expiresAt: new Date(now.getTime() + expiryMs),
     },
   });
 
@@ -486,7 +503,8 @@ const createResetPasswordOtp = async (userId, email) => {
     await sendEmailOtp({
       to: cleanEmail,
       otp,
-      subject: "Rovauto password reset OTP",
+      subject,
+      expiryText,
     });
   } catch (error) {
     await prisma.otp
@@ -509,6 +527,13 @@ const createResetPasswordOtp = async (userId, email) => {
   return otp;
 };
 
+const createGarageResetPasswordOtp = async (userId, email) =>
+  createResetPasswordOtp(userId, email, {
+    expiryMs: GARAGE_EMAIL_OTP_EXPIRY_MS,
+    expiryText: GARAGE_EMAIL_OTP_EXPIRY_TEXT,
+    subject: "Rovauto garage password reset OTP",
+  });
+
 const createDeleteAccountOtp = async (userId, email) => {
   const otp = generateOtp();
   const cleanEmail = normalizeEmail(email);
@@ -520,7 +545,7 @@ const createDeleteAccountOtp = async (userId, email) => {
     },
     update: {
       otpHash: hashOtp(otp),
-      expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
+      expiresAt: new Date(now.getTime() + GARAGE_EMAIL_OTP_EXPIRY_MS),
       usedAt: null,
       attempts: 0,
       createdAt: now,
@@ -529,7 +554,7 @@ const createDeleteAccountOtp = async (userId, email) => {
       userId,
       otpHash: hashOtp(otp),
       purpose: "DELETE_ACCOUNT",
-      expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
+      expiresAt: new Date(now.getTime() + GARAGE_EMAIL_OTP_EXPIRY_MS),
     },
   });
 
@@ -538,6 +563,7 @@ const createDeleteAccountOtp = async (userId, email) => {
       to: cleanEmail,
       otp,
       subject: "Confirm Rovauto garage account deletion",
+      expiryText: GARAGE_EMAIL_OTP_EXPIRY_TEXT,
     });
   } catch (error) {
     await prisma.otp
@@ -569,12 +595,14 @@ const verifyDeleteAccountOtp = async (userId, otp) => {
 
 module.exports = {
   OTP_MAX_ATTEMPTS,
+  GARAGE_EMAIL_OTP_EXPIRY_MS,
   createSignupOtp,
   createPhoneOtp,
   verifyEmailOtp,
   verifyPhoneOtp,
   verifySignupOtp,
   createResetPasswordOtp,
+  createGarageResetPasswordOtp,
   createDeleteAccountOtp,
   verifyDeleteAccountOtp,
   consumeUserOtp,

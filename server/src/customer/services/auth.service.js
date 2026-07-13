@@ -10,6 +10,7 @@ const {
   verifyPhoneOtp,
   verifySignupOtp,
   createResetPasswordOtp,
+  createGarageResetPasswordOtp,
   consumeUserOtp,
   throwOtpResult,
 } = require("./otp.service");
@@ -746,7 +747,11 @@ const forgotPassword = async ({
     };
   }
 
-  await createResetPasswordOtp(user.id, user.email);
+  if (userRole === "GARAGE_OWNER") {
+    await createGarageResetPasswordOtp(user.id, user.email);
+  } else {
+    await createResetPasswordOtp(user.id, user.email);
+  }
 
   return {
     email: cleanEmail,

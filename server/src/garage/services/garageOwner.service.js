@@ -10,6 +10,7 @@ const invalidatePublicCache = require("../../utils/invalidatePublicCache");
 const {
   createDeleteAccountOtp,
   verifyDeleteAccountOtp,
+  GARAGE_EMAIL_OTP_EXPIRY_MS,
 } = require("../../customer/services/otp.service");
 
 const getGarageForOwner = async (userId, options = {}) => {
@@ -317,7 +318,7 @@ const requestGarageAccountDeletionOtp = async (userId) => {
   return {
     sent: true,
     maskedEmail: maskEmail(user.email),
-    expiresInSeconds: 300,
+    expiresInSeconds: Math.floor(GARAGE_EMAIL_OTP_EXPIRY_MS / 1000),
   };
 };
 

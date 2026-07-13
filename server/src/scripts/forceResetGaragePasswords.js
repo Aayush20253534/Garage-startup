@@ -63,11 +63,11 @@ const run = async () => {
 
   for (const owner of owners) {
     try {
-      // createResetPasswordOtp will generate an OTP, store its hash, and send it via configured delivery.
+      // createGarageResetPasswordOtp generates a two-hour OTP, stores its hash, and sends it.
       // IMPORTANT: This script will NOT print OTPs itself. If your environment is configured to preview email OTPs
       // (EMAIL_OTP_DELIVERY !== 'email'), the OTP may appear in server logs from the email preview. That is expected
       // for development environments but is insecure for production.
-      await otpService.createResetPasswordOtp(owner.id, owner.email);
+      await otpService.createGarageResetPasswordOtp(owner.id, owner.email);
       console.log(`Sent reset OTP to ${owner.email} (userId=${owner.id})`);
       success++;
     } catch (err) {
