@@ -48,6 +48,8 @@ const GARAGE_ACCEPTED_DETAILS_TEMPLATE =
 const CUSTOMER_BOOKING_CONFIRMED_TEMPLATE =
   process.env.WHATSAPP_CUSTOMER_BOOKING_CONFIRMED_TEMPLATE ||
   "customer_booking_confirmed";
+const CUSTOMER_BOOKING_CONFIRMED_LANGUAGE =
+  process.env.WHATSAPP_CUSTOMER_BOOKING_CONFIRMED_LANGUAGE || "en";
 
 const shouldUseTemplates = () => {
   const value = String(process.env.WHATSAPP_USE_TEMPLATES || "true").toLowerCase();
@@ -533,7 +535,10 @@ const sendCustomerGarageDetailsWhatsapp = async ({
   return sendWhatsappTemplateMessage({
     to: customer.phone,
     templateName: CUSTOMER_BOOKING_CONFIRMED_TEMPLATE,
-    languageCode: DEFAULT_TEMPLATE_LANGUAGE,
+    // This customer template is approved as plain "English" in Meta, whose
+    // API language code is `en`. Garage templates continue using the shared
+    // WHATSAPP_TEMPLATE_LANGUAGE value (for example `en_IN`).
+    languageCode: CUSTOMER_BOOKING_CONFIRMED_LANGUAGE,
     parameters: [
       booking.bookingCode || booking.id,
       garage.name || "Assigned garage",

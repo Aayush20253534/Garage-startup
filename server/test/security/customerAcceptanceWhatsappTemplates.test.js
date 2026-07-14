@@ -34,6 +34,7 @@ test("customer garage details use the single approved customer WhatsApp template
 
   assert.match(source, /sendWhatsappTemplateMessage\s*\(/);
   assert.match(source, /CUSTOMER_BOOKING_CONFIRMED_TEMPLATE/);
+  assert.match(source, /languageCode:\s*CUSTOMER_BOOKING_CONFIRMED_LANGUAGE/);
   assert.match(source, /booking\.bookingCode \|\| booking\.id/);
   assert.match(source, /garage\.name \|\| "Assigned garage"/);
   assert.match(source, /garagePhone/);
@@ -45,6 +46,29 @@ test("customer garage details use the single approved customer WhatsApp template
   assert.match(source, /parameters:\s*\[mapButtonParameter\]/);
   assert.match(source, /registered email address/);
   assert.doesNotMatch(source, /return sendWhatsappMessage\s*\(/);
+});
+
+test("customer booking confirmation uses its own plain-English language code", () => {
+  assert.match(
+    whatsappServiceSource,
+    /WHATSAPP_CUSTOMER_BOOKING_CONFIRMED_LANGUAGE\s*\|\|\s*"en"/,
+  );
+  assert.match(
+    envExampleSource,
+    /^WHATSAPP_CUSTOMER_BOOKING_CONFIRMED_LANGUAGE=en$/m,
+  );
+
+  const garageRequest = extractFunction(
+    "sendGarageBookingRequestWhatsapp",
+    "sendGarageCustomerLocationWhatsapp",
+  );
+  const garageAccepted = extractFunction(
+    "sendGarageCustomerLocationWhatsapp",
+    "sendCustomerGarageDetailsWhatsapp",
+  );
+
+  assert.match(garageRequest, /languageCode:\s*DEFAULT_TEMPLATE_LANGUAGE/);
+  assert.match(garageAccepted, /languageCode:\s*DEFAULT_TEMPLATE_LANGUAGE/);
 });
 
 test("handover OTP is email-only and no customer OTP WhatsApp template remains", () => {
