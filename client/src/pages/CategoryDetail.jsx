@@ -397,7 +397,7 @@ export default function CategoryDetail() {
                       </li>
 
                       <li className="flex items-start gap-2 text-base">
-                        <span className="font-bold text-ink">Services :</span>
+                        <span className="font-bold text-ink">Coverage :</span>
                         <span className="text-muted">
                           {includes.length} included
                         </span>
