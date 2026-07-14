@@ -397,7 +397,7 @@ export default function CategoryDetail() {
                       </li>
 
                       <li className="flex items-start gap-2 text-base">
-                        <span className="font-bold text-ink">Services:</span>
+                        <span className="font-bold text-ink">Services :</span>
                         <span className="text-muted">
                           {includes.length} included
                         </span>
@@ -524,7 +524,7 @@ export default function CategoryDetail() {
                 </div>
 
                 <div>
-                  <span className="text-sm text-muted">Services Included</span>
+                  <span className="text-sm text-muted">Services Coverage</span>
                   <div className="font-semibold">
                     {getIncludes(selectedPackage).length}
                   </div>
@@ -544,7 +544,7 @@ export default function CategoryDetail() {
               </div>
 
               <div className="mb-5">
-                <h3 className="mb-3 text-lg font-bold">Included Services</h3>
+                <h3 className="mb-3 text-lg font-bold">Services Coverage</h3>
 
                 <ul className="grid gap-2">
                   {getIncludes(selectedPackage).map((item, index) => (
