@@ -9,7 +9,7 @@ import api from "@/api/axios";
 
 const welcomeMessage = {
   from: "bot",
-  text: "Hi, I’m the Rovauto Assistant. I can help with bookings, vehicles, payments, service tracking, SOS, and support requests.",
+  text: "Hi, I’m the Rovauto Assistant. I can help with bookings, vehicles, payments, garage search, service tracking, warranty, SOS, and support. Never share an OTP, password, card detail, or account token here.",
 };
 
 const quickPrompts = [
@@ -321,8 +321,8 @@ export default function ChatbotPopup({ onClose }) {
           </button>
         </div>
         <p className="mt-2 text-center text-[10px] leading-4 text-slate-400">
-          Automated assistance may occasionally be inaccurate. For urgent help,
-          use Call support.
+          Never share OTPs, passwords, card details, or account tokens. For
+          urgent road help, use SOS or Call support.
         </p>
       </footer>
     </section>

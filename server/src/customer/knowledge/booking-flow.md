@@ -1,35 +1,52 @@
-# Rovauto Customer Booking Flow
+# Booking A Vehicle Service
 
-Rovauto is an India-focused vehicle service platform that helps customers book trusted garage services from the user side of the website.
+Rovauto helps customers book vehicle services from verified garages in supported Indian cities. The assistant should explain what customers can do in the app, but it must not promise that a particular garage will accept, quote a final repair price, or claim that help has been dispatched before the app confirms it.
 
 ## Before Booking
 
-Customers should log in or register as a customer, not as a garage owner. Customer and garage owner accounts are separate even when the same email address is used. A customer needs a saved location and a vehicle before completing a booking.
+Sign in with a customer account and add at least one vehicle. Select the services you need and review the available price range for your city and vehicle. A vehicle can have only one active booking at a time, so complete or cancel the current booking before creating another booking for the same vehicle.
 
-## Location
+## Which Location Is Used
 
-The app requires a serviceable Indian city. Cities are managed by the admin panel. If a customer selects or detects a city where Rovauto is not available, the app shows: "Rovauto isn't available in your area yet."
+At checkout, Rovauto first tries to use the customer's current browser GPS location when location permission is available and the detected city is serviceable. If live location is unavailable, denied, times out, cannot be resolved, or is outside the supported area, the booking uses the customer's saved default location.
 
-When a customer uses current location, browser GPS coordinates are saved directly. The address boxes are filled from reverse location details where possible. Save and continue should not geocode again because coordinates already came from GPS.
+Using live GPS for checkout does not silently replace the saved default address. Customers can manage saved locations separately from their profile or location screens.
 
-When a customer types an address manually, the app geocodes the typed Indian address on save and stores latitude and longitude in the database.
+## Vehicle And Service Selection
 
-## Vehicle Selection
+Choose a saved vehicle, then select one or more active services. Some services may be unavailable or marked coming soon in a particular city. Prices shown before booking are estimated ranges based on the configured city, service, and vehicle details. The garage confirms the final service amount after inspecting and completing the work.
 
-Customers can add a vehicle by choosing brand, model, year, fuel type, and optional registration number. One vehicle can be set as default. Vehicle selection is compulsory for booking services.
+## Checkout And Platform Fee
 
-## Service Selection
+The amount paid online at checkout is the Rovauto platform fee, not the final garage service bill. Customers may apply available Rovauto wallet balance first. If wallet balance does not cover the full platform fee, the remaining amount is paid through Cashfree. If the wallet covers the full amount, no external payment page is needed.
 
-Customers choose services from the Services page or service category pages. Services can include normal vehicle maintenance and roadside assistance. Prices shown are estimates or ranges when configured by city, service, vehicle brand, model, or fuel type.
+The final service amount is paid directly to the garage after the work is completed and the customer reviews the delivery details.
 
-## Garage Selection
+## Progressive Garage Search
 
-After service and location selection, the app finds nearby active garages that serve the selected service. Garage selection depends on saved customer coordinates and garage coordinates.
+After the platform fee is confirmed, the booking enters garage search:
 
-## Checkout And Payment
+1. Rovauto searches for eligible verified garages within 5 km.
+2. If nobody accepts, the search expands to 10 km.
+3. If nobody accepts, the search expands to 20 km.
+4. If the 20 km round also ends without acceptance, Rovauto shows a clear retry message and automatically starts a new cycle from 5 km.
 
-Customers review vehicle, services, location, price range, handling fee, and payable amount before payment. Cashfree is used for payment. Bookings may begin as pending payment and then move to searching garage or assigned status after payment and garage acceptance.
+Each radius round normally lasts about two minutes. Garages already contacted in the same 5 km, 10 km, and 20 km cycle are not repeatedly notified in every round. A restarted cycle does not require another platform-fee payment or any action from the customer.
 
-## Tracking
+Garage eligibility depends on current availability, supported services, vehicle support, verification status, and service radius. The assistant must not guarantee that a garage will be found or accepted within a specific time.
 
-Customers can track active bookings from dashboard, active bookings, and booking tracking screens. A booking can show garage details, service details, payment details, OTP handover, progress, and delivery status.
+## After A Garage Accepts
+
+The customer receives the assigned garage details and a handover OTP. Keep the OTP private and share it only with the assigned garage when physically handing over the vehicle. The OTP can be regenerated from the booking tracker before service starts when the app allows it.
+
+The garage verifies the handover OTP and records pickup inspection photos before work begins. The booking then moves into service progress.
+
+## Tracking And Completion
+
+Customers can open the active booking tracker to see search radius, assigned garage information, booking progress, inspection images, notifications, and available live tracking. Live road distance and ETA may be shown when route information is available, but they are estimates and can change with traffic or provider availability.
+
+After the garage marks the vehicle delivered, the customer reviews the delivery information, enters or confirms the final service amount, and accepts delivery. The booking then appears in service history and its Rovauto warranty becomes available.
+
+## Cancelling A Booking
+
+A customer can cancel while the booking is pending payment, searching for a garage, assigned, or confirmed, as long as service has not started. When an eligible paid booking is cancelled, the paid platform-fee amount is credited to the customer's Rovauto wallet. Once the booking is in progress or completed, normal cancellation is not available; use support or a dispute ticket when help is needed.

@@ -1,25 +1,39 @@
-# Rovauto Services And Support
+# Services, Warranty And Customer Support
 
-## Services
+## Available Services
 
-Rovauto helps customers book vehicle care services from trusted garages. Service examples can include periodic service, repair, inspection, cleaning, emergency support, and other categories configured by the admin.
+Rovauto lists active vehicle-care services configured for supported cities. Categories may include periodic maintenance, repair, inspection, cleaning, roadside assistance, and other services shown in the app. A service may be unavailable or coming soon in a particular city. The app's current service listing is the source of truth.
+
+Displayed service prices are estimates or ranges. They are not a guaranteed final repair quotation. The final service amount depends on the completed work and is confirmed with the garage before customer delivery acceptance.
 
 ## Roadside Assistance And SOS
 
-For emergencies, customers should use Roadside Assistance or SOS from the app. The chatbot can guide the customer to the SOS or roadside assistance service, but it must not claim that emergency help has been dispatched unless the customer actually creates an SOS or booking request.
+For an urgent road problem, use the SOS or Roadside Assistance action inside Rovauto and provide the requested location and vehicle details. The assistant can explain how to open the feature, but it must not claim that assistance has been dispatched, that a garage is on the way, or that an ETA is confirmed unless the booking or SOS tracker shows it.
+
+SOS and normal bookings can move through garage matching and tracking. If nobody accepts immediately, follow the status shown in the app and use customer support when the issue remains urgent.
 
 ## Complaints
 
-Customers can raise complaints connected to a booking. Complaint details can include title, description, and images. The support or admin team can review and respond.
+Customers can raise a complaint connected to their own booking and include a title, description, and supporting images. Complaint status can move through open, review, resolved, and closed stages. Use complaints for documented service concerns that need investigation.
+
+Do not place passwords, OTPs, card details, private keys, or unrelated personal documents in complaint text or chatbot messages.
+
+## Support Tickets And Disputes
+
+Support tickets are suitable for booking, payment, garage, service, warranty, account, or technical help. Customers can view their tickets, read replies, add messages, and close a resolved ticket. For a disagreement about service or payment, choose the dispute option when available so the support team can review the booking record.
+
+The chatbot can guide the customer to the correct support area, but it cannot approve refunds, decide disputes, change booking records, or impersonate a support agent.
 
 ## Reviews
 
-After a completed booking, customers can review a garage with rating and comments. Reviews help other customers judge garage quality.
+After a completed booking, the customer can leave one rating and review for the garage and can manage their own review where the app permits it. Reviews should describe genuine service experience and must not contain private contact, payment, or credential information.
+
+Homepage garage ratings are calculated from the current ratings of available verified garages. If no eligible garages exist, the displayed aggregate rating is zero.
+
+## Rovauto Warranty
+
+A completed eligible service includes a 30-day Rovauto service warranty card shown in the customer dashboard or service history. Open the warranty page or create a support ticket for warranty help. Warranty eligibility and resolution depend on the completed booking record and the issue reported; the chatbot must not promise a refund or a specific outcome.
 
 ## Contact
 
-Customers can use the Contact page for general support messages. For urgent road issues, SOS or roadside assistance is better than a normal contact message.
-
-## What The Assistant Should Do
-
-The assistant should answer customer-side questions about booking services, locations, vehicles, payments, active bookings, service history, complaints, reviews, profile settings, notifications, and SOS. If a question is about becoming a garage owner, the assistant can explain that garage onboarding is separate and point the user to the garage registration or application flow.
+Use the Contact page for general questions. Use booking complaints or support tickets for issues tied to an account or booking. Use SOS or Roadside Assistance for urgent road situations rather than relying on a general contact message.
