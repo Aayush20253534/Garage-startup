@@ -35,6 +35,14 @@ import {
 
 
 const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
+const SEARCH_RADIUS_BY_ROUND = Object.freeze({ 1: 5, 2: 10, 3: 20 });
+
+const getSearchRound = (booking) =>
+  Math.min(3, Math.max(1, Number(booking?.garageSearchRound) || 1));
+
+const getSearchRadiusKm = (booking) =>
+  Number(booking?.searchRadiusKm) ||
+  SEARCH_RADIUS_BY_ROUND[getSearchRound(booking)];
 
 const getWhatsappUrl = (phone) => {
   let digits = String(phone || "").replace(/\D/g, "");
@@ -92,18 +100,38 @@ const getHeaderCopy = (booking, remainingSeconds) => {
   }
 
   if (booking.status === "SEARCHING_GARAGE") {
+    const round = getSearchRound(booking);
+    const radiusKm = getSearchRadiusKm(booking);
+    const cycle = Math.max(1, Number(booking.garageSearchCycle) || 1);
+
     if (remainingSeconds <= 0) {
+      if (round === 3) {
+        return {
+          title: "Restarting the Nearby Search",
+          description:
+            "No verified garage accepted within 20 km in this pass. We are restarting automatically from 5 km, and you will not be charged again.",
+        };
+      }
+
       return {
-        title: "Expanding Your Garage Search",
+        title: `Expanding Search to ${SEARCH_RADIUS_BY_ROUND[round + 1]} km`,
         description:
-          "The previous group did not respond in time, so we are automatically contacting the next nearest verified garages.",
+          "The current radius did not produce an acceptance, so Rovauto is moving to the next verified-garage radius automatically.",
+      };
+    }
+
+    if (cycle > 1 && round === 1) {
+      return {
+        title: "Nearby Search Restarted",
+        description:
+          "No garage accepted during the previous 5 km, 10 km, and 20 km pass. We have restarted from 5 km and will expand again automatically.",
       };
     }
 
     return {
-      title: "Finding the Right Garage",
+      title: `Searching Within ${radiusKm} km`,
       description:
-        "We are contacting verified garages near you. The first eligible partner to accept will be assigned automatically.",
+        "We are contacting every newly eligible verified garage in this radius. The first partner to accept will be assigned automatically.",
     };
   }
 
@@ -161,7 +189,13 @@ const getBookingId = (location) => {
   );
 };
 
-function SearchMap({ contactedCount, remainingSeconds, retrying }) {
+function SearchMap({
+  contactedCount,
+  remainingSeconds,
+  retrying,
+  radiusKm,
+  nextRadiusKm,
+}) {
   const reduceMotion = useReducedMotion();
   const garagePoints = [
     { left: "15%", top: "25%", delay: 0 },
@@ -171,7 +205,7 @@ function SearchMap({ contactedCount, remainingSeconds, retrying }) {
     { left: "52%", top: "14%", delay: 0.88 },
   ];
   const statusMessage = retrying
-    ? "Preparing the next nearest garage group"
+    ? `Preparing the ${nextRadiusKm} km search round`
     : contactedCount > 0
       ? `Waiting for ${contactedCount} ${contactedCount === 1 ? "garage" : "garages"} to respond`
       : "Contacting nearby verified garages";
@@ -327,7 +361,7 @@ function SearchMap({ contactedCount, remainingSeconds, retrying }) {
           </div>
           <div className="mt-2 flex items-center gap-2 font-bold">
             <span className="h-2 w-2 rounded-full bg-brand-dark" />
-            {retrying ? "Next round" : "Awaiting reply"}
+            {retrying ? `${nextRadiusKm} km next` : `${radiusKm} km radius`}
           </div>
           <p className="mt-1 text-xs text-muted">Automatic matching</p>
         </div>
@@ -571,6 +605,12 @@ function Tracking() {
 
   const { currentIndex: currentStep } = getBookingTimelineState(booking);
   const searching = booking.status === "SEARCHING_GARAGE";
+  const searchRound = getSearchRound(booking);
+  const searchRadiusKm = getSearchRadiusKm(booking);
+  const searchCycle = Math.max(1, Number(booking.garageSearchCycle) || 1);
+  const searchRestarted = searching && searchCycle > 1 && searchRound === 1;
+  const nextSearchRadiusKm =
+    searchRound === 3 ? 5 : SEARCH_RADIUS_BY_ROUND[searchRound + 1];
   const searchExpiry = booking.searchExpiresAt
     ? new Date(booking.searchExpiresAt).getTime()
     : 0;
@@ -617,7 +657,7 @@ function Tracking() {
               {searching && (
                 <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-muted shadow-sm">
                   <span className="h-2 w-2 rounded-full bg-brand-dark" />
-                  Matching in progress
+                  Matching in progress · {searchRadiusKm} km
                 </span>
               )}
               {refreshing && (
@@ -647,6 +687,14 @@ function Tracking() {
             </div>
           )}
 
+          {searchRestarted && (
+            <div className="mt-5 max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+              No verified garage accepted during the previous search up to 20 km.
+              Rovauto has restarted automatically from 5 km using the same paid
+              booking. No additional payment or action is required.
+            </div>
+          )}
+
           <div className="mt-7 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-7">
             <main className="min-w-0">
 
@@ -656,6 +704,8 @@ function Tracking() {
               contactedCount={currentRoundRequests.length}
               remainingSeconds={displayedRemainingSeconds}
               retrying={retrying}
+              radiusKm={searchRadiusKm}
+              nextRadiusKm={nextSearchRadiusKm}
             />
 
             {retrying && (
@@ -669,7 +719,9 @@ function Tracking() {
                       Expanding the search automatically
                     </div>
                     <div className="mt-1 leading-5 text-muted">
-                      The previous group did not respond in time, so we are notifying the next nearest verified garages. No action is needed from you.
+                      {searchRound === 3
+                        ? "No garage accepted within 20 km, so the search is restarting at 5 km. No action or extra payment is needed."
+                        : `No garage accepted in the ${searchRadiusKm} km round, so the search is expanding to ${nextSearchRadiusKm} km automatically.`}
                     </div>
                   </div>
                 </div>
@@ -875,8 +927,10 @@ function Tracking() {
               </h3>
               <p className="mt-1.5 text-sm leading-5 text-white/65">
                 {retrying
-                  ? "We are expanding the search to the next nearest verified partners."
-                  : "We will confirm your garage as soon as an eligible partner accepts."}
+                  ? searchRound === 3
+                    ? "The 20 km pass ended without an acceptance, so matching is restarting at 5 km."
+                    : `Matching is expanding from ${searchRadiusKm} km to ${nextSearchRadiusKm} km.`
+                  : `Every newly eligible verified garage within ${searchRadiusKm} km can receive this request.`}
               </p>
             </div>
 
@@ -885,7 +939,9 @@ function Tracking() {
               <div className="mt-4 grid gap-0">
                 {[
                   {
-                    label: retrying ? "Next group is notified" : "Nearby garages are notified",
+                    label: retrying
+                      ? `${nextSearchRadiusKm} km round starts`
+                      : `${searchRadiusKm} km garages are notified`,
                     description: "Only verified, eligible partners receive the request.",
                   },
                   {

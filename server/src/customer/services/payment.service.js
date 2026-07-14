@@ -861,6 +861,9 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
         status: "SEARCHING_GARAGE",
         searchExpiresAt: null,
         expiredAt: null,
+        garageSearchRound: 0,
+        garageSearchCycle: 1,
+        searchRadiusKm: null,
       },
     });
 
@@ -921,7 +924,7 @@ const completePaidBookingPayment = async (booking, cashfreeOrder) => {
       : result.walletChangedRefunded
         ? "Your wallet balance changed during payment. The completed Cashfree amount was safely credited to your Rovauto wallet; retry the booking payment when ready."
         : result.completedNow
-          ? "Payment verified. Searching nearby garages in two-minute rounds."
+          ? "Payment verified. Searching verified garages in 5 km, 10 km, and 20 km rounds."
           : "Payment was already verified.",
   };
 };
@@ -1304,6 +1307,9 @@ const completeWalletOnlyBookingPayment = async (
         payableAmount: 0,
         searchExpiresAt: null,
         expiredAt: null,
+        garageSearchRound: 0,
+        garageSearchCycle: 1,
+        searchRadiusKm: null,
       },
     });
 
@@ -1361,7 +1367,7 @@ const completeWalletOnlyBookingPayment = async (
     cashfreeOrder: null,
     mode: getCashfreeMode(),
     message: result.completedNow
-      ? "Wallet payment completed. Searching nearby garages in two-minute rounds."
+      ? "Wallet payment completed. Searching verified garages in 5 km, 10 km, and 20 km rounds."
       : "Wallet payment was already completed.",
   };
 };

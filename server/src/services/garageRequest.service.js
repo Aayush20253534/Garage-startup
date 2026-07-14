@@ -22,20 +22,12 @@ const {
 } = require("./garageWhatsapp.service");
 const bookingLifecycleService = require("./bookingLifecycle.service");
 const activityService = require("../customer/services/activity.service");
+const {
+  getNextGarageSearchStage,
+  selectGaragesForSearchStage,
+} = require("./garageSearchPlan");
 
 const SOS_CHARGE = 50;
-const DEFAULT_GARAGE_SEARCH_BATCH_SIZE = 5;
-
-const getGarageSearchBatchSize = () => {
-  const configured = Number(
-    process.env.GARAGE_SEARCH_BATCH_SIZE ||
-      DEFAULT_GARAGE_SEARCH_BATCH_SIZE,
-  );
-
-  return Number.isFinite(configured) && configured > 0
-    ? Math.floor(configured)
-    : DEFAULT_GARAGE_SEARCH_BATCH_SIZE;
-};
 
 const estimateArrivalMinutes = (distanceKm) => {
   const distance = Number(distanceKm);
@@ -381,46 +373,8 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
   }
 };
 
-const chooseGaragesForNextRound = ({
-  eligibleGarages,
-  previousRequests,
-  batchSize,
-}) => {
-  const previousByGarageId = new Map(
-    previousRequests.map((request) => [request.garageId, request]),
-  );
-
-  const unattempted = eligibleGarages.filter(
-    (garage) => !previousByGarageId.has(garage.id),
-  );
-
-  const reusable = eligibleGarages
-    .filter((garage) => previousByGarageId.has(garage.id))
-    .sort((a, b) => {
-      const requestA = previousByGarageId.get(a.id);
-      const requestB = previousByGarageId.get(b.id);
-      const sentAtA = requestA?.sentAt
-        ? new Date(requestA.sentAt).getTime()
-        : 0;
-      const sentAtB = requestB?.sentAt
-        ? new Date(requestB.sentAt).getTime()
-        : 0;
-
-      if (sentAtA !== sentAtB) return sentAtA - sentAtB;
-      return Number(a.distanceKm || 0) - Number(b.distanceKm || 0);
-    });
-
-  const selected = unattempted.slice(0, batchSize);
-
-  if (selected.length < batchSize) {
-    selected.push(...reusable.slice(0, batchSize - selected.length));
-  }
-
-  return selected;
-};
-
 /**
- * Claims and starts exactly one two-minute search round.
+ * Claims and starts one two-minute radius round: 5 km, 10 km, then 20 km.
  *
  * The compare-and-set update on searchExpiresAt prevents two simultaneous
  * tracking polls from creating the same round twice.
@@ -457,6 +411,7 @@ const startNextGarageSearchCycle = async (bookingId) => {
   }
 
   const nextExpiry = bookingLifecycleService.getSearchExpiresAt();
+  const searchStage = getNextGarageSearchStage(booking);
 
   const claimed = await prisma.booking.updateMany({
     where: {
@@ -468,6 +423,9 @@ const startNextGarageSearchCycle = async (bookingId) => {
     data: {
       searchExpiresAt: nextExpiry,
       expiredAt: null,
+      garageSearchRound: searchStage.round,
+      garageSearchCycle: searchStage.cycle,
+      searchRadiusKm: searchStage.radiusKm,
     },
   });
 
@@ -488,6 +446,11 @@ const startNextGarageSearchCycle = async (bookingId) => {
     },
   });
 
+  // Publish the new radius/round immediately, even when this stage finds no
+  // garages. Otherwise a cached booking can leave the tracker showing the
+  // previous radius while the worker has already moved on.
+  await invalidateBookingReadCaches(booking.userId);
+
   const garageAcceptFee = getGarageAcceptFee(booking);
 
   const serviceIds = booking.services.map((item) => item.serviceId);
@@ -496,7 +459,7 @@ const startNextGarageSearchCycle = async (bookingId) => {
     longitude: booking.customerLongitude,
     serviceIds,
     vehicle: booking.vehicle,
-    maxDistance: null,
+    maxDistance: searchStage.radiusKm,
     onlyVerified: true,
     requireOpenNow: false,
     // Do not filter nearby garages by wallet balance. Garages should still
@@ -520,14 +483,23 @@ const startNextGarageSearchCycle = async (bookingId) => {
       sentAt: true,
       rejectedAt: true,
       expiredAt: true,
+      searchCycle: true,
+      searchRound: true,
+      searchRadiusKm: true,
     },
   });
 
-  const selectedGarages = chooseGaragesForNextRound({
+  const selectedGarages = selectGaragesForSearchStage({
     eligibleGarages,
     previousRequests,
-    batchSize: getGarageSearchBatchSize(),
+    searchCycle: searchStage.cycle,
   });
+
+  if (selectedGarages.length === 0) {
+    // The wider round may contain only garages already contacted earlier in
+    // this 5/10/20 km cycle. Keep the round active without spamming them.
+    return [];
+  }
 
   const sentAt = new Date();
 
@@ -547,12 +519,18 @@ const startNextGarageSearchCycle = async (bookingId) => {
           rejectedAt: null,
           expiredAt: null,
           garageResponseNote: null,
+          searchCycle: searchStage.cycle,
+          searchRound: searchStage.round,
+          searchRadiusKm: searchStage.radiusKm,
         },
         create: {
           bookingId,
           garageId: garage.id,
           status: BROADCAST_STATUS.SENT,
           sentAt,
+          searchCycle: searchStage.cycle,
+          searchRound: searchStage.round,
+          searchRadiusKm: searchStage.radiusKm,
         },
       }),
     ),
@@ -568,7 +546,15 @@ const startNextGarageSearchCycle = async (bookingId) => {
     orderBy: { sentAt: "desc" },
   });
 
-  await sendGarageRequestAlerts({ requests, booking });
+  await sendGarageRequestAlerts({
+    requests,
+    booking: {
+      ...booking,
+      garageSearchRound: searchStage.round,
+      garageSearchCycle: searchStage.cycle,
+      searchRadiusKm: searchStage.radiusKm,
+    },
+  });
   await invalidateBookingReadCaches(booking.userId);
 
   return serializeGarageRequests(requests);

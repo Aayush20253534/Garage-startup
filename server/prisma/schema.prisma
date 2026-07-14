@@ -566,6 +566,9 @@ model Booking {
   walletAmountUsed      Int                      @default(0)
   totalServiceMaxAmount Int                      @default(0)
   searchExpiresAt       DateTime?
+  garageSearchRound     Int                      @default(0)
+  garageSearchCycle     Int                      @default(1)
+  searchRadiusKm        Int?
   handoverOtpHash       String?
   handoverOtpExpiresAt  DateTime?
   handoverOtpVerifiedAt DateTime?
@@ -671,6 +674,9 @@ model GarageBroadcastRequest {
   rejectedAt         DateTime?
   expiredAt          DateTime?
   garageResponseNote String?
+  searchCycle        Int             @default(1)
+  searchRound        Int             @default(1)
+  searchRadiusKm     Int             @default(5)
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   booking            Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)

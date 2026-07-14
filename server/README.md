@@ -383,8 +383,8 @@ Confirmed flow:
 1. Checkout verifies customer ownership of the vehicle, active city, available services, contextual price ranges, and the one-active-booking rule.
 2. A transaction inserts `Booking` in `PENDING_PAYMENT` plus `BookingService` snapshots.
 3. Cashfree/customer-wallet payment covers the platform fee; the final service amount is paid to the garage outside the platform flow.
-4. Verified payment writes `Payment=PAID`, updates wallet entries when used, changes the booking to `SEARCHING_GARAGE`, and starts a two-minute search round.
-5. Eligible verified garages are ranked by location/service/vehicle scope and receive `GarageBroadcastRequest` rows in batches.
+4. Verified payment writes `Payment=PAID`, updates wallet entries when used, changes the booking to `SEARCHING_GARAGE`, and starts a two-minute 5 km search round.
+5. Search expands to 10 km and then 20 km. Every newly eligible verified garage in the current radius receives a `GarageBroadcastRequest`; garages already contacted in the same three-round cycle are not spammed again. After the 20 km round, an unaccepted booking restarts automatically from 5 km.
 6. Acceptance conditionally claims both the request and booking, deducts the garage acceptance fee, expires competitors, and creates the handover OTP.
 7. The garage verifies the OTP with exactly five pickup images, moving the booking to `IN_PROGRESS`.
 8. The garage uploads exactly five delivery images and marks delivery.
@@ -396,7 +396,7 @@ The frontend's highlighted garage on `/booking/garage` is a preview only; `Booki
 
 ### Garage-search worker
 
-`src/services/garageSearchWorker.service.js` runs immediately after DB connection and then at `GARAGE_SEARCH_WORKER_INTERVAL_MS` (default 10 seconds, minimum 5 seconds). Each pass processes up to 100 oldest `SEARCHING_GARAGE` bookings and prevents overlapping runs. Search batch size inside the request service defaults to five garages.
+`src/services/garageSearchWorker.service.js` runs immediately after DB connection and then at `GARAGE_SEARCH_WORKER_INTERVAL_MS` (default 10 seconds, minimum 5 seconds). Each pass processes up to 100 oldest `SEARCHING_GARAGE` bookings and prevents overlapping runs. Each booking persists its current 5 km, 10 km, or 20 km radius round so server restarts and concurrent polling cannot lose the progression.
 
 ### System-issue auto-resolver
 
@@ -563,7 +563,6 @@ SERVICE_PRICE_RANGE_DELTA
 HANDOVER_OTP_TTL_MINUTES
 HANDOVER_OTP_RESEND_COOLDOWN_SECONDS
 GARAGE_REQUEST_ACCEPT_PATH
-GARAGE_SEARCH_BATCH_SIZE
 GARAGE_SEARCH_TIMEOUT_SECONDS
 GARAGE_SEARCH_WORKER_INTERVAL_MS
 SYSTEM_ISSUE_AUTO_RESOLVE_ENABLED

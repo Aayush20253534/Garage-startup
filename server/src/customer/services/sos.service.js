@@ -71,6 +71,9 @@ const createSosRequest = async (userId, data) => {
             bookingCode,
             requestType: REQUEST_TYPE.SOS,
             status: BOOKING_STATUS.SEARCHING_GARAGE,
+            garageSearchRound: 0,
+            garageSearchCycle: 1,
+            searchRadiusKm: null,
             customerLatitude: Number(latitude),
             customerLongitude: Number(longitude),
             customerAddress: address || null,
@@ -125,12 +128,8 @@ const createSosRequest = async (userId, data) => {
   }
 
   try {
-    const requests = await garageRequestService.broadcastBookingToNearbyGarages(
-      booking.id,
-      {
-        maxDistance: 15,
-      }
-    );
+    const requests =
+      await garageRequestService.broadcastBookingToNearbyGarages(booking.id);
 
     return {
       booking,

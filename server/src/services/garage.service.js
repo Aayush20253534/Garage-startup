@@ -760,7 +760,10 @@ const findNearbyEligibleGarages = async ({
     requireWalletBalance,
     minGarageWalletBalance,
     vehicle,
-    limit: 150,
+    // Radius rounds notify every eligible garage returned by the geo query.
+    // Use the query helper's maximum supported page rather than the old
+    // batch-oriented limit of 150.
+    limit: 500,
   });
 
   let garages = distanceRows
