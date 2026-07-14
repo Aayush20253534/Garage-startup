@@ -40,6 +40,21 @@ test("customer garage details use the single approved customer WhatsApp template
   assert.match(source, /garagePhone/);
   assert.match(source, /garageAddress/);
   assert.match(source, /mapsLink/);
+
+  const bodyParameters = source.match(
+    /parameters:\s*\[([\s\S]*?)\],\s*buttons:/,
+  );
+  assert.ok(bodyParameters, "customer template body parameters must exist");
+  assert.match(bodyParameters[1], /booking\.bookingCode \|\| booking\.id/);
+  assert.match(bodyParameters[1], /garage\.name \|\| "Assigned garage"/);
+  assert.match(bodyParameters[1], /garagePhone/);
+  assert.match(bodyParameters[1], /garageAddress/);
+  assert.doesNotMatch(
+    bodyParameters[1],
+    /mapsLink/,
+    "map URL must be sent through the URL button, not as a fifth body variable",
+  );
+
   assert.match(source, /mapButtonParameter/);
   assert.match(source, /buttons:\s*\[/);
   assert.match(source, /subType:\s*"url"/);

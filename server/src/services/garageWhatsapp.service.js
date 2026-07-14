@@ -539,12 +539,14 @@ const sendCustomerGarageDetailsWhatsapp = async ({
     // API language code is `en`. Garage templates continue using the shared
     // WHATSAPP_TEMPLATE_LANGUAGE value (for example `en_IN`).
     languageCode: CUSTOMER_BOOKING_CONFIRMED_LANGUAGE,
+    // The approved customer template contains four body placeholders:
+    // booking code, garage name, garage phone, and garage address.
+    // The map value belongs only to the separate URL button parameter below.
     parameters: [
       booking.bookingCode || booking.id,
       garage.name || "Assigned garage",
       garagePhone,
       garageAddress,
-      mapsLink,
     ],
     buttons: [
       {
