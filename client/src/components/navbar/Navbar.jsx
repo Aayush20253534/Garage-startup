@@ -12,6 +12,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import Logo from "@/components/common/Logo";
+import NotificationDropdown from "@/components/navbar/NotificationDropdown";
 import { useApp } from "@/hooks/useApp";
 import useUnreadNotifications from "@/hooks/useUnreadNotifications";
 import api from "@/api/axios";
@@ -24,22 +25,6 @@ const NAV = [
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ];
-
-const formatNotificationTime = (date) => {
-  if (!date) return "";
-
-  const diff = Date.now() - new Date(date).getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days === 1) return "Yesterday";
-
-  return `${days}d ago`;
-};
 
 const sortLatestNotifications = (items) =>
   [...items].sort(
@@ -55,6 +40,7 @@ export default function Navbar() {
   const [latestNotifications, setLatestNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState("");
+  const [markingAllNotificationsRead, setMarkingAllNotificationsRead] = useState(false);
   const notificationsRef = useRef(null);
   const mobileNotificationsRef = useRef(null);
 
@@ -134,6 +120,68 @@ export default function Navbar() {
     if (shouldOpen) {
       await loadLatestNotifications();
     }
+  };
+
+  const markLatestNotificationRead = (notification) => {
+    if (!notification || notification.isRead) return;
+
+    setLatestNotifications((current) =>
+      current.map((item) =>
+        item.id === notification.id ? { ...item, isRead: true } : item,
+      ),
+    );
+
+    window.dispatchEvent(
+      new CustomEvent("rov:notifications-updated", {
+        detail: { unreadCount: Math.max(0, unreadCount - 1) },
+      }),
+    );
+
+    api.patch(`/notifications/${notification.id}/read`).catch(() => {
+      loadLatestNotifications();
+    });
+  };
+
+  const markAllLatestNotificationsRead = async () => {
+    if (markingAllNotificationsRead || unreadCount < 1) return;
+
+    try {
+      setMarkingAllNotificationsRead(true);
+      setNotificationsError("");
+
+      await api.patch("/notifications/read-all");
+      setLatestNotifications((current) =>
+        current.map((item) => ({ ...item, isRead: true })),
+      );
+
+      window.dispatchEvent(
+        new CustomEvent("rov:notifications-updated", {
+          detail: { unreadCount: 0 },
+        }),
+      );
+    } catch (error) {
+      setNotificationsError(
+        error.response?.data?.message || "Unable to mark notifications as read",
+      );
+    } finally {
+      setMarkingAllNotificationsRead(false);
+    }
+  };
+
+  const handleDesktopNotificationSelect = (_event, notification) => {
+    markLatestNotificationRead(notification);
+    setNotificationsOpen(false);
+  };
+
+  const handleMobileNotificationSelect = (event, notification) => {
+    markLatestNotificationRead(notification);
+
+    if (notification.link) {
+      handleMobileNavigate(event, notification.link);
+      return;
+    }
+
+    setNotificationsOpen(false);
   };
 
   const handleLogout = async () => {
@@ -389,126 +437,26 @@ export default function Navbar() {
                 <AnimatePresence>
                   {notificationsOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      initial={{ opacity: 0, y: 10, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                      transition={{ duration: 0.16 }}
-                      className="absolute right-0 mt-3 w-[360px] overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-ink/10"
+                      transition={{ duration: 0.18, ease: "easeOut" }}
+                      className="absolute right-0 mt-3 w-[400px] overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_24px_70px_rgba(15,23,42,0.18)]"
                       role="dialog"
                       aria-label="Latest notifications"
                     >
-                      <div className="border-b border-line bg-bg-soft/60 px-4 py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-bold text-ink">
-                              Notifications
-                            </p>
-                            <p className="text-xs text-muted">
-                              Latest 3 platform updates
-                            </p>
-                          </div>
-
-                          {unreadCount > 0 && (
-                            <span className="rounded-full bg-brand px-2.5 py-1 text-[11px] font-bold text-black">
-                              {unreadCount > 99 ? "99+" : unreadCount} unread
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="max-h-[360px] p-3">
-                        {notificationsLoading ? (
-                          <div className="grid gap-2">
-                            {[0, 1, 2].map((item) => (
-                              <div
-                                key={item}
-                                className="rounded-2xl border border-line bg-white p-3"
-                              >
-                                <div className="mb-2 h-3 w-2/3 animate-pulse rounded-full bg-bg-soft" />
-                                <div className="h-3 w-full animate-pulse rounded-full bg-bg-soft" />
-                              </div>
-                            ))}
-                          </div>
-                        ) : notificationsError ? (
-                          <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm font-medium text-red-600">
-                            {notificationsError}
-                          </div>
-                        ) : latestNotifications.length > 0 ? (
-                          <div className="grid gap-2">
-                            {latestNotifications.map((notification) => (
-                              <div
-                                key={notification.id}
-                                className={[
-                                  "rounded-2xl border bg-white p-3 transition hover:border-ink/20 hover:bg-bg-soft/40",
-                                  notification.isRead
-                                    ? "border-line"
-                                    : "border-brand/50 shadow-sm",
-                                ].join(" ")}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <span
-                                    className={[
-                                      "mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl",
-                                      notification.isRead
-                                        ? "bg-bg-soft text-muted"
-                                        : "bg-brand text-black",
-                                    ].join(" ")}
-                                  >
-                                    <FiBell />
-                                  </span>
-
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <p className="line-clamp-1 text-sm font-bold text-ink">
-                                        {notification.title || "Notification"}
-                                      </p>
-                                      <span className="shrink-0 text-[11px] font-medium text-muted">
-                                        {formatNotificationTime(
-                                          notification.createdAt,
-                                        )}
-                                      </span>
-                                    </div>
-
-                                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">
-                                      {notification.message ||
-                                        "You have a new update."}
-                                    </p>
-
-                                    {notification.link && (
-                                      <Link
-                                        to={notification.link}
-                                        onClick={() => setNotificationsOpen(false)}
-                                        className="mt-2 inline-flex text-xs font-bold text-ink underline-offset-4 hover:underline"
-                                      >
-                                        Open update
-                                      </Link>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="rounded-2xl border border-dashed border-line bg-bg-soft/50 px-4 py-6 text-center">
-                            <p className="text-sm font-bold text-ink">
-                              No notifications yet
-                            </p>
-                            <p className="mt-1 text-xs text-muted">
-                              New booking and payment updates will appear here.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="border-t border-line bg-white px-3 py-3">
-                        <Link
-                          to="/dashboard/notifications"
-                          onClick={() => setNotificationsOpen(false)}
-                          className="flex h-10 items-center justify-center rounded-xl border border-line bg-white text-sm font-bold text-ink transition hover:border-ink/25 hover:bg-bg-soft"
-                        >
-                          View all notifications
-                        </Link>
-                      </div>
+                      <NotificationDropdown
+                        notifications={latestNotifications}
+                        loading={notificationsLoading}
+                        error={notificationsError}
+                        unreadCount={unreadCount}
+                        markingAllRead={markingAllNotificationsRead}
+                        onClose={() => setNotificationsOpen(false)}
+                        onRetry={loadLatestNotifications}
+                        onMarkAllRead={markAllLatestNotificationsRead}
+                        onNotificationSelect={handleDesktopNotificationSelect}
+                        onViewAll={() => setNotificationsOpen(false)}
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -604,128 +552,29 @@ export default function Navbar() {
               <AnimatePresence>
                 {notificationsOpen && (
                   <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    initial={{ opacity: 0, y: 10, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                    transition={{ duration: 0.16 }}
-                    className="fixed left-4 right-4 top-[72px] z-[60] max-h-[calc(100dvh-96px)] overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-ink/10 sm:left-auto sm:right-6 sm:w-[360px]"
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                    className="fixed left-3 right-3 top-[68px] z-[60] max-h-[calc(100dvh-84px)] overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_24px_70px_rgba(15,23,42,0.2)] sm:left-auto sm:right-5 sm:w-[400px]"
                     role="dialog"
                     aria-label="Latest notifications"
                   >
-                    <div className="border-b border-line bg-bg-soft/60 px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-bold text-ink">
-                            Notifications
-                          </p>
-                          <p className="text-xs text-muted">
-                            Latest 3 platform updates
-                          </p>
-                        </div>
-
-                        {unreadCount > 0 && (
-                          <span className="rounded-full bg-brand px-2.5 py-1 text-[11px] font-bold text-black">
-                            {unreadCount > 99 ? "99+" : unreadCount} unread
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="max-h-[calc(100dvh-210px)] overflow-y-auto p-3">
-                      {notificationsLoading ? (
-                        <div className="grid gap-2">
-                          {[0, 1, 2].map((item) => (
-                            <div
-                              key={item}
-                              className="rounded-2xl border border-line bg-white p-3"
-                            >
-                              <div className="mb-2 h-3 w-2/3 animate-pulse rounded-full bg-bg-soft" />
-                              <div className="h-3 w-full animate-pulse rounded-full bg-bg-soft" />
-                            </div>
-                          ))}
-                        </div>
-                      ) : notificationsError ? (
-                        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm font-medium text-red-600">
-                          {notificationsError}
-                        </div>
-                      ) : latestNotifications.length > 0 ? (
-                        <div className="grid gap-2">
-                          {latestNotifications.map((notification) => (
-                            <div
-                              key={notification.id}
-                              className={[
-                                "rounded-2xl border bg-white p-3 transition hover:border-ink/20 hover:bg-bg-soft/40",
-                                notification.isRead
-                                  ? "border-line"
-                                  : "border-brand/50 shadow-sm",
-                              ].join(" ")}
-                            >
-                              <div className="flex items-start gap-3">
-                                <span
-                                  className={[
-                                    "mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl",
-                                    notification.isRead
-                                      ? "bg-bg-soft text-muted"
-                                      : "bg-brand text-black",
-                                  ].join(" ")}
-                                >
-                                  <FiBell />
-                                </span>
-
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <p className="line-clamp-1 text-sm font-bold text-ink">
-                                      {notification.title || "Notification"}
-                                    </p>
-                                    <span className="shrink-0 text-[11px] font-medium text-muted">
-                                      {formatNotificationTime(
-                                        notification.createdAt,
-                                      )}
-                                    </span>
-                                  </div>
-
-                                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">
-                                    {notification.message ||
-                                      "You have a new update."}
-                                  </p>
-
-                                  {notification.link && (
-                                    <Link
-                                      to={notification.link}
-                                      onClick={() => setNotificationsOpen(false)}
-                                      className="mt-2 inline-flex text-xs font-bold text-ink underline-offset-4 hover:underline"
-                                    >
-                                      Open update
-                                    </Link>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-line bg-bg-soft/50 px-4 py-6 text-center">
-                          <p className="text-sm font-bold text-ink">
-                            No notifications yet
-                          </p>
-                          <p className="mt-1 text-xs text-muted">
-                            New booking and payment updates will appear here.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="border-t border-line bg-white px-3 py-3">
-                      <Link
-                        to="/dashboard/notifications"
-                        onClick={(event) =>
-                          handleMobileNavigate(event, "/dashboard/notifications")
-                        }
-                        className="flex h-10 items-center justify-center rounded-xl border border-line bg-white text-sm font-bold text-ink transition hover:border-ink/25 hover:bg-bg-soft"
-                      >
-                        View all notifications
-                      </Link>
-                    </div>
+                    <NotificationDropdown
+                      notifications={latestNotifications}
+                      loading={notificationsLoading}
+                      error={notificationsError}
+                      unreadCount={unreadCount}
+                      markingAllRead={markingAllNotificationsRead}
+                      onClose={() => setNotificationsOpen(false)}
+                      onRetry={loadLatestNotifications}
+                      onMarkAllRead={markAllLatestNotificationsRead}
+                      onNotificationSelect={handleMobileNotificationSelect}
+                      onViewAll={(event) =>
+                        handleMobileNavigate(event, "/dashboard/notifications")
+                      }
+                      showCloseButton
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>
