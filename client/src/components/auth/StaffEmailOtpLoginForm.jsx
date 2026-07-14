@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FiArrowLeft,
   FiArrowRight,
@@ -7,6 +7,10 @@ import {
   FiRefreshCw,
   FiUser,
 } from "react-icons/fi";
+
+const OTP_LENGTH = 6;
+
+const createEmptyOtp = () => Array(OTP_LENGTH).fill("");
 
 export default function StaffEmailOtpLoginForm({
   identifierLabel,
@@ -19,13 +23,127 @@ export default function StaffEmailOtpLoginForm({
   onSuccess,
   submitLabel = "Continue",
 }) {
+  const otpRefs = useRef([]);
   const [form, setForm] = useState({ identifier: "", password: "" });
   const [challenge, setChallenge] = useState(null);
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState(createEmptyOtp);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    if (!challenge) return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      otpRefs.current[0]?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [challenge]);
+
+  const handleOtpChange = (index, rawValue) => {
+    const digits = String(rawValue || "").replace(/\D/g, "");
+
+    setOtp((current) => {
+      const next = [...current];
+
+      if (!digits) {
+        next[index] = "";
+        return next;
+      }
+
+      digits
+        .slice(0, OTP_LENGTH - index)
+        .split("")
+        .forEach((digit, offset) => {
+          next[index + offset] = digit;
+        });
+
+      return next;
+    });
+
+    if (digits) {
+      const nextIndex = Math.min(index + digits.length, OTP_LENGTH - 1);
+      otpRefs.current[nextIndex]?.focus();
+      otpRefs.current[nextIndex]?.select();
+    }
+  };
+
+  const handleOtpKeyDown = (index, event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+    if (event.key === "ArrowLeft" && index > 0) {
+      event.preventDefault();
+      otpRefs.current[index - 1]?.focus();
+      return;
+    }
+
+    if (event.key === "ArrowRight" && index < OTP_LENGTH - 1) {
+      event.preventDefault();
+      otpRefs.current[index + 1]?.focus();
+      return;
+    }
+
+    if (event.key === "Backspace") {
+      event.preventDefault();
+
+      setOtp((current) => {
+        const next = [...current];
+
+        if (next[index]) {
+          next[index] = "";
+          return next;
+        }
+
+        if (index > 0) {
+          next[index - 1] = "";
+        }
+
+        return next;
+      });
+
+      if (!otp[index] && index > 0) {
+        otpRefs.current[index - 1]?.focus();
+      }
+      return;
+    }
+
+    if (event.key === "Delete") {
+      event.preventDefault();
+      setOtp((current) => {
+        const next = [...current];
+        next[index] = "";
+        return next;
+      });
+      return;
+    }
+
+    if (event.key.length === 1 && !/^[0-9]$/.test(event.key)) {
+      event.preventDefault();
+    }
+  };
+
+  const handleOtpPaste = (event) => {
+    const digits = event.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, OTP_LENGTH);
+
+    event.preventDefault();
+    if (!digits) return;
+
+    setOtp(
+      Array.from(
+        { length: OTP_LENGTH },
+        (_, index) => digits[index] || "",
+      ),
+    );
+
+    const focusIndex = Math.min(digits.length, OTP_LENGTH) - 1;
+    otpRefs.current[focusIndex]?.focus();
+    otpRefs.current[focusIndex]?.select();
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -40,11 +158,20 @@ export default function StaffEmailOtpLoginForm({
           form.password,
         );
         setChallenge(result);
-        setOtp("");
+        setOtp(createEmptyOtp());
         return;
       }
 
-      const result = await verifyOtp(challenge.challengeId, otp);
+      const submittedOtp = otp.join("");
+
+      if (!/^\d{6}$/.test(submittedOtp)) {
+        throw new Error("Enter the complete 6-digit verification code");
+      }
+
+      const result = await verifyOtp(
+        challenge.challengeId,
+        submittedOtp,
+      );
       const authenticatedUser = result?.user;
 
       if (!authenticatedUser || authenticatedUser.role !== expectedRole) {
@@ -73,7 +200,7 @@ export default function StaffEmailOtpLoginForm({
     try {
       const result = await resendOtp(challenge.challengeId);
       setChallenge(result);
-      setOtp("");
+      setOtp(createEmptyOtp());
       setNotice("A new verification code was sent.");
     } catch (err) {
       setError(
@@ -88,7 +215,7 @@ export default function StaffEmailOtpLoginForm({
 
   const restart = () => {
     setChallenge(null);
-    setOtp("");
+    setOtp(createEmptyOtp());
     setError("");
     setNotice("");
   };
@@ -154,31 +281,62 @@ export default function StaffEmailOtpLoginForm({
           </>
         ) : (
           <>
-            <label className="grid gap-2 text-sm font-bold text-ink">
-              Email verification code
-              <div className="relative">
-                <FiMail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                  required
-                  value={otp}
-                  onChange={(event) =>
-                    setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  placeholder="6-digit OTP"
-                  autoComplete="one-time-code"
-                  className="h-12 w-full rounded-xl border border-line bg-white pl-11 pr-4 text-sm tracking-[0.3em] outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
-                />
+            <fieldset className="grid gap-3">
+              <legend className="text-sm font-bold text-ink">
+                Email verification code
+              </legend>
+
+              <div className="flex items-center gap-2 text-xs font-medium text-muted">
+                <FiMail className="h-4 w-4 shrink-0" />
+                Enter the 6-digit code sent to the staff email.
               </div>
-            </label>
+
+              <div
+                className="grid grid-cols-6 gap-2"
+                onPaste={handleOtpPaste}
+                aria-label="Six-digit email verification code"
+              >
+                {otp.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={(element) => {
+                      otpRefs.current[index] = element;
+                    }}
+                    required
+                    type="text"
+                    value={digit}
+                    onChange={(event) =>
+                      handleOtpChange(index, event.target.value)
+                    }
+                    onKeyDown={(event) =>
+                      handleOtpKeyDown(index, event)
+                    }
+                    onBeforeInput={(event) => {
+                      if (event.data && /\D/.test(event.data)) {
+                        event.preventDefault();
+                      }
+                    }}
+                    inputMode="numeric"
+                    pattern="[0-9]"
+                    maxLength={1}
+                    autoComplete={index === 0 ? "one-time-code" : "off"}
+                    aria-label={`Verification code digit ${index + 1}`}
+                    disabled={loading || resending}
+                    className="h-12 min-w-0 rounded-xl border border-line bg-white text-center text-lg font-extrabold text-ink outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70 sm:h-14 sm:text-xl"
+                  />
+                ))}
+              </div>
+            </fieldset>
           </>
         )}
 
         <button
           type="submit"
-          disabled={loading || resending}
+          disabled={
+            loading ||
+            resending ||
+            (Boolean(challenge) && otp.some((digit) => !digit))
+          }
           className="mt-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-extrabold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? (
