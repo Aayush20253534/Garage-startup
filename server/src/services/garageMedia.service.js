@@ -14,13 +14,54 @@ const { activateGarageIfEligible } = require("../garage/services/garageOwner.ser
 const getTotalPhotoCount = (images, thumbnail) => images.length + thumbnail.length;
 
 const validateImageFile = (file) => {
-  if (!file.mimetype.startsWith("image/")) {
+  if (!file?.mimetype?.startsWith("image/")) {
     throw new ApiError(400, "Only image files are allowed for garage photos");
   }
 
   if (file.size > GARAGE_MAX_IMAGE_SIZE_BYTES) {
     throw new ApiError(400, "Each garage photo must be less than or equal to 1 MB");
   }
+};
+
+const assertCanManageGarageMedia = (garage, user) => {
+  if (user.role !== "ADMIN" && garage.ownerId !== user.id) {
+    throw new ApiError(403, "You are not allowed to manage media for this garage");
+  }
+};
+
+const lockGarageForMediaUpdate = async (tx, garageId) => {
+  if (typeof tx.$queryRaw !== "function") return;
+
+  await tx.$queryRaw`
+    SELECT "id"
+    FROM "Garage"
+    WHERE "id" = ${garageId}
+    FOR UPDATE
+  `;
+};
+
+const getGarageMediaState = async (tx, garageId, updatedGarage = null) => {
+  const freshGarage = await tx.garage.findUnique({
+    where: { id: garageId },
+    include: {
+      images: {
+        orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
+      },
+      wallet: true,
+    },
+  });
+
+  if (!freshGarage) {
+    throw new ApiError(404, "Garage not found");
+  }
+
+  return {
+    ...freshGarage,
+    activation: {
+      isActive: updatedGarage?.isActive ?? freshGarage.isActive,
+      photoCount: freshGarage.images.length,
+    },
+  };
 };
 
 const getGarageImageRecord = async (imageId) => {
@@ -41,7 +82,7 @@ const getGarageImageRecord = async (imageId) => {
   return image;
 };
 
-const uploadGarageMedia = async (garageId, files, user) => {
+const uploadGarageMedia = async (garageId, files = {}, user) => {
   const images = files.images || [];
   const thumbnail = files.thumbnail || [];
   const videos = files.videos || [];
@@ -50,12 +91,12 @@ const uploadGarageMedia = async (garageId, files, user) => {
     throw new ApiError(400, "Garage videos are not required. Upload photos only.");
   }
 
-  const totalPhotoCount = getTotalPhotoCount(images, thumbnail);
+  const incomingPhotoCount = getTotalPhotoCount(images, thumbnail);
 
-  if (totalPhotoCount > GARAGE_MAXIMUM_IMAGES) {
+  if (incomingPhotoCount > GARAGE_MAXIMUM_IMAGES) {
     throw new ApiError(
       400,
-      `Garage can upload up to ${GARAGE_MAXIMUM_IMAGES} photos`
+      `Garage can upload up to ${GARAGE_MAXIMUM_IMAGES} photos`,
     );
   }
 
@@ -63,15 +104,17 @@ const uploadGarageMedia = async (garageId, files, user) => {
     throw new ApiError(400, "Only 1 thumbnail image is allowed");
   }
 
-  if (thumbnail.length === 0 && images.length === 0) {
-    throw new ApiError(400, "At least 1 garage photo is required");
+  if (incomingPhotoCount === 0) {
+    throw new ApiError(400, "Select at least 1 garage photo to upload");
   }
 
   const garage = await prisma.garage.findUnique({
     where: { id: garageId },
-    include: {
-      images: {
-        select: { publicId: true },
+    select: {
+      id: true,
+      ownerId: true,
+      _count: {
+        select: { images: true },
       },
     },
   });
@@ -80,8 +123,17 @@ const uploadGarageMedia = async (garageId, files, user) => {
     throw new ApiError(404, "Garage not found");
   }
 
-  if (user.role !== "ADMIN" && garage.ownerId !== user.id) {
-    throw new ApiError(403, "You are not allowed to upload media for this garage");
+  assertCanManageGarageMedia(garage, user);
+
+  const availableSlots = GARAGE_MAXIMUM_IMAGES - garage._count.images;
+
+  if (incomingPhotoCount > availableSlots) {
+    throw new ApiError(
+      400,
+      availableSlots > 0
+        ? `This garage already has ${garage._count.images} photos. You can add only ${availableSlots} more.`
+        : `This garage already has the maximum ${GARAGE_MAXIMUM_IMAGES} photos. Delete a photo before adding another.`,
+    );
   }
 
   for (const file of [...thumbnail, ...images]) {
@@ -121,36 +173,47 @@ const uploadGarageMedia = async (garageId, files, user) => {
 
   try {
     result = await prisma.$transaction(async (tx) => {
-      await tx.garageImage.deleteMany({ where: { garageId } });
+      await lockGarageForMediaUpdate(tx, garageId);
+
+      const existingImages = await tx.garageImage.findMany({
+        where: { garageId },
+        orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
+        select: {
+          id: true,
+          order: true,
+          isThumbnail: true,
+        },
+      });
+
+      const remainingSlots = GARAGE_MAXIMUM_IMAGES - existingImages.length;
+
+      if (uploadedImages.length > remainingSlots) {
+        throw new ApiError(
+          409,
+          remainingSlots > 0
+            ? `The gallery changed while uploading. Only ${remainingSlots} photo slots remain.`
+            : `The gallery reached its ${GARAGE_MAXIMUM_IMAGES}-photo limit while uploading.`,
+        );
+      }
+
+      const hasThumbnail = existingImages.some((image) => image.isThumbnail);
+      const nextOrder = existingImages.reduce(
+        (maximum, image) => Math.max(maximum, image.order),
+        -1,
+      ) + 1;
 
       await tx.garageImage.createMany({
         data: uploadedImages.map((image, index) => ({
           garageId,
           imageUrl: image.secure_url,
           publicId: image.public_id,
-          isThumbnail: index === 0,
-          order: index,
+          isThumbnail: !hasThumbnail && index === 0,
+          order: nextOrder + index,
         })),
       });
 
       const updatedGarage = await activateGarageIfEligible(tx, garageId);
-      const freshGarage = await tx.garage.findUnique({
-        where: { id: garageId },
-        include: {
-          images: {
-            orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
-          },
-          wallet: true,
-        },
-      });
-
-      return {
-        ...freshGarage,
-        activation: {
-          isActive: updatedGarage.isActive,
-          photoCount: freshGarage.images.length,
-        },
-      };
+      return getGarageMediaState(tx, garageId, updatedGarage);
     });
   } catch (error) {
     await Promise.allSettled(
@@ -161,10 +224,83 @@ const uploadGarageMedia = async (garageId, files, user) => {
     throw error;
   }
 
+  await invalidatePublicCache();
+
+  return result;
+};
+
+const deleteGarageImage = async (garageId, imageId, user) => {
+  const garage = await prisma.garage.findUnique({
+    where: { id: garageId },
+    select: {
+      id: true,
+      ownerId: true,
+    },
+  });
+
+  if (!garage) {
+    throw new ApiError(404, "Garage not found");
+  }
+
+  assertCanManageGarageMedia(garage, user);
+
+  const image = await prisma.garageImage.findFirst({
+    where: {
+      id: imageId,
+      garageId,
+    },
+    select: {
+      id: true,
+      publicId: true,
+    },
+  });
+
+  if (!image) {
+    throw new ApiError(404, "Garage photo not found");
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    await lockGarageForMediaUpdate(tx, garageId);
+
+    const lockedImage = await tx.garageImage.findFirst({
+      where: {
+        id: imageId,
+        garageId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!lockedImage) {
+      throw new ApiError(404, "Garage photo not found");
+    }
+
+    await tx.garageImage.delete({
+      where: { id: imageId },
+    });
+
+    const remainingImages = await tx.garageImage.findMany({
+      where: { garageId },
+      orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
+      select: { id: true },
+    });
+
+    for (const [index, remainingImage] of remainingImages.entries()) {
+      await tx.garageImage.update({
+        where: { id: remainingImage.id },
+        data: {
+          isThumbnail: index === 0,
+          order: index,
+        },
+      });
+    }
+
+    return getGarageMediaState(tx, garageId);
+  });
+
   await Promise.allSettled([
-    deleteCloudinaryImagesIfUnreferenced(
-      garage.images.map((image) => image.publicId),
-    ),
+    deleteCloudinaryImagesIfUnreferenced([image.publicId]),
     invalidatePublicCache(),
   ]);
 
@@ -172,6 +308,7 @@ const uploadGarageMedia = async (garageId, files, user) => {
 };
 
 module.exports = {
+  deleteGarageImage,
   getGarageImageRecord,
   uploadGarageMedia,
 };

@@ -15,6 +15,13 @@ const garagePhotoUpload = upload.createUpload({
 
 router.get("/media/:imageId", garageMediaController.getGarageImageContent);
 
+router.delete(
+  "/:garageId/media/:imageId",
+  protect,
+  authorizeRoles("GARAGE_OWNER", "ADMIN"),
+  garageMediaController.deleteGarageImage,
+);
+
 router.post(
   "/:garageId/media",
   protect,
@@ -24,7 +31,7 @@ router.post(
     { name: "images", maxCount: 14 },
   ]),
   upload.validateUploadedFiles,
-  garageMediaController.uploadGarageMedia
+  garageMediaController.uploadGarageMedia,
 );
 
 module.exports = router;

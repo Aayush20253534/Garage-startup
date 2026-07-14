@@ -13,6 +13,8 @@ export default function ImageUpload({
   value = [],
   onChange,
   maxSizeMb = 1,
+  countOffset = 0,
+  totalMax = max,
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState("");
@@ -76,8 +78,8 @@ export default function ImageUpload({
         <FiImage className="w-12 h-12 mx-auto text-muted mb-3" />
         <h4 className="font-semibold mb-1">Drag & Drop Images</h4>
         <p className="text-muted text-sm mb-4">
-          {value.length} / {max} Uploaded
-          {value.length < min && (
+          {countOffset + value.length} / {totalMax} Uploaded
+          {countOffset + value.length < min && (
             <span className="text-red-500 ml-2">(Minimum {min} required)</span>
           )}
         </p>

@@ -13,6 +13,7 @@ import {
   FiBriefcase,
   FiDollarSign,
   FiEye,
+  FiTrash2,
 } from "react-icons/fi";
 import CitySelect from "@/components/common/CitySelect";
 import ImageUpload from "@/components/garage/ImageUpload";
@@ -72,6 +73,7 @@ const getSupportedBrands = (garage) => {
 const getGarageImageUrl = (image) => resolveMediaUrl(image);
 
 const PHOTO_RETRY_DELAYS_MS = [800, 2000, 5000];
+const MAX_GARAGE_PHOTOS = 15;
 
 const withImageRetryToken = (imageUrl, token) => {
   if (!imageUrl || !token) return imageUrl;
@@ -85,7 +87,7 @@ const withImageRetryToken = (imageUrl, token) => {
   }
 };
 
-function GaragePhoto({ image, index }) {
+function GaragePhoto({ image, index, onDelete, deleting = false }) {
   const directImageUrl = getGarageImageUrl(image);
   const deliveryImageUrl = getGarageImageDeliveryUrl(image);
   const sourceUrls = useMemo(
@@ -151,45 +153,67 @@ function GaragePhoto({ image, index }) {
     setFailed(true);
   };
 
+  let photoContent;
+
   if (!imageSrc || failed) {
-    return (
-      <div className="grid aspect-square place-items-center rounded-xl border border-dashed border-line bg-bg-soft p-4 text-center text-xs font-semibold text-muted/80">
+    photoContent = (
+      <div className="grid h-full w-full place-items-center border border-dashed border-line bg-bg-soft p-4 text-center text-xs font-semibold text-muted/80">
         Photo unavailable
       </div>
     );
-  }
-
-  if (waitingForRetry) {
-    return (
-      <div className="grid aspect-square animate-pulse place-items-center rounded-xl border border-line bg-bg-soft/60 p-4 text-center text-xs font-semibold text-muted/80">
+  } else if (waitingForRetry) {
+    photoContent = (
+      <div className="grid h-full w-full animate-pulse place-items-center border border-line bg-bg-soft/60 p-4 text-center text-xs font-semibold text-muted/80">
         Loading photo...
       </div>
+    );
+  } else {
+    photoContent = (
+      <a
+        href={openUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="group block h-full w-full bg-bg-soft"
+        aria-label={`Open garage photo ${index + 1}`}
+      >
+        <img
+          key={imageSrc}
+          src={imageSrc}
+          alt={`Garage photo ${index + 1}`}
+          loading={index < 5 ? "eager" : "lazy"}
+          decoding="async"
+          onLoad={handleLoad}
+          onError={handleError}
+          className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-105"
+        />
+        <div className="absolute inset-0 bg-ink/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      </a>
     );
   }
 
   return (
-    <a
-      href={openUrl}
-      target="_blank"
-      rel="noreferrer"
-      className="group relative block aspect-square overflow-hidden rounded-xl border border-line bg-bg-soft shadow-sm transition-all duration-300 hover:shadow-md hover:border-ink/30"
-      aria-label={`Open garage photo ${index + 1}`}
-    >
-      <img
-        key={imageSrc}
-        src={imageSrc}
-        alt={`Garage photo ${index + 1}`}
-        loading={index < 5 ? "eager" : "lazy"}
-        decoding="async"
-        onLoad={handleLoad}
-        onError={handleError}
-        className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-105"
-      />
-      <div className="absolute inset-0 bg-ink/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-    </a>
+    <div className="relative aspect-square overflow-hidden rounded-xl border border-line bg-bg-soft shadow-sm transition-all duration-300 hover:border-ink/30 hover:shadow-md">
+      {photoContent}
+
+      {onDelete && image?.id && (
+        <button
+          type="button"
+          onClick={() => onDelete(image)}
+          disabled={deleting}
+          className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/75 text-white shadow-md transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label={`Delete garage photo ${index + 1}`}
+          title="Delete this photo"
+        >
+          {deleting ? (
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+          ) : (
+            <FiTrash2 className="h-4 w-4" />
+          )}
+        </button>
+      )}
+    </div>
   );
 }
-
 export default function GarageProfile() {
   const dispatch = useDispatch();
   const { garage } = useSelector((state) => state.garage);
@@ -202,6 +226,7 @@ export default function GarageProfile() {
   const [success, setSuccess] = useState("");
   const [vehicleBrands, setVehicleBrands] = useState([]);
   const [photoFiles, setPhotoFiles] = useState([]);
+  const [deletingPhotoId, setDeletingPhotoId] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -251,6 +276,10 @@ export default function GarageProfile() {
     [garage?.images],
   );
   const supportedBrands = getSupportedBrands(garage);
+  const remainingPhotoSlots = Math.max(
+    0,
+    MAX_GARAGE_PHOTOS - uploadedImages.length,
+  );
 
   const minimumActivationAmount =
     activation.minimumActivationAmount || activation.minimumBalance || 100;
@@ -349,39 +378,87 @@ export default function GarageProfile() {
     }
   };
 
+  const applyGarageMediaUpdate = async (updatedGarage) => {
+    const optimisticGarage = {
+      ...garage,
+      ...updatedGarage,
+      activation: {
+        ...(garage?.activation || {}),
+        ...(updatedGarage?.activation || {}),
+      },
+      images: updatedGarage?.images || [],
+      wallet: updatedGarage?.wallet || garage?.wallet,
+    };
+
+    localStorage.setItem("garage", JSON.stringify(optimisticGarage));
+    dispatch(setGarage(optimisticGarage));
+    await refreshGarage({ force: true });
+  };
+
+  const openPhotoEditor = () => {
+    setPhotoFiles([]);
+    setError("");
+    setSuccess("");
+    setEditingPhotos(true);
+  };
+
   const savePhotos = async () => {
+    if (photoFiles.length === 0) return;
+
     setSaving("photos");
     setError("");
     setSuccess("");
 
     try {
+      const uploadedCount = photoFiles.length;
       const uploadedGarage = await garageApi.uploadPhotos(
         garageToken,
         garage.id,
         photoFiles,
       );
-      const optimisticGarage = {
-        ...garage,
-        ...uploadedGarage,
-        activation: {
-          ...(garage?.activation || {}),
-          ...(uploadedGarage?.activation || {}),
-        },
-        images: uploadedGarage?.images || [],
-        wallet: uploadedGarage?.wallet || garage?.wallet,
-      };
 
-      localStorage.setItem("garage", JSON.stringify(optimisticGarage));
-      dispatch(setGarage(optimisticGarage));
-      await refreshGarage({ force: true });
-
+      await applyGarageMediaUpdate(uploadedGarage);
       setPhotoFiles([]);
       setEditingPhotos(false);
-      setSuccess("Garage photos updated successfully.");
+      setSuccess(
+        `${uploadedCount} garage photo${uploadedCount === 1 ? "" : "s"} added successfully.`,
+      );
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to update garage photos");
+      setError(err.response?.data?.message || "Unable to add garage photos");
     } finally {
       setSaving("");
+    }
+  };
+
+  const deletePhoto = async (image) => {
+    if (!image?.id || String(image.id).startsWith("media-")) {
+      setError("This photo cannot be deleted because its media record is missing.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this garage photo? This cannot be undone.",
+    );
+
+    if (!confirmed) return;
+
+    setDeletingPhotoId(image.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      const updatedGarage = await garageApi.deletePhoto(
+        garageToken,
+        garage.id,
+        image.id,
+      );
+
+      await applyGarageMediaUpdate(updatedGarage);
+      setSuccess("Garage photo deleted successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete garage photo");
+    } finally {
+      setDeletingPhotoId("");
     }
   };
 
@@ -567,7 +644,7 @@ export default function GarageProfile() {
 
           <button
             type="button"
-            onClick={() => setEditingPhotos(true)}
+            onClick={openPhotoEditor}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-xs font-bold text-ink transition-all duration-200 hover:border-ink hover:bg-bg-soft active:scale-98 shadow-xs"
           >
             <FiImage className="w-3.5 h-3.5 text-muted" />
@@ -582,6 +659,8 @@ export default function GarageProfile() {
                 key={image.id || getGarageImageUrl(image) || index}
                 image={image}
                 index={index}
+                onDelete={deletePhoto}
+                deleting={deletingPhotoId === image.id}
               />
             ))}
           </div>
@@ -833,43 +912,99 @@ export default function GarageProfile() {
       {/* Showcase Image Upload Management Layer Modal */}
       {editingPhotos && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-line animate-slideUp overflow-hidden">
-            <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-4">
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-line bg-white shadow-2xl animate-slideUp">
+            <div className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-line bg-white/95 px-6 py-4 backdrop-blur-md">
               <div>
-                <h2 className="text-lg font-bold tracking-tight text-ink">Modify Media Portfolio Assets</h2>
-                <p className="text-xs text-muted font-medium">Replaces current visual assets across active listing components.</p>
+                <h2 className="text-lg font-bold tracking-tight text-ink">Manage Garage Photos</h2>
+                <p className="text-xs font-medium text-muted">
+                  Add only the missing photos or delete individual photos. Existing photos stay untouched.
+                </p>
               </div>
 
               <button
                 type="button"
-                onClick={() => setEditingPhotos(false)}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-line transition-all hover:border-ink hover:bg-bg-soft text-muted hover:text-ink"
+                onClick={() => {
+                  setPhotoFiles([]);
+                  setEditingPhotos(false);
+                }}
+                className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted transition-all hover:border-ink hover:bg-bg-soft hover:text-ink"
               >
-                <FiX className="w-4 h-4" />
+                <FiX className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="p-6">
-              <div className="rounded-xl border border-line bg-bg-soft/30 p-1">
-                <ImageUpload
-                  min={1}
-                  max={15}
-                  maxSizeMb={1}
-                  value={photoFiles}
-                  onChange={setPhotoFiles}
-                />
-              </div>
+            <div className="space-y-6 p-6">
+              <section>
+                <div className="mb-3 flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-ink">Current gallery</h3>
+                    <p className="mt-0.5 text-xs font-medium text-muted">
+                      {uploadedImages.length} of {MAX_GARAGE_PHOTOS} photo slots used
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-line bg-bg-soft px-3 py-1 text-xs font-bold text-ink">
+                    {remainingPhotoSlots} remaining
+                  </span>
+                </div>
+
+                {uploadedImages.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+                    {uploadedImages.map((image, index) => (
+                      <GaragePhoto
+                        key={image.id || getGarageImageUrl(image) || index}
+                        image={image}
+                        index={index}
+                        onDelete={deletePhoto}
+                        deleting={deletingPhotoId === image.id}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-line bg-bg-soft/40 p-5 text-center text-sm font-medium text-muted">
+                    No garage photos uploaded yet.
+                  </div>
+                )}
+              </section>
+
+              <section className="border-t border-line pt-5">
+                <h3 className="text-sm font-bold text-ink">Add new photos</h3>
+                <p className="mb-3 mt-1 text-xs font-medium text-muted">
+                  New photos are appended to the existing gallery. The maximum remains {MAX_GARAGE_PHOTOS}.
+                </p>
+
+                {remainingPhotoSlots > 0 ? (
+                  <div className="rounded-xl border border-line bg-bg-soft/30 p-1">
+                    <ImageUpload
+                      min={0}
+                      max={remainingPhotoSlots}
+                      maxSizeMb={1}
+                      countOffset={uploadedImages.length}
+                      totalMax={MAX_GARAGE_PHOTOS}
+                      value={photoFiles}
+                      onChange={setPhotoFiles}
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800">
+                    The gallery already has {MAX_GARAGE_PHOTOS} photos. Delete one above before adding another.
+                  </div>
+                )}
+              </section>
             </div>
 
-            <div className="border-t border-line bg-bg-soft p-4 px-6 flex items-center justify-end">
+            <div className="sticky bottom-0 flex items-center justify-end border-t border-line bg-bg-soft/95 p-4 px-6 backdrop-blur-md">
               <button
                 type="button"
                 onClick={savePhotos}
                 disabled={saving === "photos" || photoFiles.length === 0}
-                className="inline-flex h-11 w-full sm:w-auto min-w-[160px] items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-bold text-black transition-all duration-200 hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+                className="inline-flex h-11 w-full min-w-[170px] items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-bold text-black shadow-sm transition-all duration-200 hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
               >
-                <FiSave className="w-4 h-4" />
-                {saving === "photos" ? "Uploading Infrastructure..." : "Publish Photos"}
+                <FiSave className="h-4 w-4" />
+                {saving === "photos"
+                  ? "Adding Photos..."
+                  : photoFiles.length > 0
+                    ? `Add ${photoFiles.length} Photo${photoFiles.length === 1 ? "" : "s"}`
+                    : "Select Photos to Add"}
               </button>
             </div>
           </div>

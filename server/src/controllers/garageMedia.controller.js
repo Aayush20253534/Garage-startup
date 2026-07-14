@@ -18,7 +18,19 @@ const uploadGarageMedia = asyncHandler(async (req, res) => {
 
   return res
     .status(201)
-    .json(new ApiResponse(201, "Garage media uploaded successfully", garage));
+    .json(new ApiResponse(201, "Garage photos added successfully", garage));
+});
+
+const deleteGarageImage = asyncHandler(async (req, res) => {
+  const garage = await garageMediaService.deleteGarageImage(
+    req.params.garageId,
+    req.params.imageId,
+    req.user,
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Garage photo deleted successfully", garage));
 });
 
 const getGarageImageContent = asyncHandler(async (req, res) => {
@@ -95,6 +107,7 @@ const getGarageImageContent = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  deleteGarageImage,
   getGarageImageContent,
   uploadGarageMedia,
 };

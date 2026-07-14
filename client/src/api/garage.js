@@ -315,6 +315,16 @@ export const garageApi = {
     return normalizeGarage(garage);
   },
 
+  async deletePhoto(...args) {
+    // New: deletePhoto(garageId, imageId)
+    const [garageId, imageId] = args.slice(-2);
+    const garage = unwrap(
+      await api.delete(`/garages/${garageId}/media/${imageId}`),
+    );
+
+    return normalizeGarage(garage);
+  },
+
   async getRequests(...args) {
     // New: getRequests(status)
     const status = getStatusArgument(args);
