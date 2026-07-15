@@ -12,7 +12,7 @@ import {
 import ImageUpload from "@/components/garage/ImageUpload";
 import InspectionGallery from "@/components/booking/InspectionGallery";
 import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
-import EmbedMap from "@/components/maps/EmbedMap";
+import MapPanel from "@/components/maps/MapPanel";
 import { setBookings } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
@@ -648,12 +648,11 @@ export default function GarageBookingDetail() {
                 </span>
               </p>
             </div>
-            <EmbedMap
-              latitude={booking.customer.location?.lat}
-              longitude={booking.customer.location?.lng}
+            <MapPanel
+              center={booking.customer.location}
               height={220}
-              title="Customer service destination"
               className="mb-4"
+              zoom={16}
             />
             <div className="grid grid-cols-3 gap-2">
               <button
