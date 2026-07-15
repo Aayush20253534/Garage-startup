@@ -19,7 +19,7 @@ const {
 const { REQUIRED_BOOKING_INSPECTION_IMAGES } = require("../garage/constants");
 
 const DEFAULT_SEARCH_TIMEOUT_SECONDS = 120;
-const DEFAULT_HANDOVER_OTP_TTL_MINUTES = 120;
+const HANDOVER_OTP_TTL_MS = 2 * 60 * 60 * 1000;
 const DEFAULT_HANDOVER_OTP_RESEND_COOLDOWN_SECONDS = 60;
 const HANDOVER_OTP_MAX_ATTEMPTS = 5;
 const HANDOVER_OTP_CLAIM_TIMEOUT_MS = 3 * 60 * 1000;
@@ -110,8 +110,13 @@ const sendCustomerHandoverOtpEmail = async ({
     : "Your Rovauto vehicle handover OTP";
   const expiryText = otpExpiresAt
     ? new Date(otpExpiresAt).toLocaleString("en-IN", {
-        dateStyle: "medium",
-        timeStyle: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+        timeZoneName: "short",
       })
     : "soon";
   const garageName = garage?.name || "your assigned garage";
@@ -126,6 +131,7 @@ const sendCustomerHandoverOtpEmail = async ({
     `Booking: ${bookingCode}`,
     `Garage: ${garageName}`,
     `Expires: ${expiryText}`,
+    "This OTP is valid for exactly 2 hours from generation.",
     "Share this OTP only when physically handing over your vehicle.",
   ].join("\n");
   const html = `
@@ -135,6 +141,7 @@ const sendCustomerHandoverOtpEmail = async ({
       <div style="font-size:28px;font-weight:700;letter-spacing:4px;margin:16px 0">${safeOtp}</div>
       <p>Garage: <strong>${safeGarageName}</strong></p>
       <p>Expires: <strong>${safeExpiryText}</strong></p>
+      <p>This OTP is valid for exactly 2 hours from generation.</p>
       <p>Share this OTP only when physically handing over your vehicle.</p>
     </div>
   `;
@@ -155,17 +162,6 @@ const sendCustomerHandoverOtpEmail = async ({
   return { sent: true, emailId: data?.id || null };
 };
 
-const getHandoverOtpTtlMinutes = () => {
-  const ttlMinutes = Number(
-    process.env.HANDOVER_OTP_TTL_MINUTES ||
-      DEFAULT_HANDOVER_OTP_TTL_MINUTES,
-  );
-
-  return Number.isFinite(ttlMinutes) && ttlMinutes > 0
-    ? ttlMinutes
-    : DEFAULT_HANDOVER_OTP_TTL_MINUTES;
-};
-
 const getHandoverOtpResendCooldownSeconds = () => {
   const cooldownSeconds = Number(
     process.env.HANDOVER_OTP_RESEND_COOLDOWN_SECONDS ||
@@ -177,14 +173,19 @@ const getHandoverOtpResendCooldownSeconds = () => {
     : DEFAULT_HANDOVER_OTP_RESEND_COOLDOWN_SECONDS;
 };
 
-const createHandoverOtp = () => {
+const createHandoverOtp = (generatedAt = new Date()) => {
   const otp = String(crypto.randomInt(100000, 1000000));
-  const ttlMinutes = getHandoverOtpTtlMinutes();
+  const normalizedGeneratedAt = new Date(generatedAt);
+
+  if (Number.isNaN(normalizedGeneratedAt.getTime())) {
+    throw new TypeError("generatedAt must be a valid date");
+  }
 
   return {
     otp,
     otpHash: getOtpHash(otp),
-    expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000),
+    generatedAt: normalizedGeneratedAt,
+    expiresAt: new Date(normalizedGeneratedAt.getTime() + HANDOVER_OTP_TTL_MS),
   };
 };
 
@@ -504,9 +505,8 @@ const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
   }
 
   if (booking.handoverOtpExpiresAt) {
-    const ttlMilliseconds = getHandoverOtpTtlMinutes() * 60 * 1000;
     const previousGeneratedAt = new Date(
-      booking.handoverOtpExpiresAt.getTime() - ttlMilliseconds,
+      booking.handoverOtpExpiresAt.getTime() - HANDOVER_OTP_TTL_MS,
     );
     const cooldownMilliseconds =
       getHandoverOtpResendCooldownSeconds() * 1000;
@@ -526,7 +526,7 @@ const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
     }
   }
 
-  const handoverOtp = createHandoverOtp();
+  const handoverOtp = createHandoverOtp(new Date());
 
   const updatedBooking = await prisma.booking.update({
     where: { id: booking.id },
@@ -560,6 +560,7 @@ const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
   return {
     booking: updatedBooking,
     otp: handoverOtp.otp,
+    generatedAt: handoverOtp.generatedAt,
     expiresAt: handoverOtp.expiresAt,
   };
 };

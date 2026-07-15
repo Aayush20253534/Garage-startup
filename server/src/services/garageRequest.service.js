@@ -697,8 +697,8 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       );
     }
 
-    const handoverOtp = bookingLifecycleService.createHandoverOtp();
     const acceptedAt = new Date();
+    const handoverOtp = bookingLifecycleService.createHandoverOtp(acceptedAt);
 
     const requestClaim = await tx.garageBroadcastRequest.updateMany({
       where: {

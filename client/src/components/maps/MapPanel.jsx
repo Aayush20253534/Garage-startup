@@ -178,12 +178,12 @@ export default function MapPanel({
         }
 
         const bounds = new maps.LatLngBounds();
-        let bounded = false;
+        let boundsPointCount = 0;
 
         const addMarker = (position, title, isDraggable = false) => {
           if (!position) return null;
           bounds.extend(position);
-          bounded = true;
+          boundsPointCount += 1;
 
           const marker = new maps.Marker({
             map,
@@ -194,7 +194,11 @@ export default function MapPanel({
               maps,
               title === "Customer" ? "#ef4444" : "#facc15",
             ),
-            optimized: true,
+            // Only a handful of pins are rendered at once. Keeping each pin as
+            // its own DOM image avoids the oversized dark touch/canvas artifact
+            // seen with optimized legacy markers on some mobile Chromium builds.
+            optimized: false,
+            crossOnDrag: false,
           });
 
           if (isDraggable && onLocationChangeRef.current) {
@@ -222,7 +226,7 @@ export default function MapPanel({
           const position = toPosition(point);
           if (position) {
             bounds.extend(position);
-            bounded = true;
+            boundsPointCount += 1;
           }
         }
 
@@ -230,8 +234,10 @@ export default function MapPanel({
           const geometry = await maps.importLibrary("geometry");
           if (!active) return;
           const path = geometry.encoding.decodePath(encodedPolyline);
-          path.forEach((position) => bounds.extend(position));
-          bounded = true;
+          path.forEach((position) => {
+            bounds.extend(position);
+            boundsPointCount += 1;
+          });
           const polyline = new maps.Polyline({
             map,
             path,
@@ -252,7 +258,11 @@ export default function MapPanel({
           overlaysRef.current.push(polyline);
         }
 
-        if (bounded && !samePosition(originPosition, destinationPosition)) {
+        const shouldFitBounds =
+          boundsPointCount > 1 &&
+          !samePosition(originPosition, destinationPosition);
+
+        if (shouldFitBounds) {
           map.fitBounds(bounds, 56);
         } else {
           map.setZoom(zoom);
@@ -275,7 +285,7 @@ export default function MapPanel({
           if (!active || !containerRef.current || !mapRef.current) return;
 
           maps.event.trigger(map, "resize");
-          if (bounded && !samePosition(originPosition, destinationPosition)) {
+          if (shouldFitBounds) {
             map.fitBounds(bounds, 56);
           } else {
             map.setCenter(centerPosition);

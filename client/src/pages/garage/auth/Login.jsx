@@ -148,10 +148,10 @@ export default function GarageLogin() {
                     type="text"
                     value={identifier}
                     onChange={(event) => setIdentifier(event.target.value)}
-                    placeholder="owner@email.com or mobile number"
+                    placeholder="Email or mobile number"
                     autoComplete="username"
                     inputMode="email"
-                    className="h-12 w-full rounded-xl border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
+                    className="h-12 min-w-0 w-full rounded-xl border border-line bg-white pl-11 pr-3 text-[13px] outline-none transition placeholder:text-xs focus:border-ink focus:ring-2 focus:ring-slate-100 sm:pr-4 sm:text-sm sm:placeholder:text-sm"
                     required
                   />
                 </div>

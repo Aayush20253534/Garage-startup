@@ -138,10 +138,10 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-2xl card-soft p-8"
+          className="card-soft w-full max-w-2xl p-5 sm:p-8"
         >
-          <h1 className="text-3xl font-bold mb-2">Garage Type</h1>
-          <p className="text-muted mb-8">
+          <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Garage Type</h1>
+          <p className="mb-6 text-sm text-muted sm:mb-8 sm:text-base">
             Select your garage type and supported brands
           </p>
 
@@ -153,18 +153,22 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <button
                 type="button"
                 onClick={() => onChange({ ...data, garageType: "MULTI_BRAND" })}
-                className={`rounded-lg border p-5 text-center shadow-sm transition ${
+                className={`min-w-0 overflow-hidden rounded-lg border px-3 py-4 text-center shadow-sm transition sm:p-5 ${
                   data.garageType === "MULTI_BRAND"
                     ? "border-brand bg-brand-soft"
                     : "border-line bg-white hover:border-ink/25 hover:bg-bg-soft"
                 }`}
               >
-                <h3 className="font-bold text-lg mb-1">Multi-Brand</h3>
-                <p className="text-muted text-sm">We Service All Brands</p>
+                <h3 className="mb-1 break-words text-base font-bold leading-tight sm:text-lg">
+                  Multi-Brand
+                </h3>
+                <p className="text-xs leading-5 text-muted sm:text-sm">
+                  We Service All Brands
+                </p>
               </button>
               <button
                 type="button"
@@ -175,19 +179,23 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
                     brands: data.brands.slice(0, 1),
                   })
                 }
-                className={`rounded-lg border p-5 text-center shadow-sm transition ${
+                className={`min-w-0 overflow-hidden rounded-lg border px-3 py-4 text-center shadow-sm transition sm:p-5 ${
                   data.garageType === "AUTHORIZED"
                     ? "border-brand bg-brand-soft"
                     : "border-line bg-white hover:border-ink/25 hover:bg-bg-soft"
                 }`}
               >
-                <h3 className="font-bold text-lg mb-1">Authorized</h3>
-                <p className="text-muted text-sm">Select Specific Brands</p>
+                <h3 className="mb-1 break-words text-base font-bold leading-tight sm:text-lg">
+                  Authorized
+                </h3>
+                <p className="text-xs leading-5 text-muted sm:text-sm">
+                  Select Specific Brands
+                </p>
               </button>
             </div>
 
             <div className="space-y-4">
-              <h4 className="font-semibold">
+              <h4 className="break-words text-base font-semibold leading-snug">
                 {data.garageType === "AUTHORIZED"
                   ? "Select Authorized Brand"
                   : "Select Brands You Service"}

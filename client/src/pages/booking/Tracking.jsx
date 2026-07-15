@@ -1039,10 +1039,18 @@ function Tracking() {
               />
               {booking.handoverOtpExpiresAt && (
                 <Row
-                  label="OTP expires"
+                  label="OTP expires (2-hour validity)"
                   value={new Date(booking.handoverOtpExpiresAt).toLocaleString(
                     "en-IN",
-                    { dateStyle: "medium", timeStyle: "short" },
+                    {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      timeZone: "Asia/Kolkata",
+                      timeZoneName: "short",
+                    },
                   )}
                 />
               )}

@@ -103,24 +103,30 @@ export default function CustomerActivityProfileModal({ userId, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[120] overflow-y-auto bg-black/65 px-3 py-4 sm:px-6 sm:py-8"
+      className="fixed inset-0 z-[120] overflow-hidden bg-black/65 sm:px-6 sm:py-8"
       role="presentation"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
-      <section role="dialog" aria-modal="true" className="mx-auto w-full max-w-6xl overflow-hidden rounded-2xl bg-bg-soft shadow-2xl">
-        <header className="sticky top-0 z-10 border-b border-line bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
-          <div className="flex items-start justify-between gap-4">
+      <section role="dialog" aria-modal="true" className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden bg-bg-soft shadow-2xl sm:max-h-[calc(100dvh-4rem)] sm:rounded-2xl">
+        <header className="z-10 shrink-0 border-b border-line bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-4">
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-wider text-muted">Customer activity profile</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <h3 className="truncate text-xl font-bold text-ink">{profile?.name || "Customer"}</h3>
+                <h3 className="min-w-0 break-words text-lg font-bold text-ink sm:text-xl">{profile?.name || "Customer"}</h3>
                 {profile && (
                   <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${profile.isOnline ? "bg-lime-100 text-ink" : profile.isLoggedIn ? "bg-blue-50 text-blue-700" : "bg-bg-soft text-muted"}`}>
                     {profile.isOnline ? "Online now" : profile.isLoggedIn ? "Logged in" : "Logged out"}
                   </span>
                 )}
               </div>
-              {profile && <p className="mt-1 truncate text-sm text-muted">{profile.email} · {profile.phone || "No phone"}</p>}
+              {profile && (
+                <p className="mt-1 break-all text-xs leading-5 text-muted sm:text-sm">
+                  {profile.email}
+                  <span className="hidden sm:inline"> · </span>
+                  <span className="block sm:inline">{profile.phone || "No phone"}</span>
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button type="button" onClick={load} disabled={loading} className="grid h-10 w-10 place-items-center rounded-lg border border-line bg-white text-muted hover:text-ink"><FiRefreshCw className={loading ? "animate-spin" : ""} /></button>
@@ -129,13 +135,13 @@ export default function CustomerActivityProfileModal({ userId, onClose }) {
           </div>
 
           {profile && (
-            <nav className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            <nav className="mt-4 grid grid-cols-3 gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
               {tabs.map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => setTab(value)}
-                  className={`shrink-0 rounded-lg px-3 py-2 text-sm font-bold transition ${tab === value ? "bg-ink text-white" : "border border-line bg-white text-muted hover:text-ink"}`}
+                  className={`min-w-0 truncate rounded-lg px-2 py-2.5 text-xs font-bold transition sm:shrink-0 sm:px-3 sm:py-2 sm:text-sm ${tab === value ? "bg-ink text-white" : "border border-line bg-white text-muted hover:text-ink"}`}
                 >
                   {label}
                 </button>
@@ -144,7 +150,7 @@ export default function CustomerActivityProfileModal({ userId, onClose }) {
           )}
         </header>
 
-        <div className="p-4 sm:p-6">
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-6">
           {error && <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><FiAlertCircle />{error}</div>}
           {loading && !profile ? (
             <div className="rounded-2xl border border-line bg-white p-10 text-center text-sm text-muted">Loading customer profile...</div>
@@ -240,24 +246,24 @@ export default function CustomerActivityProfileModal({ userId, onClose }) {
 
               {tab === "sessions" && (
                 <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <article className="rounded-2xl border border-line bg-white p-4"><p className="text-sm text-muted">Known devices</p><p className="mt-2 text-3xl font-bold text-ink">{profile.knownDeviceCount || 0}</p></article>
-                    <article className="rounded-2xl border border-line bg-white p-4"><p className="text-sm text-muted">Active devices</p><p className="mt-2 text-3xl font-bold text-ink">{profile.activeDeviceCount || 0}</p></article>
-                    <article className="rounded-2xl border border-line bg-white p-4"><p className="text-sm text-muted">Active sessions</p><p className="mt-2 text-3xl font-bold text-ink">{profile.activeSessionCount || 0}</p></article>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                    <article className="min-w-0 rounded-xl border border-line bg-white p-3 sm:rounded-2xl sm:p-4"><p className="text-xs leading-4 text-muted sm:text-sm">Known devices</p><p className="mt-2 text-2xl font-bold text-ink sm:text-3xl">{profile.knownDeviceCount || 0}</p></article>
+                    <article className="min-w-0 rounded-xl border border-line bg-white p-3 sm:rounded-2xl sm:p-4"><p className="text-xs leading-4 text-muted sm:text-sm">Active devices</p><p className="mt-2 text-2xl font-bold text-ink sm:text-3xl">{profile.activeDeviceCount || 0}</p></article>
+                    <article className="min-w-0 rounded-xl border border-line bg-white p-3 sm:rounded-2xl sm:p-4"><p className="text-xs leading-4 text-muted sm:text-sm">Active sessions</p><p className="mt-2 text-2xl font-bold text-ink sm:text-3xl">{profile.activeSessionCount || 0}</p></article>
                   </div>
                   <div className="grid gap-3">
                     {(profile.sessions || []).length ? profile.sessions.map((session) => {
                       const device = parseDevice(session.userAgent);
                       const Icon = device.isMobile ? FiSmartphone : FiMonitor;
                       return (
-                        <article key={session.id} className="rounded-2xl border border-line bg-white p-4">
-                          <div className="flex items-start justify-between gap-4">
+                        <article key={session.id} className="min-w-0 overflow-hidden rounded-2xl border border-line bg-white p-4">
+                          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                             <div className="flex min-w-0 items-start gap-3">
                               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-bg-soft text-ink"><Icon /></span>
                               <div className="min-w-0">
                                 <p className="font-bold text-ink">{device.browser} on {device.platform}</p>
-                                <p className="mt-1 truncate text-xs text-muted" title={session.userAgent || ""}>{session.userAgent || "User agent unavailable"}</p>
-                                <p className="mt-2 text-xs text-muted">Last seen {formatDateTime(session.lastSeenAt)} · Created {formatDateTime(session.createdAt)}</p>
+                                <p className="mt-1 break-all text-xs leading-5 text-muted sm:truncate" title={session.userAgent || ""}>{session.userAgent || "User agent unavailable"}</p>
+                                <p className="mt-2 text-xs leading-5 text-muted">Last seen {formatDateTime(session.lastSeenAt)}<span className="block sm:inline"> · Created {formatDateTime(session.createdAt)}</span></p>
                               </div>
                             </div>
                             <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${session.isActive ? "bg-lime-100 text-ink" : "bg-bg-soft text-muted"}`}>{session.isActive ? "Active" : session.revokedAt ? "Logged out" : "Expired"}</span>

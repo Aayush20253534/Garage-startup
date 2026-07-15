@@ -70,6 +70,15 @@ test("handover OTP has attempt limits and an exclusive verification claim", () =
   assert.match(lifecycleService, /handoverOtpHash: null/);
 });
 
+test("handover OTP expiry is fixed at exactly two hours from generation", () => {
+  assert.match(lifecycleService, /HANDOVER_OTP_TTL_MS = 2 \* 60 \* 60 \* 1000/);
+  assert.match(
+    lifecycleService,
+    /expiresAt: new Date\(normalizedGeneratedAt\.getTime\(\) \+ HANDOVER_OTP_TTL_MS\)/,
+  );
+  assert.doesNotMatch(lifecycleService, /process\.env\.HANDOVER_OTP_TTL_MINUTES/);
+});
+
 const hashOtp = require("../../src/utils/hashOtp");
 const {
   consumeUserOtp,

@@ -501,9 +501,9 @@ export default function GarageBookingDetail() {
               ) : (
                 <>
                   <p className="mt-4 text-xs text-muted">
-                    OTP expiry: {formatDateTime(booking.handoverOtpExpiresAt)}.
-                    The customer can generate a new OTP from booking tracking if
-                    needed.
+                    OTP expiry: {formatDateTime(booking.handoverOtpExpiresAt)}
+                    {" "}(exactly 2 hours after generation). The customer can
+                    generate a new OTP from booking tracking if needed.
                   </p>
                   <input
                     value={otp}
