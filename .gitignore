@@ -2,3 +2,10 @@
 notes.md
 Rovauto_App_Notifications_User_Guide.pdf
 /Detailed Schema.md
+
+.vercel
+.env*
+
+.env.local
+.env.*.local
+.vercel/
