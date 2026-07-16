@@ -1543,30 +1543,46 @@ const escapeHtml = (value) =>
 
 const searchEmailUsers = async (query = {}) => {
   const search = String(query.search || "").trim();
-
-  return prisma.user.findMany({
-    where: {
-      ...(query.role && { role: query.role }),
-      ...(search && {
+  const searchWhere = search
+    ? {
         OR: [
           { name: { contains: search, mode: "insensitive" } },
           { email: { contains: search, mode: "insensitive" } },
           { phone: { contains: search, mode: "insensitive" } },
         ],
-      }),
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      role: true,
-      isActive: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "desc" },
-    take: 25,
-  });
+      }
+    : {};
+  const select = {
+    id: true,
+    name: true,
+    email: true,
+    phone: true,
+    role: true,
+    isActive: true,
+    createdAt: true,
+  };
+  const [customers, garageOwners] = await Promise.all([
+    query.role === "GARAGE_OWNER"
+      ? []
+      : prisma.user.findMany({
+          where: { role: "CUSTOMER", ...searchWhere },
+          select,
+          orderBy: { createdAt: "desc" },
+          take: 25,
+        }),
+    query.role === "CUSTOMER"
+      ? []
+      : prisma.garageOwner.findMany({
+          where: searchWhere,
+          select,
+          orderBy: { createdAt: "desc" },
+          take: 25,
+        }),
+  ]);
+
+  return [...customers, ...garageOwners]
+    .sort((left, right) => right.createdAt - left.createdAt)
+    .slice(0, 25);
 };
 
 const sendUserEmail = async ({ userId, subject, message }) => {
@@ -1574,10 +1590,15 @@ const sendUserEmail = async ({ userId, subject, message }) => {
     throw new ApiError(500, "Resend API key missing");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, name: true, email: true, role: true },
-  });
+  const user =
+    (await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, role: true },
+    })) ||
+    (await prisma.garageOwner.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, role: true },
+    }));
 
   if (!user || !user.email) {
     throw new ApiError(404, "User email not found");
@@ -1657,10 +1678,14 @@ const sendNotification = async ({
 
   if (audience === "USER") {
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new ApiError(404, "User not found");
+    const garageOwner = user
+      ? null
+      : await prisma.garageOwner.findUnique({ where: { id: userId } });
+    if (!user && !garageOwner) throw new ApiError(404, "User not found");
 
     return notificationService.createNotification({
-      userId,
+      userId: user ? userId : null,
+      garageOwnerId: garageOwner ? userId : null,
       title,
       message,
       type,

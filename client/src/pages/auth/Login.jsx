@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import api from "@/api/axios";
-import { FiArrowRight } from "react-icons/fi";
+import { FiArrowRight, FiEye, FiEyeOff } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import startGoogleAuth, { completeGoogleRedirectAuth } from "@/utils/googleAuth";
 import { verifyCurrentSession } from "@/utils/authSession";
@@ -34,6 +34,7 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const completeLogin = async (freshUser) => {
     login(freshUser);
@@ -241,16 +242,27 @@ export default function Login() {
             className="px-4 py-3 rounded-xl border border-line focus:border-ink outline-none"
           />
 
-          <input
-            required
-            name="password"
-            value={form.password}
-            onChange={change}
-            type="password"
-            placeholder="Password"
-            autoComplete="current-password"
-            className="px-4 py-3 rounded-xl border border-line focus:border-ink outline-none"
-          />
+          <div className="relative">
+            <input
+              required
+              name="password"
+              value={form.password}
+              onChange={change}
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              autoComplete="current-password"
+              className="w-full rounded-xl border border-line py-3 pl-4 pr-12 outline-none focus:border-ink"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              className="absolute right-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-lg text-muted transition hover:bg-bg-soft hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            >
+              {showPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
 
           <button
             disabled={loading}

@@ -1,6 +1,7 @@
 const argon2 = require("argon2");
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
+const { normalizeEmail } = require("../../utils/email");
 const { deleteGaragesDeep } = require("../../admin/services/garageDeletion.service");
 const {
   GARAGE_MINIMUM_ACTIVATION_RECHARGE,
@@ -191,7 +192,7 @@ const updateGarageOwnerProfile = async (userId, payload = {}) => {
   const nextEmail =
     payload.email === undefined
       ? garage.email
-      : String(payload.email || "").trim().toLowerCase() || null;
+      : normalizeEmail(payload.email) || null;
   const nextAddress = String(payload.address ?? garage.address).trim();
   const nextCity = String(payload.city ?? garage.city).trim();
   const nextArea = String(payload.area ?? garage.area).trim();
@@ -304,8 +305,8 @@ const maskEmail = (email) => {
 };
 
 const requestGarageAccountDeletionOtp = async (userId) => {
-  const user = await prisma.user.findFirst({
-    where: { id: userId, role: "GARAGE_OWNER", isActive: true },
+  const user = await prisma.garageOwner.findFirst({
+    where: { id: userId, isActive: true },
     select: { id: true, email: true },
   });
 
@@ -350,8 +351,8 @@ const verifyDeletionConfirmation = async (user, payload = {}) => {
 };
 
 const deleteGarageOwnerAccount = async (userId, confirmation = {}) => {
-  const owner = await prisma.user.findFirst({
-    where: { id: userId, role: "GARAGE_OWNER", isActive: true },
+  const owner = await prisma.garageOwner.findFirst({
+    where: { id: userId, isActive: true },
     select: { id: true, password: true },
   });
 
@@ -367,7 +368,7 @@ const deleteGarageOwnerAccount = async (userId, confirmation = {}) => {
   });
 
   if (!garages.length) {
-    await prisma.user.delete({
+    await prisma.garageOwner.delete({
       where: { id: userId },
     });
 

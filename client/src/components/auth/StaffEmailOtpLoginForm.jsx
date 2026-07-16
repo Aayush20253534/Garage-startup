@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   FiArrowLeft,
   FiArrowRight,
+  FiEye,
+  FiEyeOff,
   FiLock,
   FiMail,
   FiRefreshCw,
@@ -31,6 +33,7 @@ export default function StaffEmailOtpLoginForm({
   const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (!challenge) return undefined;
@@ -271,11 +274,20 @@ export default function StaffEmailOtpLoginForm({
                       password: event.target.value,
                     }))
                   }
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter password"
                   autoComplete="current-password"
-                  className="h-12 w-full rounded-xl border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
+                  className="h-12 w-full rounded-xl border border-line bg-white pl-11 pr-12 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-lg text-muted transition hover:bg-slate-50 hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+                >
+                  {showPassword ? <FiEyeOff /> : <FiEye />}
+                </button>
               </div>
             </label>
           </>

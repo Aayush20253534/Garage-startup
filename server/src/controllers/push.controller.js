@@ -15,12 +15,21 @@ const getPublicConfig = asyncHandler(async (req, res) => {
 });
 
 const subscribe = asyncHandler(async (req, res) => {
-  const result = await webPushService.saveSubscription({
-    userId: req.user.id,
+  const payload = {
     subscription: req.body?.subscription,
     deviceName: req.body?.deviceName,
     userAgent: req.get("user-agent"),
-  });
+  };
+  const result =
+    req.user.role === "GARAGE_OWNER"
+      ? await webPushService.saveGarageSubscription({
+          garageOwnerId: req.user.id,
+          ...payload,
+        })
+      : await webPushService.saveSubscription({
+          userId: req.user.id,
+          ...payload,
+        });
 
   return res
     .status(201)
@@ -28,10 +37,16 @@ const subscribe = asyncHandler(async (req, res) => {
 });
 
 const unsubscribe = asyncHandler(async (req, res) => {
-  const result = await webPushService.removeSubscription({
-    userId: req.user.id,
-    endpoint: req.body?.endpoint,
-  });
+  const result =
+    req.user.role === "GARAGE_OWNER"
+      ? await webPushService.removeGarageSubscription({
+          garageOwnerId: req.user.id,
+          endpoint: req.body?.endpoint,
+        })
+      : await webPushService.removeSubscription({
+          userId: req.user.id,
+          endpoint: req.body?.endpoint,
+        });
 
   return res
     .status(200)

@@ -2,6 +2,7 @@ require("dotenv/config");
 
 const prisma = require("../config/prisma");
 const applicationService = require("../garage/services/application.service");
+const { normalizeEmail } = require("../utils/email");
 
 const args = process.argv.slice(2);
 
@@ -13,7 +14,6 @@ const getArg = (name) => {
 
 const hasFlag = (name) => args.includes(`--${name}`);
 
-const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const normalizePhone = (phone) => String(phone || "").trim();
 
 const usage = () => {

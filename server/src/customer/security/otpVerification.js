@@ -35,14 +35,17 @@ const throwOtpResult = (result) => {
  * The caller may pass a Prisma transaction client so OTP consumption and the
  * protected action commit or roll back together.
  */
-const consumeUserOtp = async ({
+const consumeAccountOtp = async ({
   client,
-  userId,
+  model,
+  identityField,
+  identityId,
   purpose,
   otp,
 }) => {
-  if (!client?.otp) {
-    throw new Error("consumeUserOtp requires a Prisma client or transaction");
+  const otpModel = client?.[model];
+  if (!otpModel) {
+    throw new Error("OTP consumption requires a Prisma client or transaction");
   }
 
   const submittedOtp = String(otp || "").trim();
@@ -54,15 +57,20 @@ const consumeUserOtp = async ({
   const submittedHash = hashOtp(submittedOtp);
 
   for (let retry = 0; retry < OTP_CONCURRENCY_RETRIES; retry += 1) {
-    const record = await client.otp.findUnique({
-      where: { userId_purpose: { userId, purpose } },
+    const record = await otpModel.findUnique({
+      where: {
+        [`${identityField}_purpose`]: {
+          [identityField]: identityId,
+          purpose,
+        },
+      },
     });
 
     if (!record || record.usedAt) return invalidOtpResult();
 
     const now = new Date();
     if (record.expiresAt <= now) {
-      await client.otp.updateMany({
+      await otpModel.updateMany({
         where: { id: record.id, usedAt: null },
         data: { usedAt: now },
       });
@@ -70,7 +78,7 @@ const consumeUserOtp = async ({
     }
 
     if (record.attempts >= OTP_MAX_ATTEMPTS) {
-      await client.otp.updateMany({
+      await otpModel.updateMany({
         where: { id: record.id, usedAt: null },
         data: { usedAt: now },
       });
@@ -79,7 +87,7 @@ const consumeUserOtp = async ({
 
     if (!safeHashEquals(record.otpHash, submittedHash)) {
       const nextAttempts = record.attempts + 1;
-      const attempted = await client.otp.updateMany({
+      const attempted = await otpModel.updateMany({
         where: {
           id: record.id,
           attempts: record.attempts,
@@ -100,7 +108,7 @@ const consumeUserOtp = async ({
     }
 
     const consumedAt = new Date();
-    const consumed = await client.otp.updateMany({
+    const consumed = await otpModel.updateMany({
       where: {
         id: record.id,
         otpHash: record.otpHash,
@@ -123,11 +131,37 @@ const consumeUserOtp = async ({
   };
 };
 
+const consumeUserOtp = ({ client, userId, purpose, otp }) =>
+  consumeAccountOtp({
+    client,
+    model: "otp",
+    identityField: "userId",
+    identityId: userId,
+    purpose,
+    otp,
+  });
+
+const consumeGarageOwnerOtp = ({
+  client,
+  garageOwnerId,
+  purpose,
+  otp,
+}) =>
+  consumeAccountOtp({
+    client,
+    model: "garageOwnerOtp",
+    identityField: "garageOwnerId",
+    identityId: garageOwnerId,
+    purpose,
+    otp,
+  });
+
 module.exports = {
   OTP_MAX_ATTEMPTS,
   OTP_CONCURRENCY_RETRIES,
   safeHashEquals,
   invalidOtpResult,
   throwOtpResult,
+  consumeGarageOwnerOtp,
   consumeUserOtp,
 };

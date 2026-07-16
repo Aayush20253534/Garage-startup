@@ -89,6 +89,9 @@ const saveSubscription = async ({
     await tx.customerSupportPushSubscription.deleteMany({
       where: { endpoint: normalized.endpoint },
     });
+    await tx.garagePushSubscription.deleteMany({
+      where: { endpoint: normalized.endpoint },
+    });
 
     return tx.pushSubscription.upsert({
       where: { endpoint: normalized.endpoint },
@@ -133,6 +136,9 @@ const saveSupportSubscription = async ({
     await tx.pushSubscription.deleteMany({
       where: { endpoint: normalized.endpoint },
     });
+    await tx.garagePushSubscription.deleteMany({
+      where: { endpoint: normalized.endpoint },
+    });
 
     return tx.customerSupportPushSubscription.upsert({
       where: { endpoint: normalized.endpoint },
@@ -145,6 +151,53 @@ const saveSupportSubscription = async ({
       },
       create: {
         supportAccountId,
+        ...normalized,
+        ...device,
+        lastUsedAt: now,
+      },
+      select: {
+        id: true,
+        deviceName: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  });
+};
+
+const saveGarageSubscription = async ({
+  garageOwnerId,
+  subscription,
+  userAgent = null,
+  deviceName = null,
+}) => {
+  if (!isWebPushConfigured()) {
+    throw new ApiError(503, "Web Push is not configured on the server");
+  }
+
+  const normalized = normalizeSubscription(subscription);
+  const device = normalizeDeviceDetails({ userAgent, deviceName });
+  const now = new Date();
+
+  return prisma.$transaction(async (tx) => {
+    await tx.pushSubscription.deleteMany({
+      where: { endpoint: normalized.endpoint },
+    });
+    await tx.customerSupportPushSubscription.deleteMany({
+      where: { endpoint: normalized.endpoint },
+    });
+
+    return tx.garagePushSubscription.upsert({
+      where: { endpoint: normalized.endpoint },
+      update: {
+        garageOwnerId,
+        p256dh: normalized.p256dh,
+        auth: normalized.auth,
+        ...device,
+        lastUsedAt: now,
+      },
+      create: {
+        garageOwnerId,
         ...normalized,
         ...device,
         lastUsedAt: now,
@@ -185,6 +238,15 @@ const removeSupportSubscription = async ({ supportAccountId, endpoint }) => {
   return { removed: result.count > 0 };
 };
 
+const removeGarageSubscription = async ({ garageOwnerId, endpoint }) => {
+  const safeEndpoint = normalizeEndpoint(endpoint);
+  const result = await prisma.garagePushSubscription.deleteMany({
+    where: { garageOwnerId, endpoint: safeEndpoint },
+  });
+
+  return { removed: result.count > 0 };
+};
+
 const buildPayload = ({
   id = null,
   title,
@@ -209,6 +271,8 @@ const buildPayload = ({
 const getSubscriptionModel = (kind) =>
   kind === "support"
     ? prisma.customerSupportPushSubscription
+    : kind === "garage"
+      ? prisma.garagePushSubscription
     : prisma.pushSubscription;
 
 const sendToStoredSubscriptions = async (
@@ -265,8 +329,17 @@ const sendToStoredSubscriptions = async (
     failed += 1;
     console.warn("[web-push] delivery failed", {
       subscriptionId: subscription.id,
-      accountId: subscription.userId || subscription.supportAccountId || null,
-      accountType: kind === "support" ? "CUSTOMER_SUPPORT" : "USER",
+      accountId:
+        subscription.userId ||
+        subscription.supportAccountId ||
+        subscription.garageOwnerId ||
+        null,
+      accountType:
+        kind === "support"
+          ? "CUSTOMER_SUPPORT"
+          : kind === "garage"
+            ? "GARAGE_OWNER"
+            : "USER",
       statusCode: statusCode || null,
       message: result.reason?.message || "Unknown Web Push error",
     });
@@ -318,6 +391,20 @@ const sendPushToUsers = async (userIds, notification) => {
   return sendToStoredSubscriptions(subscriptions, notification);
 };
 
+const sendPushToGarageOwner = async (garageOwnerId, notification) => {
+  if (!garageOwnerId || !isWebPushConfigured()) {
+    return { sent: 0, failed: 0, removed: 0 };
+  }
+
+  const subscriptions = await prisma.garagePushSubscription.findMany({
+    where: { garageOwnerId },
+  });
+
+  return sendToStoredSubscriptions(subscriptions, notification, {
+    kind: "garage",
+  });
+};
+
 const sendPushToSupportAccount = async (supportAccountId, notification) => {
   if (!supportAccountId || !isWebPushConfigured()) {
     return { sent: 0, failed: 0, removed: 0 };
@@ -352,11 +439,14 @@ module.exports = {
   getPublicConfig,
   isWebPushConfigured,
   removeSubscription,
+  removeGarageSubscription,
   removeSupportSubscription,
   saveSubscription,
+  saveGarageSubscription,
   saveSupportSubscription,
   sendPushToSupportAccount,
   sendPushToSupportAccounts,
   sendPushToUser,
   sendPushToUsers,
+  sendPushToGarageOwner,
 };

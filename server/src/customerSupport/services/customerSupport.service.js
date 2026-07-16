@@ -607,10 +607,14 @@ const sendUserEmail = async ({ supportAccount, payload }) => {
     return result;
   } catch (error) {
     const user = payload.userId
-      ? await prisma.user.findUnique({
+      ? (await prisma.user.findUnique({
           where: { id: payload.userId },
           select: { id: true, name: true, email: true },
-        })
+        })) ||
+        (await prisma.garageOwner.findUnique({
+          where: { id: payload.userId },
+          select: { id: true, name: true, email: true },
+        }))
       : null;
 
     await prisma.customerSupportEmailLog

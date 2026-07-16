@@ -61,6 +61,7 @@ const resolveTrackingActor = async (account, booking) => {
       source: "ADMIN",
       garageId: booking.garageId,
       userId: null,
+      garageOwnerId: null,
     };
   }
 
@@ -76,7 +77,8 @@ const resolveTrackingActor = async (account, booking) => {
   return {
     source: "GARAGE",
     garageId: garage.id,
-    userId: account.id,
+    userId: null,
+    garageOwnerId: account.id,
   };
 };
 
@@ -187,6 +189,7 @@ const addTrackingPoint = async ({ bookingId, account, data }) => {
         bookingId,
         garageId: actor.garageId,
         userId: actor.userId,
+        garageOwnerId: actor.garageOwnerId,
         source: actor.source,
         latitude: rawLocation.latitude,
         longitude: rawLocation.longitude,

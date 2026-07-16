@@ -1,6 +1,7 @@
 const argon2 = require("argon2");
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
+const { normalizeEmail } = require("../../utils/email");
 const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
 const {
   dispatchOutboxEmail,
@@ -10,7 +11,6 @@ const { deleteCloudinaryImagesIfUnreferenced } = require("../../utils/cloudinary
 const geocodingService = require("../../customer/services/geocoding.service");
 const { GARAGE_MINIMUM_ACTIVATION_RECHARGE } = require("../constants");
 
-const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const normalizePhone = (phone) => String(phone || "").trim();
 const getDefaultGaragePassword = (phone) => {
   const digits = normalizePhone(phone).replace(/\D/g, "");
@@ -285,14 +285,13 @@ const approveApplication = async (applicationId, adminNote) => {
   const result = await prisma.$transaction(async (tx) => {
     const defaultPassword = getDefaultGaragePassword(application.phone);
     const defaultPasswordHash = await argon2.hash(defaultPassword);
-    const existingOwner = await tx.user.findFirst({
+    const existingOwner = await tx.garageOwner.findFirst({
       where: {
-        role: "GARAGE_OWNER",
         OR: [{ email: application.email }, { phone: application.phone }],
       },
     });
     const owner = existingOwner
-      ? await tx.user.update({
+      ? await tx.garageOwner.update({
           where: { id: existingOwner.id },
           data: {
             name: application.ownerName,
@@ -300,23 +299,26 @@ const approveApplication = async (applicationId, adminNote) => {
             phone: application.phone,
             password: defaultPasswordHash,
             passwordChangedAt: null,
-            role: "GARAGE_OWNER",
             isActive: true,
             isEmailVerified: true,
           },
         })
-      : await tx.user.create({
+      : await tx.garageOwner.create({
           data: {
             name: application.ownerName,
             email: application.email,
             phone: application.phone,
             password: defaultPasswordHash,
             passwordChangedAt: null,
-            role: "GARAGE_OWNER",
             isActive: true,
             isEmailVerified: true,
           },
         });
+
+    await tx.garageOwnerSession.updateMany({
+      where: { garageOwnerId: owner.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
 
     const garage = await tx.garage.create({
       data: {

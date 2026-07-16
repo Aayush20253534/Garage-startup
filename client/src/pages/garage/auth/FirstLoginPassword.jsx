@@ -4,6 +4,8 @@ import {
   FiAlertCircle,
   FiArrowRight,
   FiCheck,
+  FiEye,
+  FiEyeOff,
   FiLock,
   FiShield,
 } from "react-icons/fi";
@@ -14,6 +16,36 @@ import { useApp } from "@/hooks/useApp";
 
 const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
+function PasswordField({ label, value, onChange, placeholder, autoComplete }) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <label className="grid gap-2 text-sm font-bold text-ink">
+      {label}
+      <div className="relative">
+        <input
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          className="h-12 w-full rounded-xl border border-line bg-white pl-4 pr-12 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
+          required
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((current) => !current)}
+          aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          aria-pressed={visible}
+          className="absolute right-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-lg text-muted transition hover:bg-slate-50 hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+        >
+          {visible ? <FiEyeOff /> : <FiEye />}
+        </button>
+      </div>
+    </label>
+  );
+}
 
 export default function GarageFirstLoginPassword() {
   const { garage, authLoading, logoutGarage } = useApp();
@@ -122,44 +154,29 @@ export default function GarageFirstLoginPassword() {
           )}
 
           <form onSubmit={handleSubmit} className="mt-6 grid gap-4">
-            <label className="grid gap-2 text-sm font-bold text-ink">
-              Temporary password
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                placeholder="Enter the phone-number password"
-                autoComplete="current-password"
-                className="h-12 w-full rounded-xl border border-line bg-white px-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
-                required
-              />
-            </label>
+            <PasswordField
+              label="Temporary password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              placeholder="Enter the phone-number password"
+              autoComplete="current-password"
+            />
 
-            <label className="grid gap-2 text-sm font-bold text-ink">
-              New password
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                placeholder="Create a strong password"
-                autoComplete="new-password"
-                className="h-12 w-full rounded-xl border border-line bg-white px-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
-                required
-              />
-            </label>
+            <PasswordField
+              label="New password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              placeholder="Create a strong password"
+              autoComplete="new-password"
+            />
 
-            <label className="grid gap-2 text-sm font-bold text-ink">
-              Confirm new password
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder="Re-enter your new password"
-                autoComplete="new-password"
-                className="h-12 w-full rounded-xl border border-line bg-white px-4 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-slate-100"
-                required
-              />
-            </label>
+            <PasswordField
+              label="Confirm new password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="Re-enter your new password"
+              autoComplete="new-password"
+            />
 
             <button
               type="submit"

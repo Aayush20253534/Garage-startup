@@ -4,6 +4,7 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const generateOtp = require("../../utils/generateOtp");
 const hashOtp = require("../../utils/hashOtp");
+const { normalizeEmail } = require("../../utils/email");
 const { normalizePhone } = require("../../utils/phone");
 const {
   OTP_MAX_ATTEMPTS,
@@ -11,6 +12,7 @@ const {
   safeHashEquals,
   invalidOtpResult,
   throwOtpResult,
+  consumeGarageOwnerOtp,
   consumeUserOtp,
 } = require("../security/otpVerification");
 
@@ -22,11 +24,6 @@ const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 
 let resendClient = null;
 let activeResendApiKey = null;
-
-const normalizeEmail = (email) =>
-  String(email || "")
-    .trim()
-    .toLowerCase();
 
 const getEmailSender = () =>
   String(
@@ -468,21 +465,27 @@ const verifySignupOtp = async ({ email, otp }) =>
   verifyEmailOtp({ email, otp });
 
 const createResetPasswordOtp = async (
-  userId,
+  accountId,
   email,
   {
     expiryMs = OTP_EXPIRY_MS,
     expiryText = DEFAULT_OTP_EXPIRY_TEXT,
     subject = "Rovauto password reset OTP",
+    garageOwner = false,
   } = {},
 ) => {
   const otp = generateOtp();
   const cleanEmail = normalizeEmail(email);
+  const otpModel = garageOwner ? prisma.garageOwnerOtp : prisma.otp;
+  const identityField = garageOwner ? "garageOwnerId" : "userId";
 
   const now = new Date();
-  const createdOtp = await prisma.otp.upsert({
+  const createdOtp = await otpModel.upsert({
     where: {
-      userId_purpose: { userId, purpose: "RESET_PASSWORD" },
+      [`${identityField}_purpose`]: {
+        [identityField]: accountId,
+        purpose: "RESET_PASSWORD",
+      },
     },
     update: {
       otpHash: hashOtp(otp),
@@ -492,7 +495,7 @@ const createResetPasswordOtp = async (
       createdAt: now,
     },
     create: {
-      userId,
+      [identityField]: accountId,
       otpHash: hashOtp(otp),
       purpose: "RESET_PASSWORD",
       expiresAt: new Date(now.getTime() + expiryMs),
@@ -507,7 +510,7 @@ const createResetPasswordOtp = async (
       expiryText,
     });
   } catch (error) {
-    await prisma.otp
+    await otpModel
       .deleteMany({
         where: {
           id: createdOtp.id,
@@ -532,16 +535,20 @@ const createGarageResetPasswordOtp = async (userId, email) =>
     expiryMs: GARAGE_EMAIL_OTP_EXPIRY_MS,
     expiryText: GARAGE_EMAIL_OTP_EXPIRY_TEXT,
     subject: "Rovauto garage password reset OTP",
+    garageOwner: true,
   });
 
-const createDeleteAccountOtp = async (userId, email) => {
+const createDeleteAccountOtp = async (garageOwnerId, email) => {
   const otp = generateOtp();
   const cleanEmail = normalizeEmail(email);
 
   const now = new Date();
-  const createdOtp = await prisma.otp.upsert({
+  const createdOtp = await prisma.garageOwnerOtp.upsert({
     where: {
-      userId_purpose: { userId, purpose: "DELETE_ACCOUNT" },
+      garageOwnerId_purpose: {
+        garageOwnerId,
+        purpose: "DELETE_ACCOUNT",
+      },
     },
     update: {
       otpHash: hashOtp(otp),
@@ -551,7 +558,7 @@ const createDeleteAccountOtp = async (userId, email) => {
       createdAt: now,
     },
     create: {
-      userId,
+      garageOwnerId,
       otpHash: hashOtp(otp),
       purpose: "DELETE_ACCOUNT",
       expiresAt: new Date(now.getTime() + GARAGE_EMAIL_OTP_EXPIRY_MS),
@@ -566,7 +573,7 @@ const createDeleteAccountOtp = async (userId, email) => {
       expiryText: GARAGE_EMAIL_OTP_EXPIRY_TEXT,
     });
   } catch (error) {
-    await prisma.otp
+    await prisma.garageOwnerOtp
       .deleteMany({
         where: {
           id: createdOtp.id,
@@ -581,10 +588,10 @@ const createDeleteAccountOtp = async (userId, email) => {
   return { email: cleanEmail };
 };
 
-const verifyDeleteAccountOtp = async (userId, otp) => {
-  const result = await consumeUserOtp({
+const verifyDeleteAccountOtp = async (garageOwnerId, otp) => {
+  const result = await consumeGarageOwnerOtp({
     client: prisma,
-    userId,
+    garageOwnerId,
     purpose: "DELETE_ACCOUNT",
     otp,
   });
@@ -605,6 +612,7 @@ module.exports = {
   createGarageResetPasswordOtp,
   createDeleteAccountOtp,
   verifyDeleteAccountOtp,
+  consumeGarageOwnerOtp,
   consumeUserOtp,
   throwOtpResult,
   sendEmailOtp,

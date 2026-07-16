@@ -7,43 +7,101 @@ datasource db {
 }
 
 model User {
-  id                   String                @id @default(uuid())
-  name                 String
-  email                String
-  phone                String?
-  password             String
-  role                 Role                  @default(CUSTOMER)
-  isEmailVerified      Boolean               @default(false)
-  isPhoneVerified      Boolean               @default(false)
-  isOnboarded          Boolean               @default(false)
-  isActive             Boolean               @default(true)
-  passwordChangedAt    DateTime?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  bookings             Booking[]
-  complaints           Complaint[]
-  locations            CustomerLocation[]
-  customerProfile      CustomerProfile?
-  ownedGarages         Garage[]
-  notifications        Notification[]
-  pushSubscriptions    PushSubscription[]
-  sessions             UserSession[]
-  otps                 Otp[]
-  reviews              Review[]
-  vehicles             Vehicle[]
-  wallet               Wallet?
-  walletTransactions   WalletTransaction[]
-  chatbotConversations ChatbotConversation[]
-  chatbotMessages      ChatbotMessage[]
-  customerActivities   CustomerActivity[]
-  trackingPoints       BookingTrackingPoint[]
-  supportTickets       SupportTicket[]
+  id                    String                 @id @default(uuid())
+  name                  String
+  email                 String
+  phone                 String?
+  password              String
+  role                  Role                   @default(CUSTOMER)
+  isEmailVerified       Boolean                @default(false)
+  isPhoneVerified       Boolean                @default(false)
+  isOnboarded           Boolean                @default(false)
+  isActive              Boolean                @default(true)
+  passwordChangedAt     DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  bookings              Booking[]
+  complaints            Complaint[]
+  locations             CustomerLocation[]
+  customerProfile       CustomerProfile?
+  notifications         Notification[]
+  pushSubscriptions     PushSubscription[]
+  sessions              UserSession[]
+  otps                  Otp[]
+  reviews               Review[]
+  vehicles              Vehicle[]
+  wallet                Wallet?
+  walletTransactions    WalletTransaction[]
+  chatbotConversations  ChatbotConversation[]
+  chatbotMessages       ChatbotMessage[]
+  customerActivities    CustomerActivity[]
+  trackingPoints        BookingTrackingPoint[]
+  supportTickets        SupportTicket[]
   supportTicketMessages SupportTicketMessage[] @relation("SupportTicketUserMessages")
 
   @@unique([email, role])
   @@unique([phone, role])
   @@index([email])
   @@index([phone])
+}
+
+model GarageOwner {
+  id                String                   @id @default(uuid())
+  name              String
+  email             String                   @unique
+  phone             String?                  @unique
+  password          String
+  role              Role                     @default(GARAGE_OWNER)
+  isEmailVerified   Boolean                  @default(true)
+  isPhoneVerified   Boolean                  @default(false)
+  isOnboarded       Boolean                  @default(true)
+  isActive          Boolean                  @default(true)
+  passwordChangedAt DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  garages           Garage[]
+  sessions          GarageOwnerSession[]
+  otps              GarageOwnerOtp[]
+  notifications     Notification[]
+  pushSubscriptions GaragePushSubscription[]
+  trackingPoints    BookingTrackingPoint[]
+
+  @@index([isActive])
+  @@map("garage_owners")
+}
+
+model GarageOwnerSession {
+  id            String      @id @default(uuid())
+  garageOwnerId String
+  userAgent     String?
+  deviceId      String?
+  lastSeenAt    DateTime    @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  garageOwner   GarageOwner @relation(fields: [garageOwnerId], references: [id], onDelete: Cascade)
+
+  @@index([garageOwnerId, expiresAt])
+  @@index([garageOwnerId, deviceId])
+  @@index([lastSeenAt])
+  @@map("garage_owner_sessions")
+}
+
+model GarageOwnerOtp {
+  id            String      @id @default(uuid())
+  garageOwnerId String
+  otpHash       String
+  purpose       OtpPurpose
+  expiresAt     DateTime
+  usedAt        DateTime?
+  attempts      Int         @default(0)
+  createdAt     DateTime    @default(now())
+  garageOwner   GarageOwner @relation(fields: [garageOwnerId], references: [id], onDelete: Cascade)
+
+  @@unique([garageOwnerId, purpose])
+  @@index([garageOwnerId])
+  @@map("garage_owner_otps")
 }
 
 model UserSession {
@@ -65,21 +123,21 @@ model UserSession {
 }
 
 model StaffAccount {
-  id                String    @id @default(uuid())
-  name              String
-  loginId           String    @unique
-  email             String?   @unique
-  phone             String?   @unique
-  password          String
-  role              StaffRole
-  isActive          Boolean   @default(true)
-  lastLoginAt       DateTime?
-  passwordChangedAt DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  sessions          StaffSession[]
-  assignedSupportTickets SupportTicket[] @relation("AssignedSupportTickets")
-  supportTicketMessages SupportTicketMessage[] @relation("SupportTicketStaffMessages")
+  id                     String                 @id @default(uuid())
+  name                   String
+  loginId                String                 @unique
+  email                  String?                @unique
+  phone                  String?                @unique
+  password               String
+  role                   StaffRole
+  isActive               Boolean                @default(true)
+  lastLoginAt            DateTime?
+  passwordChangedAt      DateTime?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  sessions               StaffSession[]
+  assignedSupportTickets SupportTicket[]        @relation("AssignedSupportTickets")
+  supportTicketMessages  SupportTicketMessage[] @relation("SupportTicketStaffMessages")
 
   @@index([role])
   @@index([isActive])
@@ -87,17 +145,17 @@ model StaffAccount {
 }
 
 model CustomerSupportAccount {
-  id                String                        @id @default(uuid())
+  id                String                            @id @default(uuid())
   name              String
-  email             String                        @unique
+  email             String                            @unique
   password          String
-  isActive          Boolean                       @default(true)
+  isActive          Boolean                           @default(true)
   lastLoginAt       DateTime?
   passwordChangedAt DateTime?
-  createdAt         DateTime                      @default(now())
-  updatedAt         DateTime                      @updatedAt
-  assignedTickets   SupportTicket[]               @relation("CustomerSupportAssignedTickets")
-  messages          SupportTicketMessage[]        @relation("SupportTicketSupportMessages")
+  createdAt         DateTime                          @default(now())
+  updatedAt         DateTime                          @updatedAt
+  assignedTickets   SupportTicket[]                   @relation("CustomerSupportAssignedTickets")
+  messages          SupportTicketMessage[]            @relation("SupportTicketSupportMessages")
   notifies          Notify[]
   pushSubscriptions CustomerSupportPushSubscription[]
   sessions          CustomerSupportSession[]
@@ -144,19 +202,18 @@ model CustomerSupportSession {
   @@map("customer_support_sessions")
 }
 
-
 model StaffLoginChallenge {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   accountId     String
   accountType   String
   role          String
   deliveryEmail String
   otpHash       String
-  attempts      Int      @default(0)
+  attempts      Int       @default(0)
   expiresAt     DateTime
   consumedAt    DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([accountId, accountType])
   @@index([expiresAt])
@@ -304,19 +361,19 @@ model Vehicle {
 }
 
 model CustomerLocation {
-  id        String         @id @default(uuid())
-  userId    String
-  latitude  Float
-  longitude Float
+  id                String         @id @default(uuid())
+  userId            String
+  latitude          Float
+  longitude         Float
   address           String?
   formattedAddress  String?
   placeId           String?
   addressComponents Json?
   source            LocationSource @default(GPS)
-  isDefault Boolean        @default(true)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isDefault         Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([latitude, longitude])
@@ -350,7 +407,7 @@ model Garage {
   applicationId      String?                   @unique
   bookings           Booking[]
   inspectionImages   BookingInspectionImage[]
-  owner              User?                     @relation(fields: [ownerId], references: [id])
+  owner              GarageOwner?              @relation(fields: [ownerId], references: [id])
   broadcasts         GarageBroadcastRequest[]
   images             GarageImage[]
   services           GarageService[]
@@ -397,15 +454,15 @@ model GarageVideo {
 }
 
 model ServiceCategory {
-  id                String    @id @default(uuid())
-  name              String    @unique
+  id                String                    @id @default(uuid())
+  name              String                    @unique
   description       String?
   thumbnailUrl      String?
   thumbnailPublicId String?
-  isActive          Boolean   @default(true)
-  isComingSoon      Boolean   @default(false)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  isActive          Boolean                   @default(true)
+  isComingSoon      Boolean                   @default(false)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
   services          Service[]
   cityRestrictions  CategoryCityRestriction[]
 
@@ -423,11 +480,11 @@ model Service {
   updatedAt    DateTime @updatedAt
   durationMin  Int?
 
-  bookingItems    BookingService[]
-  cityPriceRanges CityServicePriceRange[]
-  garageServices  GarageService[]
-  category        ServiceCategory         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  media           ServiceMedia[]
+  bookingItems     BookingService[]
+  cityPriceRanges  CityServicePriceRange[]
+  garageServices   GarageService[]
+  category         ServiceCategory          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  media            ServiceMedia[]
   cityRestrictions ServiceCityRestriction[]
 
   @@index([categoryId])
@@ -498,13 +555,13 @@ model CityServicePriceRange {
 }
 
 model City {
-  id             String   @id @default(uuid())
-  name           String
-  normalizedName String   @unique
-  state          String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String                    @id @default(uuid())
+  name                 String
+  normalizedName       String                    @unique
+  state                String?
+  isActive             Boolean                   @default(true)
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
   serviceRestrictions  ServiceCityRestriction[]
   categoryRestrictions CategoryCityRestriction[]
 
@@ -611,15 +668,15 @@ model Booking {
 }
 
 model AdminBookingEvent {
-  id         String   @id @default(uuid())
-  bookingId  String
-  staffId    String
-  staffName  String
-  action     String
-  note       String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
-  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  bookingId String
+  staffId   String
+  staffName String
+  action    String
+  note      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId, createdAt])
   @@index([staffId, createdAt])
@@ -693,6 +750,7 @@ model BookingTrackingPoint {
   bookingId        String
   garageId         String?
   userId           String?
+  garageOwnerId    String?
   source           TrackingSource @default(GARAGE)
   latitude         Float
   longitude        Float
@@ -707,10 +765,12 @@ model BookingTrackingPoint {
   booking          Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   garage           Garage?        @relation(fields: [garageId], references: [id], onDelete: SetNull)
   user             User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  garageOwner      GarageOwner?   @relation(fields: [garageOwnerId], references: [id], onDelete: SetNull)
 
   @@index([bookingId, recordedAt])
   @@index([garageId, recordedAt])
   @@index([userId, recordedAt])
+  @@index([garageOwnerId, recordedAt])
   @@map("booking_tracking_points")
 }
 
@@ -861,7 +921,7 @@ model SupportTicket {
   user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   booking           Booking?                  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   assignedTo        StaffAccount?             @relation("AssignedSupportTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
-  supportAssignee   CustomerSupportAccount?    @relation("CustomerSupportAssignedTickets", fields: [supportAssigneeId], references: [id], onDelete: SetNull)
+  supportAssignee   CustomerSupportAccount?   @relation("CustomerSupportAssignedTickets", fields: [supportAssigneeId], references: [id], onDelete: SetNull)
   messages          SupportTicketMessage[]
   attachments       SupportTicketAttachment[]
 
@@ -875,21 +935,21 @@ model SupportTicket {
 }
 
 model SupportTicketMessage {
-  id            String                   @id @default(uuid())
-  ticketId      String
-  authorType    SupportMessageAuthorType
-  authorUserId  String?
-  authorStaffId String?
+  id              String                    @id @default(uuid())
+  ticketId        String
+  authorType      SupportMessageAuthorType
+  authorUserId    String?
+  authorStaffId   String?
   authorSupportId String?
-  authorName    String
-  body          String
-  isInternal    Boolean                  @default(false)
-  createdAt     DateTime                 @default(now())
-  ticket        SupportTicket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorUser    User?                    @relation("SupportTicketUserMessages", fields: [authorUserId], references: [id], onDelete: SetNull)
-  authorStaff   StaffAccount?            @relation("SupportTicketStaffMessages", fields: [authorStaffId], references: [id], onDelete: SetNull)
-  authorSupport CustomerSupportAccount?  @relation("SupportTicketSupportMessages", fields: [authorSupportId], references: [id], onDelete: SetNull)
-  attachments   SupportTicketAttachment[]
+  authorName      String
+  body            String
+  isInternal      Boolean                   @default(false)
+  createdAt       DateTime                  @default(now())
+  ticket          SupportTicket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorUser      User?                     @relation("SupportTicketUserMessages", fields: [authorUserId], references: [id], onDelete: SetNull)
+  authorStaff     StaffAccount?             @relation("SupportTicketStaffMessages", fields: [authorStaffId], references: [id], onDelete: SetNull)
+  authorSupport   CustomerSupportAccount?   @relation("SupportTicketSupportMessages", fields: [authorSupportId], references: [id], onDelete: SetNull)
+  attachments     SupportTicketAttachment[]
 
   @@index([ticketId, createdAt])
   @@index([authorUserId])
@@ -950,17 +1010,17 @@ model CustomerSupportPushSubscription {
 }
 
 model CustomerSupportEmailLog {
-  id               String                 @id @default(uuid())
-  supportAccountId String
-  userId           String?
-  recipientEmail   String
-  recipientName    String?
-  subject          String
-  status           String                 @default("SENT")
+  id                String                 @id @default(uuid())
+  supportAccountId  String
+  userId            String?
+  recipientEmail    String
+  recipientName     String?
+  subject           String
+  status            String                 @default("SENT")
   providerMessageId String?
-  errorMessage     String?
-  createdAt        DateTime               @default(now())
-  supportAccount   CustomerSupportAccount @relation(fields: [supportAccountId], references: [id], onDelete: Cascade)
+  errorMessage      String?
+  createdAt         DateTime               @default(now())
+  supportAccount    CustomerSupportAccount @relation(fields: [supportAccountId], references: [id], onDelete: Cascade)
 
   @@index([supportAccountId, createdAt])
   @@index([recipientEmail])
@@ -1001,43 +1061,62 @@ model ComplaintImage {
 }
 
 model Notification {
-  id        String           @id @default(uuid())
-  userId    String?
-  title     String
-  message   String
-  type      NotificationType @default(SYSTEM)
-  isRead    Boolean          @default(false)
-  link      String?
-  metadata  Json?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String           @id @default(uuid())
+  userId        String?
+  garageOwnerId String?
+  title         String
+  message       String
+  type          NotificationType @default(SYSTEM)
+  isRead        Boolean          @default(false)
+  link          String?
+  metadata      Json?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  user          User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  garageOwner   GarageOwner?     @relation(fields: [garageOwnerId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([garageOwnerId])
   @@index([isRead])
   @@index([createdAt])
 }
 
-
 model PushSubscription {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   userId     String
-  endpoint   String   @unique
+  endpoint   String    @unique
   p256dh     String
   auth       String
   userAgent  String?
   deviceName String?
   lastUsedAt DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("push_subscriptions")
 }
 
+model GaragePushSubscription {
+  id            String      @id @default(uuid())
+  garageOwnerId String
+  endpoint      String      @unique
+  p256dh        String
+  auth          String
+  userAgent     String?
+  deviceName    String?
+  lastUsedAt    DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  garageOwner   GarageOwner @relation(fields: [garageOwnerId], references: [id], onDelete: Cascade)
+
+  @@index([garageOwnerId])
+  @@map("garage_push_subscriptions")
+}
+
 model GarageApplication {
-  id               String                   @id @default(uuid())
+  id               String                         @id @default(uuid())
   ownerName        String
   email            String
   phone            String
@@ -1049,15 +1128,15 @@ model GarageApplication {
   latitude         Float?
   longitude        Float?
   placeId          String?
-  workingRadiusKm  Int                      @default(15)
-  status           GarageApplicationStatus  @default(PENDING)
+  workingRadiusKm  Int                            @default(15)
+  status           GarageApplicationStatus        @default(PENDING)
   adminNote        String?
   reviewedAt       DateTime?
-  approvedGarageId String?                  @unique
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
+  approvedGarageId String?                        @unique
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
   images           GarageApplicationImage[]
-  emailOutbox       GarageApplicationEmailOutbox[]
+  emailOutbox      GarageApplicationEmailOutbox[]
 
   @@index([email])
   @@index([phone])

@@ -221,15 +221,6 @@ const collectBackup = async () => {
           attachments: true,
         },
       },
-      ownedGarages: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          ownerId: true,
-        },
-      },
     },
   });
 

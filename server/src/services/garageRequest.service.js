@@ -296,7 +296,7 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
         requestId: request.id,
         bookingId: booking.id,
         promise: notificationService.createNotification({
-          userId: request.garage.ownerId,
+          garageOwnerId: request.garage.ownerId,
           type: "BOOKING",
           title: "New nearby booking request",
           message: `${booking.vehicle?.brand || "Vehicle"} ${

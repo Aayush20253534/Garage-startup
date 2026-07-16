@@ -3,8 +3,8 @@ const ApiError = require("../../utils/apiError");
 const { deleteFromCloudinary } = require("../../utils/cloudinaryUpload");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const invalidatePublicCache = require("../../utils/invalidatePublicCache");
+const { normalizeEmail } = require("../../utils/email");
 
-const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const normalizePhone = (phone) => String(phone || "").trim();
 const unique = (values) => [...new Set(values.filter(Boolean))];
 
@@ -142,17 +142,16 @@ const deleteGaragesDeep = async ({ garageIds = [], email = "", deleteAllApplicat
     const deletedGarages = await tx.garage.deleteMany({ where: { id: { in: ids } } });
 
     const orphanOwners = ownerIds.length
-      ? await tx.user.findMany({
+      ? await tx.garageOwner.findMany({
           where: {
             id: { in: ownerIds },
-            role: "GARAGE_OWNER",
-            ownedGarages: { none: {} },
+            garages: { none: {} },
           },
           select: { id: true },
         })
       : [];
     const deletedOwnerUsers = orphanOwners.length
-      ? await tx.user.deleteMany({ where: { id: { in: orphanOwners.map((owner) => owner.id) } } })
+      ? await tx.garageOwner.deleteMany({ where: { id: { in: orphanOwners.map((owner) => owner.id) } } })
       : { count: 0 };
 
     return {

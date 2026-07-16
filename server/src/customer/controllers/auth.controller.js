@@ -192,6 +192,7 @@ const supportLogout = asyncHandler(async (req, res) => {
     req.user?.id,
     req.user?.accountType,
     req.authSessionId,
+    req.user?.role,
   );
 
   res.clearCookie(
@@ -210,6 +211,7 @@ const supportMe = asyncHandler(async (req, res) => {
   const account = await authService.getMe(
     req.user.id,
     req.user.accountType,
+    req.user.role,
   );
 
   preventAuthResponseCaching(res);
@@ -266,6 +268,7 @@ const logout = asyncHandler(async (req, res) => {
     req.user?.id,
     req.user?.accountType,
     req.authSessionId,
+    req.user?.role,
   );
 
   res.clearCookie(
@@ -286,6 +289,7 @@ const me = asyncHandler(async (req, res) => {
   const account = await authService.getMe(
     req.user.id,
     req.user.accountType,
+    req.user.role,
   );
 
   preventAuthResponseCaching(res);
@@ -329,6 +333,7 @@ const changePassword = asyncHandler(async (req, res) => {
     req.user.accountType,
     req.body,
     req.authSessionId,
+    req.user.role,
   );
 
   return res

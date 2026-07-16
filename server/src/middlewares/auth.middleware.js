@@ -3,9 +3,11 @@ const ApiError = require("../utils/apiError");
 const { verifyToken } = require("../utils/jwt");
 const {
   getActiveCustomerSupportSession,
+  getActiveGarageOwnerSession,
   getActiveStaffSession,
   getActiveUserSession,
   touchCustomerSupportSession,
+  touchGarageOwnerSession,
   touchStaffSession,
   touchUserSession,
 } = require("../customer/services/userSession.service");
@@ -57,7 +59,7 @@ const resolveAccountType = (decoded) => {
   return null;
 };
 
-const getActiveAccount = async (accountId, accountType) => {
+const getActiveAccount = async (accountId, accountType, role = null) => {
   if (accountType === "STAFF") {
     const staff = await prisma.staffAccount.findUnique({
       where: { id: accountId },
@@ -107,6 +109,32 @@ const getActiveAccount = async (accountId, accountType) => {
   }
 
   if (accountType === "USER") {
+    if (role === "GARAGE_OWNER") {
+      const garageOwner = await prisma.garageOwner.findUnique({
+        where: { id: accountId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          isActive: true,
+          isEmailVerified: true,
+          isPhoneVerified: true,
+          isOnboarded: true,
+          createdAt: true,
+          passwordChangedAt: true,
+        },
+      });
+
+      return garageOwner
+        ? {
+            ...garageOwner,
+            accountType: "USER",
+          }
+        : null;
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: accountId },
       select: {
@@ -169,7 +197,11 @@ const authenticateRequest = async (
       return next(new ApiError(401, "Invalid account session"));
     }
 
-    const account = await getActiveAccount(decoded.id, accountType);
+    const account = await getActiveAccount(
+      decoded.id,
+      accountType,
+      decoded.role,
+    );
 
     if (!account) {
       clearAccessTokenCookie(res, tokenCookieName);
@@ -209,10 +241,10 @@ const authenticateRequest = async (
 
     if (accountType === "USER") {
       if (decoded.sessionId) {
-        const session = await getActiveUserSession(
-          decoded.sessionId,
-          account.id,
-        );
+        const isGarageOwner = account.role === "GARAGE_OWNER";
+        const session = isGarageOwner
+          ? await getActiveGarageOwnerSession(decoded.sessionId, account.id)
+          : await getActiveUserSession(decoded.sessionId, account.id);
 
         if (!session) {
           clearAccessTokenCookie(res, tokenCookieName);
@@ -225,7 +257,11 @@ const authenticateRequest = async (
         }
 
         authSessionId = session.id;
-        await touchUserSession(session.id, account.id);
+        if (isGarageOwner) {
+          await touchGarageOwnerSession(session.id, account.id);
+        } else {
+          await touchUserSession(session.id, account.id);
+        }
       } else {
         clearAccessTokenCookie(res, tokenCookieName);
 

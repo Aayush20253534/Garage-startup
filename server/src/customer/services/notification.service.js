@@ -67,6 +67,7 @@ const sendPushToUsers = async (userIds, notification) => {
 
 const createNotification = async ({
   userId = null,
+  garageOwnerId = null,
   title,
   message,
   type = "SYSTEM",
@@ -82,6 +83,7 @@ const createNotification = async ({
   const notification = await prisma.notification.create({
     data: {
       userId,
+      garageOwnerId,
       title,
       message,
       type,
@@ -93,6 +95,14 @@ const createNotification = async ({
   if (userId) {
     await invalidateNotificationCache(userId);
     await sendPushToUsers([userId], {
+      ...notification,
+      title: pushTitle || notification.title,
+      message: pushMessage || notification.message,
+    });
+  }
+
+  if (garageOwnerId) {
+    await webPushService.sendPushToGarageOwner(garageOwnerId, {
       ...notification,
       title: pushTitle || notification.title,
       message: pushMessage || notification.message,

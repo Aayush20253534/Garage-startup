@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FUEL_TYPES } from "@/data/vehicles";
@@ -39,6 +39,9 @@ const getActiveBookingLabel = (booking) =>
 
 export default function VehicleSelect() {
   const nav = useNavigate();
+  const modelSectionRef = useRef(null);
+  const fuelSectionRef = useRef(null);
+  const detailsSectionRef = useRef(null);
 
   const {
     vehicle,
@@ -196,9 +199,35 @@ export default function VehicleSelect() {
     }
   }, [activeBookingsByVehicleId, hasVehicles, vehicle?.id, vehicleIdsKey]);
 
+  const scrollToNextSection = (sectionRef) => {
+    if (!window.matchMedia("(max-width: 639px)").matches) return;
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        sectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    });
+  };
+
   const selectBrand = (selectedBrand) => {
     setBrand(selectedBrand);
     setModel(null);
+    setFuel(null);
+    scrollToNextSection(modelSectionRef);
+  };
+
+  const selectModel = (selectedModel) => {
+    setModel(selectedModel);
+    setFuel(null);
+    scrollToNextSection(fuelSectionRef);
+  };
+
+  const selectFuel = (selectedFuel) => {
+    setFuel(selectedFuel);
+    scrollToNextSection(detailsSectionRef);
   };
 
   const handleSetDefault = async (selectedVehicle) => {
@@ -549,13 +578,14 @@ export default function VehicleSelect() {
             </Block>
 
             {brand && (
-              <Block title="Select Model" done={!!model} value={model?.name}>
+              <div ref={modelSectionRef} className="scroll-mt-24">
+                <Block title="Select Model" done={!!model} value={model?.name}>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {brand.models.map((m) => (
                     <button
                       key={m.id}
                       type="button"
-                      onClick={() => setModel(m)}
+                      onClick={() => selectModel(m)}
                       className={[
                         "rounded-xl border px-4 py-3 text-left text-sm transition",
                         model?.id === m.id
@@ -569,17 +599,19 @@ export default function VehicleSelect() {
                     </button>
                   ))}
                 </div>
-              </Block>
+                </Block>
+              </div>
             )}
 
             {model && (
-              <Block title="Select Fuel" done={!!fuel} value={fuel?.label}>
+              <div ref={fuelSectionRef} className="scroll-mt-24">
+                <Block title="Select Fuel" done={!!fuel} value={fuel?.label}>
                 <div className="flex flex-wrap gap-2">
                   {FUEL_TYPES.map((f) => (
                     <button
                       key={f.value}
                       type="button"
-                      onClick={() => setFuel(f)}
+                      onClick={() => selectFuel(f)}
                       className={[
                         "h-10 rounded-full border px-4 text-sm font-semibold transition",
                         fuel?.value === f.value
@@ -591,11 +623,13 @@ export default function VehicleSelect() {
                     </button>
                   ))}
                 </div>
-              </Block>
+                </Block>
+              </div>
             )}
 
             {brand && model && fuel && (
-              <Block title="Vehicle Details" done={!!year} value={year}>
+              <div ref={detailsSectionRef} className="scroll-mt-24">
+                <Block title="Vehicle Details" done={!!year} value={year}>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1.5 text-sm font-semibold text-ink">
                     Year
@@ -625,7 +659,8 @@ export default function VehicleSelect() {
                     />
                   </label>
                 </div>
-              </Block>
+                </Block>
+              </div>
             )}
 
             {brand && model && fuel && year && (

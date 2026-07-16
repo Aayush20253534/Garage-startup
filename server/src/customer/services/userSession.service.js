@@ -87,6 +87,14 @@ const createStaffSession = (staffAccountId, metadata = {}) =>
     metadata,
   });
 
+const createGarageOwnerSession = (garageOwnerId, metadata = {}) =>
+  createAccountSession({
+    model: "garageOwnerSession",
+    accountField: "garageOwnerId",
+    accountId: garageOwnerId,
+    metadata,
+  });
+
 const createCustomerSupportSession = (supportAccountId, metadata = {}) =>
   createAccountSession({
     model: "customerSupportSession",
@@ -131,6 +139,14 @@ const getActiveStaffSession = (sessionId, staffAccountId) =>
     "staffAccountId",
     sessionId,
     staffAccountId,
+  );
+
+const getActiveGarageOwnerSession = (sessionId, garageOwnerId) =>
+  getActiveAccountSession(
+    "garageOwnerSession",
+    "garageOwnerId",
+    sessionId,
+    garageOwnerId,
   );
 
 const getActiveCustomerSupportSession = (sessionId, supportAccountId) =>
@@ -181,6 +197,14 @@ const touchStaffSession = (sessionId, staffAccountId) =>
     staffAccountId,
   );
 
+const touchGarageOwnerSession = (sessionId, garageOwnerId) =>
+  touchAccountSession(
+    "garageOwnerSession",
+    "garageOwnerId",
+    sessionId,
+    garageOwnerId,
+  );
+
 const touchCustomerSupportSession = (sessionId, supportAccountId) =>
   touchAccountSession(
     "customerSupportSession",
@@ -225,6 +249,14 @@ const revokeStaffSession = (sessionId, staffAccountId) =>
     "staffAccountId",
     sessionId,
     staffAccountId,
+  );
+
+const revokeGarageOwnerSession = (sessionId, garageOwnerId) =>
+  revokeAccountSession(
+    "garageOwnerSession",
+    "garageOwnerId",
+    sessionId,
+    garageOwnerId,
   );
 
 const revokeCustomerSupportSession = (sessionId, supportAccountId) =>
@@ -279,18 +311,22 @@ const revokeAllCustomerSupportSessions = async (supportAccountId) => {
 
 module.exports = {
   createCustomerSupportSession,
+  createGarageOwnerSession,
   createStaffSession,
   createUserSession,
   getActiveCustomerSupportSession,
+  getActiveGarageOwnerSession,
   getActiveStaffSession,
   getActiveUserSession,
   revokeAllCustomerSupportSessions,
   revokeAllStaffSessions,
   revokeAllUserSessions,
   revokeCustomerSupportSession,
+  revokeGarageOwnerSession,
   revokeStaffSession,
   revokeUserSession,
   touchCustomerSupportSession,
+  touchGarageOwnerSession,
   touchStaffSession,
   touchUserSession,
 };
