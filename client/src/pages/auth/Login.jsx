@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import api from "@/api/axios";
 import { FiArrowRight, FiEye, FiEyeOff } from "react-icons/fi";
@@ -8,7 +8,10 @@ import { verifyCurrentSession } from "@/utils/authSession";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { useApp } from "@/hooks/useApp";
 import CustomerPwaInstall from "@/components/pwa/CustomerPwaInstall";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import { preloadCustomerPortal } from "@/utils/customerPreload";
+
+const MOBILE_LOGIN_LOADER_MINIMUM_MS = 850;
 
 const buildReturnPath = (fromLocation) => {
   if (!fromLocation?.pathname) return null;
@@ -35,6 +38,28 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const loadingStartedAtRef = useRef(0);
+
+  const beginLoginLoading = () => {
+    loadingStartedAtRef.current = Date.now();
+    setLoading(true);
+  };
+
+  const completeMobileLoaderAnimation = async () => {
+    if (
+      typeof window === "undefined" ||
+      !window.matchMedia("(max-width: 639px)").matches
+    ) {
+      return;
+    }
+
+    const elapsed = Date.now() - loadingStartedAtRef.current;
+    const remaining = MOBILE_LOGIN_LOADER_MINIMUM_MS - elapsed;
+
+    if (remaining > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, remaining));
+    }
+  };
 
   const completeLogin = async (freshUser) => {
     login(freshUser);
@@ -75,6 +100,8 @@ export default function Login() {
       userId: freshUser.id,
     });
 
+    await completeMobileLoaderAnimation();
+
     if (targetPath === "/booking/address") {
       nav(targetPath, {
         replace: true,
@@ -94,6 +121,7 @@ export default function Login() {
         const data = await completeGoogleRedirectAuth();
         if (!active || !data) return;
 
+        beginLoginLoading();
         const freshUser = data?.user;
         if (!freshUser) {
           throw new Error("Invalid Google login response");
@@ -131,7 +159,7 @@ export default function Login() {
     event.preventDefault();
 
     setError("");
-    setLoading(true);
+    beginLoginLoading();
 
     try {
       const response = await api.post("/auth/login", {
@@ -168,7 +196,7 @@ export default function Login() {
 
   const handleGoogleAuth = async () => {
     setError("");
-    setLoading(true);
+    beginLoginLoading();
 
     try {
       const data = await startGoogleAuth("CUSTOMER");
@@ -194,7 +222,9 @@ export default function Login() {
   };
 
   return (
-    <div className="container-x grid min-h-[80vh] items-center gap-12 py-10 sm:py-16 lg:grid-cols-2 mt-0 pb-30">
+    <>
+      <CustomerLoginLoader visible={loading} />
+      <div className="container-x grid min-h-[80vh] items-center gap-12 py-10 sm:py-16 lg:grid-cols-2 mt-0 pb-30">
       <div className="hidden lg:block">
         <h1 className="text-5xl font-bold leading-tight">
           Welcome back.
@@ -294,6 +324,7 @@ export default function Login() {
       </div>
       <CustomerPwaInstall compact />
       </div>
-    </div>
+      </div>
+    </>
   );
 }

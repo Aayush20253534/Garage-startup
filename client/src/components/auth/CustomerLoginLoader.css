@@ -1,0 +1,148 @@
+.customer-login-loader {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .customer-login-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    min-height: 100dvh;
+    place-items: center;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 50% 38%, rgba(185, 240, 0, 0.2), transparent 42%),
+      #ffffff;
+    padding: max(24px, env(safe-area-inset-top)) 24px
+      max(24px, env(safe-area-inset-bottom));
+  }
+
+  .customer-login-loader__content {
+    width: min(100%, 390px);
+    text-align: center;
+  }
+
+  .customer-login-loader__track {
+    position: relative;
+    height: 150px;
+    overflow: hidden;
+  }
+
+  .customer-login-loader__runner {
+    position: absolute;
+    left: 50%;
+    bottom: 27px;
+    width: 210px;
+    transform: translateX(-50%);
+    animation: customer-login-car-cruise 1.35s ease-in-out infinite;
+  }
+
+  .customer-login-loader__car {
+    position: relative;
+    z-index: 2;
+    display: block;
+    width: 100%;
+    filter: drop-shadow(0 12px 9px rgba(17, 17, 17, 0.18));
+  }
+
+  .customer-login-loader__smoke {
+    position: absolute;
+    z-index: 1;
+    left: 2px;
+    bottom: 27px;
+    display: block;
+    width: 15px;
+    height: 15px;
+    border-radius: 999px;
+    background: rgba(107, 114, 128, 0.48);
+    opacity: 0;
+    animation: customer-login-smoke 1.35s ease-out infinite;
+  }
+
+  .customer-login-loader__smoke--two {
+    animation-delay: 0.35s;
+  }
+
+  .customer-login-loader__smoke--three {
+    animation-delay: 0.7s;
+  }
+
+  .customer-login-loader__road {
+    position: absolute;
+    right: 0;
+    bottom: 24px;
+    left: 0;
+    display: flex;
+    gap: 34px;
+    overflow: hidden;
+    border-top: 4px solid #111111;
+    padding-top: 12px;
+  }
+
+  .customer-login-loader__road span {
+    width: 50px;
+    height: 5px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: #cbd5e1;
+    animation: customer-login-road 0.75s linear infinite;
+  }
+
+  .customer-login-loader__title {
+    margin: 20px 0 0;
+    color: #111111;
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+  }
+
+  .customer-login-loader__message {
+    margin: 7px 0 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+}
+
+@keyframes customer-login-car-cruise {
+  0%,
+  100% {
+    transform: translateX(calc(-50% - 9px)) translateY(0) rotate(-0.5deg);
+  }
+  50% {
+    transform: translateX(calc(-50% + 9px)) translateY(-3px) rotate(0.5deg);
+  }
+}
+
+@keyframes customer-login-smoke {
+  0% {
+    opacity: 0;
+    transform: translate(13px, 0) scale(0.45);
+  }
+  25% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-58px, -25px) scale(1.7);
+  }
+}
+
+@keyframes customer-login-road {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-84px);
+  }
+}
+
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+  .customer-login-loader__runner,
+  .customer-login-loader__smoke,
+  .customer-login-loader__road span {
+    animation-duration: 3s;
+  }
+}
