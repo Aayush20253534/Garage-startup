@@ -59,7 +59,7 @@ const shouldUseTemplates = () => {
 const WHATSAPP_LOG_PREFIX = "[whatsapp]";
 
 const shouldLogWhatsapp = () => {
-  const value = String(process.env.WHATSAPP_DEBUG_LOGS || "true").toLowerCase();
+  const value = String(process.env.WHATSAPP_DEBUG_LOGS || "false").toLowerCase();
   return !["0", "false", "off", "no"].includes(value);
 };
 

@@ -1,4 +1,11 @@
 const redis = require("../config/redis");
+const { isLogFlagEnabled } = require("./logControls");
+
+const logCacheDebug = (message) => {
+  if (isLogFlagEnabled(process.env.CACHE_DEBUG_LOGS, false)) {
+    console.debug(message);
+  }
+};
 
 const withTimeout = (promise, ms = Number(process.env.CACHE_TIMEOUT_MS || 1500)) =>
   Promise.race([
@@ -38,11 +45,11 @@ const getCache = async (key) => {
     const cached = await withTimeout(redis.get(key));
 
     if (!cached) {
-      console.log(`[cache] miss: ${key}`);
+      logCacheDebug(`[cache] miss: ${key}`);
       return null;
     }
 
-    console.log(`[cache] hit: ${key}`);
+    logCacheDebug(`[cache] hit: ${key}`);
     return JSON.parse(cached);
   } catch (error) {
     console.error(`Redis get failed for ${key}:`, error.message);
@@ -57,7 +64,7 @@ const setCache = async (key, data, ttlSeconds = 60) => {
 
     await withTimeout(redis.set(key, JSON.stringify(data), "EX", ttlSeconds));
 
-    console.log(`[cache] set: ${key}`);
+    logCacheDebug(`[cache] set: ${key}`);
     return true;
   } catch (error) {
     console.error(`Redis set failed for ${key}:`, error.message);
@@ -72,7 +79,7 @@ const deleteCache = async (key) => {
 
     await withTimeout(redis.del(key));
 
-    console.log(`[cache] deleted: ${key}`);
+    logCacheDebug(`[cache] deleted: ${key}`);
     return true;
   } catch (error) {
     console.error(`Redis delete failed for ${key}:`, error.message);
@@ -95,13 +102,13 @@ const deletePattern = async (pattern) => {
     } while (cursor !== "0");
 
     if (keys.length === 0) {
-      console.log(`[cache] no keys for pattern: ${pattern}`);
+      logCacheDebug(`[cache] no keys for pattern: ${pattern}`);
       return true;
     }
 
     await withTimeout(redis.del(...keys));
 
-    console.log(`[cache] deleted pattern: ${pattern} (${keys.length} keys)`);
+    logCacheDebug(`[cache] deleted pattern: ${pattern} (${keys.length} keys)`);
     return true;
   } catch (error) {
     console.error(`Redis pattern delete failed for ${pattern}:`, error.message);

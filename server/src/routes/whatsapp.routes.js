@@ -5,6 +5,11 @@ const ApiResponse = require("../utils/apiResponse");
 const {
   isWhatsappConfigured,
 } = require("../services/garageWhatsapp.service");
+const {
+  hasWhatsappWebhookFailure,
+  isLogFlagEnabled,
+  summarizeWhatsappWebhookEvents,
+} = require("../utils/logControls");
 
 const router = express.Router();
 
@@ -71,34 +76,19 @@ router.post(
     );
 
     if (process.env.NODE_ENV !== "test") {
-      console.log(
-        "[whatsapp:webhook]",
-        JSON.stringify(
-          {
-            object: req.body?.object,
-            events: events.map((event) => ({
-              field: event.field,
-              messages: event.value?.messages?.length || 0,
-              statuses: event.value?.statuses?.length || 0,
-              statusDetails: (event.value?.statuses || []).map((status) => ({
-                id: status.id,
-                recipientId: status.recipient_id,
-                status: status.status,
-                timestamp: status.timestamp,
-                conversationId: status.conversation?.id,
-                pricingCategory: status.pricing?.category,
-                errors: (status.errors || []).map((error) => ({
-                  code: error.code,
-                  title: error.title,
-                  message: error.message || error.error_data?.details,
-                })),
-              })),
-            })),
-          },
-          null,
-          2,
-        ),
+      const summary = summarizeWhatsappWebhookEvents(req.body?.object, events);
+      const hasFailure = hasWhatsappWebhookFailure(events);
+      const debugEnabled = isLogFlagEnabled(
+        process.env.WHATSAPP_WEBHOOK_DEBUG_LOGS ??
+          process.env.WHATSAPP_DEBUG_LOGS,
+        false,
       );
+
+      if (hasFailure) {
+        console.warn("[whatsapp:webhook] delivery failure", summary);
+      } else if (debugEnabled) {
+        console.info("[whatsapp:webhook] status", summary);
+      }
     }
 
     return res
