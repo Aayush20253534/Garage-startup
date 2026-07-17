@@ -48,8 +48,8 @@ model User {
 model GarageOwner {
   id                String                   @id @default(uuid())
   name              String
-  email             String                   @unique
-  phone             String?                  @unique
+  email             String?                  @unique
+  phone             String                   @unique
   password          String
   role              Role                     @default(GARAGE_OWNER)
   isEmailVerified   Boolean                  @default(true)
@@ -1118,7 +1118,7 @@ model GaragePushSubscription {
 model GarageApplication {
   id               String                         @id @default(uuid())
   ownerName        String
-  email            String
+  email            String?
   phone            String
   garageName       String
   description      String?

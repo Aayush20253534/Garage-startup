@@ -4,9 +4,10 @@ const submitGarageApplicationSchema = [
   body("ownerName").trim().notEmpty().withMessage("Owner name is required"),
 
   body("email")
+    .optional({ nullable: true, checkFalsy: true })
     .trim()
     .isEmail()
-    .withMessage("Valid email is required")
+    .withMessage("Enter a valid email address")
     .normalizeEmail(),
 
   body("phone")

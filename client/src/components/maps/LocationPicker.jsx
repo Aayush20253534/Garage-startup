@@ -157,7 +157,10 @@ export default function LocationPicker({
     }
   };
 
-  const resolveDraggedLocation = async (nextCoordinate) => {
+  const resolveDraggedLocation = async (
+    nextCoordinate,
+    source = "MANUAL",
+  ) => {
     setSelecting(true);
     setError("");
     try {
@@ -172,7 +175,7 @@ export default function LocationPicker({
         longitude: nextCoordinate.longitude,
         placeId: parsed.placeId || value.placeId || null,
         addressComponents: parsed.addressComponents || value.addressComponents || null,
-        source: "MANUAL",
+        source,
       });
       selectedTextRef.current = formattedAddress;
       setQuery(formattedAddress);
@@ -198,7 +201,7 @@ export default function LocationPicker({
           await resolveDraggedLocation({
             latitude: Number(position.coords.latitude.toFixed(6)),
             longitude: Number(position.coords.longitude.toFixed(6)),
-          });
+          }, "GPS");
         } finally {
           setLocating(false);
         }

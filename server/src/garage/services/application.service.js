@@ -2,6 +2,7 @@ const argon2 = require("argon2");
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { normalizeEmail } = require("../../utils/email");
+const { normalizePhone } = require("../../utils/phone");
 const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
 const {
   dispatchOutboxEmail,
@@ -11,10 +12,42 @@ const { deleteCloudinaryImagesIfUnreferenced } = require("../../utils/cloudinary
 const geocodingService = require("../../customer/services/geocoding.service");
 const { GARAGE_MINIMUM_ACTIVATION_RECHARGE } = require("../constants");
 
-const normalizePhone = (phone) => String(phone || "").trim();
 const getDefaultGaragePassword = (phone) => {
   const digits = normalizePhone(phone).replace(/\D/g, "");
-  return digits.length > 10 && digits.startsWith("91") ? digits.slice(2, 12) : digits.slice(0, 10);
+  return digits.slice(-10);
+};
+const getGarageIdentityConditions = ({ email, phone }) =>
+  [phone ? { phone } : null, email ? { email } : null].filter(Boolean);
+
+const ensureGarageApplicationIdentityAvailable = async ({ email, phone }) => {
+  const identityConditions = getGarageIdentityConditions({ email, phone });
+  const [garageOwner, garage, application] = await Promise.all([
+    prisma.garageOwner.findFirst({ where: { OR: identityConditions }, select: { id: true } }),
+    prisma.garage.findFirst({ where: { OR: identityConditions }, select: { id: true } }),
+    prisma.garageApplication.findFirst({
+      where: {
+        status: { in: ["PENDING", "CHANGES_REQUESTED", "APPROVED"] },
+        OR: identityConditions,
+      },
+      select: { id: true, status: true },
+    }),
+  ]);
+
+  // These checks intentionally use only garage-domain tables. A customer or
+  // staff account may share the same contact details without blocking a
+  // garage application or garage-owner login.
+  if (garageOwner || garage) {
+    throw new ApiError(409, "This phone or email is already linked to a garage account");
+  }
+
+  if (application) {
+    throw new ApiError(409, "A garage application already exists for this phone or email");
+  }
+};
+
+const enqueueOptionalApplicationEmail = async (options) => {
+  if (!String(options.to || "").trim()) return null;
+  return enqueueGarageApplicationEmail(options);
 };
 const normalizeGarageType = (value) =>
   String(value || "MULTI_BRAND").trim().toUpperCase() === "AUTHORIZED"
@@ -64,7 +97,7 @@ const applicationSelect = {
 };
 
 const submitApplication = async (payload, files = []) => {
-  const email = normalizeEmail(payload.email);
+  const email = normalizeEmail(payload.email) || null;
   const phone = normalizePhone(payload.phone);
   let latitude = payload.latitude === undefined ? null : Number(payload.latitude);
   let longitude = payload.longitude === undefined ? null : Number(payload.longitude);
@@ -76,6 +109,8 @@ const submitApplication = async (payload, files = []) => {
   if (files.length > 15) {
     throw new ApiError(400, "You can upload up to 15 garage photos");
   }
+
+  await ensureGarageApplicationIdentityAvailable({ email, phone });
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     const geocodeResult = await geocodingService.geocodeAddress({
@@ -148,6 +183,13 @@ const getApplication = async (applicationId) => {
 };
 
 const deliverQueuedEmail = async (outboxId) => {
+  if (!outboxId) {
+    return {
+      status: "SKIPPED",
+      reason: "NO_EMAIL_ADDRESS",
+    };
+  }
+
   try {
     return await dispatchOutboxEmail(outboxId);
   } catch (error) {
@@ -176,7 +218,7 @@ const requestChanges = async (applicationId, adminNote) => {
       select: applicationSelect,
     });
 
-    const email = await enqueueGarageApplicationEmail({
+    const email = await enqueueOptionalApplicationEmail({
       client: tx,
       applicationId,
       dedupeKey: `garage-application:${applicationId}:changes:${reviewedAt.getTime()}`,
@@ -185,7 +227,7 @@ const requestChanges = async (applicationId, adminNote) => {
       message,
     });
 
-    return { application: updatedApplication, emailOutboxId: email.id };
+    return { application: updatedApplication, emailOutboxId: email?.id || null };
   });
 
   return {
@@ -210,7 +252,7 @@ const denyApplication = async (applicationId, adminNote) => {
       select: applicationSelect,
     });
 
-    const email = await enqueueGarageApplicationEmail({
+    const email = await enqueueOptionalApplicationEmail({
       client: tx,
       applicationId,
       dedupeKey: `garage-application:${applicationId}:denied:${reviewedAt.getTime()}`,
@@ -219,7 +261,7 @@ const denyApplication = async (applicationId, adminNote) => {
       message,
     });
 
-    return { application: updatedApplication, emailOutboxId: email.id };
+    return { application: updatedApplication, emailOutboxId: email?.id || null };
   });
 
   return {
@@ -229,7 +271,7 @@ const denyApplication = async (applicationId, adminNote) => {
 };
 
 const buildApprovalMessage = (application, defaultPassword) =>
-  `${application.adminNote}\n\nYour account has been created/verified.\n\nYour temporary password is your 10-digit mobile number: ${defaultPassword}\n\nFor security, the garage portal will require you to create a new password immediately after your first login.`;
+  `${application.adminNote ? `${application.adminNote}\n\n` : ""}Your account has been created/verified.\n\nUse your registered phone number as both the login ID and temporary password: ${defaultPassword}\n\nFor security, the garage portal will require you to create a new password immediately after your first login.`;
 
 const loadApprovedApplicationResult = async (application) => {
   const garage = await prisma.garage.findUnique({
@@ -246,11 +288,12 @@ const loadApprovedApplicationResult = async (application) => {
     where: { dedupeKey },
   });
 
-  if (!email) {
-    email = await enqueueGarageApplicationEmail({
+  const recipient = garage.owner?.email || application.email;
+  if (!email && recipient) {
+    email = await enqueueOptionalApplicationEmail({
       applicationId: application.id,
       dedupeKey,
-      to: garage.owner.email || application.email,
+      to: recipient,
       subject: "Rovauto garage application approved",
       message: buildApprovalMessage(application, getDefaultGaragePassword(application.phone)),
     });
@@ -265,7 +308,7 @@ const loadApprovedApplicationResult = async (application) => {
       message: `Garage is verified but inactive until wallet has at least Rs. ${GARAGE_MINIMUM_ACTIVATION_RECHARGE} verified Cashfree balance.`,
     },
     alreadyApproved: true,
-    emailDelivery: await deliverQueuedEmail(email.id),
+    emailDelivery: await deliverQueuedEmail(email?.id || null),
   };
 };
 
@@ -277,25 +320,42 @@ const approveApplication = async (applicationId, adminNote) => {
 
   const existingGarage = await prisma.garage.findFirst({
     where: {
-      OR: [{ applicationId }, { email: application.email }, { phone: application.phone }],
+      OR: [
+        { applicationId },
+        ...getGarageIdentityConditions(application),
+      ],
     },
   });
-  if (existingGarage) throw new ApiError(409, "A garage already exists for this application/email/phone");
+  if (existingGarage) {
+    throw new ApiError(409, "This application phone or email is already linked to a garage");
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     const defaultPassword = getDefaultGaragePassword(application.phone);
     const defaultPasswordHash = await argon2.hash(defaultPassword);
-    const existingOwner = await tx.garageOwner.findFirst({
-      where: {
-        OR: [{ email: application.email }, { phone: application.phone }],
-      },
-    });
+    const [ownerByPhone, ownerByEmail] = await Promise.all([
+      tx.garageOwner.findUnique({ where: { phone: application.phone } }),
+      application.email
+        ? tx.garageOwner.findUnique({ where: { email: application.email } })
+        : null,
+    ]);
+
+    if (ownerByPhone && ownerByEmail && ownerByPhone.id !== ownerByEmail.id) {
+      throw new ApiError(409, "The application phone and email belong to different garage accounts");
+    }
+
+    if (!ownerByPhone && ownerByEmail) {
+      throw new ApiError(409, "This email is already linked to another garage phone number");
+    }
+
+    const existingOwner = ownerByPhone;
+    const ownerEmail = application.email || existingOwner?.email || null;
     const owner = existingOwner
       ? await tx.garageOwner.update({
           where: { id: existingOwner.id },
           data: {
             name: application.ownerName,
-            email: application.email,
+            email: ownerEmail,
             phone: application.phone,
             password: defaultPasswordHash,
             passwordChangedAt: null,
@@ -306,7 +366,7 @@ const approveApplication = async (applicationId, adminNote) => {
       : await tx.garageOwner.create({
           data: {
             name: application.ownerName,
-            email: application.email,
+            email: ownerEmail,
             phone: application.phone,
             password: defaultPasswordHash,
             passwordChangedAt: null,
@@ -368,11 +428,11 @@ const approveApplication = async (applicationId, adminNote) => {
       select: applicationSelect,
     });
 
-    const email = await enqueueGarageApplicationEmail({
+    const email = await enqueueOptionalApplicationEmail({
       client: tx,
       applicationId,
       dedupeKey: `garage-application:${applicationId}:approved:v1`,
-      to: owner.email,
+      to: ownerEmail,
       subject: "Rovauto garage application approved",
       message: buildApprovalMessage(updatedApplication, defaultPassword),
     });
@@ -382,7 +442,7 @@ const approveApplication = async (applicationId, adminNote) => {
       garage,
       owner,
       defaultPassword,
-      emailOutboxId: email.id,
+      emailOutboxId: email?.id || null,
       activationRequired: {
         minimumRecharge: GARAGE_MINIMUM_ACTIVATION_RECHARGE,
         message: `Garage is verified but inactive until wallet has at least Rs. ${GARAGE_MINIMUM_ACTIVATION_RECHARGE} verified Cashfree balance.`,

@@ -1,7 +1,8 @@
 const express = require("express");
 
 const locationController = require("../controllers/location.controller");
-const { protect } = require("../../middlewares/auth.middleware");
+const { protectUser } = require("../../middlewares/auth.middleware");
+const { authorizeRoles } = require("../../middlewares/role.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const rateLimit = require("../../middlewares/rateLimit.middleware");
 
@@ -32,7 +33,7 @@ router.get(
   locationController.reverseGeocodeLocation,
 );
 
-router.use(protect);
+router.use(protectUser, authorizeRoles("CUSTOMER"));
 
 // Forward geocoding is billed per request. Keep this conservative and scoped
 // to an authenticated customer account.

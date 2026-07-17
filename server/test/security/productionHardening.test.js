@@ -64,7 +64,7 @@ test("container context excludes runtime secrets", () => {
 test("approval queues email transactionally and fatal errors trigger shutdown", () => {
   const applicationService = read("src/garage/services/application.service.js");
   const server = read("src/server.js");
-  assert.match(applicationService, /enqueueGarageApplicationEmail\(\{/);
+  assert.match(applicationService, /enqueueOptionalApplicationEmail\(\{/);
   assert.match(applicationService, /client: tx/);
   assert.match(applicationService, /emailDelivery/);
   assert.match(server, /startGarageApplicationEmailOutboxWorker/);

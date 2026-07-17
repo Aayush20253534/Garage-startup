@@ -174,7 +174,7 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
               value={pickerValue}
               onChange={applyLocation}
               label="Search garage address"
-              helper="Select a Google result, then drag the pin to the customer entrance."
+              helper="Select a Google result, then drag the pin to the exact garage entrance."
               showCurrentLocation
               required
             />

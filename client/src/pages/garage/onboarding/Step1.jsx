@@ -96,7 +96,9 @@ export default function OnboardingStep1({ data, onChange, onNext }) {
                     onChange({ ...data, phone: getPhoneDigits(e.target.value) })
                   }
                   maxLength={10}
-                  inputMode="tel"
+                  inputMode="numeric"
+                  pattern="[6-9][0-9]{9}"
+                  title="Enter a valid 10-digit Indian mobile number"
                   placeholder="Mobile number"
                   className="min-w-0 flex-1 border-0 px-4 py-3 outline-none"
                   required
@@ -105,7 +107,9 @@ export default function OnboardingStep1({ data, onChange, onNext }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Email</label>
+              <label className="block text-sm font-medium mb-2">
+                Email <span className="font-normal text-muted">(Optional)</span>
+              </label>
               <div className="relative">
                 <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
                 <input
@@ -114,9 +118,12 @@ export default function OnboardingStep1({ data, onChange, onNext }) {
                   onChange={(e) => onChange({ ...data, email: e.target.value })}
                   placeholder="your@email.com"
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-line focus:border-ink focus:outline-none transition-colors"
-                  required
                 />
               </div>
+              <p className="mt-2 text-xs leading-5 text-muted">
+                Add an email if you want application and account updates by email.
+                Your phone number remains the required garage login ID.
+              </p>
             </div>
 
             <div>

@@ -142,6 +142,30 @@ const getRegistrationScriptUrl = (registration) =>
   registration?.installing?.scriptURL ||
   "";
 
+const getAppBuildId = () => {
+  try {
+    return typeof __APP_BUILD_ID__ === "undefined"
+      ? "unknown"
+      : String(__APP_BUILD_ID__);
+  } catch {
+    return "unknown";
+  }
+};
+
+const getVersionedWorkerScriptUrl = (config) =>
+  `${config.scriptUrl}?build=${encodeURIComponent(getAppBuildId())}`;
+
+const registrationUsesExpectedWorker = (registration, config) => {
+  const scriptUrl = getRegistrationScriptUrl(registration);
+  if (!scriptUrl) return true;
+
+  try {
+    return new URL(scriptUrl).pathname === config.scriptUrl;
+  } catch {
+    return false;
+  }
+};
+
 const waitForWorkerActivation = async (registration) => {
   if (registration.active) return registration;
 
@@ -185,23 +209,22 @@ export const getRovautoServiceWorkerRegistration = async ({ portal = "auto" } = 
     registration = null;
   }
 
-  const currentScriptUrl = getRegistrationScriptUrl(registration);
-
-  if (
-    registration &&
-    currentScriptUrl &&
-    !currentScriptUrl.endsWith(config.scriptUrl)
-  ) {
+  if (registration && !registrationUsesExpectedWorker(registration, config)) {
     await registration.unregister();
     registration = null;
   }
 
-  if (!registration) {
-    registration = await navigator.serviceWorker.register(config.scriptUrl, {
+  // Registering the same scope with a build-versioned script URL updates the
+  // existing registration in place, preserving push subscriptions while
+  // making every customer, garage, admin, intern, and support PWA check the
+  // just-deployed worker immediately.
+  registration = await navigator.serviceWorker.register(
+    getVersionedWorkerScriptUrl(config),
+    {
       scope: config.scope,
       updateViaCache: "none",
-    });
-  }
+    },
+  );
 
   await registration.update().catch(() => {});
   await waitForWorkerActivation(registration);
@@ -214,9 +237,28 @@ export const registerImageCacheWorker = () => {
   }
 
   window.addEventListener("load", async () => {
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let reloadingForUpdate = false;
+
+    const reloadOnControllerChange = () => {
+      if (!hadController || reloadingForUpdate) return;
+      reloadingForUpdate = true;
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      reloadOnControllerChange,
+      { once: true },
+    );
+
     try {
       await getRovautoServiceWorkerRegistration();
     } catch (error) {
+      navigator.serviceWorker.removeEventListener(
+        "controllerchange",
+        reloadOnControllerChange,
+      );
       console.warn("Service worker registration failed:", error);
     }
   });

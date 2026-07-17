@@ -24,13 +24,26 @@ const applicationStatuses = [
 ];
 
 const applicationStatusMeta = {
-  PENDING: { label: "Pending", tone: "bg-amber-50 text-amber-700 border-amber-200" },
+  PENDING: {
+    label: "Pending review",
+    tone: "bg-amber-50 text-amber-800 border-amber-200",
+    dot: "bg-amber-500",
+  },
   CHANGES_REQUESTED: {
     label: "Changes requested",
     tone: "bg-blue-50 text-blue-700 border-blue-200",
+    dot: "bg-blue-500",
   },
-  APPROVED: { label: "Approved", tone: "bg-lime-100 text-ink border-lime-200" },
-  DENIED: { label: "Denied", tone: "bg-red-50 text-red-700 border-red-200" },
+  APPROVED: {
+    label: "Approved",
+    tone: "bg-lime-50 text-lime-900 border-lime-200",
+    dot: "bg-lime-500",
+  },
+  DENIED: {
+    label: "Denied",
+    tone: "bg-red-50 text-red-700 border-red-200",
+    dot: "bg-red-500",
+  },
 };
 
 const adminButtonBase =
@@ -564,9 +577,11 @@ export default function Garages() {
                           {application.garageName}
                         </h3>
 
-                        <p className="mt-1 text-sm text-muted">
-                          {application.ownerName} · {application.email} ·{" "}
-                          {application.phone}
+                        <p className="mt-1 break-words text-sm text-muted">
+                          {application.ownerName} · {application.phone}
+                          {application.email
+                            ? ` · ${application.email}`
+                            : " · No email provided"}
                         </p>
                       </div>
 
@@ -610,11 +625,18 @@ export default function Garages() {
 
                     <span
                       className={[
-                        "rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide",
+                        "inline-flex w-fit shrink-0 self-start items-center gap-2 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs font-bold",
                         applicationStatusMeta[application.status]?.tone ||
                           "border-line bg-bg-soft text-muted",
                       ].join(" ")}
                     >
+                      <span
+                        aria-hidden="true"
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          applicationStatusMeta[application.status]?.dot ||
+                          "bg-muted"
+                        }`}
+                      />
                       {applicationStatusMeta[application.status]?.label ||
                         application.status}
                     </span>

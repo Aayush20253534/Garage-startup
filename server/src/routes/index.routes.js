@@ -73,6 +73,10 @@ router.use("/public", publicRoutes);
 router.use("/system-issues", systemIssueReportRoutes);
 router.use("/cities", cityRoutes);
 router.use("/maps", mapsRoutes);
+// The location router exposes reverse geocoding publicly for signup and
+// garage applications, then applies customer auth to every saved-location
+// route inside the router itself.
+router.use("/locations", locationRoutes);
 router.use("/push", pushRoutes);
 router.use("/customer-support", customerSupportRoutes);
 
@@ -102,7 +106,6 @@ const requireCustomer = authorizeRoles("CUSTOMER");
 
 router.use("/customer", protectUser, requireCustomer, customerRoutes);
 router.use("/vehicles", protectUser, requireCustomer, vehicleRoutes);
-router.use("/locations", protectUser, requireCustomer, locationRoutes);
 router.use("/notifications", protectUser, requireCustomer, notificationRoutes);
 router.use("/bookings", protectUser, requireCustomer, bookingRoutes);
 router.use("/payments", protectUser, requireCustomer, paymentRoutes);

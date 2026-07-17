@@ -234,6 +234,9 @@ export const reverseGeocodeCoordinates = async ({ latitude, longitude }) => {
       latitude: numericLatitude,
       longitude: numericLongitude,
     },
+    // This endpoint is intentionally public because it is used before
+    // customer signup and by unauthenticated garage applicants.
+    skipSessionExpiryMessage: true,
   });
 
   const result = unwrapApiData(response);

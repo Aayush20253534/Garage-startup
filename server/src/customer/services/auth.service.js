@@ -608,12 +608,21 @@ const login = async (
   }
 
   if (requestedRole === GARAGE_OWNER_ROLE) {
-    const cleanIdentifier = rawIdentifier.startsWith("+")
-      ? normalizePhone(rawIdentifier)
-      : normalizeEmail(rawIdentifier);
+    const cleanEmail = normalizeEmail(rawIdentifier);
+    let cleanPhone = null;
+
+    try {
+      cleanPhone = normalizePhone(rawIdentifier);
+    } catch {
+      // A non-phone identifier can still be a valid garage-owner email.
+    }
+
     const owner = await prisma.garageOwner.findFirst({
       where: {
-        OR: [{ email: cleanIdentifier }, { phone: cleanIdentifier }],
+        OR: [
+          { email: cleanEmail },
+          ...(cleanPhone ? [{ phone: cleanPhone }] : []),
+        ],
       },
     });
     const isPasswordValid = await verifyLoginPassword(
@@ -624,7 +633,7 @@ const login = async (
     if (
       !owner ||
       !owner.isActive ||
-      !owner.isEmailVerified ||
+      (owner.email && !owner.isEmailVerified) ||
       !isPasswordValid
     ) {
       throw new ApiError(401, INVALID_LOGIN_MESSAGE, "INVALID_CREDENTIALS");
