@@ -2,6 +2,10 @@ const asyncHandler = require("../../utils/asyncHandler");
 const ApiResponse = require("../../utils/apiResponse");
 const customerService = require("../services/customer.service");
 const authService = require("../services/auth.service");
+const {
+  ACCESS_TOKEN_COOKIE_NAME,
+  accessTokenClearCookieOptions,
+} = require("../../config/authCookie");
 
 const completeOnboarding = asyncHandler(async (req, res) => {
   const result = await customerService.completeOnboarding(req.user.id, req.body);
@@ -40,6 +44,12 @@ const changePassword = asyncHandler(async (req, res) => {
 
 const deleteAccount = asyncHandler(async (req, res) => {
   const result = await customerService.deleteAccount(req.user.id, req.body);
+
+  res.clearCookie(
+    ACCESS_TOKEN_COOKIE_NAME,
+    accessTokenClearCookieOptions,
+  );
+  res.set("Cache-Control", "no-store");
 
   return res
     .status(200)

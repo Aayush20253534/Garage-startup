@@ -1658,22 +1658,34 @@ const sendNotification = async ({
       select: { id: true },
     });
 
-    const notification = await notificationService.createNotification({
-      userId: null,
-      title,
-      message,
-      type,
-      link,
-      metadata: { audience: "ALL" },
+    const userIds = users.map((user) => user.id);
+    if (userIds.length === 0) {
+      return { sent: 0, audience: "ALL" };
+    }
+
+    await prisma.notification.createMany({
+      data: userIds.map((recipientUserId) => ({
+        userId: recipientUserId,
+        title,
+        message,
+        type,
+        link,
+        metadata: { audience: "ALL" },
+      })),
     });
 
-    const userIds = users.map((user) => user.id);
     await Promise.all([
       invalidateUsersNotificationCache(userIds),
-      notificationService.sendPushToUsers(userIds, notification),
+      notificationService.sendPushToUsers(userIds, {
+        title,
+        message,
+        type,
+        link,
+        metadata: { audience: "ALL" },
+      }),
     ]);
 
-    return notification;
+    return { sent: userIds.length, audience: "ALL" };
   }
 
   if (audience === "USER") {

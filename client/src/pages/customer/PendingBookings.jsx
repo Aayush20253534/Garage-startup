@@ -303,60 +303,60 @@ export default function PendingBookings() {
           return (
             <article
               key={booking.id}
-              className="card-soft overflow-hidden rounded-lg border border-line bg-white shadow-sm"
+              className="card-soft overflow-hidden rounded-2xl border border-line bg-white shadow-sm"
             >
               <div className="flex flex-col lg:flex-row lg:items-stretch">
                 
                 {/* Main Content Area */}
                 <div className="flex-1 p-5 sm:p-6">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-line pb-4">
-                    <div>
-                      <span className="text-xs font-medium text-muted">
-                        #{booking.bookingCode || booking.id}
+                  <div className="border-b border-line pb-4">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                      <span className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+                        Booking #{booking.bookingCode || booking.id}
                       </span>
-                      <h3 className="mt-1 text-lg font-semibold text-ink">
-                        {getServicesText(booking)}
-                      </h3>
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-800 shadow-sm shadow-amber-100/60">
+                        <FiClock className="h-3.5 w-3.5" />
+                        Payment pending
+                      </span>
                     </div>
-                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-                      <FiClock className="h-3.5 w-3.5" />
-                      Pending Payment
-                    </span>
+                    <h3 className="mt-3 text-xl font-bold leading-tight text-ink">
+                      {getServicesText(booking)}
+                    </h3>
                   </div>
 
-                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="flex flex-col">
+                  <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+                    <div className="flex min-w-0 flex-col rounded-xl border border-line/70 bg-white px-3 py-3">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
                         <FiTruck className="h-3.5 w-3.5" /> Vehicle
                       </span>
-                      <span className="mt-1 text-sm font-medium text-ink truncate">
+                      <span className="mt-1.5 truncate text-sm font-semibold text-ink">
                         {getVehicleText(booking)}
                       </span>
                     </div>
 
-                    <div className="flex flex-col">
+                    <div className="flex min-w-0 flex-col rounded-xl border border-line/70 bg-white px-3 py-3">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
                         <FiCalendar className="h-3.5 w-3.5" /> Created
                       </span>
-                      <span className="mt-1 text-sm font-medium text-ink truncate">
+                      <span className="mt-1.5 text-sm font-semibold leading-5 text-ink">
                         {getCreatedText(booking)}
                       </span>
                     </div>
 
-                    <div className="flex flex-col rounded-md bg-bg-soft px-3 py-2">
+                    <div className="flex min-w-0 flex-col rounded-xl bg-bg-soft px-3 py-3">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
                         <FiCreditCard className="h-3.5 w-3.5" /> Online Due
                       </span>
-                      <span className="mt-1 text-sm font-semibold text-ink truncate">
+                      <span className="mt-1.5 truncate text-base font-bold text-ink">
                         {formatRupees(onlineAmount)}
                       </span>
                     </div>
 
-                    <div className="flex flex-col rounded-md bg-bg-soft px-3 py-2">
+                    <div className="flex min-w-0 flex-col rounded-xl bg-bg-soft px-3 py-3">
                       <span className="text-xs font-medium text-muted">
                         Service Estimate
                       </span>
-                      <span className="mt-1 text-sm font-semibold text-ink truncate">
+                      <span className="mt-1.5 truncate text-base font-bold text-ink">
                         {getServiceRangeText(booking)}
                       </span>
                     </div>
@@ -371,16 +371,16 @@ export default function PendingBookings() {
                 </div>
 
                 {/* Sidebar / Action Area */}
-                <aside className="flex flex-col justify-center w-full lg:w-72 border-t border-line bg-bg-soft/50 p-5 sm:p-6 lg:border-l lg:border-t-0">
+                <aside className="flex w-full flex-col justify-center border-t border-line bg-bg-soft/50 p-5 sm:p-6 lg:w-80 lg:border-l lg:border-t-0">
                   <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-ink">Action Required</h4>
-                    <p className="mt-1 text-xs text-muted">
+                    <h4 className="text-base font-bold text-ink">Complete payment</h4>
+                    <p className="mt-1 text-sm leading-5 text-muted">
                       Complete the online payment to activate garage search for this booking.
                     </p>
                   </div>
 
                   <label
-                    className={`mb-3 flex cursor-pointer items-start gap-3 rounded-md border p-3 text-xs transition ${
+                    className={`mb-3 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-sm transition ${
                       walletBalance > 0
                         ? "border-brand/40 bg-brand/10 hover:bg-brand/15"
                         : "border-line bg-white text-muted"
@@ -397,7 +397,7 @@ export default function PendingBookings() {
                       onChange={(event) =>
                         toggleWalletForBooking(booking.id, event.target.checked)
                       }
-                      className="mt-0.5 h-4 w-4 rounded border-line accent-black disabled:cursor-not-allowed"
+                      className="mt-0.5 h-5 w-5 rounded border-line accent-black disabled:cursor-not-allowed"
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-ink">
@@ -411,7 +411,7 @@ export default function PendingBookings() {
                     </span>
                   </label>
 
-                  <div className="mb-3 rounded-md border border-line bg-white p-3 text-xs">
+                  <div className="mb-3 rounded-xl border border-line bg-white p-3.5 text-xs">
                     {walletAmountUsed > 0 && (
                       <div className="mb-1 flex items-center justify-between gap-2 text-muted">
                         <span>Wallet applied</span>
@@ -437,7 +437,7 @@ export default function PendingBookings() {
                     type="button"
                     onClick={() => handlePayNow(booking)}
                     disabled={isPaying || Boolean(payingId)}
-                    className="inline-flex w-full h-9 items-center justify-center gap-2 rounded-md bg-brand px-4 text-sm font-medium text-black shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/30 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FiCreditCard className="h-4 w-4 shrink-0" />
                     {isPaying

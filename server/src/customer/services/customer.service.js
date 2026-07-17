@@ -5,6 +5,9 @@ const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const { getCache, setCache, deleteCache } = require("../../utils/cache");
 const { normalizePhone } = require("../../utils/phone");
 const cityService = require("../../services/city.service");
+const {
+  deleteCloudinaryImagesIfUnreferenced,
+} = require("../../utils/cloudinaryCleanup");
 
 const PROFILE_CACHE_TTL = 5 * 60;
 
@@ -261,6 +264,26 @@ const updateProfile = async (userId, data) => {
 const deleteAccount = async (userId, { password }) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+      password: true,
+      customerProfile: {
+        select: { avatarPublicId: true },
+      },
+      bookings: {
+        select: {
+          inspectionImages: { select: { publicId: true } },
+        },
+      },
+      complaints: {
+        select: { images: { select: { publicId: true } } },
+      },
+      supportTickets: {
+        select: { attachments: { select: { publicId: true } } },
+      },
+    },
   });
 
   if (!user) {
@@ -273,14 +296,48 @@ const deleteAccount = async (userId, { password }) => {
     throw new ApiError(401, "Password is incorrect");
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      isActive: false,
-    },
+  const publicIds = [
+    user.customerProfile?.avatarPublicId,
+    ...user.bookings.flatMap((booking) =>
+      booking.inspectionImages.map((image) => image.publicId),
+    ),
+    ...user.complaints.flatMap((complaint) =>
+      complaint.images.map((image) => image.publicId),
+    ),
+    ...user.supportTickets.flatMap((ticket) =>
+      ticket.attachments.map((attachment) => attachment.publicId),
+    ),
+  ].filter(Boolean);
+
+  await prisma.$transaction(async (tx) => {
+    // These records intentionally have no User foreign key, so remove them
+    // explicitly before the account row. All normal customer relations,
+    // including notifications, sessions, bookings, wallet, vehicles and
+    // support tickets, are then deleted by their database cascades.
+    await tx.emailOtp.deleteMany({ where: { email: user.email } });
+
+    if (user.phone) {
+      await tx.phoneOtp.deleteMany({ where: { phone: user.phone } });
+    }
+
+    await tx.pendingSignup.deleteMany({
+      where: {
+        role: "CUSTOMER",
+        OR: [
+          { email: user.email },
+          ...(user.phone ? [{ phone: user.phone }] : []),
+        ],
+      },
+    });
+    await tx.staffLoginChallenge.deleteMany({ where: { accountId: userId } });
+    await tx.systemIssue.deleteMany({ where: { userId } });
+    await tx.customerSupportEmailLog.deleteMany({ where: { userId } });
+    await tx.notification.deleteMany({ where: { userId } });
+    await tx.user.delete({ where: { id: userId } });
   });
 
   await invalidateProfileCaches(userId);
+  await deleteCloudinaryImagesIfUnreferenced(publicIds);
 
   return {
     deleted: true,

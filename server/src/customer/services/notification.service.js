@@ -6,11 +6,9 @@ const webPushService = require("../../services/webPush.service");
 const NOTIFICATIONS_CACHE_TTL = 60;
 
 const getNotificationsCacheKey = (userId) => {
-  return `customer:${userId}:notifications`;
-};
-
-const getReadCopySourceId = (notification) => {
-  return notification?.metadata?.sourceNotificationId || null;
+  // Version the feed so a pre-deployment cache containing shared legacy rows
+  // can never be served after owner-only notification reads are enabled.
+  return `customer:${userId}:notifications:v2`;
 };
 
 const invalidateNotificationCache = async (userId) => {
@@ -25,31 +23,18 @@ const getMyNotifications = async (userId) => {
   if (cached) return cached;
 
   const notifications = await prisma.notification.findMany({
-    where: {
-      OR: [
-        { userId },
-        { userId: null },
-      ],
-    },
+    // Customer notification feeds are strictly owner-scoped. Broadcasts are
+    // materialized as one row per recipient instead of using shared rows.
+    where: { userId },
     orderBy: {
       createdAt: "desc",
     },
     take: 50,
   });
 
-  const readGlobalIds = new Set(
-    notifications
-      .filter((notification) => notification.userId === userId && getReadCopySourceId(notification))
-      .map(getReadCopySourceId)
-  );
-  const visibleNotifications = notifications.filter((notification) => {
-    if (notification.userId !== null) return !getReadCopySourceId(notification);
-    return !readGlobalIds.has(notification.id);
-  });
+  await setCache(cacheKey, notifications, NOTIFICATIONS_CACHE_TTL);
 
-  await setCache(cacheKey, visibleNotifications, NOTIFICATIONS_CACHE_TTL);
-
-  return visibleNotifications;
+  return notifications;
 };
 
 const sendPushToUsers = async (userIds, notification) => {
@@ -78,6 +63,15 @@ const createNotification = async ({
 }) => {
   if (!title || !message) {
     throw new ApiError(400, "Title and message are required");
+  }
+
+  const hasUserTarget = Boolean(userId);
+  const hasGarageOwnerTarget = Boolean(garageOwnerId);
+  if (hasUserTarget === hasGarageOwnerTarget) {
+    throw new ApiError(
+      400,
+      "Notification must have exactly one account owner",
+    );
   }
 
   const notification = await prisma.notification.create({
@@ -116,49 +110,12 @@ const markNotificationRead = async (userId, notificationId) => {
   const notification = await prisma.notification.findFirst({
     where: {
       id: notificationId,
-      OR: [
-        { userId },
-        { userId: null },
-      ],
+      userId,
     },
   });
 
   if (!notification) {
     throw new ApiError(404, "Notification not found");
-  }
-
-  if (!notification.userId) {
-    const userNotifications = await prisma.notification.findMany({
-      where: { userId },
-    });
-    const existingReadCopy = userNotifications.find(
-      (item) => getReadCopySourceId(item) === notification.id
-    );
-
-    if (existingReadCopy) {
-      await invalidateNotificationCache(userId);
-      return existingReadCopy;
-    }
-
-    const copied = await prisma.notification.create({
-      data: {
-        userId,
-        title: notification.title,
-        message: notification.message,
-        type: notification.type,
-        link: notification.link,
-        metadata: {
-          ...(notification.metadata && typeof notification.metadata === "object" && !Array.isArray(notification.metadata)
-            ? notification.metadata
-            : {}),
-          sourceNotificationId: notification.id,
-        },
-        isRead: true,
-      },
-    });
-
-    await invalidateNotificationCache(userId);
-    return copied;
   }
 
   const updated = await prisma.notification.update({
@@ -176,56 +133,14 @@ const markNotificationRead = async (userId, notificationId) => {
 };
 
 const markAllNotificationsRead = async (userId) => {
-  await prisma.$transaction(async (tx) => {
-    await tx.notification.updateMany({
-      where: {
-        userId,
-        isRead: false,
-      },
-      data: {
-        isRead: true,
-      },
-    });
-
-    const globalNotifications = await tx.notification.findMany({
-      where: { userId: null },
-      select: {
-        id: true,
-        title: true,
-        message: true,
-        type: true,
-        link: true,
-        metadata: true,
-        createdAt: true,
-      },
-    });
-
-    const existingCopies = await tx.notification.findMany({
-      where: { userId },
-      select: { metadata: true },
-    });
-    const copiedGlobalIds = new Set(existingCopies.map(getReadCopySourceId).filter(Boolean));
-    const missingReadCopies = globalNotifications.filter((notification) => !copiedGlobalIds.has(notification.id));
-
-    if (missingReadCopies.length) {
-      await tx.notification.createMany({
-        data: missingReadCopies.map((notification) => ({
-          userId,
-          title: notification.title,
-          message: notification.message,
-          type: notification.type,
-          link: notification.link,
-          metadata: {
-            ...(notification.metadata && typeof notification.metadata === "object" && !Array.isArray(notification.metadata)
-              ? notification.metadata
-              : {}),
-            sourceNotificationId: notification.id,
-          },
-          isRead: true,
-          createdAt: notification.createdAt,
-        })),
-      });
-    }
+  await prisma.notification.updateMany({
+    where: {
+      userId,
+      isRead: false,
+    },
+    data: {
+      isRead: true,
+    },
   });
 
   await invalidateNotificationCache(userId);

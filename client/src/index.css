@@ -153,7 +153,7 @@ h5 {
 
 /* Keep Google's internal map canvas pinned to the full React container after
    location clicks, drag updates, responsive layout changes, and fullscreen exit. */
-.rovauto-google-map > div,
+.rovauto-google-map > .rovauto-google-map-canvas,
 .rovauto-google-map .gm-style {
   width: 100% !important;
   height: 100% !important;

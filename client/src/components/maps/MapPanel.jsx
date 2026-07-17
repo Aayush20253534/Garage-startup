@@ -378,7 +378,10 @@ export default function MapPanel({
       } ${className}`}
       style={{ height }}
     >
-      <div ref={containerRef} className="h-full w-full" />
+      <div
+        ref={containerRef}
+        className="rovauto-google-map-canvas h-full w-full"
+      />
       {loading && (
         <div className="absolute inset-0 grid place-items-center bg-white/80 backdrop-blur-sm">
           <div className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -387,7 +390,7 @@ export default function MapPanel({
         </div>
       )}
       {draggable && !loading && (
-        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-gray-950/85 px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
+        <div className="pointer-events-none absolute bottom-3 left-1/2 max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 rounded-lg bg-gray-950/85 px-3 py-1.5 text-center text-xs font-semibold text-white shadow-lg">
           Drag the pin or tap the exact entrance
         </div>
       )}
