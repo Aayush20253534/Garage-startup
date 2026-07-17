@@ -1,7 +1,35 @@
-const { body, param } = require("express-validator");
+const { body, param, query } = require("express-validator");
 
 const serviceIdParamSchema = [
   param("id").isUUID().withMessage("Invalid service ID"),
+];
+
+const servicePricingQuerySchema = [
+  query("city")
+    .optional({ nullable: true, checkFalsy: true })
+    .isString()
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage("Invalid city"),
+  query("vehicleId")
+    .optional({ nullable: true, checkFalsy: true })
+    .isUUID()
+    .withMessage("Invalid vehicle ID"),
+  query("vehicleBrandId")
+    .optional({ nullable: true, checkFalsy: true })
+    .isUUID()
+    .withMessage("Invalid vehicle brand ID"),
+  query("vehicleModelId")
+    .optional({ nullable: true, checkFalsy: true })
+    .isUUID()
+    .withMessage("Invalid vehicle model ID")
+    .custom((value, { req }) => {
+      if (value && !req.query.vehicleBrandId) {
+        throw new Error("Select a vehicle brand before selecting a model");
+      }
+
+      return true;
+    }),
 ];
 
 const createServiceSchema = [
@@ -80,6 +108,7 @@ const createServiceCategorySchema = [
 
 module.exports = {
   serviceIdParamSchema,
+  servicePricingQuerySchema,
   createServiceSchema,
   updateServiceSchema,
   createServiceCategorySchema,

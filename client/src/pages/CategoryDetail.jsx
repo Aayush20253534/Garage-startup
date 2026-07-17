@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import {
+  useParams,
+  Link,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { CATEGORY_UI } from "@/data/services";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import SafeImage from "@/components/common/SafeImage";
@@ -49,8 +54,23 @@ const getIncludes = (service) => {
 export default function CategoryDetail() {
   const { categoryId } = useParams();
   const { user, vehicle, location, addToCart } = useApp();
+  const [searchParams] = useSearchParams();
 
   const nav = useNavigate();
+  const guestCity = !user ? searchParams.get("city") || "" : "";
+  const guestBrandId = !user ? searchParams.get("brand") || "" : "";
+  const guestModelId = !user ? searchParams.get("model") || "" : "";
+  const guestPricingReady = Boolean(
+    !user && guestCity && guestBrandId && guestModelId,
+  );
+  const guestFilterSearch = (() => {
+    const params = new URLSearchParams();
+    if (guestCity) params.set("city", guestCity);
+    if (guestBrandId) params.set("brand", guestBrandId);
+    if (guestModelId) params.set("model", guestModelId);
+    const value = params.toString();
+    return value ? `?${value}` : "";
+  })();
 
   const [category, setCategory] = useState(null);
   const [packages, setPackages] = useState([]);
@@ -68,7 +88,11 @@ export default function CategoryDetail() {
                 ...(vehicle?.id && { vehicleId: vehicle.id }),
                 ...(location?.city && { city: location.city }),
               }
-            : {},
+            : {
+                ...(guestCity && { city: guestCity }),
+                ...(guestBrandId && { vehicleBrandId: guestBrandId }),
+                ...(guestModelId && { vehicleModelId: guestModelId }),
+              },
         });
         const categories = res.data.data || [];
 
@@ -87,7 +111,15 @@ export default function CategoryDetail() {
     };
 
     loadCategory();
-  }, [categoryId, user, vehicle?.id, location?.city]);
+  }, [
+    categoryId,
+    user,
+    vehicle?.id,
+    location?.city,
+    guestCity,
+    guestBrandId,
+    guestModelId,
+  ]);
 
   if (loading) {
     return (
@@ -156,7 +188,15 @@ export default function CategoryDetail() {
     }
 
     if (!user) {
-      nav("/login");
+      nav("/login", {
+        state: {
+          from: {
+            pathname: categoryPath,
+            search: guestFilterSearch,
+          },
+          message: "Sign in to add this service and continue booking.",
+        },
+      });
       return;
     }
 
@@ -190,7 +230,7 @@ export default function CategoryDetail() {
 
       <div className="container-x max-w-6xl py-8">
       <Link
-        to="/services"
+        to={`/services${guestFilterSearch}`}
         className="mb-5 flex items-center gap-2 text-ink hover:opacity-80"
       >
         <FiArrowLeft /> Back to Services
@@ -206,6 +246,13 @@ export default function CategoryDetail() {
         )}
       </div>
 
+      {guestPricingReady && (
+        <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold leading-6 text-emerald-800">
+          These are preview prices for your selected city and vehicle. Sign in
+          when you are ready to book.
+        </div>
+      )}
+
       <div className="grid gap-4">
         {packages.map((pkg) => {
           const priceRange = formatServicePriceRange(pkg);
@@ -213,7 +260,8 @@ export default function CategoryDetail() {
           const maxPrice = getServiceMaxPrice(pkg);
           const includes = getIncludes(pkg);
           const serviceImage = getServiceThumbnailUrl(pkg);
-          const hasPrice = Boolean(user && pkg.priceRange);
+          const hasPrice = Boolean(pkg.priceRange);
+          const pricingContextActive = Boolean(user || guestPricingReady);
           const comingSoon =
             categoryComingSoon || toBoolean(pkg.isComingSoon);
 
@@ -275,7 +323,7 @@ export default function CategoryDetail() {
                       </div>
                     )}
 
-                    {user && !hasPrice && !comingSoon && (
+                    {pricingContextActive && !hasPrice && !comingSoon && (
                       <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold leading-5 text-amber-800">
                         {pkg.priceUnavailableMessage ||
                           "Price not allocated for this vehicle"}
@@ -329,7 +377,7 @@ export default function CategoryDetail() {
                       <button
                         type="button"
                         onClick={() => handleBook(pkg)}
-                        disabled={comingSoon || (user && !hasPrice)}
+                        disabled={comingSoon || (pricingContextActive && !hasPrice)}
                         className="min-h-12 rounded-2xl bg-[#b9f000] px-3 py-3 text-sm font-extrabold text-gray-950 shadow-[0_10px_28px_-12px_rgba(185,240,0,0.9)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {comingSoon
@@ -371,7 +419,7 @@ export default function CategoryDetail() {
                       </div>
                     )}
 
-                    {user && !hasPrice && !comingSoon && (
+                    {pricingContextActive && !hasPrice && !comingSoon && (
                       <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
                         {pkg.priceUnavailableMessage ||
                           "Price not allocated for this vehicle"}
@@ -418,7 +466,7 @@ export default function CategoryDetail() {
                       <button
                         type="button"
                         onClick={() => handleBook(pkg)}
-                        disabled={comingSoon || (user && !hasPrice)}
+                        disabled={comingSoon || (pricingContextActive && !hasPrice)}
                         className="flex-1 rounded-2xl bg-[#b9f000] px-6 py-3 text-base font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {comingSoon
@@ -490,7 +538,7 @@ export default function CategoryDetail() {
                 {selectedPackageComingSoon && <ComingSoonOverlay />}
               </div>
 
-              {user && selectedPackage.priceRange && (
+              {selectedPackage.priceRange && (
                 <div className="mb-3 flex items-baseline gap-3">
                   <span className="text-2xl font-bold text-ink">
                     {formatServicePriceRange(selectedPackage)}
@@ -498,7 +546,7 @@ export default function CategoryDetail() {
                 </div>
               )}
 
-              {user &&
+              {(user || guestPricingReady) &&
                 !selectedPackage.priceRange &&
                 !selectedPackageComingSoon && (
                   <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
@@ -533,12 +581,12 @@ export default function CategoryDetail() {
                 <div>
                   <span className="text-sm text-muted">Estimated Price</span>
                   <div className="font-semibold">
-                    {user
-                      ? selectedPackage.priceRange
-                        ? formatServicePriceRange(selectedPackage)
-                        : selectedPackage.priceUnavailableMessage ||
+                    {selectedPackage.priceRange
+                      ? formatServicePriceRange(selectedPackage)
+                      : user || guestPricingReady
+                        ? selectedPackage.priceUnavailableMessage ||
                           "Price not allocated for this vehicle"
-                      : "Login to view pricing"}
+                        : "Select city, car and model to view pricing"}
                   </div>
                 </div>
               </div>
@@ -574,7 +622,8 @@ export default function CategoryDetail() {
                   }}
                   disabled={
                     selectedPackageComingSoon ||
-                    (user && !selectedPackage.priceRange)
+                    ((user || guestPricingReady) &&
+                      !selectedPackage.priceRange)
                   }
                   className="flex-1 rounded-full bg-[#b9f000] px-6 py-3 font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000] disabled:cursor-not-allowed disabled:opacity-50"
                 >

@@ -63,7 +63,60 @@ const stripServicePrice = (
 };
 
 const getCustomerServiceContext = async (options = {}) => {
-  if (!options.userId) return null;
+  const explicitCity = String(options.city || "").trim();
+
+  if (!options.userId) {
+    const vehicleBrandId = String(options.vehicleBrandId || "").trim();
+    const vehicleModelId = String(options.vehicleModelId || "").trim();
+
+    if (!explicitCity && !vehicleBrandId && !vehicleModelId) return null;
+
+    const [city, brand, model] = await Promise.all([
+      explicitCity
+        ? cityService.requireActiveCityFromLocation(explicitCity)
+        : Promise.resolve(null),
+      vehicleBrandId
+        ? prisma.vehicleBrand.findFirst({
+            where: { id: vehicleBrandId, isActive: true },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve(null),
+      vehicleModelId && vehicleBrandId
+        ? prisma.vehicleModel.findFirst({
+            where: {
+              id: vehicleModelId,
+              brandId: vehicleBrandId,
+              isActive: true,
+              brand: { isActive: true },
+            },
+            select: {
+              id: true,
+              name: true,
+              brand: { select: { id: true, name: true } },
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    if (vehicleBrandId && !brand) {
+      throw new ApiError(400, "Select a valid vehicle brand");
+    }
+
+    if (vehicleModelId && !model) {
+      throw new ApiError(400, "Select a valid model for this vehicle brand");
+    }
+
+    return {
+      city: city || null,
+      vehicle: model
+        ? {
+            brand: model.brand.name,
+            model: model.name,
+            fuelType: null,
+          }
+        : null,
+    };
+  }
 
   const [vehicle, location, profile] = await Promise.all([
     options.vehicleId
@@ -86,7 +139,6 @@ const getCustomerServiceContext = async (options = {}) => {
     }),
   ]);
 
-  const explicitCity = String(options.city || "").trim();
   const cityText =
     explicitCity ||
     (await parseCityFromAddress(

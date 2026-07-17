@@ -8,6 +8,9 @@ const {
   deleteGarageAccountValidation,
   updateGarageAccountValidation,
 } = require("../validations/garageAccount.validation");
+const {
+  nearbyGarageQueryValidation,
+} = require("../validations/garage.validation");
 const rateLimit = require("../middlewares/rateLimit.middleware");
 
 const router = express.Router();
@@ -34,6 +37,8 @@ router.get(
   "/nearby",
   protectUser,
   authorizeRoles("CUSTOMER"),
+  nearbyGarageQueryValidation,
+  validate,
   garageController.getNearbyGarages,
 );
 

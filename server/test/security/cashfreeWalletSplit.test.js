@@ -53,6 +53,7 @@ test("wallet split changes terminate the stale Cashfree order before replacement
     "client/src/pages/customer/PendingBookings.jsx",
   );
   const paymentClient = read("client/src/utils/bookingPayment.js");
+  const checkout = read("client/src/pages/booking/Checkout.jsx");
 
   assert.match(paymentService, /kind: "SPLIT_CHANGED"/);
   assert.match(paymentService, /isSamePaymentSplit\(booking\.payment, split\)/);
@@ -78,4 +79,9 @@ test("wallet split changes terminate the stale Cashfree order before replacement
     paymentClient,
     /result\.booking && \(!cashfreeOrder/,
   );
+  assert.match(pendingBookings, /PAYMENT_REFUNDED_TO_WALLET/);
+  assert.match(pendingBookings, /loadWallet\(\)/);
+  assert.match(pendingBookings, /refreshPendingData/);
+  assert.match(checkout, /await loadWallet\(\)/);
+  assert.match(checkout, /PAYMENT_REFUNDED_TO_WALLET/);
 });

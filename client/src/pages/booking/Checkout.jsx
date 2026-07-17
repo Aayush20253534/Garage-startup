@@ -21,6 +21,7 @@ import {
 } from "@/utils/priceRange";
 import { calculatePlatformFee } from "@/utils/platformFee";
 import {
+  getPaymentErrorCode,
   payForBooking,
   preloadCashfreeCheckout,
 } from "@/utils/bookingPayment";
@@ -209,6 +210,15 @@ export default function Checkout() {
     getCheckoutAddressForm({ location, user }),
   );
 
+  const loadWallet = async () => {
+    try {
+      const response = await api.get("/wallet");
+      setWallet(response.data?.data || null);
+    } catch {
+      setWallet(null);
+    }
+  };
+
   const subTotalMin = cart.reduce(
     (sum, item) => sum + getServiceMinPrice(item),
     0,
@@ -245,20 +255,7 @@ export default function Checkout() {
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-
-    api
-      .get("/wallet")
-      .then((response) => {
-        if (mounted) setWallet(response.data?.data || null);
-      })
-      .catch(() => {
-        if (mounted) setWallet(null);
-      });
-
-    return () => {
-      mounted = false;
-    };
+    void loadWallet();
   }, []);
 
   useEffect(() => {
@@ -643,11 +640,17 @@ export default function Checkout() {
         },
       });
     } catch (err) {
-      setError(
+      const message =
         err.response?.data?.message ||
-          err.message ||
-          "Could not complete booking payment. Please try again.",
+        err.message ||
+        "Could not complete booking payment. Please try again.";
+
+      setError(
+        getPaymentErrorCode(err) === "PAYMENT_REFUNDED_TO_WALLET"
+          ? `${message} Your wallet balance has been refreshed.`
+          : message,
       );
+      await loadWallet();
     } finally {
       setLoading(false);
     }

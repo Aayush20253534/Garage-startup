@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   FiArrowRight,
+  FiMapPin,
   FiSearch,
   FiSettings,
+  FiSliders,
+  FiTruck,
+  FiX,
 } from "react-icons/fi";
 
 import { CATEGORY_UI } from "@/data/services";
@@ -17,6 +21,8 @@ import {
 } from "@/utils/priceRange";
 import Seo, { SITE_URL } from "@/components/seo/Seo";
 import { getServiceCategoryPath } from "@/utils/serviceSlug";
+import api from "@/api/axios";
+import { loadActiveCities } from "@/utils/cityAvailability";
 
 const HIDDEN_CATEGORIES = new Set([
   "brake",
@@ -57,6 +63,7 @@ export default function Services() {
     serviceCategoriesCache,
     fetchServiceCategories,
   } = useApp();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const hasCachedCategories = Array.isArray(serviceCategoriesCache);
 
@@ -65,8 +72,83 @@ export default function Services() {
     hasCachedCategories ? serviceCategoriesCache : [],
   );
   const [loading, setLoading] = useState(!hasCachedCategories);
+  const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
+  const [filterOptionsError, setFilterOptionsError] = useState("");
+  const [pricingError, setPricingError] = useState("");
+  const [cities, setCities] = useState([]);
+  const [brands, setBrands] = useState([]);
+
+  const guestCity = !user ? searchParams.get("city") || "" : "";
+  const guestBrandId = !user ? searchParams.get("brand") || "" : "";
+  const guestModelId = !user ? searchParams.get("model") || "" : "";
+  const guestFiltersActive = Boolean(
+    !user && (guestCity || guestBrandId || guestModelId),
+  );
+  const guestPricingReady = Boolean(
+    !user && guestCity && guestBrandId && guestModelId,
+  );
+  const selectedBrand = brands.find((brand) => brand.id === guestBrandId);
+  const selectedModel = selectedBrand?.models?.find(
+    (model) => model.id === guestModelId,
+  );
+  const availableModels = Array.isArray(selectedBrand?.models)
+    ? selectedBrand.models
+    : [];
+
+  const updateGuestFilters = (nextValues) => {
+    const next = new URLSearchParams(searchParams);
+
+    Object.entries(nextValues).forEach(([key, value]) => {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    });
+
+    setSearchParams(next, { replace: true });
+  };
 
   const cartItems = Array.isArray(cart) ? cart : [];
+
+  useEffect(() => {
+    if (user) return undefined;
+
+    let cancelled = false;
+
+    const loadFilterOptions = async () => {
+      try {
+        setFilterOptionsLoading(true);
+        setFilterOptionsError("");
+
+        const [cityList, brandResponse] = await Promise.all([
+          loadActiveCities(),
+          api.get("/vehicle-meta/brands"),
+        ]);
+
+        if (cancelled) return;
+
+        setCities(Array.isArray(cityList) ? cityList : []);
+        setBrands(
+          Array.isArray(brandResponse.data?.data)
+            ? brandResponse.data.data
+            : [],
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setFilterOptionsError(
+            error.response?.data?.message ||
+              "Price filters are temporarily unavailable.",
+          );
+        }
+      } finally {
+        if (!cancelled) setFilterOptionsLoading(false);
+      }
+    };
+
+    void loadFilterOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +159,19 @@ export default function Services() {
       }
 
       try {
-        const data = await fetchServiceCategories();
+        setPricingError("");
+
+        const data = guestFiltersActive
+          ? (
+              await api.get("/services/categories", {
+                params: {
+                  ...(guestCity && { city: guestCity }),
+                  ...(guestBrandId && { vehicleBrandId: guestBrandId }),
+                  ...(guestModelId && { vehicleModelId: guestModelId }),
+                },
+              })
+            ).data?.data
+          : await fetchServiceCategories();
 
         if (cancelled) {
           return;
@@ -92,6 +186,13 @@ export default function Services() {
 
         if (!cancelled && !Array.isArray(serviceCategoriesCache)) {
           setCategories([]);
+        }
+
+        if (!cancelled) {
+          setPricingError(
+            error.response?.data?.message ||
+              "We could not refresh services for these filters.",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -108,7 +209,26 @@ export default function Services() {
 
     // Refetch only when the response's pricing/restriction context changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, vehicle?.id, location?.city]);
+  }, [
+    user?.id,
+    vehicle?.id,
+    location?.city,
+    guestCity,
+    guestBrandId,
+    guestModelId,
+    guestFiltersActive,
+  ]);
+
+  const guestFilterSearch = useMemo(() => {
+    if (!guestFiltersActive) return "";
+
+    const params = new URLSearchParams();
+    if (guestCity) params.set("city", guestCity);
+    if (guestBrandId) params.set("brand", guestBrandId);
+    if (guestModelId) params.set("model", guestModelId);
+
+    return `?${params.toString()}`;
+  }, [guestBrandId, guestCity, guestFiltersActive, guestModelId]);
 
   const filteredCategories = useMemo(() => {
     const searchQuery = q.trim().toLowerCase();
@@ -273,6 +393,126 @@ export default function Services() {
           </div>
         </header>
 
+        {!user && (
+          <section
+            aria-labelledby="guest-price-filter-heading"
+            className="mb-7 overflow-hidden rounded-[26px] border border-gray-200 bg-white shadow-[0_18px_52px_rgba(15,23,42,0.07)] sm:mb-9"
+          >
+            <div className="flex flex-col gap-3 border-b border-gray-100 bg-gradient-to-r from-gray-950 to-gray-800 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#b9f000] text-lg text-gray-950">
+                  <FiSliders />
+                </span>
+                <div>
+                  <h2 id="guest-price-filter-heading" className="font-extrabold">
+                    Check prices before you sign in
+                  </h2>
+                  <p className="mt-1 text-sm leading-5 text-white/65">
+                    Select your city and car to preview available service ranges.
+                  </p>
+                </div>
+              </div>
+
+              {guestFiltersActive && (
+                <button
+                  type="button"
+                  onClick={() => updateGuestFilters({ city: "", brand: "", model: "" })}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-full border border-white/20 px-4 text-xs font-bold text-white transition hover:bg-white/10 sm:self-auto"
+                >
+                  <FiX /> Clear filters
+                </button>
+              )}
+            </div>
+
+            <div className="grid gap-4 p-5 sm:grid-cols-3 sm:p-6">
+              <label className="block min-w-0">
+                <span className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                  <FiMapPin className="text-[#8fbd00]" /> City
+                </span>
+                <select
+                  value={guestCity}
+                  onChange={(event) =>
+                    updateGuestFilters({ city: event.target.value })
+                  }
+                  disabled={filterOptionsLoading}
+                  className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-[#9dcf00] focus:bg-white focus:ring-4 focus:ring-[#b9f000]/15 disabled:opacity-60"
+                >
+                  <option value="">Select city</option>
+                  {cities.map((city) => (
+                    <option key={city.id} value={city.name}>
+                      {city.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block min-w-0">
+                <span className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                  <FiTruck className="text-[#8fbd00]" /> Car brand
+                </span>
+                <select
+                  value={guestBrandId}
+                  onChange={(event) =>
+                    updateGuestFilters({
+                      brand: event.target.value,
+                      model: "",
+                    })
+                  }
+                  disabled={filterOptionsLoading}
+                  className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-[#9dcf00] focus:bg-white focus:ring-4 focus:ring-[#b9f000]/15 disabled:opacity-60"
+                >
+                  <option value="">Select brand</option>
+                  {brands.map((brand) => (
+                    <option key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block min-w-0">
+                <span className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                  <FiSettings className="text-[#8fbd00]" /> Model
+                </span>
+                <select
+                  value={guestModelId}
+                  onChange={(event) =>
+                    updateGuestFilters({ model: event.target.value })
+                  }
+                  disabled={filterOptionsLoading || !guestBrandId}
+                  className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-[#9dcf00] focus:bg-white focus:ring-4 focus:ring-[#b9f000]/15 disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  <option value="">
+                    {guestBrandId ? "Select model" : "Choose a brand first"}
+                  </option>
+                  {availableModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="border-t border-gray-100 px-5 py-3 text-sm sm:px-6">
+              {filterOptionsError || pricingError ? (
+                <p className="font-semibold text-red-600">
+                  {filterOptionsError || pricingError}
+                </p>
+              ) : guestPricingReady ? (
+                <p className="font-semibold text-emerald-700">
+                  Showing prices for {selectedBrand?.name} {selectedModel?.name} in {guestCity}.
+                  Sign in only when you are ready to book.
+                </p>
+              ) : (
+                <p className="text-muted">
+                  Complete all three fields to see prices. The regular catalogue remains available below.
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
         <section
           aria-labelledby="service-categories-heading"
         >
@@ -325,6 +565,12 @@ export default function Services() {
                     : getServiceCategoryPath(
                         category,
                       );
+                  const pricedServices = Array.isArray(category.services)
+                    ? category.services.filter((service) => service?.priceRange)
+                    : [];
+                  const categoryMinPrice = pricedServices.length
+                    ? Math.min(...pricedServices.map(getServiceMinPrice))
+                    : 0;
 
                   return (
                     <Link
@@ -332,7 +578,7 @@ export default function Services() {
                       to={
                         comingSoon
                           ? "#"
-                          : destination
+                          : `${destination}${ui.isSos ? "" : guestFilterSearch}`
                       }
                       onClick={(event) => {
                         if (comingSoon) {
@@ -399,7 +645,11 @@ export default function Services() {
                           <p className="mt-1.5 text-sm font-medium text-muted min-[480px]:hidden sm:block sm:text-xs">
                             {comingSoon
                               ? "Coming soon"
-                              : "View available services"}
+                              : guestPricingReady
+                                ? categoryMinPrice > 0
+                                  ? `From ${formatRupees(categoryMinPrice)}`
+                                  : "Price unavailable"
+                                : "View available services"}
                           </p>
                         </div>
                       </div>

@@ -56,6 +56,8 @@ export default function GarageSelect() {
           verified: true,
           openNow: true,
           maxDistance: 30,
+          latitude: Number(location.latitude),
+          longitude: Number(location.longitude),
           ...(serviceIds.length && { serviceIds: serviceIds.join(",") }),
         },
       });

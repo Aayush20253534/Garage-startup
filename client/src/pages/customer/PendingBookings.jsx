@@ -78,20 +78,34 @@ export default function PendingBookings() {
   const pendingCount = useMemo(() => bookings.length, [bookings]);
   const walletBalance = Number(wallet?.balance || 0);
 
-  const loadPendingBookings = async ({ force = false } = {}) => {
+  const loadWallet = async () => {
+    try {
+      const response = await api.get("/wallet");
+      setWallet(response.data?.data || null);
+    } catch {
+      setWallet(null);
+    }
+  };
+
+  const loadPendingBookings = async ({
+    force = false,
+    preserveMessage = false,
+  } = {}) => {
     try {
       if (force) setRefreshing(true);
       else setLoading(true);
 
-      setError("");
+      if (!preserveMessage) setError("");
 
       const response = await api.get("/bookings/pending-payment");
       setBookings(response.data?.data || []);
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Unable to load your pending payment bookings."
-      );
+      if (!preserveMessage) {
+        setError(
+          err.response?.data?.message ||
+            "Unable to load your pending payment bookings.",
+        );
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -100,23 +114,15 @@ export default function PendingBookings() {
 
   useEffect(() => {
     preloadCashfreeCheckout();
-    loadPendingBookings();
-
-    let mounted = true;
-
-    api
-      .get("/wallet")
-      .then((response) => {
-        if (mounted) setWallet(response.data?.data || null);
-      })
-      .catch(() => {
-        if (mounted) setWallet(null);
-      });
-
-    return () => {
-      mounted = false;
-    };
+    void Promise.allSettled([loadPendingBookings(), loadWallet()]);
   }, []);
+
+  const refreshPendingData = async ({ preserveMessage = false } = {}) => {
+    await Promise.allSettled([
+      loadPendingBookings({ force: true, preserveMessage }),
+      loadWallet(),
+    ]);
+  };
 
   const getBookingOnlineAmount = (booking) =>
     Number(booking.payment?.amount || booking.handlingFee || booking.payableAmount || 0);
@@ -176,18 +182,22 @@ export default function PendingBookings() {
         state: { bookingId: updatedBooking?.id || booking.id },
       });
     } catch (err) {
+      const errorCode = getPaymentErrorCode(err);
       const message =
         err.response?.data?.message ||
         err.message ||
         "Payment was not completed. This booking is still saved here for retry.";
 
-      if (isServiceHoursError(err)) {
+      if (errorCode === "PAYMENT_REFUNDED_TO_WALLET") {
+        setNotice(
+          message ||
+            "The payment was safely returned to your Rovauto wallet. Your updated balance is shown below.",
+        );
+        setError("");
+      } else if (isServiceHoursError(err)) {
         setNotice(SERVICE_HOURS_MESSAGE);
         setError("");
-        return;
-      }
-
-      if (isPaymentSessionPreparingError(err)) {
+      } else if (isPaymentSessionPreparingError(err)) {
         setNotice(
           "Cashfree could not prepare a usable payment session right now. No money was deducted. Please try again.",
         );
@@ -199,8 +209,6 @@ export default function PendingBookings() {
         setError("");
       } else {
         const referenceId = err.response?.data?.referenceId;
-        const errorCode = getPaymentErrorCode(err);
-
         setNotice("");
         setError(
           [message, errorCode && `Code: ${errorCode}`, referenceId && `Reference: ${referenceId}`]
@@ -209,7 +217,7 @@ export default function PendingBookings() {
         );
       }
 
-      await loadPendingBookings({ force: true });
+      await refreshPendingData({ preserveMessage: true });
     } finally {
       setPayingId(null);
     }
@@ -249,7 +257,7 @@ export default function PendingBookings() {
 
         <button
           type="button"
-          onClick={() => loadPendingBookings({ force: true })}
+          onClick={() => refreshPendingData()}
           disabled={refreshing}
           className="inline-flex h-9 w-fit self-start items-center justify-center gap-2 rounded-md border border-line bg-white px-3.5 text-sm font-medium text-ink shadow-sm transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto sm:px-4"
         >

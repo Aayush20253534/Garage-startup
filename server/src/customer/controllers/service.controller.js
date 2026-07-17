@@ -7,6 +7,8 @@ const getServiceCategories = asyncHandler(async (req, res) => {
     userId: req.user?.role === "CUSTOMER" ? req.user.id : null,
     vehicleId: req.query.vehicleId,
     city: req.query.city,
+    vehicleBrandId: req.query.vehicleBrandId,
+    vehicleModelId: req.query.vehicleModelId,
   });
 
   return res
@@ -19,6 +21,8 @@ const getServices = asyncHandler(async (req, res) => {
     userId: req.user?.role === "CUSTOMER" ? req.user.id : null,
     vehicleId: req.query.vehicleId,
     city: req.query.city,
+    vehicleBrandId: req.query.vehicleBrandId,
+    vehicleModelId: req.query.vehicleModelId,
   });
 
   return res
@@ -31,6 +35,8 @@ const getServiceById = asyncHandler(async (req, res) => {
     userId: req.user?.role === "CUSTOMER" ? req.user.id : null,
     vehicleId: req.query.vehicleId,
     city: req.query.city,
+    vehicleBrandId: req.query.vehicleBrandId,
+    vehicleModelId: req.query.vehicleModelId,
   });
 
   return res

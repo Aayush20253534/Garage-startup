@@ -662,7 +662,10 @@ const getNearbyGarages = async (userId, query = {}) => {
     },
   });
 
-  if (!defaultLocation) {
+  const requestedLocation = getGeoSearchContext(query, GARAGE_GEO_LOOKUP_RADIUS_KM);
+  const searchOrigin = requestedLocation || defaultLocation;
+
+  if (!searchOrigin) {
     throw new ApiError(404, "Default location not found");
   }
 
@@ -673,8 +676,8 @@ const getNearbyGarages = async (userId, query = {}) => {
   const configuredLimit = parsePositiveNumber(maxDistance, null);
   const lookupRadiusKm = configuredLimit || GARAGE_GEO_LOOKUP_RADIUS_KM;
   const distanceRows = await queryGarageDistanceRows({
-    latitude: defaultLocation.latitude,
-    longitude: defaultLocation.longitude,
+    latitude: searchOrigin.latitude,
+    longitude: searchOrigin.longitude,
     radiusKm: lookupRadiusKm,
     serviceIds: finalServiceIds,
     verified,
@@ -702,8 +705,8 @@ const getNearbyGarages = async (userId, query = {}) => {
         Number.isFinite(Number(garage.distanceKm))
           ? Number(garage.distanceKm)
           : calculateDistanceKm(
-              defaultLocation.latitude,
-              defaultLocation.longitude,
+              searchOrigin.latitude,
+              searchOrigin.longitude,
               garage.latitude,
               garage.longitude,
             ),
@@ -719,8 +722,8 @@ const getNearbyGarages = async (userId, query = {}) => {
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   return addDrivingMetrics({
-    latitude: defaultLocation.latitude,
-    longitude: defaultLocation.longitude,
+    latitude: searchOrigin.latitude,
+    longitude: searchOrigin.longitude,
     garages: nearby,
   });
 };

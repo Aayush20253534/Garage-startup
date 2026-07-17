@@ -6,6 +6,7 @@ const { optionalProtect } = require("../../middlewares/auth.middleware");
 
 const {
   serviceIdParamSchema,
+  servicePricingQuerySchema,
 } = require("../validations/service.validation");
 
 const router = express.Router();
@@ -17,12 +18,25 @@ router.use((req, res, next) => {
   next();
 });
 
-router.get("/categories", optionalProtect, serviceController.getServiceCategories);
-router.get("/", optionalProtect, serviceController.getServices);
+router.get(
+  "/categories",
+  optionalProtect,
+  servicePricingQuerySchema,
+  validate,
+  serviceController.getServiceCategories,
+);
+router.get(
+  "/",
+  optionalProtect,
+  servicePricingQuerySchema,
+  validate,
+  serviceController.getServices,
+);
 
 router.get(
   "/:id",
   optionalProtect,
+  servicePricingQuerySchema,
   serviceIdParamSchema,
   validate,
   serviceController.getServiceById

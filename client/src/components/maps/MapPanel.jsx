@@ -7,6 +7,7 @@ import {
 } from "@/utils/googleMapsLoader";
 
 const MAP_TILE_TIMEOUT_MS = 20000;
+const EMPTY_POINTS = [];
 
 const toPosition = (value) => {
   const lat = Number(value?.latitude ?? value?.lat);
@@ -32,16 +33,29 @@ const createPinIcon = (maps, fillColor) => {
   };
 };
 
-const getGoogleMapsUrl = (position) =>
-  position
+const getGoogleMapsUrl = (origin, destination) => {
+  if (origin && destination && !samePosition(origin, destination)) {
+    const params = new URLSearchParams({
+      api: "1",
+      origin: `${origin.lat},${origin.lng}`,
+      destination: `${destination.lat},${destination.lng}`,
+      travelmode: "driving",
+    });
+
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
+  }
+
+  const position = destination || origin;
+  return position
     ? `https://www.google.com/maps?q=${position.lat},${position.lng}`
     : "https://www.google.com/maps";
+};
 
 export default function MapPanel({
   center,
   origin,
   destination,
-  points = [],
+  points = EMPTY_POINTS,
   encodedPolyline = null,
   draggable = false,
   onLocationChange,
@@ -323,8 +337,8 @@ export default function MapPanel({
     zoom,
   ]);
 
-  const fallbackPosition =
-    toPosition(destination) || toPosition(origin) || toPosition(center);
+  const fallbackOrigin = toPosition(origin) || toPosition(center);
+  const fallbackDestination = toPosition(destination);
 
   if (error) {
     return (
@@ -341,7 +355,7 @@ export default function MapPanel({
           <p className="mt-2 text-sm font-semibold">Map unavailable</p>
           <p className="mt-1 text-xs leading-5 opacity-75">{error}</p>
           <a
-            href={getGoogleMapsUrl(fallbackPosition)}
+            href={getGoogleMapsUrl(fallbackOrigin, fallbackDestination)}
             target="_blank"
             rel="noreferrer"
             className={`mt-4 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition ${

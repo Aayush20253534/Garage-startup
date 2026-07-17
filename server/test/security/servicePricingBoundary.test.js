@@ -29,7 +29,33 @@ const calls = {
   updates: [],
 };
 
+const guestPriceRange = {
+  serviceId: serviceRecord.id,
+  minPrice: 950,
+  maxPrice: 1250,
+};
+
 const prisma = {
+  city: {
+    findMany: async () => [
+      {
+        id: "city-prayagraj",
+        name: "Prayagraj",
+        normalizedName: "prayagraj",
+        isActive: true,
+      },
+    ],
+  },
+  vehicleBrand: {
+    findFirst: async () => ({ id: "brand-1", name: "Tata" }),
+  },
+  vehicleModel: {
+    findFirst: async () => ({
+      id: "model-1",
+      name: "Nexon",
+      brand: { id: "brand-1", name: "Tata" },
+    }),
+  },
   serviceCategory: {
     findUnique: async () => ({
       id: "category-1",
@@ -88,7 +114,12 @@ require.cache[priceRangeServicePath] = {
   filename: priceRangeServicePath,
   loaded: true,
   exports: {
-    findBestPriceRangesForBooking: async () => new Map(),
+    findBestPriceRangesForBooking: async ({ city, vehicle }) =>
+      city === "Prayagraj" &&
+      vehicle?.brand === "Tata" &&
+      vehicle?.model === "Nexon"
+        ? new Map([[serviceRecord.id, guestPriceRange]])
+        : new Map(),
   },
 };
 
@@ -142,4 +173,18 @@ test("logged-out catalogue keeps active services while hiding legacy prices", as
   assert.equal("basePrice" in service, false);
   assert.equal("minPrice" in service, false);
   assert.equal("maxPrice" in service, false);
+});
+
+test("logged-out customers can preview contextual prices after selecting city and car", async () => {
+  const categories = await publicService.getServiceCategories({
+    city: "Prayagraj",
+    vehicleBrandId: "brand-1",
+    vehicleModelId: "model-1",
+  });
+  const [service] = categories[0].services;
+
+  assert.deepEqual(service.priceRange, { min: 950, max: 1250 });
+  assert.equal(service.hasPrice, true);
+  assert.equal(service.pricingStatus, "AVAILABLE");
+  assert.equal("basePrice" in service, false);
 });

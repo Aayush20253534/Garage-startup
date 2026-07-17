@@ -11,7 +11,7 @@ import CustomerPwaInstall from "@/components/pwa/CustomerPwaInstall";
 import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import { preloadCustomerPortal } from "@/utils/customerPreload";
 
-const MOBILE_LOGIN_LOADER_MINIMUM_MS = 850;
+const MOBILE_LOGIN_LOADER_MINIMUM_MS = 1100;
 
 const buildReturnPath = (fromLocation) => {
   if (!fromLocation?.pathname) return null;
@@ -225,27 +225,29 @@ export default function Login() {
     <>
       <CustomerLoginLoader visible={loading} />
       <div className="container-x grid min-h-[80vh] items-center gap-12 py-10 sm:py-16 lg:grid-cols-2 mt-0 pb-30">
-      <div className="hidden lg:block">
-        <h1 className="text-5xl font-bold leading-tight">
-          Welcome back.
-          <br />
-          <span className="text-muted">Your garage on demand.</span>
-        </h1>
-      </div>
+        <div className="hidden lg:block">
+          <h1 className="text-5xl font-bold leading-tight">
+            Welcome back.
+            <br />
+            <span className="text-muted">Your garage on demand.</span>
+          </h1>
+        </div>
 
-      <div className="mx-auto grid w-full max-w-md gap-4">
-      <div className="card-soft w-full p-7">
-        <h2 className="text-2xl font-bold">Login to Rovauto</h2>
+        <div className="mx-auto grid w-full max-w-md gap-4">
+          <div className="card-soft w-full p-7">
+            <h2 className="text-2xl font-bold">Login to Rovauto</h2>
 
-        <p className="text-sm text-muted mt-1">Use email/phone and password</p>
+            <p className="text-sm text-muted mt-1">
+              Use email/phone and password
+            </p>
 
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-        {notice && !error && (
-          <p className="mt-3 text-sm text-red-600">{notice}</p>
-        )}
+            {notice && !error && (
+              <p className="mt-3 text-sm text-red-600">{notice}</p>
+            )}
 
-        <form onSubmit={submit} className="mt-6 grid gap-3">
+            <form onSubmit={submit} className="mt-6 grid gap-3">
           <button
             type="button"
             onClick={handleGoogleAuth}
@@ -320,10 +322,10 @@ export default function Login() {
               Create account
             </Link>
           </div>
-        </form>
-      </div>
-      <CustomerPwaInstall compact />
-      </div>
+            </form>
+          </div>
+          <CustomerPwaInstall compact />
+        </div>
       </div>
     </>
   );
