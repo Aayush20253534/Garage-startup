@@ -14,8 +14,13 @@ import { setWallet } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { formatRupees } from "@/utils/priceRange";
 import { useApp } from "@/hooks/useApp";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 
 const MINIMUM_RECHARGE_AMOUNT = 100;
+const RECHARGE_PROGRESS = Object.freeze({
+  PREPARING: "PREPARING_RECHARGE",
+  VERIFYING: "VERIFYING_RECHARGE",
+});
 
 const loadCashfreeCheckout = () =>
   new Promise((resolve, reject) => {
@@ -57,6 +62,7 @@ export default function GarageWallet() {
   const [cashfreeMode, setCashfreeMode] = useState("sandbox");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [paymentProgress, setPaymentProgress] = useState(null);
 
   const transactions = useMemo(
     () => (Array.isArray(wallet?.transactions) ? wallet.transactions : []),
@@ -146,6 +152,7 @@ export default function GarageWallet() {
 
     setLoading(true);
     setError("");
+    setPaymentProgress(RECHARGE_PROGRESS.VERIFYING);
 
     try {
       await garageApi.verifyRechargeOrder(garageToken, pendingOrder.id);
@@ -161,6 +168,7 @@ export default function GarageWallet() {
         err.response?.data?.message || "Cashfree payment is not completed yet"
       );
     } finally {
+      setPaymentProgress(null);
       setLoading(false);
     }
   };
@@ -173,6 +181,7 @@ export default function GarageWallet() {
 
     setLoading(true);
     setError("");
+    setPaymentProgress(RECHARGE_PROGRESS.PREPARING);
 
     try {
       await loadCashfreeCheckout();
@@ -181,6 +190,7 @@ export default function GarageWallet() {
         mode: cashfreeMode,
       });
 
+      setPaymentProgress(null);
       const checkoutResult = await cashfree.checkout({
         paymentSessionId: pendingOrder.paymentSessionId,
         redirectTarget: "_modal",
@@ -194,12 +204,28 @@ export default function GarageWallet() {
     } catch (err) {
       setError(err.message || "Unable to open Cashfree checkout");
     } finally {
+      setPaymentProgress(null);
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-brand/5">
+    <>
+      <CustomerLoginLoader
+        visible={Boolean(paymentProgress)}
+        eyebrow="GARAGE WALLET"
+        title={
+          paymentProgress === RECHARGE_PROGRESS.VERIFYING
+            ? "Confirming your recharge"
+            : "Preparing secure payment"
+        }
+        message={
+          paymentProgress === RECHARGE_PROGRESS.VERIFYING
+            ? "Verifying the payment and refreshing your wallet balance."
+            : "Connecting to Cashfree and preparing your wallet recharge."
+        }
+      />
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-brand/5">
       <div className="mx-auto max-w-6xl space-y-5 px-3 py-5 sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
         {/* Header Section */}
         <section className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm ring-1 ring-black/[0.03] backdrop-blur sm:p-5">
@@ -492,6 +518,7 @@ export default function GarageWallet() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

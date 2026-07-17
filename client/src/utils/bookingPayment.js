@@ -15,6 +15,24 @@ const PAYMENT_ORDER_RETRY_DELAYS_MS = [0, 500, 1_200];
 let cashfreeSdkPromise = null;
 const cashfreeClients = new Map();
 
+export const BOOKING_PAYMENT_PROGRESS = Object.freeze({
+  CREATING_BOOKING: "CREATING_BOOKING",
+  PREPARING_PAYMENT: "PREPARING_PAYMENT",
+  RECONCILING_PAYMENT: "RECONCILING_PAYMENT",
+  VERIFYING_PAYMENT: "VERIFYING_PAYMENT",
+  ACTIVATING_SEARCH: "ACTIVATING_SEARCH",
+});
+
+const reportPaymentProgress = (callback, phase) => {
+  if (typeof callback !== "function") return;
+
+  try {
+    callback(phase);
+  } catch {
+    // Progress UI must never interrupt a payment operation.
+  }
+};
+
 const wait = (milliseconds) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
@@ -283,7 +301,11 @@ const verifyBookingPayment = async ({ bookingId, cashfreeOrderId }) => {
   throw createPaymentIncompleteError();
 };
 
-export const payForBooking = async ({ booking, useWallet = false } = {}) => {
+export const payForBooking = async ({
+  booking,
+  useWallet = false,
+  onProgress,
+} = {}) => {
   if (!booking?.id) {
     throw new Error("Booking not found");
   }
@@ -294,6 +316,10 @@ export const payForBooking = async ({ booking, useWallet = false } = {}) => {
    * backend order request instead of making the user wait for both serially.
    */
   assertServiceHoursOpen();
+  reportPaymentProgress(
+    onProgress,
+    BOOKING_PAYMENT_PROGRESS.PREPARING_PAYMENT,
+  );
 
   let sdkLoadError = null;
   const cashfreeReadyPromise = loadCashfreeCheckout().catch((error) => {
@@ -308,16 +334,22 @@ export const payForBooking = async ({ booking, useWallet = false } = {}) => {
   const { cashfreeOrder, mode } = result;
 
   if (result.booking && result.payment?.status === "PAID") {
+    reportPaymentProgress(
+      onProgress,
+      BOOKING_PAYMENT_PROGRESS.ACTIVATING_SEARCH,
+    );
     return result.booking;
   }
 
   const cashfreeReady = await cashfreeReadyPromise;
 
   if (!cashfreeReady) {
+    reportPaymentProgress(onProgress, null);
     throw sdkLoadError || new Error("Unable to load Cashfree checkout");
   }
 
   if (!cashfreeOrder?.paymentSessionId) {
+    reportPaymentProgress(onProgress, null);
     throw createPaymentSessionPreparingError(
       "Cashfree did not return a usable payment session. No money was deducted; please try again.",
     );
@@ -325,6 +357,7 @@ export const payForBooking = async ({ booking, useWallet = false } = {}) => {
 
   const cashfree = getCashfreeClient(mode);
   let checkoutResult;
+  reportPaymentProgress(onProgress, null);
 
   try {
     checkoutResult = await cashfree.checkout({
@@ -332,9 +365,17 @@ export const payForBooking = async ({ booking, useWallet = false } = {}) => {
       redirectTarget: "_modal",
     });
   } catch (checkoutError) {
+    reportPaymentProgress(
+      onProgress,
+      BOOKING_PAYMENT_PROGRESS.RECONCILING_PAYMENT,
+    );
     const reconciliation = await reconcileCheckoutAttempt(booking.id);
 
     if (reconciliation.paidBooking) {
+      reportPaymentProgress(
+        onProgress,
+        BOOKING_PAYMENT_PROGRESS.ACTIVATING_SEARCH,
+      );
       return reconciliation.paidBooking;
     }
 
@@ -349,9 +390,17 @@ export const payForBooking = async ({ booking, useWallet = false } = {}) => {
     // Cashfree reports both a user-closed modal and checkout errors through the
     // same field. Reconcile the order server-side before declaring failure so
     // a late successful payment is never shown as an unpaid booking.
+    reportPaymentProgress(
+      onProgress,
+      BOOKING_PAYMENT_PROGRESS.RECONCILING_PAYMENT,
+    );
     const reconciliation = await reconcileCheckoutAttempt(booking.id);
 
     if (reconciliation.paidBooking) {
+      reportPaymentProgress(
+        onProgress,
+        BOOKING_PAYMENT_PROGRESS.ACTIVATING_SEARCH,
+      );
       return reconciliation.paidBooking;
     }
 
@@ -362,6 +411,10 @@ export const payForBooking = async ({ booking, useWallet = false } = {}) => {
     );
   }
 
+  reportPaymentProgress(
+    onProgress,
+    BOOKING_PAYMENT_PROGRESS.VERIFYING_PAYMENT,
+  );
   const verification = await verifyBookingPayment({
     bookingId: booking.id,
     cashfreeOrderId: cashfreeOrder.id,
@@ -376,5 +429,9 @@ export const payForBooking = async ({ booking, useWallet = false } = {}) => {
     throw refundedError;
   }
 
+  reportPaymentProgress(
+    onProgress,
+    BOOKING_PAYMENT_PROGRESS.ACTIVATING_SEARCH,
+  );
   return verification.booking;
 };

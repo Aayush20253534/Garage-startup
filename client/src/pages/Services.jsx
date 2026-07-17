@@ -16,7 +16,9 @@ import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import SafeImage from "@/components/common/SafeImage";
 import { getCategoryThumbnailUrl } from "@/utils/imageCache";
 import {
+  formatRupeeRange,
   formatRupees,
+  getServiceMaxPrice,
   getServiceMinPrice,
 } from "@/utils/priceRange";
 import Seo, { SITE_URL } from "@/components/seo/Seo";
@@ -91,6 +93,7 @@ export default function Services() {
   const selectedModel = selectedBrand?.models?.find(
     (model) => model.id === guestModelId,
   );
+  const allModelsSelected = guestModelId.toUpperCase() === "ALL";
   const availableModels = Array.isArray(selectedBrand?.models)
     ? selectedBrand.models
     : [];
@@ -485,6 +488,9 @@ export default function Services() {
                   <option value="">
                     {guestBrandId ? "Select model" : "Choose a brand first"}
                   </option>
+                  {guestBrandId && (
+                    <option value="ALL">All models (generic prices only)</option>
+                  )}
                   {availableModels.map((model) => (
                     <option key={model.id} value={model.id}>
                       {model.name}
@@ -501,7 +507,10 @@ export default function Services() {
                 </p>
               ) : guestPricingReady ? (
                 <p className="font-semibold text-emerald-700">
-                  Showing prices for {selectedBrand?.name} {selectedModel?.name} in {guestCity}.
+                  Showing prices for {selectedBrand?.name}{" "}
+                  {allModelsSelected
+                    ? "all models with generic pricing"
+                    : selectedModel?.name} in {guestCity}.
                   Sign in only when you are ready to book.
                 </p>
               ) : (
@@ -570,6 +579,9 @@ export default function Services() {
                     : [];
                   const categoryMinPrice = pricedServices.length
                     ? Math.min(...pricedServices.map(getServiceMinPrice))
+                    : 0;
+                  const categoryMaxPrice = pricedServices.length
+                    ? Math.max(...pricedServices.map(getServiceMaxPrice))
                     : 0;
 
                   return (
@@ -647,7 +659,10 @@ export default function Services() {
                               ? "Coming soon"
                               : guestPricingReady
                                 ? categoryMinPrice > 0
-                                  ? `From ${formatRupees(categoryMinPrice)}`
+                                  ? formatRupeeRange(
+                                      categoryMinPrice,
+                                      categoryMaxPrice,
+                                    )
                                   : "Price unavailable"
                                 : "View available services"}
                           </p>

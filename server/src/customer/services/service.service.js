@@ -68,8 +68,12 @@ const getCustomerServiceContext = async (options = {}) => {
   if (!options.userId) {
     const vehicleBrandId = String(options.vehicleBrandId || "").trim();
     const vehicleModelId = String(options.vehicleModelId || "").trim();
+    const useAllModels = vehicleModelId.toUpperCase() === "ALL";
 
     if (!explicitCity && !vehicleBrandId && !vehicleModelId) return null;
+    if (vehicleModelId && !vehicleBrandId) {
+      throw new ApiError(400, "Select a vehicle brand before choosing a model");
+    }
 
     const [city, brand, model] = await Promise.all([
       explicitCity
@@ -81,7 +85,7 @@ const getCustomerServiceContext = async (options = {}) => {
             select: { id: true, name: true },
           })
         : Promise.resolve(null),
-      vehicleModelId && vehicleBrandId
+      vehicleModelId && vehicleBrandId && !useAllModels
         ? prisma.vehicleModel.findFirst({
             where: {
               id: vehicleModelId,
@@ -102,19 +106,27 @@ const getCustomerServiceContext = async (options = {}) => {
       throw new ApiError(400, "Select a valid vehicle brand");
     }
 
-    if (vehicleModelId && !model) {
+    if (vehicleModelId && !useAllModels && !model) {
       throw new ApiError(400, "Select a valid model for this vehicle brand");
     }
 
     return {
       city: city || null,
-      vehicle: model
+      vehicle: useAllModels
         ? {
-            brand: model.brand.name,
-            model: model.name,
+            brand: brand.name,
+            // The matcher normalizes model-less allocations as generic and
+            // excludes model-specific rows when the requested model is ALL.
+            model: "ALL",
             fuelType: null,
           }
-        : null,
+        : model
+          ? {
+              brand: model.brand.name,
+              model: model.name,
+              fuelType: null,
+            }
+          : null,
     };
   }
 

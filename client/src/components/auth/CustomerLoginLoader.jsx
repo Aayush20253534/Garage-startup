@@ -1,6 +1,11 @@
 import "./CustomerLoginLoader.css";
 
-export default function CustomerLoginLoader({ visible }) {
+export default function CustomerLoginLoader({
+  visible,
+  eyebrow = "ROVAUTO DRIVE",
+  title = "Your drive is ready",
+  message = "Signing you in and preparing your service dashboard.",
+}) {
   if (!visible) return null;
 
   return (
@@ -8,11 +13,11 @@ export default function CustomerLoginLoader({ visible }) {
       className="customer-login-loader"
       role="status"
       aria-live="polite"
-      aria-label="Logging in to Rovauto"
+      aria-label={`${title}. ${message}`}
     >
       <div className="customer-login-loader__glow" aria-hidden="true" />
       <div className="customer-login-loader__content">
-        <p className="customer-login-loader__eyebrow">ROVAUTO DRIVE</p>
+        <p className="customer-login-loader__eyebrow">{eyebrow}</p>
 
         <div className="customer-login-loader__track" aria-hidden="true">
           <div className="customer-login-loader__horizon" />
@@ -102,10 +107,8 @@ export default function CustomerLoginLoader({ visible }) {
           </div>
         </div>
 
-        <p className="customer-login-loader__title">Your drive is ready</p>
-        <p className="customer-login-loader__message">
-          Signing you in and preparing your service dashboard.
-        </p>
+        <p className="customer-login-loader__title">{title}</p>
+        <p className="customer-login-loader__message">{message}</p>
         <div className="customer-login-loader__progress" aria-hidden="true">
           <span />
           <span />

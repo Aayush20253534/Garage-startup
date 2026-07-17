@@ -21,7 +21,13 @@ const servicePricingQuerySchema = [
     .withMessage("Invalid vehicle brand ID"),
   query("vehicleModelId")
     .optional({ nullable: true, checkFalsy: true })
-    .isUUID()
+    .custom((value) => {
+      if (String(value).trim().toUpperCase() === "ALL") return true;
+
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        String(value),
+      );
+    })
     .withMessage("Invalid vehicle model ID")
     .custom((value, { req }) => {
       if (value && !req.query.vehicleBrandId) {

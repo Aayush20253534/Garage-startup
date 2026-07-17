@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { FiAlertCircle, FiArrowLeft, FiCheckCircle } from "react-icons/fi";
 import { garageApi } from "@/api/garage";
 import api from "@/api/axios";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 
 const getBrandLogo = (brand) =>
   brand.logoUrl || brand.image || brand.logo || brand.logo_url || "";
@@ -133,7 +134,14 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg-soft">
+    <>
+      <CustomerLoginLoader
+        visible={loading}
+        eyebrow="GARAGE APPLICATION"
+        title="Submitting your garage"
+        message="Uploading your details and photos for secure review."
+      />
+      <div className="min-h-screen flex flex-col bg-bg-soft">
       <div className="flex-1 flex items-center justify-center px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -262,6 +270,7 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
           </form>
         </motion.div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

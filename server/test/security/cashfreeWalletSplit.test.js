@@ -84,4 +84,9 @@ test("wallet split changes terminate the stale Cashfree order before replacement
   assert.match(pendingBookings, /refreshPendingData/);
   assert.match(checkout, /await loadWallet\(\)/);
   assert.match(checkout, /PAYMENT_REFUNDED_TO_WALLET/);
+  assert.match(paymentClient, /onProgress/);
+  assert.match(paymentClient, /VERIFYING_PAYMENT/);
+  assert.match(paymentClient, /RECONCILING_PAYMENT/);
+  assert.match(checkout, /BookingPaymentLoader/);
+  assert.match(pendingBookings, /BookingPaymentLoader/);
 });

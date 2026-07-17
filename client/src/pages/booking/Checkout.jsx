@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import LocationPicker from "@/components/maps/LocationPicker";
+import BookingPaymentLoader from "@/components/payment/BookingPaymentLoader";
 import {
   buildFullAddress,
   getDefaultUserLocation,
@@ -21,6 +22,7 @@ import {
 } from "@/utils/priceRange";
 import { calculatePlatformFee } from "@/utils/platformFee";
 import {
+  BOOKING_PAYMENT_PROGRESS,
   getPaymentErrorCode,
   payForBooking,
   preloadCashfreeCheckout,
@@ -206,6 +208,7 @@ export default function Checkout() {
   const [editingAddress, setEditingAddress] = useState(false);
   const [wallet, setWallet] = useState(null);
   const [useWallet, setUseWallet] = useState(false);
+  const [paymentProgress, setPaymentProgress] = useState(null);
   const [addressForm, setAddressForm] = useState(() =>
     getCheckoutAddressForm({ location, user }),
   );
@@ -618,6 +621,7 @@ export default function Checkout() {
       let booking = pendingBooking;
 
       if (!booking?.id) {
+        setPaymentProgress(BOOKING_PAYMENT_PROGRESS.CREATING_BOOKING);
         const bookingRes = await api.post("/bookings/checkout", {
           vehicleId: vehicle.id,
           serviceIds: cart.map((item) => item.id),
@@ -628,7 +632,11 @@ export default function Checkout() {
         setPendingBooking(booking);
       }
 
-      const paidBooking = await payForBooking({ booking, useWallet });
+      const paidBooking = await payForBooking({
+        booking,
+        useWallet,
+        onProgress: setPaymentProgress,
+      });
 
       clearCart();
       clearBookingCaches?.();
@@ -652,12 +660,15 @@ export default function Checkout() {
       );
       await loadWallet();
     } finally {
+      setPaymentProgress(null);
       setLoading(false);
     }
   };
 
   return (
-    <div className="container-x grid gap-8 py-12 lg:grid-cols-[1fr_400px]">
+    <>
+      <BookingPaymentLoader phase={paymentProgress} />
+      <div className="container-x grid gap-8 py-12 lg:grid-cols-[1fr_400px]">
       <div>
         <h1 className="text-3xl font-bold sm:text-4xl">Checkout</h1>
         <p className="mt-1 text-muted">
@@ -975,6 +986,7 @@ export default function Checkout() {
           the garage after work is complete.
         </div>
       </aside>
-    </div>
+      </div>
+    </>
   );
 }

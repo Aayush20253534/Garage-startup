@@ -35,6 +35,12 @@ const guestPriceRange = {
   maxPrice: 1250,
 };
 
+const allModelsPriceRange = {
+  serviceId: serviceRecord.id,
+  minPrice: 800,
+  maxPrice: 1100,
+};
+
 const prisma = {
   city: {
     findMany: async () => [
@@ -114,12 +120,19 @@ require.cache[priceRangeServicePath] = {
   filename: priceRangeServicePath,
   loaded: true,
   exports: {
-    findBestPriceRangesForBooking: async ({ city, vehicle }) =>
-      city === "Prayagraj" &&
-      vehicle?.brand === "Tata" &&
-      vehicle?.model === "Nexon"
+    findBestPriceRangesForBooking: async ({ city, vehicle }) => {
+      if (city !== "Prayagraj" || vehicle?.brand !== "Tata") {
+        return new Map();
+      }
+
+      if (vehicle.model === "ALL") {
+        return new Map([[serviceRecord.id, allModelsPriceRange]]);
+      }
+
+      return vehicle.model === "Nexon"
         ? new Map([[serviceRecord.id, guestPriceRange]])
-        : new Map(),
+        : new Map();
+    },
   },
 };
 
@@ -187,4 +200,16 @@ test("logged-out customers can preview contextual prices after selecting city an
   assert.equal(service.hasPrice, true);
   assert.equal(service.pricingStatus, "AVAILABLE");
   assert.equal("basePrice" in service, false);
+});
+
+test("the All model preview requests only model-generic pricing", async () => {
+  const categories = await publicService.getServiceCategories({
+    city: "Prayagraj",
+    vehicleBrandId: "brand-1",
+    vehicleModelId: "ALL",
+  });
+  const [service] = categories[0].services;
+
+  assert.deepEqual(service.priceRange, { min: 800, max: 1100 });
+  assert.equal(service.pricingStatus, "AVAILABLE");
 });

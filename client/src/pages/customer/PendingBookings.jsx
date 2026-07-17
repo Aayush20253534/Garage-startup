@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
+import BookingPaymentLoader from "@/components/payment/BookingPaymentLoader";
 import {
   getPaymentErrorCode,
   isPaymentIncompleteError,
@@ -74,6 +75,7 @@ export default function PendingBookings() {
   const [useWalletByBookingId, setUseWalletByBookingId] = useState({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [paymentProgress, setPaymentProgress] = useState(null);
 
   const pendingCount = useMemo(() => bookings.length, [bookings]);
   const walletBalance = Number(wallet?.balance || 0);
@@ -175,6 +177,7 @@ export default function PendingBookings() {
       const updatedBooking = await payForBooking({
         booking,
         useWallet: isWalletSelected(booking),
+        onProgress: setPaymentProgress,
       });
       clearBookingCaches?.();
 
@@ -219,6 +222,7 @@ export default function PendingBookings() {
 
       await refreshPendingData({ preserveMessage: true });
     } finally {
+      setPaymentProgress(null);
       setPayingId(null);
     }
   };
@@ -235,7 +239,9 @@ export default function PendingBookings() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <>
+      <BookingPaymentLoader phase={paymentProgress} />
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       {/* Header Section */}
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-line pb-6">
         <div>
@@ -465,7 +471,8 @@ export default function PendingBookings() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

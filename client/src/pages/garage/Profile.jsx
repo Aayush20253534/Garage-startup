@@ -17,6 +17,7 @@ import {
 } from "react-icons/fi";
 import CitySelect from "@/components/common/CitySelect";
 import ImageUpload from "@/components/garage/ImageUpload";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
 import { setGarage } from "@/store/garageSlice";
@@ -463,7 +464,14 @@ export default function GarageProfile() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-2 overflow-x-hidden antialiased">
+    <>
+      <CustomerLoginLoader
+        visible={saving === "photos"}
+        eyebrow="GARAGE GALLERY"
+        title="Uploading garage photos"
+        message="Optimizing and securing your images before publishing them."
+      />
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-2 overflow-x-hidden antialiased">
       {/* Premium Header Layout */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-line pb-5">
         <div>
@@ -1010,6 +1018,7 @@ export default function GarageProfile() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
