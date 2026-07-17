@@ -613,7 +613,7 @@ export default function VehicleSelect() {
                       type="button"
                       onClick={() => selectFuel(f)}
                       className={[
-                        "h-10 rounded-full border px-4 text-sm font-semibold transition",
+                        "h-9 rounded-lg border px-3.5 text-sm font-semibold transition",
                         fuel?.value === f.value
                           ? "border-ink bg-ink text-white"
                           : "border-line bg-white text-ink hover:border-ink",

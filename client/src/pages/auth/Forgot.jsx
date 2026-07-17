@@ -301,7 +301,7 @@ function EmailStep({
         <button
           type="submit"
           disabled={loading}
-          className="btn-primary w-full py-4 text-lg disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? "Sending..." : "Send Reset OTP"}
         </button>
@@ -427,7 +427,7 @@ function ResetStep({
         <button
           type="submit"
           disabled={loading}
-          className="btn-primary w-full py-4 text-lg disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? "Setting password..." : "Set New Password"}
         </button>

@@ -236,7 +236,7 @@ export default function GarageSelect() {
           <button
             type="button"
             onClick={() => nav("/checkout")}
-            className="btn-primary w-full py-4 text-base"
+            className="btn-primary w-full"
           >
             Continue to checkout <FiArrowRight />
           </button>

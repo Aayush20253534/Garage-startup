@@ -358,7 +358,7 @@ export default function MapPanel({
             href={getGoogleMapsUrl(fallbackOrigin, fallbackDestination)}
             target="_blank"
             rel="noreferrer"
-            className={`mt-4 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition ${
+            className={`mt-4 inline-flex items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-bold transition ${
               dark
                 ? "border-gray-600 text-white hover:border-yellow-300"
                 : "border-line bg-white text-ink hover:border-ink"

@@ -355,7 +355,7 @@ function AddressCheck({ children }) {
           <button
             type="button"
             onClick={() => setRetryKey((value) => value + 1)}
-            className="mt-5 rounded-full bg-brand px-5 py-3 text-sm font-bold text-ink"
+            className="mt-5 rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-ink"
           >
             Retry
           </button>
@@ -915,14 +915,14 @@ class AppErrorBoundary extends Component {
             <button
               type="button"
               onClick={this.clearAndReload}
-              className="rounded-full bg-brand px-5 py-3 text-sm font-bold text-ink"
+              className="rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-ink"
             >
               {isRecovering ? "Reloading..." : "Reload page"}
             </button>
             <button
               type="button"
               onClick={this.goHome}
-              className="rounded-full border border-line px-5 py-3 text-sm font-bold text-ink"
+              className="rounded-lg border border-line px-4 py-2.5 text-sm font-bold text-ink"
             >
               Go home
             </button>

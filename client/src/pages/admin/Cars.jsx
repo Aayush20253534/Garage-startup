@@ -531,7 +531,7 @@ export default function Cars() {
                         <span
                           key={model.id}
                           className={[
-                            "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
+                            "inline-flex max-w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-sm",
                             model.isActive
                               ? "border-line bg-white text-ink"
                               : "border-line bg-bg-soft text-muted",

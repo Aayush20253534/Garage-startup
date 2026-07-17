@@ -188,7 +188,7 @@ export default function GarageForgotPassword() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-primary w-full py-4 text-lg"
+                  className="btn-primary w-full"
                 >
                   {loading ? "Sending..." : "Send Reset OTP"}
                 </button>
@@ -268,7 +268,7 @@ export default function GarageForgotPassword() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-primary w-full py-4 text-lg"
+                  className="btn-primary w-full"
                 >
                   {loading ? "Setting..." : "Set New Password"}
                 </button>

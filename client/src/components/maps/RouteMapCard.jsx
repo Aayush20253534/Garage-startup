@@ -152,7 +152,7 @@ export default function RouteMapCard({
             href={getDirectionsUrl(origin, destination)}
             target="_blank"
             rel="noreferrer"
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
               dark
                 ? "border-gray-600 text-white hover:border-yellow-300"
                 : "border-line text-ink hover:border-ink"

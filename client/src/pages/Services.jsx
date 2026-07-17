@@ -420,7 +420,7 @@ export default function Services() {
                 <button
                   type="button"
                   onClick={() => updateGuestFilters({ city: "", brand: "", model: "" })}
-                  className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-full border border-white/20 px-4 text-xs font-bold text-white transition hover:bg-white/10 sm:self-auto"
+                  className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-lg border border-white/20 px-3.5 text-xs font-bold text-white transition hover:bg-white/10 sm:self-auto"
                 >
                   <FiX /> Clear filters
                 </button>
@@ -707,7 +707,7 @@ export default function Services() {
                   ? "/booking/services"
                   : "/checkout"
               }
-              className="flex min-h-[60px] w-full items-center justify-between gap-3 rounded-2xl bg-gray-950 px-4 py-3 text-white shadow-[0_18px_50px_rgba(15,23,42,0.35)] transition active:scale-[0.99] sm:min-h-[64px] sm:rounded-full sm:px-6"
+              className="flex min-h-[54px] w-full items-center justify-between gap-3 rounded-lg bg-gray-950 px-4 py-2.5 text-white shadow-[0_18px_50px_rgba(15,23,42,0.35)] transition active:scale-[0.99] sm:min-h-[56px] sm:px-5"
             >
               {hasUnavailableCartItems ? (
                 <>

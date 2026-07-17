@@ -231,7 +231,7 @@ export default function Navbar() {
               end={item.to === "/"}
               className={({ isActive }) =>
                 [
-                  "relative inline-flex h-10 items-center justify-center rounded-full px-3 text-sm font-semibold leading-none transition-colors",
+                  "relative inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm font-semibold leading-none transition-colors",
                   isActive ? "text-ink" : "text-ink/70 hover:text-ink",
                 ].join(" ")
               }
@@ -286,7 +286,7 @@ export default function Navbar() {
                       setProfileOpen(false);
                       setNotificationsOpen(false);
                     }}
-                    className="flex h-10 max-w-[220px] items-center gap-2 rounded-full border border-line bg-white py-1 pl-1.5 pr-3 transition hover:border-ink"
+                    className="flex h-10 max-w-[220px] items-center gap-2 rounded-lg border border-line bg-white py-1 pl-1.5 pr-3 transition hover:border-ink"
                   >
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand text-black">
                       <FiTruck className="text-sm" />
@@ -522,7 +522,7 @@ export default function Navbar() {
                     setVehOpen(false);
                     setNotificationsOpen(false);
                   }}
-                  className="flex h-10 max-w-[190px] items-center gap-2 rounded-full border border-line bg-white py-1 pl-1.5 pr-3 transition hover:border-ink"
+                  className="flex h-10 max-w-[190px] items-center gap-2 rounded-lg border border-line bg-white py-1 pl-1.5 pr-3 transition hover:border-ink"
                 >
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-white">
                     {user.name?.[0] || "U"}

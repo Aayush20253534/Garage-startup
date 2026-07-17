@@ -273,7 +273,7 @@ export default function ServiceSelect() {
                   key={category.id}
                   type="button"
                   onClick={() => setCatId(category.id)}
-                  className={`flex h-10 shrink-0 items-center gap-2.5 rounded-full px-3 text-left text-sm font-semibold transition lg:rounded-lg ${
+                  className={`flex h-9 shrink-0 items-center gap-2.5 rounded-lg px-3 text-left text-sm font-semibold transition ${
                     catId === category.id
                       ? "bg-ink text-white shadow-sm"
                       : "text-ink hover:bg-bg-soft"

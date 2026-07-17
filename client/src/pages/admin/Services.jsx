@@ -157,7 +157,7 @@ function RestrictedCityPicker({
                 type="button"
                 disabled={inactive && !selected}
                 onClick={() => onToggle(city.id)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
                   selected
                     ? "border-red-200 bg-red-50 text-red-700"
                     : "border-line bg-white text-ink hover:border-ink"

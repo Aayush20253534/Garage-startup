@@ -290,7 +290,7 @@ function GarageCard({ garage, fallbackCity }) {
                   href={garage.whatsappLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-bg-soft px-3 py-1.5 text-xs font-bold text-muted border border-line/60 transition hover:bg-brand-soft hover:text-ink"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-bg-soft px-3 py-1.5 text-xs font-bold text-muted border border-line/60 transition hover:bg-brand-soft hover:text-ink"
                 >
                   <FiPhone /> WhatsApp Connect
                 </a>

@@ -393,7 +393,7 @@ export default function AddressForm() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full py-4 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FiCheckCircle />
               {loading ? "Saving location…" : "Save and continue"}

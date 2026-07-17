@@ -610,7 +610,7 @@ export default function CategoryDetail() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={() => setSelectedPackage(null)}
-                  className="flex-1 rounded-full border border-gray-300 px-6 py-3 font-bold transition hover:bg-gray-50"
+                  className="flex-1 rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-bold transition hover:bg-gray-50"
                 >
                   Close
                 </button>
@@ -625,7 +625,7 @@ export default function CategoryDetail() {
                     ((user || guestPricingReady) &&
                       !selectedPackage.priceRange)
                   }
-                  className="flex-1 rounded-full bg-[#b9f000] px-6 py-3 font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex-1 rounded-lg bg-[#b9f000] px-5 py-2.5 text-sm font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {selectedPackageComingSoon
                     ? "Coming Soon"

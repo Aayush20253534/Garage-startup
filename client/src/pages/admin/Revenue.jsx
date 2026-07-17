@@ -424,7 +424,7 @@ export default function Revenue() {
                     disabled={isIntern}
                     title={isIntern ? "Intern access is read-only" : "Click to toggle city status"}
                     className={[
-                      "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                      "rounded-lg border px-3 py-1 text-xs font-semibold transition",
                       city.isActive
                         ? "border-lime-200 bg-lime-100 text-ink hover:bg-lime-200"
                         : "border-line bg-bg-soft text-muted hover:text-ink",
