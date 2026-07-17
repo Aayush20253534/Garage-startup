@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
@@ -209,6 +209,7 @@ export default function Checkout() {
   const [wallet, setWallet] = useState(null);
   const [useWallet, setUseWallet] = useState(false);
   const [paymentProgress, setPaymentProgress] = useState(null);
+  const paymentAttemptRef = useRef(false);
   const [addressForm, setAddressForm] = useState(() =>
     getCheckoutAddressForm({ location, user }),
   );
@@ -562,7 +563,7 @@ export default function Checkout() {
     }
   };
 
-  const bookService = async () => {
+  const performBookingPayment = async () => {
     if (!vehicle?.id) {
       setError("Please select a vehicle before checkout.");
       nav("/booking/vehicle");
@@ -662,6 +663,17 @@ export default function Checkout() {
     } finally {
       setPaymentProgress(null);
       setLoading(false);
+    }
+  };
+
+  const bookService = async () => {
+    if (paymentAttemptRef.current) return;
+
+    paymentAttemptRef.current = true;
+    try {
+      await performBookingPayment();
+    } finally {
+      paymentAttemptRef.current = false;
     }
   };
 

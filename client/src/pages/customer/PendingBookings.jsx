@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
@@ -76,6 +76,7 @@ export default function PendingBookings() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [paymentProgress, setPaymentProgress] = useState(null);
+  const paymentAttemptRef = useRef(false);
 
   const pendingCount = useMemo(() => bookings.length, [bookings]);
   const walletBalance = Number(wallet?.balance || 0);
@@ -169,6 +170,9 @@ export default function PendingBookings() {
   };
 
   const handlePayNow = async (booking) => {
+    if (paymentAttemptRef.current) return;
+
+    paymentAttemptRef.current = true;
     try {
       setPayingId(booking.id);
       setError("");
@@ -222,6 +226,7 @@ export default function PendingBookings() {
 
       await refreshPendingData({ preserveMessage: true });
     } finally {
+      paymentAttemptRef.current = false;
       setPaymentProgress(null);
       setPayingId(null);
     }

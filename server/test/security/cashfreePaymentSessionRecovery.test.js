@@ -21,6 +21,8 @@ test("Cashfree payment sessions are recovered without requiring a second tap", (
   assert.match(paymentService, /fetchCashfreeOrderUntilSessionReady/);
   assert.match(paymentService, /initialOrder: cashfreeOrder/);
   assert.match(paymentClient, /PAYMENT_ORDER_RETRY_DELAYS_MS/);
+  assert.match(paymentClient, /isRetryablePaymentOrderError/);
+  assert.match(paymentClient, /RETRYABLE_PAYMENT_NETWORK_CODES/);
   assert.match(paymentClient, /requestBookingPaymentOrder/);
   assert.match(
     paymentClient,
@@ -33,6 +35,10 @@ test("Cashfree payment sessions are recovered without requiring a second tap", (
   assert.doesNotMatch(
     pendingBookings,
     /Wait a few seconds, then tap Pay again/,
+  );
+  assert.match(
+    paymentService,
+    /409,[\s\S]{0,180}PAYMENT_SESSION_UNAVAILABLE/,
   );
   assert.match(cashfreeConfig, /CASHFREE_API_VERSION/);
   assert.match(cashfreeConfig, /2025-01-01/);

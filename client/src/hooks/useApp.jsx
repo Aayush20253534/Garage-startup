@@ -21,6 +21,7 @@ import {
   selectGarageState,
   setGarage,
 } from "@/store/garageSlice";
+import { getCartPricingContextKey } from "@/utils/bookingCart";
 
 const AppCtx = createContext(null);
 
@@ -213,27 +214,6 @@ const removeSessionCache = (key) => {
 
   localStorage.removeItem(key);
 };
-
-const getLocationIdentity = (value) => {
-  if (!value) return null;
-
-  return [
-    value.id,
-    value.placeId,
-    value.city,
-    value.latitude,
-    value.longitude,
-    value.formattedAddress || value.fullAddress || value.address,
-  ]
-    .filter((item) => item !== undefined && item !== null && item !== "")
-    .join("|") || null;
-};
-
-const getCartPricingContextKey = (selectedVehicle, selectedLocation) =>
-  JSON.stringify({
-    vehicleId: selectedVehicle?.id || null,
-    location: getLocationIdentity(selectedLocation),
-  });
 
 const getServiceCategoriesContextKey = (user, vehicle, location) =>
   JSON.stringify({
@@ -1427,6 +1407,11 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // Wait for cookie-session restoration to finish. During hydration the
+    // cached address can be replaced by the authoritative profile location;
+    // that must not erase a valid same-city cart.
+    if (authLoading) return;
+
     const nextContextKey = getCartPricingContextKey(vehicle, location);
 
     if (cartContextKey && cartContextKey !== nextContextKey && cart.length > 0) {
@@ -1439,15 +1424,9 @@ export function AppProvider({ children }) {
   }, [
     cart.length,
     cartContextKey,
+    authLoading,
     vehicle?.id,
-    location?.id,
-    location?.placeId,
     location?.city,
-    location?.latitude,
-    location?.longitude,
-    location?.formattedAddress,
-    location?.fullAddress,
-    location?.address,
   ]);
 
   useEffect(() => {

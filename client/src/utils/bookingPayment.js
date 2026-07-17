@@ -10,7 +10,24 @@ const CASHFREE_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
 const CASHFREE_SCRIPT_ID = "cashfree-checkout-sdk";
 const CASHFREE_LOAD_TIMEOUT_MS = 15_000;
 const VERIFY_RETRY_DELAYS_MS = [0, 500, 1_000, 1_800];
-const PAYMENT_ORDER_RETRY_DELAYS_MS = [0, 500, 1_200];
+// Cashfree may need several seconds to close an old order after the customer
+// changes the wallet split. Keep the original click alive while the idempotent
+// booking order endpoint settles instead of making the customer tap Pay again.
+const PAYMENT_ORDER_RETRY_DELAYS_MS = [0, 600, 1_200, 2_000, 3_200, 4_500];
+const RETRYABLE_PAYMENT_ORDER_STATUSES = new Set([
+  408,
+  425,
+  429,
+  502,
+  503,
+  504,
+]);
+const RETRYABLE_PAYMENT_NETWORK_CODES = new Set([
+  "ECONNABORTED",
+  "ERR_NETWORK",
+  "ETIMEDOUT",
+]);
+const MAX_PAYMENT_ORDER_NETWORK_FAILURES = 2;
 
 let cashfreeSdkPromise = null;
 const cashfreeClients = new Map();
@@ -88,8 +105,30 @@ const createPaymentSessionPreparingError = (message) => {
   return error;
 };
 
+const isRetryablePaymentNetworkError = (error) => {
+  if (error?.response) return false;
+
+  const code = String(error?.code || "");
+  const message = String(error?.message || "");
+
+  return (
+    RETRYABLE_PAYMENT_NETWORK_CODES.has(code) ||
+    /timeout|network error|failed to fetch|load failed/i.test(message)
+  );
+};
+
+const isRetryablePaymentOrderError = (error) => {
+  if (isPaymentSessionPreparingError(error)) return true;
+
+  const status = Number(error?.response?.status || 0);
+  if (RETRYABLE_PAYMENT_ORDER_STATUSES.has(status)) return true;
+
+  return isRetryablePaymentNetworkError(error);
+};
+
 const requestBookingPaymentOrder = async ({ bookingId, useWallet }) => {
   let lastError = null;
+  let networkFailureCount = 0;
 
   for (const delay of PAYMENT_ORDER_RETRY_DELAYS_MS) {
     if (delay > 0) await wait(delay);
@@ -111,8 +150,17 @@ const requestBookingPaymentOrder = async ({ bookingId, useWallet }) => {
 
       lastError = createPaymentSessionPreparingError();
     } catch (error) {
-      if (!isPaymentSessionPreparingError(error)) {
+      // Creating/reusing a payment order is idempotent for the booking. It is
+      // safe to recover transient gateway and network failures here.
+      if (!isRetryablePaymentOrderError(error)) {
         throw error;
+      }
+
+      if (isRetryablePaymentNetworkError(error)) {
+        networkFailureCount += 1;
+        if (networkFailureCount >= MAX_PAYMENT_ORDER_NETWORK_FAILURES) {
+          throw error;
+        }
       }
 
       lastError = error;

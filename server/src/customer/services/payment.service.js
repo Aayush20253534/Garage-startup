@@ -1072,7 +1072,7 @@ const tryReuseCreatedPaymentOrder = async (booking, amount) => {
 
   if (!cashfreeOrder) {
     throw new ApiError(
-      502,
+      409,
       "Cashfree did not return a usable payment order. No money was deducted; please try again.",
       "PAYMENT_SESSION_UNAVAILABLE",
     );
@@ -1706,7 +1706,7 @@ const createPaymentOrder = async (
 
   if (!cashfreeOrder) {
     throw new ApiError(
-      502,
+      409,
       "Cashfree did not return a usable payment order. No money was deducted; please try again.",
       "PAYMENT_SESSION_UNAVAILABLE",
     );
