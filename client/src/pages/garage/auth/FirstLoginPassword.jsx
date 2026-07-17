@@ -12,6 +12,7 @@ import {
 
 import { garageApi } from "@/api/garage";
 import Logo from "@/components/common/Logo";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import { useApp } from "@/hooks/useApp";
 
 const PASSWORD_REGEX =
@@ -118,7 +119,14 @@ export default function GarageFirstLoginPassword() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:py-10">
+    <>
+      <CustomerLoginLoader
+        visible={loading}
+        eyebrow="GARAGE SECURITY"
+        title="Securing your garage account"
+        message="Saving your private password and finalizing first-time access."
+      />
+      <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:py-10">
       <div className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-5xl items-center gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(340px,0.68fr)]">
         <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-7 lg:p-8">
           <div className="flex items-center justify-between gap-4 border-b border-line pb-5">
@@ -218,6 +226,7 @@ export default function GarageFirstLoginPassword() {
           </div>
         </aside>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

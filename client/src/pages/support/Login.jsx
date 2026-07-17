@@ -61,6 +61,7 @@ export default function CustomerSupportLogin() {
             resendOtp={customerSupportApi.resendLoginOtp}
             onSuccess={handleAuthenticated}
             submitLabel="Continue"
+            loaderEyebrow="SUPPORT ACCESS"
           />
 
           <p className="mt-5 border-t border-line pt-4 text-xs leading-5 text-muted">

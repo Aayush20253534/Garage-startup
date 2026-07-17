@@ -53,6 +53,7 @@ export default function AdminLogin() {
             resendOtp={adminApi.resendLoginOtp}
             onSuccess={handleAuthenticated}
             submitLabel="Continue"
+            loaderEyebrow="ADMIN ACCESS"
           />
         </section>
 

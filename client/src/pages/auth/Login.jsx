@@ -223,7 +223,12 @@ export default function Login() {
 
   return (
     <>
-      <CustomerLoginLoader visible={loading} />
+      <CustomerLoginLoader
+        visible={loading}
+        eyebrow="CUSTOMER PORTAL"
+        title="Signing you in"
+        message="Verifying your account and preparing your Rovauto dashboard."
+      />
       <div className="container-x grid min-h-[80vh] items-center gap-12 py-10 sm:py-16 lg:grid-cols-2 mt-0 pb-30">
         <div className="hidden lg:block">
           <h1 className="text-5xl font-bold leading-tight">

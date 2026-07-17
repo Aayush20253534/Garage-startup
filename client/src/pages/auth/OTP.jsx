@@ -5,6 +5,7 @@ import api from "@/api/axios";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
 import { verifyCurrentSession } from "@/utils/authSession";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import {
   hasSavedUserLocation,
   saveSignupLocationToProfile,
@@ -253,7 +254,18 @@ export default function OTP() {
   };
 
   return (
-    <div className="container-x grid min-h-[80vh] place-items-center py-16">
+    <>
+      <CustomerLoginLoader
+        visible={loading || resending}
+        eyebrow="ACCOUNT VERIFICATION"
+        title={resending ? "Sending a new OTP" : "Verifying your account"}
+        message={
+          resending
+            ? "Requesting a fresh verification code for your account."
+            : "Confirming your code and preparing your customer profile."
+        }
+      />
+      <div className="container-x grid min-h-[80vh] place-items-center py-16">
       <div className="card-soft w-full max-w-md p-7 text-center">
         <Logo className="mx-auto h-10" showText={false} />
 
@@ -315,6 +327,7 @@ export default function OTP() {
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

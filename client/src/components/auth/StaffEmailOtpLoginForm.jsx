@@ -9,6 +9,7 @@ import {
   FiRefreshCw,
   FiUser,
 } from "react-icons/fi";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 
 const OTP_LENGTH = 6;
 
@@ -24,6 +25,7 @@ export default function StaffEmailOtpLoginForm({
   resendOtp,
   onSuccess,
   submitLabel = "Continue",
+  loaderEyebrow = "STAFF ACCESS",
 }) {
   const otpRefs = useRef([]);
   const [form, setForm] = useState({ identifier: "", password: "" });
@@ -225,6 +227,24 @@ export default function StaffEmailOtpLoginForm({
 
   return (
     <>
+      <CustomerLoginLoader
+        visible={loading || resending}
+        eyebrow={loaderEyebrow}
+        title={
+          resending
+            ? "Sending a new verification code"
+            : challenge
+              ? "Verifying secure access"
+              : "Checking your credentials"
+        }
+        message={
+          resending
+            ? "Requesting a fresh email OTP for this protected workspace."
+            : challenge
+              ? "Confirming the OTP and opening your authorized workspace."
+              : "Validating your staff account before email verification."
+        }
+      />
       {error && (
         <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {error}

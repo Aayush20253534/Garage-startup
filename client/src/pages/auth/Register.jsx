@@ -5,6 +5,7 @@ import { FcGoogle } from "react-icons/fc";
 import startGoogleAuth, { completeGoogleRedirectAuth } from "@/utils/googleAuth";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { useApp } from "@/hooks/useApp";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 
 const COUNTRY_CODE = "+91";
 const PASSWORD_MESSAGE =
@@ -203,7 +204,22 @@ export default function Register() {
   };
 
   return (
-    <div className="container-x grid min-h-[80vh] gap-12 py-10 sm:py-16 lg:grid-cols-2">
+    <>
+      <CustomerLoginLoader
+        visible={loading}
+        eyebrow="CUSTOMER SIGNUP"
+        title={
+          loadingAction === "GOOGLE"
+            ? "Connecting your Google account"
+            : "Creating your Rovauto account"
+        }
+        message={
+          loadingAction === "GOOGLE"
+            ? "Completing secure sign-up and preparing your customer profile."
+            : "Saving your account securely before OTP verification."
+        }
+      />
+      <div className="container-x grid min-h-[80vh] gap-12 py-10 sm:py-16 lg:grid-cols-2">
       <div className="hidden lg:block">
         <h1 className="mt-38 text-5xl font-bold leading-tight">
           Create your <span className="text-brand-dark">Rovauto</span> account.
@@ -329,6 +345,7 @@ export default function Register() {
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

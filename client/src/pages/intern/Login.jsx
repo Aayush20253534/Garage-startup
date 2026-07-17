@@ -53,6 +53,7 @@ export default function InternLogin() {
             resendOtp={internApi.resendLoginOtp}
             onSuccess={handleAuthenticated}
             submitLabel="Continue"
+            loaderEyebrow="INTERN ACCESS"
           />
 
           <p className="mt-5 border-t border-line pt-4 text-xs leading-5 text-muted">

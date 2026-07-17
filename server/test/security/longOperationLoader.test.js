@@ -24,3 +24,25 @@ test("the car loader is limited to genuinely long submit, upload, and payment op
   assert.match(garageWallet, /VERIFYING_RECHARGE/);
   assert.match(garageWallet, /setPaymentProgress\(null\);[\s\S]*cashfree\.checkout/);
 });
+
+test("mobile authentication submissions use portal-specific car loader messages", () => {
+  const customerLogin = read("client/src/pages/auth/Login.jsx");
+  const customerSignup = read("client/src/pages/auth/Register.jsx");
+  const customerOtp = read("client/src/pages/auth/OTP.jsx");
+  const garageLogin = read("client/src/pages/garage/auth/Login.jsx");
+  const garageFirstLogin = read(
+    "client/src/pages/garage/auth/FirstLoginPassword.jsx",
+  );
+  const staffLogin = read(
+    "client/src/components/auth/StaffEmailOtpLoginForm.jsx",
+  );
+
+  assert.match(customerLogin, /title="Signing you in"/);
+  assert.match(customerSignup, /visible=\{loading\}/);
+  assert.match(customerSignup, /Creating your Rovauto account/);
+  assert.match(customerOtp, /visible=\{loading \|\| resending\}/);
+  assert.match(garageLogin, /title=\{[\s\S]*Signing in to your garage/);
+  assert.match(garageFirstLogin, /Securing your garage account/);
+  assert.match(staffLogin, /visible=\{loading \|\| resending\}/);
+  assert.match(staffLogin, /Verifying secure access/);
+});
