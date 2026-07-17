@@ -14,11 +14,13 @@ import { CATEGORY_UI } from "@/data/services";
 import { useApp } from "@/hooks/useApp";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import SafeImage from "@/components/common/SafeImage";
-import { getCategoryThumbnailUrl } from "@/utils/imageCache";
+import {
+  getCategoryThumbnailUrl,
+  getServiceThumbnailUrl,
+} from "@/utils/imageCache";
 import {
   formatRupeeRange,
   formatRupees,
-  getServiceMaxPrice,
   getServiceMinPrice,
 } from "@/utils/priceRange";
 import Seo, { SITE_URL } from "@/components/seo/Seo";
@@ -53,6 +55,136 @@ const isCategoryComingSoon = (category) => {
     services.every(
       (service) => service?.isComingSoon === true,
     )
+  );
+};
+
+const GuestServiceCard = ({
+  category,
+  service,
+  guestFilterSearch,
+  guestPricingReady,
+}) => {
+  const ui = CATEGORY_UI[category.name] || {};
+  const Icon = ui.icon || FiSettings;
+  const comingSoon =
+    isCategoryComingSoon(category) || service?.isComingSoon === true;
+  const hasPrice = Boolean(service?.priceRange);
+  const serviceImage =
+    getServiceThumbnailUrl(service) || getCategoryThumbnailUrl(category);
+  const categoryPath = getServiceCategoryPath(category);
+  const detailsPath = `${categoryPath}${guestFilterSearch}`;
+  const bookingUnavailable = guestPricingReady && !hasPrice;
+
+  return (
+    <article className="group flex min-w-0 flex-col overflow-hidden rounded-[24px] border border-gray-100 bg-white p-3 shadow-[0_12px_34px_rgba(15,23,42,0.07)] transition duration-200 sm:rounded-[28px] sm:hover:-translate-y-1 sm:hover:border-[#b9f000]/50 sm:hover:shadow-[0_18px_46px_rgba(15,23,42,0.12)]">
+      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[18px] bg-bg-soft sm:rounded-[22px]">
+        <SafeImage
+          src={serviceImage}
+          alt={`${service.name} vehicle service`}
+          width="640"
+          height="400"
+          loading="lazy"
+          decoding="async"
+          className={`h-full w-full object-cover transition duration-500 ${
+            comingSoon
+              ? "scale-105 blur-sm grayscale"
+              : "group-hover:scale-[1.045]"
+          }`}
+          fallback={
+            <div className="grid h-full w-full place-items-center text-4xl text-muted">
+              <Icon />
+            </div>
+          }
+        />
+
+        {!comingSoon && (
+          <>
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+            <span className="absolute left-3 top-3 max-w-[calc(100%_-_1.5rem)] truncate rounded-md border border-white/70 bg-white/90 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-gray-700 shadow-sm backdrop-blur">
+              {category.name}
+            </span>
+          </>
+        )}
+
+        {comingSoon && <ComingSoonOverlay compact />}
+      </div>
+
+      <div className="flex flex-1 flex-col px-1 pb-1 pt-4 sm:px-2">
+        <h3 className="line-clamp-2 text-lg font-extrabold leading-snug tracking-[-0.01em] text-gray-950">
+          {service.name}
+        </h3>
+
+        {service.description && (
+          <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-muted">
+            {service.description}
+          </p>
+        )}
+
+        <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-3.5 py-3">
+          {comingSoon ? (
+            <p className="text-sm font-bold text-amber-700">Coming soon</p>
+          ) : guestPricingReady && hasPrice ? (
+            <>
+              <p className="text-lg font-extrabold tracking-tight text-gray-950">
+                {formatRupeeRange(
+                  service.priceRange.min,
+                  service.priceRange.max,
+                )}
+              </p>
+              <p className="mt-0.5 text-xs font-medium text-muted">
+                Estimated service range
+              </p>
+            </>
+          ) : bookingUnavailable ? (
+            <p className="text-sm font-bold leading-5 text-amber-700">
+              {service.priceUnavailableMessage ||
+                "Price unavailable for this vehicle"}
+            </p>
+          ) : (
+            <p className="text-sm font-semibold leading-5 text-muted">
+              Select city, brand and model to see this service price
+            </p>
+          )}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {comingSoon ? (
+            <span className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-bold text-muted">
+              Not available yet
+            </span>
+          ) : (
+            <>
+              <Link
+                to={detailsPath}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-sm font-bold text-gray-950 transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.98]"
+              >
+                Details
+              </Link>
+
+              {bookingUnavailable ? (
+                <span className="inline-flex min-h-11 cursor-not-allowed items-center justify-center rounded-lg bg-gray-100 px-3 text-center text-sm font-bold text-gray-400">
+                  Unavailable
+                </span>
+              ) : (
+                <Link
+                  to="/login"
+                  state={{
+                    from: {
+                      pathname: categoryPath,
+                      search: guestFilterSearch,
+                    },
+                    message: `Sign in to book ${service.name}.`,
+                  }}
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-[#b9f000] px-3 text-center text-sm font-extrabold text-gray-950 shadow-[0_10px_24px_-14px_rgba(110,150,0,0.9)] transition hover:bg-[#c5f52d] active:scale-[0.98]"
+                >
+                  Login to book <FiArrowRight aria-hidden="true" />
+                </Link>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </article>
   );
 };
 
@@ -264,6 +396,46 @@ export default function Services() {
     });
   }, [categories, q]);
 
+  const filteredGuestServices = useMemo(() => {
+    if (user) return [];
+
+    const searchQuery = q.trim().toLowerCase();
+    const seenServiceIds = new Set();
+
+    return categories.flatMap((category) => {
+      const categoryName = String(category?.name || "").trim();
+
+      if (
+        !categoryName ||
+        HIDDEN_CATEGORIES.has(categoryName.toLowerCase())
+      ) {
+        return [];
+      }
+
+      const services = Array.isArray(category?.services)
+        ? category.services
+        : [];
+
+      return services.flatMap((service) => {
+        if (!service?.id || seenServiceIds.has(service.id)) return [];
+
+        const searchableText = [
+          service.name,
+          service.description,
+          categoryName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        if (searchQuery && !searchableText.includes(searchQuery)) return [];
+
+        seenServiceIds.add(service.id);
+        return [{ category, service }];
+      });
+    });
+  }, [categories, q, user]);
+
   const serviceById = useMemo(() => {
     const map = new Map();
 
@@ -387,8 +559,12 @@ export default function Services() {
                 onChange={(event) =>
                   setQ(event.target.value)
                 }
-                placeholder="Search service categories"
-                aria-label="Search service categories"
+                placeholder={
+                  user ? "Search service categories" : "Search services"
+                }
+                aria-label={
+                  user ? "Search service categories" : "Search services"
+                }
                 autoComplete="off"
                 className="h-12 w-full rounded-2xl border border-line bg-white pl-11 pr-4 text-sm text-gray-950 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-[#9dcf00] focus:ring-4 focus:ring-[#b9f000]/15 sm:rounded-full sm:text-base"
               />
@@ -522,14 +698,12 @@ export default function Services() {
           </section>
         )}
 
-        <section
-          aria-labelledby="service-categories-heading"
-        >
+        <section aria-labelledby="services-catalogue-heading">
           <h2
-            id="service-categories-heading"
+            id="services-catalogue-heading"
             className="sr-only"
           >
-            Vehicle service categories
+            {user ? "Vehicle service categories" : "Vehicle services"}
           </h2>
 
           {loading ? (
@@ -550,7 +724,19 @@ export default function Services() {
                 ),
               )}
             </div>
-          ) : filteredCategories.length > 0 ? (
+          ) : !user && filteredGuestServices.length > 0 ? (
+            <div className="grid grid-cols-1 items-stretch gap-4 min-[520px]:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredGuestServices.map(({ category, service }) => (
+                <GuestServiceCard
+                  key={service.id}
+                  category={category}
+                  service={service}
+                  guestFilterSearch={guestFilterSearch}
+                  guestPricingReady={guestPricingReady}
+                />
+              ))}
+            </div>
+          ) : user && filteredCategories.length > 0 ? (
             <div className="grid grid-cols-1 items-start gap-4 min-[480px]:grid-cols-2 min-[480px]:gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-4">
               {filteredCategories.map(
                 (category) => {
@@ -574,23 +760,13 @@ export default function Services() {
                     : getServiceCategoryPath(
                         category,
                       );
-                  const pricedServices = Array.isArray(category.services)
-                    ? category.services.filter((service) => service?.priceRange)
-                    : [];
-                  const categoryMinPrice = pricedServices.length
-                    ? Math.min(...pricedServices.map(getServiceMinPrice))
-                    : 0;
-                  const categoryMaxPrice = pricedServices.length
-                    ? Math.max(...pricedServices.map(getServiceMaxPrice))
-                    : 0;
-
                   return (
                     <Link
                       key={category.id}
                       to={
                         comingSoon
                           ? "#"
-                          : `${destination}${ui.isSos ? "" : guestFilterSearch}`
+                          : destination
                       }
                       onClick={(event) => {
                         if (comingSoon) {
@@ -657,14 +833,7 @@ export default function Services() {
                           <p className="mt-1.5 text-sm font-medium text-muted min-[480px]:hidden sm:block sm:text-xs">
                             {comingSoon
                               ? "Coming soon"
-                              : guestPricingReady
-                                ? categoryMinPrice > 0
-                                  ? formatRupeeRange(
-                                      categoryMinPrice,
-                                      categoryMaxPrice,
-                                    )
-                                  : "Price unavailable"
-                                : "View available services"}
+                              : "View available services"}
                           </p>
                         </div>
                       </div>
@@ -680,12 +849,12 @@ export default function Services() {
               </div>
 
               <h3 className="mt-4 text-base font-bold text-gray-950 sm:text-lg">
-                No service categories found
+                {user ? "No service categories found" : "No services found"}
               </h3>
 
               <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-muted">
-                Try searching with a different
-                category name.
+                Try searching with a different {user ? "category" : "service"}{" "}
+                name.
               </p>
             </div>
           )}
