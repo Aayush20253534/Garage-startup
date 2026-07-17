@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
   FiAlertCircle,
@@ -10,12 +9,9 @@ import {
   FiChevronUp,
   FiLock,
   FiLogOut,
-  FiMessageSquare,
-  FiPhone,
   FiTrash2,
   FiX,
 } from "react-icons/fi";
-import { setNotifications } from "@/store/garageSlice";
 import { useApp } from "@/hooks/useApp";
 import { garageApi } from "@/api/garage";
 import PushNotificationControl from "@/components/PushNotificationControl";
@@ -24,10 +20,8 @@ const inputClass =
   "h-10 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink";
 
 export default function GarageSettings() {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const notifications = useSelector((state) => state.garage.notifications);
   const { garageToken, logoutGarage } = useApp();
 
   const [activeSection, setActiveSection] = useState(null);
@@ -79,15 +73,6 @@ export default function GarageSettings() {
       type: "danger",
     },
   ];
-
-  const handleNotificationToggle = (type, value) => {
-    dispatch(
-      setNotifications({
-        ...notifications,
-        [type]: value,
-      })
-    );
-  };
 
   const handlePasswordChange = async (event) => {
     event.preventDefault();
@@ -282,47 +267,6 @@ export default function GarageSettings() {
                 <div className="border-t border-line p-4">
                   <div className="grid gap-3">
                     <PushNotificationControl compact scope="garage" />
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="flex items-center justify-between gap-3 rounded-xl bg-bg-soft p-4">
-                      <div className="flex items-center gap-3">
-                        <FiMessageSquare className="text-muted" />
-                        <span className="text-sm font-semibold text-ink">
-                          WhatsApp Notifications
-                        </span>
-                      </div>
-
-                      <input
-                        type="checkbox"
-                        checked={Boolean(notifications?.whatsapp)}
-                        onChange={(event) =>
-                          handleNotificationToggle(
-                            "whatsapp",
-                            event.target.checked
-                          )
-                        }
-                        className="h-5 w-5 accent-emerald-500"
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between gap-3 rounded-xl bg-bg-soft p-4">
-                      <div className="flex items-center gap-3">
-                        <FiPhone className="text-muted" />
-                        <span className="text-sm font-semibold text-ink">
-                          SMS Notifications
-                        </span>
-                      </div>
-
-                      <input
-                        type="checkbox"
-                        checked={Boolean(notifications?.sms)}
-                        onChange={(event) =>
-                          handleNotificationToggle("sms", event.target.checked)
-                        }
-                        className="h-5 w-5 accent-emerald-500"
-                      />
-                    </label>
-                    </div>
                   </div>
                 </div>
               )}
