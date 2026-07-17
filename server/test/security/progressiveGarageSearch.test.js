@@ -92,19 +92,28 @@ test("garage request integration uses the persisted radius and no batch cap", ()
   assert.match(source, /invalidateBookingReadCaches\(booking\.userId\)/);
 });
 
-test("checkout prefers live GPS before saved locations", () => {
+test("checkout uses the selected saved address without reading customer GPS", () => {
   const source = readProjectFile("client/src/pages/booking/Checkout.jsx");
-  const liveLocationIndex = source.indexOf(
-    "const liveLocation = await getLiveCheckoutLocation()",
+  const selectedLocationIndex = source.indexOf(
+    "const selectedLocationPayload = await toPayload(location)",
   );
   const savedLocationIndex = source.indexOf(
     "const defaultUserLocation = getDefaultUserLocation(user)",
-    liveLocationIndex,
+    selectedLocationIndex,
   );
 
-  assert.ok(liveLocationIndex >= 0);
-  assert.ok(savedLocationIndex > liveLocationIndex);
-  assert.match(source, /Fall back to the saved default location instead/);
+  assert.ok(selectedLocationIndex >= 0);
+  assert.ok(savedLocationIndex > selectedLocationIndex);
+  assert.doesNotMatch(source, /navigator\.geolocation/);
+  assert.doesNotMatch(source, /getLiveCheckoutLocation/);
+  assert.doesNotMatch(source, /showCurrentLocation/);
+});
+
+test("garage navigation keeps using the address stored on the booking", () => {
+  const source = readProjectFile("client/src/pages/garage/BookingDetail.jsx");
+
+  assert.match(source, /const \{ lat, lng \} = booking\.customer\.location/);
+  assert.match(source, /center=\{booking\.customer\.location\}/);
 });
 
 test("tracking explains the 20 km retry without another payment", () => {

@@ -8,9 +8,11 @@ Sign in with a customer account and add at least one vehicle. Select the service
 
 ## Which Location Is Used
 
-At checkout, Rovauto first tries to use the customer's current browser GPS location when location permission is available and the detected city is serviceable. If live location is unavailable, denied, times out, cannot be resolved, or is outside the supported area, the booking uses the customer's saved default location.
+At checkout, Rovauto uses the customer's selected saved service location. It does not request the customer's current browser GPS location or silently replace the service destination with the device's current position.
 
-Using live GPS for checkout does not silently replace the saved default address. Customers can manage saved locations separately from their profile or location screens.
+If the vehicle needs service at a different address, the customer can explicitly edit, confirm, and save the service address at checkout before paying. The confirmed address and coordinates are stored on the booking so the assigned garage navigates to that destination even when the customer or their device is somewhere else.
+
+During an active job, live location sharing belongs to the assigned garage and helps show its route or arrival progress. Garage live tracking does not change the customer's stored booking destination.
 
 ## Vehicle And Service Selection
 

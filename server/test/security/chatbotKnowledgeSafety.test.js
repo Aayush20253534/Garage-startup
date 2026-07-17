@@ -57,8 +57,10 @@ test("assistant output sanitizer removes internal source paths and privileged ro
 test("customer knowledge documents the current safe booking experience", () => {
   const knowledge = readKnowledge();
 
-  assert.match(knowledge, /current browser GPS location/i);
-  assert.match(knowledge, /saved default location/i);
+  assert.match(knowledge, /selected saved service location/i);
+  assert.match(knowledge, /does not request the customer's current browser GPS/i);
+  assert.match(knowledge, /explicitly edit, confirm, and save the service address/i);
+  assert.match(knowledge, /live location sharing belongs to the assigned garage/i);
   assert.match(knowledge, /within 5 km/i);
   assert.match(knowledge, /expands to 10 km/i);
   assert.match(knowledge, /expands to 20 km/i);

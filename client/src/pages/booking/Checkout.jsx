@@ -11,7 +11,6 @@ import {
   getProfileAddress,
   hasUsableIndiaCoordinates,
   parseAddressParts,
-  reverseGeocodeCoordinates,
 } from "@/utils/address";
 import {
   formatServicePriceRange,
@@ -130,58 +129,6 @@ const normalizeIndianPhone = (value = "") => {
 
   digits = digits.slice(0, 10);
   return digits ? `+91${digits}` : "";
-};
-
-const LIVE_LOCATION_OPTIONS = {
-  enableHighAccuracy: true,
-  timeout: 8000,
-  maximumAge: 60 * 1000,
-};
-
-const getLiveCheckoutLocation = async () => {
-  if (!navigator.geolocation) return null;
-
-  const position = await new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      resolve,
-      () => resolve(null),
-      LIVE_LOCATION_OPTIONS,
-    );
-  });
-
-  if (!position?.coords) return null;
-
-  const latitude = Number(position.coords.latitude.toFixed(6));
-  const longitude = Number(position.coords.longitude.toFixed(6));
-
-  if (!hasUsableIndiaCoordinates({ latitude, longitude })) return null;
-
-  try {
-    const geocoded = await reverseGeocodeCoordinates({
-      latitude,
-      longitude,
-    });
-    const city = await requireAvailableCityName(geocoded);
-    const fullAddress =
-      buildFullAddress({ ...geocoded, city }) ||
-      geocoded.fullAddress ||
-      `${city} (${latitude}, ${longitude})`;
-
-    return {
-      ...geocoded,
-      latitude,
-      longitude,
-      city,
-      address: fullAddress,
-      formattedAddress: fullAddress,
-      fullAddress,
-      source: "GPS",
-    };
-  } catch {
-    // Permission may be enabled while reverse geocoding is temporarily
-    // unavailable. Fall back to the saved default location instead.
-    return null;
-  }
 };
 
 export default function Checkout() {
@@ -419,20 +366,11 @@ export default function Checkout() {
       };
     };
 
-    const liveLocation = await getLiveCheckoutLocation();
-    const liveLocationPayload = await toPayload(liveLocation);
-
-    if (liveLocationPayload) {
-      const normalizedLocation = normalizeSavedLocation(liveLocation);
-      setLocation(normalizedLocation);
-      setAddressForm(
-        getCheckoutAddressForm({ location: normalizedLocation, user }),
-      );
-      return liveLocationPayload;
-    }
-
-    const currentLocationPayload = await toPayload(location);
-    if (currentLocationPayload) return currentLocationPayload;
+    // A booking must use the service address the customer explicitly selected.
+    // Never replace it with the browser's current position: the customer and
+    // vehicle may be elsewhere while the garage still needs to reach this pin.
+    const selectedLocationPayload = await toPayload(location);
+    if (selectedLocationPayload) return selectedLocationPayload;
 
     const defaultUserLocation = getDefaultUserLocation(user);
     const defaultLocationPayload = await toPayload(defaultUserLocation);
@@ -684,10 +622,11 @@ export default function Checkout() {
       <div>
         <h1 className="text-3xl font-bold sm:text-4xl">Checkout</h1>
         <p className="mt-1 text-muted">
-          Pay the platform fee now to start garage search. Live GPS is used
-          when available; otherwise, your saved default location is used. The
-          final service amount is paid directly to the garage after the work is
-          complete.
+          Pay the platform fee now to start garage search. The garage will use
+          your saved service address below, regardless of your current device
+          location. Edit it only when you want the garage to arrive somewhere
+          else. The final service amount is paid directly to the garage after
+          the work is complete.
         </p>
 
         {error && (
@@ -780,7 +719,7 @@ export default function Checkout() {
 
         <div className="card-soft mt-8 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Delivery Address</h3>
+            <h3 className="text-lg font-semibold">Service Address</h3>
             {!editingAddress && (
               <button
                 type="button"
@@ -800,9 +739,8 @@ export default function Checkout() {
                   setAddressForm(next);
                   setError("");
                 }}
-                label="Search delivery address"
+                label="Search service address"
                 helper="Select the address and confirm the exact service entrance."
-                showCurrentLocation
                 required
               />
 
