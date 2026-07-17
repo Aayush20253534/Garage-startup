@@ -12,6 +12,18 @@ const getGarage = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Admin garage fetched successfully", garage));
 });
 
+const setGarageActiveStatus = asyncHandler(async (req, res) => {
+  const garage = await service.setGarageActiveStatus(
+    req.params.garageId,
+    req.body.isActive,
+  );
+  const action = garage.isActive ? "enabled" : "disabled";
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, `Garage ${action} successfully`, garage));
+});
+
 const listAssignableServices = asyncHandler(async (req, res) => {
   const services = await service.listAssignableServices(req.query);
   return res.status(200).json(new ApiResponse(200, "Assignable services fetched successfully", services));
@@ -42,5 +54,6 @@ module.exports = {
   listAssignableServices,
   listGarages,
   removeGarageService,
+  setGarageActiveStatus,
   upsertGarageService,
 };

@@ -1,6 +1,8 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { deleteCache, deletePattern } = require("../../utils/cache");
+const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
+const BROADCAST_STATUS = require("../../constants/broadcastStatus");
 const { deleteGaragesDeep } = require("./garageDeletion.service");
 
 const garageListInclude = {
@@ -118,6 +120,71 @@ const getGarage = async (garageId) => {
   return garage;
 };
 
+const setGarageActiveStatus = async (garageId, isActive) => {
+  const nextIsActive = isActive === true;
+  const now = new Date();
+
+  const { affectedCustomerIds } = await prisma.$transaction(async (tx) => {
+    const existingGarage = await tx.garage.findUnique({
+      where: { id: garageId },
+      select: { id: true, isActive: true },
+    });
+
+    if (!existingGarage) throw new ApiError(404, "Garage not found");
+
+    await tx.garage.update({
+      where: { id: garageId },
+      data: { isActive: nextIsActive },
+    });
+
+    let customerIds = [];
+
+    if (!nextIsActive) {
+      const pendingRequests = await tx.garageBroadcastRequest.findMany({
+        where: {
+          garageId,
+          status: BROADCAST_STATUS.SENT,
+        },
+        select: {
+          booking: { select: { userId: true } },
+        },
+      });
+
+      customerIds = [
+        ...new Set(
+          pendingRequests
+            .map((request) => request.booking?.userId)
+            .filter(Boolean),
+        ),
+      ];
+
+      await tx.garageBroadcastRequest.updateMany({
+        where: {
+          garageId,
+          status: BROADCAST_STATUS.SENT,
+        },
+        data: {
+          status: BROADCAST_STATUS.EXPIRED,
+          expiredAt: now,
+        },
+      });
+    }
+
+    return { affectedCustomerIds: customerIds };
+  });
+
+  await Promise.allSettled([
+    deleteCache(`garages:${garageId}:services`),
+    deleteCache(`garages:detail:${garageId}`),
+    deleteCache("public:stats:v2"),
+    deletePattern("garages:list:*"),
+    deletePattern("garages:public:*"),
+    ...affectedCustomerIds.map((userId) => invalidateCustomerCache(userId)),
+  ]);
+
+  return getGarage(garageId);
+};
+
 const listAssignableServices = async (query = {}) => {
   return prisma.service.findMany({
     where: {
@@ -230,5 +297,6 @@ module.exports = {
   listAssignableServices,
   listGarages,
   removeGarageService,
+  setGarageActiveStatus,
   upsertGarageService,
 };

@@ -10,6 +10,7 @@ const {
   garageIdSchema,
   garageQuerySchema,
   serviceIdSchema,
+  updateGarageStatusSchema,
   upsertGarageServiceSchema,
 } = require("../validations/garageAdmin.validation");
 
@@ -21,6 +22,13 @@ router.use(authorizeRoles("ADMIN", "INTERN"));
 router.get("/", garageQuerySchema, validate, controller.listGarages);
 router.get("/services", assignableServiceQuerySchema, validate, controller.listAssignableServices);
 router.get("/:garageId", garageIdSchema, validate, controller.getGarage);
+router.patch(
+  "/:garageId/status",
+  authorizeRoles("ADMIN"),
+  updateGarageStatusSchema,
+  validate,
+  controller.setGarageActiveStatus,
+);
 router.delete(
   "/",
   authorizeRoles("ADMIN"),

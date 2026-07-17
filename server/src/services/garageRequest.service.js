@@ -246,6 +246,7 @@ const getCurrentRoundRequests = async (bookingId) => {
     where: {
       bookingId,
       status: BROADCAST_STATUS.SENT,
+      garage: { isActive: true },
     },
     include: requestInclude,
     orderBy: { sentAt: "desc" },
@@ -275,7 +276,24 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
     ? ` Acceptance requires Rs. ${acceptFee} in garage wallet.`
     : "";
 
-  for (const request of requests) {
+  const requestGarageIds = [
+    ...new Set(requests.map((request) => request.garage?.id).filter(Boolean)),
+  ];
+  const activeGarages = requestGarageIds.length
+    ? await prisma.garage.findMany({
+        where: {
+          id: { in: requestGarageIds },
+          isActive: true,
+        },
+        select: { id: true },
+      })
+    : [];
+  const activeGarageIds = new Set(activeGarages.map((garage) => garage.id));
+  const activeRequests = requests.filter((request) =>
+    activeGarageIds.has(request.garage?.id),
+  );
+
+  for (const request of activeRequests) {
     alertJobs.push({
       channel: "whatsapp",
       garageId: request.garage.id,
@@ -344,7 +362,7 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
     console.info("[garage-request:alerts] broadcast summary", {
       bookingId: booking.id,
       bookingCode: booking.bookingCode,
-      requestCount: requests.length,
+      requestCount: activeRequests.length,
       whatsapp: summary,
       totalJobs: alertJobs.length,
     });
@@ -541,6 +559,7 @@ const startNextGarageSearchCycle = async (bookingId) => {
       bookingId,
       garageId: { in: selectedGarages.map((garage) => garage.id) },
       status: BROADCAST_STATUS.SENT,
+      garage: { isActive: true },
     },
     include: requestInclude,
     orderBy: { sentAt: "desc" },
@@ -627,6 +646,10 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
 
   if (!request) throw new ApiError(404, "Garage request not found");
 
+  if (!request.garage?.isActive) {
+    throw new ApiError(403, "This garage is disabled and cannot accept bookings");
+  }
+
   if (request.status !== BROADCAST_STATUS.SENT) {
     throw new ApiError(400, "This request is no longer available");
   }
@@ -648,6 +671,20 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    const operationalGarage = await tx.garage.updateMany({
+      where: {
+        id: garageId,
+        isActive: true,
+      },
+      // This harmless timestamp update locks the garage row for the rest of
+      // the acceptance transaction, preventing a disable/accept race.
+      data: { updatedAt: new Date() },
+    });
+
+    if (operationalGarage.count === 0) {
+      throw new ApiError(403, "This garage is disabled and cannot accept bookings");
+    }
+
     const freshRequest = await tx.garageBroadcastRequest.findFirst({
       where: { id: requestId, garageId },
       include: {
@@ -658,6 +695,10 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
 
     if (!freshRequest) {
       throw new ApiError(404, "Garage request not found");
+    }
+
+    if (!freshRequest.garage?.isActive) {
+      throw new ApiError(403, "This garage is disabled and cannot accept bookings");
     }
 
     if (freshRequest.status !== BROADCAST_STATUS.SENT) {

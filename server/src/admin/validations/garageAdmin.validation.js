@@ -36,11 +36,23 @@ const upsertGarageServiceSchema = [
   body("isActive").optional({ nullable: true }).isBoolean(),
 ];
 
+const updateGarageStatusSchema = [
+  ...garageIdSchema,
+  body("isActive")
+    .exists()
+    .withMessage("Garage status is required")
+    .bail()
+    .isBoolean()
+    .withMessage("Garage status must be boolean")
+    .toBoolean(),
+];
+
 module.exports = {
   assignableServiceQuerySchema,
   deleteGaragesSchema,
   garageIdSchema,
   garageQuerySchema,
   serviceIdSchema,
+  updateGarageStatusSchema,
   upsertGarageServiceSchema,
 };

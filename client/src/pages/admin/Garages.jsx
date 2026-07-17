@@ -10,6 +10,8 @@ import {
   FiEdit3,
   FiEye,
   FiImage,
+  FiPauseCircle,
+  FiPlayCircle,
   FiRefreshCw,
   FiStar,
   FiTrash2,
@@ -141,6 +143,7 @@ export default function Garages() {
   const [services, setServices] = useState([]);
   const [vehicleBrands, setVehicleBrands] = useState([]);
   const [filterCity, setFilterCity] = useState("");
+  const [filterStatus, setFilterStatus] = useState("ALL");
   const [selectedGarageId, setSelectedGarageId] = useState("");
   const [selectedGarageDetails, setSelectedGarageDetails] = useState(null);
   const [serviceForm, setServiceForm] = useState({
@@ -151,6 +154,7 @@ export default function Garages() {
   const [noteByApplication, setNoteByApplication] = useState({});
   const [selectedApplicationIds, setSelectedApplicationIds] = useState([]);
   const [selectedGarageIds, setSelectedGarageIds] = useState([]);
+  const [statusUpdatingGarageId, setStatusUpdatingGarageId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -195,8 +199,14 @@ export default function Garages() {
     setError("");
 
     try {
+      const garageParams = {
+        ...(filterCity && { city: filterCity }),
+        ...(filterStatus !== "ALL" && {
+          isActive: filterStatus === "ACTIVE",
+        }),
+      };
       const [garageList, serviceList] = await Promise.all([
-        adminApi.getGarages(filterCity ? { city: filterCity } : {}),
+        adminApi.getGarages(garageParams),
         adminApi.getAssignableServices(),
       ]);
 
@@ -385,6 +395,44 @@ export default function Garages() {
         ? current.filter((id) => id !== garageId)
         : [...current, garageId]
     );
+  };
+
+  const setGarageActiveStatus = async (garage) => {
+    if (!garage || isIntern) return;
+
+    const nextIsActive = !garage.isActive;
+    const action = nextIsActive ? "enable" : "disable";
+
+    if (
+      !nextIsActive &&
+      !window.confirm(
+        `Disable ${garage.name}? It will be removed from customer matching and will stop receiving new booking WhatsApp alerts.`,
+      )
+    ) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setStatusUpdatingGarageId(garage.id);
+
+    try {
+      await adminApi.setGarageActiveStatus(garage.id, nextIsActive);
+      setSuccess(
+        `${garage.name} ${nextIsActive ? "enabled" : "disabled"}. ${
+          nextIsActive
+            ? "It can now participate in new customer searches."
+            : "It is excluded from matching and WhatsApp booking alerts."
+        }`,
+      );
+      await loadGaragesAndServices();
+    } catch (err) {
+      setError(
+        err.response?.data?.message || `Unable to ${action} this garage`,
+      );
+    } finally {
+      setStatusUpdatingGarageId("");
+    }
   };
 
   const deleteGarages = async (garageIds) => {
@@ -734,6 +782,17 @@ export default function Garages() {
                   className={fieldClass}
                 />
 
+                <select
+                  value={filterStatus}
+                  onChange={(event) => setFilterStatus(event.target.value)}
+                  className={fieldClass}
+                  aria-label="Filter garages by operational status"
+                >
+                  <option value="ALL">All garage statuses</option>
+                  <option value="ACTIVE">Enabled garages</option>
+                  <option value="DISABLED">Disabled garages</option>
+                </select>
+
                 <button
                   type="button"
                   onClick={loadGaragesAndServices}
@@ -792,30 +851,69 @@ export default function Garages() {
                       />
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => openGarageDetails(garage.id)}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="truncate font-semibold">
-                          {garage.name}
-                        </span>
-                        <FiEye className="shrink-0" />
-                      </div>
-
-                      <div
-                        className={[
-                          "mt-1 text-xs",
-                          selectedGarageId === garage.id
-                            ? "text-muted"
-                            : "text-muted",
-                        ].join(" ")}
+                    <div className="min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => openGarageDetails(garage.id)}
+                        className="w-full min-w-0 text-left"
                       >
-                        {garage.city} · {garage.services?.length || 0} services
-                        · {garage.isActive ? "Active" : "Inactive"}
-                      </div>
-                    </button>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="truncate font-semibold">
+                            {garage.name}
+                          </span>
+                          <FiEye className="shrink-0" />
+                        </div>
+
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                          <span>
+                            {garage.city} · {garage.services?.length || 0}{" "}
+                            services
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-bold ${
+                              garage.isActive
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : "border-amber-200 bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                garage.isActive
+                                  ? "bg-emerald-500"
+                                  : "bg-amber-500"
+                              }`}
+                            />
+                            {garage.isActive ? "Enabled" : "Disabled"}
+                          </span>
+                        </div>
+                      </button>
+
+                      {!isIntern && (
+                        <button
+                          type="button"
+                          onClick={() => setGarageActiveStatus(garage)}
+                          disabled={statusUpdatingGarageId === garage.id}
+                          className={`mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border px-3 text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${
+                            garage.isActive
+                              ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 focus:ring-amber-200"
+                              : "border-lime-300 bg-lime-100 text-lime-900 hover:bg-lime-200 focus:ring-lime-300"
+                          }`}
+                        >
+                          {statusUpdatingGarageId === garage.id ? (
+                            <FiRefreshCw className="animate-spin" />
+                          ) : garage.isActive ? (
+                            <FiPauseCircle />
+                          ) : (
+                            <FiPlayCircle />
+                          )}
+                          {statusUpdatingGarageId === garage.id
+                            ? "Updating..."
+                            : garage.isActive
+                              ? "Disable garage"
+                              : "Enable garage"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))
               ) : (
@@ -842,16 +940,59 @@ export default function Garages() {
 
                 {selectedGarage && (
                   <div className="flex flex-wrap gap-2">
-                    <span className="rounded-md border border-lime-200 bg-lime-50 px-3 py-1 text-xs font-semibold text-ink">
+                    <span className="rounded-md border border-lime-200 bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-900">
                       {selectedGarage.isVerified ? "Verified" : "Unverified"}
                     </span>
 
-                    <span className="rounded-md border border-lime-200 bg-lime-50 px-3 py-1 text-xs font-semibold text-ink">
-                      {selectedGarage.isActive ? "Active" : "Inactive"}
+                    <span
+                      className={`rounded-md border px-3 py-1 text-xs font-bold ${
+                        selectedGarage.isActive
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-amber-200 bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      {selectedGarage.isActive ? "Enabled" : "Disabled"}
                     </span>
+
+                    {!isIntern && (
+                      <button
+                        type="button"
+                        onClick={() => setGarageActiveStatus(selectedGarage)}
+                        disabled={statusUpdatingGarageId === selectedGarage.id}
+                        className={`inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${
+                          selectedGarage.isActive
+                            ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 focus:ring-amber-200"
+                            : "border-lime-300 bg-lime-100 text-lime-900 hover:bg-lime-200 focus:ring-lime-300"
+                        }`}
+                      >
+                        {statusUpdatingGarageId === selectedGarage.id ? (
+                          <FiRefreshCw className="animate-spin" />
+                        ) : selectedGarage.isActive ? (
+                          <FiPauseCircle />
+                        ) : (
+                          <FiPlayCircle />
+                        )}
+                        {statusUpdatingGarageId === selectedGarage.id
+                          ? "Updating..."
+                          : selectedGarage.isActive
+                            ? "Disable garage"
+                            : "Enable garage"}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
+
+              {selectedGarage && !selectedGarage.isActive && (
+                <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-900">
+                  <FiPauseCircle className="mt-0.5 shrink-0 text-lg" />
+                  <p>
+                    This garage is paused. It is excluded from customer
+                    matching, active search counts, new booking requests and
+                    garage-directed WhatsApp alerts until an admin enables it.
+                  </p>
+                </div>
+              )}
 
               {selectedGarage && (
                 <p className="mt-2 text-sm text-muted">

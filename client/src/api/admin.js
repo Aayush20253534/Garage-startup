@@ -92,6 +92,12 @@ export const adminApi = {
     return unwrap(await api.get(`/admin/garages/${garageId}`));
   },
 
+  async setGarageActiveStatus(garageId, isActive) {
+    return unwrap(
+      await api.patch(`/admin/garages/${garageId}/status`, { isActive }),
+    );
+  },
+
   async deleteGarages(garageIds = []) {
     return unwrap(await api.delete("/admin/garages", { data: { garageIds } }));
   },

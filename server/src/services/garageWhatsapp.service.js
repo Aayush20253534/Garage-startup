@@ -1,4 +1,5 @@
 const axios = require("axios");
+const prisma = require("../config/prisma");
 const {
   getCustomerMapButtonParameter,
 } = require("./garageAcceptedWhatsappTemplate");
@@ -424,12 +425,36 @@ const formatBookingAmount = (booking) => {
   return amount > 0 ? `Rs. ${amount.toLocaleString("en-IN")}` : "To be confirmed";
 };
 
+const canSendWhatsappToGarage = async (garage = {}) => {
+  if (!garage?.id || garage.isActive === false) return false;
+
+  const activeGarage = await prisma.garage.findFirst({
+    where: {
+      id: garage.id,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+
+  return Boolean(activeGarage);
+};
+
+const disabledGarageWhatsappResult = () => ({
+  sent: false,
+  skipped: true,
+  reason: "GARAGE_DISABLED",
+});
+
 const sendGarageBookingRequestWhatsapp = async ({
   garage,
   request,
   booking,
   acceptFee = 0,
 }) => {
+  if (!(await canSendWhatsappToGarage(garage))) {
+    return disabledGarageWhatsappResult();
+  }
+
   const acceptUrl = getGarageAcceptUrl(request.id);
   const brand = booking.vehicle?.brand || "Vehicle";
   const model = booking.vehicle?.model || "N/A";
@@ -470,6 +495,10 @@ const sendGarageBookingRequestWhatsapp = async ({
 };
 
 const sendGarageCustomerLocationWhatsapp = async ({ garage, booking }) => {
+  if (!(await canSendWhatsappToGarage(garage))) {
+    return disabledGarageWhatsappResult();
+  }
+
   const customerName = booking.user?.name || "Customer";
   const customerPhone = booking.user?.phone || "Phone not available";
   const location = getCustomerLocationText(booking);
