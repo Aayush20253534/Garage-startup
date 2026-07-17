@@ -547,6 +547,8 @@ const computeRoute = async ({
         destination: buildWaypoint(destination),
         travelMode: "DRIVE",
         routingPreference: trafficAware ? "TRAFFIC_AWARE" : "TRAFFIC_UNAWARE",
+        polylineQuality: "HIGH_QUALITY",
+        polylineEncoding: "ENCODED_POLYLINE",
         computeAlternativeRoutes: Boolean(alternatives),
         languageCode: process.env.GOOGLE_MAPS_LANGUAGE || "en-US",
         units: "METRIC",

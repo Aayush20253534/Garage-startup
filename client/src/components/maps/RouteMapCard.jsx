@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   FiClock,
   FiExternalLink,
@@ -43,6 +43,13 @@ const formatDuration = (seconds) => {
   return `${Math.floor(minutes / 60)} hr ${minutes % 60} min`;
 };
 
+const formatDistance = (meters) => {
+  const value = Number(meters);
+  if (!Number.isFinite(value) || value <= 0) return "Route distance";
+  if (value < 1000) return `${Math.max(1, Math.round(value))} m`;
+  return `${(value / 1000).toFixed(1)} km`;
+};
+
 export default function RouteMapCard({
   origin,
   destination,
@@ -57,6 +64,15 @@ export default function RouteMapCard({
   const [resolvedRoute, setResolvedRoute] = useState(route || null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
+
+  const handleBrowserRouteResolved = useCallback((computedRoute) => {
+    setResolvedRoute((current) => ({
+      ...(current || {}),
+      ...computedRoute,
+    }));
+    setRouteError("");
+    setRouteLoading(false);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -137,9 +153,7 @@ export default function RouteMapCard({
             }`}
           >
             <FiMapPin />
-            {resolvedRoute?.distanceMeters
-              ? `${(resolvedRoute.distanceMeters / 1000).toFixed(1)} km`
-              : "Route distance"}
+            {formatDistance(resolvedRoute?.distanceMeters)}
           </span>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${
@@ -182,6 +196,7 @@ export default function RouteMapCard({
         destination={destination}
         points={points}
         encodedPolyline={resolvedRoute?.encodedPolyline}
+        onRouteResolved={handleBrowserRouteResolved}
         height={360}
         dark={dark}
         className="rounded-none border-x-0 border-b-0"

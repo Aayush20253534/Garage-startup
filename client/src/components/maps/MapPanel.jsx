@@ -57,6 +57,7 @@ export default function MapPanel({
   destination,
   points = EMPTY_POINTS,
   encodedPolyline = null,
+  onRouteResolved,
   draggable = false,
   onLocationChange,
   height = 320,
@@ -72,12 +73,17 @@ export default function MapPanel({
   const resizeFrameRef = useRef(null);
   const hasLoadedTilesRef = useRef(false);
   const onLocationChangeRef = useRef(onLocationChange);
+  const onRouteResolvedRef = useRef(onRouteResolved);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     onLocationChangeRef.current = onLocationChange;
   }, [onLocationChange]);
+
+  useEffect(() => {
+    onRouteResolvedRef.current = onRouteResolved;
+  }, [onRouteResolved]);
 
   const clearMapArtifacts = () => {
     listenersRef.current.forEach((listener) => listener?.remove?.());
@@ -260,6 +266,54 @@ export default function MapPanel({
             strokeWeight: 5,
           });
           overlaysRef.current.push(polyline);
+        } else if (
+          originPosition &&
+          destinationPosition &&
+          maps.DirectionsService &&
+          maps.DirectionsRenderer
+        ) {
+          // The server Routes API remains the primary source. If its polyline
+          // is temporarily unavailable, use the browser Maps service so the
+          // garage still sees a road-following route instead of only two pins.
+          const directionsRenderer = new maps.DirectionsRenderer({
+            map,
+            suppressMarkers: true,
+            preserveViewport: true,
+            polylineOptions: {
+              strokeColor: dark ? "#facc15" : "#111827",
+              strokeOpacity: 0.9,
+              strokeWeight: 5,
+            },
+          });
+          overlaysRef.current.push(directionsRenderer);
+
+          const directionsService = new maps.DirectionsService();
+          directionsService.route(
+            {
+              origin: originPosition,
+              destination: destinationPosition,
+              travelMode: maps.TravelMode.DRIVING,
+              provideRouteAlternatives: false,
+            },
+            (result, status) => {
+              if (!active || status !== maps.DirectionsStatus.OK || !result) {
+                return;
+              }
+
+              directionsRenderer.setDirections(result);
+              const primaryRoute = result.routes?.[0];
+              const primaryLeg = primaryRoute?.legs?.[0];
+              const overviewPolyline =
+                typeof primaryRoute?.overview_polyline === "string"
+                  ? primaryRoute.overview_polyline
+                  : null;
+              onRouteResolvedRef.current?.({
+                distanceMeters: Number(primaryLeg?.distance?.value || 0),
+                durationSeconds: Number(primaryLeg?.duration?.value || 0),
+                encodedPolyline: overviewPolyline,
+              });
+            },
+          );
         } else if (points.length > 1) {
           const path = points.map(toPosition).filter(Boolean);
           const polyline = new maps.Polyline({

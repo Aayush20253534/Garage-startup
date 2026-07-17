@@ -8,6 +8,40 @@ const TRACKABLE_STATUSES = new Set([
   "CONFIRMED",
   "IN_PROGRESS",
 ]);
+const ROUTE_MOVEMENT_REFRESH_METERS = 40;
+
+const toRadians = (value) => (Number(value) * Math.PI) / 180;
+
+const getDistanceMeters = (origin, destination) => {
+  const latitude1 = Number(origin?.latitude);
+  const longitude1 = Number(origin?.longitude);
+  const latitude2 = Number(destination?.latitude);
+  const longitude2 = Number(destination?.longitude);
+
+  if (![latitude1, longitude1, latitude2, longitude2].every(Number.isFinite)) {
+    return null;
+  }
+
+  const earthRadiusMeters = 6371000;
+  const latitudeDelta = toRadians(latitude2 - latitude1);
+  const longitudeDelta = toRadians(longitude2 - longitude1);
+  const value =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(toRadians(latitude1)) *
+      Math.cos(toRadians(latitude2)) *
+      Math.sin(longitudeDelta / 2) ** 2;
+
+  return (
+    earthRadiusMeters *
+    2 *
+    Math.atan2(Math.sqrt(value), Math.sqrt(1 - value))
+  );
+};
+
+const hasUsableRoute = (route) =>
+  Number(route?.distanceMeters) > 0 &&
+  Number(route?.durationSeconds) > 0 &&
+  Boolean(String(route?.encodedPolyline || "").trim());
 
 const getGarageForOwner = async (userId) => {
   const garage = await prisma.garage.findFirst({
@@ -92,32 +126,65 @@ const refreshRouteIfNeeded = async (booking, currentLocation) => {
 
   const refreshSeconds = Math.max(
     30,
-    Number(process.env.GOOGLE_TRACKING_ROUTE_REFRESH_SECONDS || 60),
+    Number(process.env.GOOGLE_TRACKING_ROUTE_REFRESH_SECONDS || 30),
+  );
+  const cachedRoute = {
+    distanceMeters: booking.routeDistanceMeters,
+    durationSeconds: booking.routeDurationSeconds,
+    encodedPolyline: booking.routePolyline,
+  };
+  const movedMeters = getDistanceMeters(
+    {
+      latitude: booking.lastGarageLatitude,
+      longitude: booking.lastGarageLongitude,
+    },
+    currentLocation,
   );
   const stale =
     !booking.routeUpdatedAt ||
-    Date.now() - new Date(booking.routeUpdatedAt).getTime() >= refreshSeconds * 1000;
+    Date.now() - new Date(booking.routeUpdatedAt).getTime() >=
+      refreshSeconds * 1000 ||
+    (Number.isFinite(movedMeters) &&
+      movedMeters >= ROUTE_MOVEMENT_REFRESH_METERS);
 
   if (!stale) {
-    return {
-      distanceMeters: booking.routeDistanceMeters,
-      durationSeconds: booking.routeDurationSeconds,
-      encodedPolyline: booking.routePolyline,
-    };
+    return hasUsableRoute(cachedRoute) ? cachedRoute : null;
   }
 
+  const destination = {
+    latitude: booking.customerLatitude,
+    longitude: booking.customerLongitude,
+  };
+  const trafficAware = process.env.GOOGLE_TRAFFIC_AWARE !== "false";
+
   try {
-    return await googleMapsService.computeRoute({
+    const route = await googleMapsService.computeRoute({
       origin: currentLocation,
-      destination: {
-        latitude: booking.customerLatitude,
-        longitude: booking.customerLongitude,
-      },
-      trafficAware: process.env.GOOGLE_TRAFFIC_AWARE !== "false",
+      destination,
+      trafficAware,
     });
+
+    if (hasUsableRoute(route)) return route;
+    throw new Error("Google Maps returned an incomplete driving route");
   } catch (error) {
+    if (trafficAware) {
+      try {
+        const fallbackRoute = await googleMapsService.computeRoute({
+          origin: currentLocation,
+          destination,
+          trafficAware: false,
+        });
+        if (hasUsableRoute(fallbackRoute)) return fallbackRoute;
+      } catch (fallbackError) {
+        console.warn(
+          "[tracking] traffic-unaware route refresh skipped:",
+          fallbackError.message,
+        );
+      }
+    }
+
     console.warn("[tracking] route refresh skipped:", error.message);
-    return null;
+    return hasUsableRoute(cachedRoute) ? cachedRoute : null;
   }
 };
 
@@ -173,7 +240,11 @@ const addTrackingPoint = async ({ bookingId, account, data }) => {
         ],
         interpolate: false,
       });
-      snapped = snappedPoints.at(-1) || null;
+      const latestOriginalIndex = recentPoints.length;
+      snapped =
+        snappedPoints.find(
+          (point) => point.originalIndex === latestOriginalIndex,
+        ) || null;
     } catch (error) {
       console.warn("[tracking] roads snap skipped:", error.message);
     }
@@ -217,8 +288,12 @@ const addTrackingPoint = async ({ bookingId, account, data }) => {
       data: {
         trackingStartedAt: booking.trackingStartedAt || new Date(),
         trackingEndedAt: null,
-        lastGarageLatitude: effectiveLocation.latitude,
-        lastGarageLongitude: effectiveLocation.longitude,
+        // Preserve the actual garage GPS fix for the live marker and arrival
+        // distance. Road-snapped coordinates are used only for route/trail
+        // calculation so the displayed garage position is never replaced by
+        // an older or shifted road point.
+        lastGarageLatitude: rawLocation.latitude,
+        lastGarageLongitude: rawLocation.longitude,
         lastGarageHeading:
           data.heading === null || data.heading === undefined
             ? null
@@ -232,11 +307,13 @@ const addTrackingPoint = async ({ bookingId, account, data }) => {
             ? null
             : Number(data.accuracyM),
         lastGarageLocationAt: recordedAt,
+        // Also record a failed route-attempt timestamp so a provider outage
+        // cannot trigger two route calls for every incoming GPS sample.
+        routeUpdatedAt: new Date(),
         ...(route && {
           routeDistanceMeters: route.distanceMeters,
           routeDurationSeconds: route.durationSeconds,
           routePolyline: route.encodedPolyline,
-          routeUpdatedAt: new Date(),
         }),
       },
       select: {

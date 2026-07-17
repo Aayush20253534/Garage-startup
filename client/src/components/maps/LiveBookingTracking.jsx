@@ -13,6 +13,10 @@ import RouteMapCard from "./RouteMapCard";
 
 const POLL_INTERVAL_MS = 8000;
 const SHARE_INTERVAL_MS = 8000;
+const GPS_WARMUP_MS = 20000;
+const MAX_FRESH_POSITION_AGE_MS = 30000;
+const TARGET_ACCURACY_METERS = 100;
+const ACCURACY_IMPROVEMENT_METERS = 20;
 
 const formatUpdatedAt = (value) => {
   if (!value) return "Waiting for first location";
@@ -38,6 +42,10 @@ export default function LiveBookingTracking({
   const [shareMessage, setShareMessage] = useState("");
   const watchIdRef = useRef(null);
   const lastSentAtRef = useRef(0);
+  const lastSentAccuracyRef = useRef(Number.POSITIVE_INFINITY);
+  const sharingStartedAtRef = useRef(0);
+  const sendInFlightRef = useRef(false);
+  const startInFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const autoStartAttemptedRef = useRef(false);
 
@@ -88,25 +96,70 @@ export default function LiveBookingTracking({
   }, [loadTracking]);
 
   const sendPosition = async (position) => {
+    const latitude = Number(position?.coords?.latitude);
+    const longitude = Number(position?.coords?.longitude);
+    const accuracyM = Number(position?.coords?.accuracy);
     const now = Date.now();
-    if (now - lastSentAtRef.current < SHARE_INTERVAL_MS) return;
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setShareMessage("Waiting for a valid garage GPS position...");
+      return;
+    }
+
+    const recordedAtMs = Number(position.timestamp || now);
+    if (now - recordedAtMs > MAX_FRESH_POSITION_AGE_MS) {
+      setShareMessage("Refreshing the garage GPS position...");
+      return;
+    }
+
+    const warmingUp = now - sharingStartedAtRef.current < GPS_WARMUP_MS;
+    if (
+      Number.isFinite(accuracyM) &&
+      accuracyM > TARGET_ACCURACY_METERS &&
+      warmingUp
+    ) {
+      setShareMessage(
+        `Improving garage GPS accuracy (+/- ${Math.round(accuracyM)} m)...`,
+      );
+      return;
+    }
+
+    const accuracyImproved =
+      Number.isFinite(accuracyM) &&
+      lastSentAccuracyRef.current - accuracyM >= ACCURACY_IMPROVEMENT_METERS;
+    if (
+      sendInFlightRef.current ||
+      (now - lastSentAtRef.current < SHARE_INTERVAL_MS && !accuracyImproved)
+    ) {
+      return;
+    }
+
+    sendInFlightRef.current = true;
     lastSentAtRef.current = now;
+    if (Number.isFinite(accuracyM)) {
+      lastSentAccuracyRef.current = accuracyM;
+    }
 
     const speedMps = Number(position.coords.speed);
     try {
       await mapsApi.updateBookingTracking(bookingId, {
-        latitude: Number(position.coords.latitude.toFixed(6)),
-        longitude: Number(position.coords.longitude.toFixed(6)),
+        latitude: Number(latitude.toFixed(7)),
+        longitude: Number(longitude.toFixed(7)),
         heading: Number.isFinite(Number(position.coords.heading))
           ? Number(position.coords.heading)
           : null,
         speedKph: Number.isFinite(speedMps) ? speedMps * 3.6 : null,
-        accuracyM: Number.isFinite(Number(position.coords.accuracy))
-          ? Number(position.coords.accuracy)
+        accuracyM: Number.isFinite(accuracyM)
+          ? accuracyM
           : null,
-        recordedAt: new Date(position.timestamp || Date.now()).toISOString(),
+        recordedAt: new Date(recordedAtMs).toISOString(),
       });
-      setShareMessage("Location shared successfully");
+      setError("");
+      setShareMessage(
+        Number.isFinite(accuracyM)
+          ? `Garage location live (+/- ${Math.round(accuracyM)} m)`
+          : "Garage location is live",
+      );
       void loadTracking({ silent: true });
     } catch (err) {
       setError(
@@ -114,6 +167,8 @@ export default function LiveBookingTracking({
           err.message ||
           "Could not share the latest location.",
       );
+    } finally {
+      sendInFlightRef.current = false;
     }
   };
 
@@ -123,22 +178,31 @@ export default function LiveBookingTracking({
       return;
     }
 
+    if (startInFlightRef.current || watchIdRef.current !== null) return;
+
+    startInFlightRef.current = true;
     try {
       setError("");
-      setShareMessage("Starting secure live location...");
+      setShareMessage("Acquiring accurate garage GPS...");
       await mapsApi.startBookingTracking(bookingId);
       lastSentAtRef.current = 0;
+      lastSentAccuracyRef.current = Number.POSITIVE_INFINITY;
+      sharingStartedAtRef.current = Date.now();
 
       watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => void sendPosition(position),
         (err) => {
           setError(err.message || "Unable to read live location.");
-          setSharing(false);
+          if (err.code === err.PERMISSION_DENIED) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+            setSharing(false);
+          }
         },
         {
           enableHighAccuracy: true,
-          maximumAge: 5000,
-          timeout: 20000,
+          maximumAge: 0,
+          timeout: 30000,
         },
       );
       setSharing(true);
@@ -150,6 +214,8 @@ export default function LiveBookingTracking({
           "Could not start live tracking.",
       );
       setShareMessage("");
+    } finally {
+      startInFlightRef.current = false;
     }
   };
 
@@ -238,8 +304,8 @@ export default function LiveBookingTracking({
         title={title}
         subtitle={
           tracking?.trackingActive
-            ? "Location sharing is active"
-            : "Latest known garage route"
+            ? "Garage GPS to the customer's booking address"
+            : "Latest garage position to the customer's booking address"
         }
         dark={dark}
       />
