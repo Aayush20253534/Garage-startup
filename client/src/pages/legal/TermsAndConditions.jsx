@@ -1,18 +1,28 @@
-const terms = [
-  "Rovauto is a technology platform connecting customers with verified automobile service partners.",
-  "Customers must provide accurate vehicle, contact and pickup details.",
-  "Pickup and delivery shall be verified through OTP and vehicle photographs.",
-  "Service estimates are provided by partner garages. Additional work requires customer approval wherever applicable.",
-  "Platform fees (currently ₹49–₹99 or as displayed) are non-refundable once a booking is confirmed unless required by law.",
-  "Garage commissions are governed by separate partner agreements.",
-  "Rovauto strives to onboard verified garages; however, warranty coverage is limited to the terms displayed for each service.",
-  "Customers should inspect the vehicle upon delivery and report any issue within the applicable warranty/reporting period.",
-  "Users shall not misuse the platform or engage in fraudulent activities.",
-  "Rovauto may suspend or terminate accounts violating these terms.",
-  "Liability is limited to the extent permitted by applicable law.",
-  "These Terms shall be governed by the laws of India. Disputes shall be subject to the courts having jurisdiction over the company's registered office.",
+import LegalPageShell from "@/components/legal/LegalPageShell";
+
+const sections = [
+  { id: "acceptance", title: "Acceptance of Terms", paragraphs: ["By using Rovauto, you confirm that you have read, understood, and agreed to these Terms & Conditions and our Privacy Policy."] },
+  { id: "services", title: "Services", paragraphs: ["Rovauto is a technology platform that connects customers with verified automobile service providers for vehicle servicing, repairs, inspections, roadside assistance, and related automotive services."] },
+  { id: "bookings", title: "Bookings", bullets: ["Customers must provide accurate vehicle and contact information.", "All bookings are subject to service partner availability.", "Rovauto reserves the right to accept, reject, modify, or reschedule any booking."] },
+  { id: "pricing", title: "Pricing", bullets: ["Service estimates are provided before work begins.", "Final charges may vary if additional issues are identified during inspection.", "No additional repair work will be carried out without customer approval."] },
+  { id: "payments", title: "Payments", bullets: ["Payments can be made through approved online payment methods or any payment mode supported by Rovauto.", "Applicable taxes and platform charges may apply.", "Full payment must be completed before vehicle delivery unless otherwise agreed."] },
+  { id: "cancellation", title: "Cancellation & Rescheduling", bullets: ["Customers may cancel or reschedule their booking before service begins.", "Cancellation charges may apply if the service has already started or pickup personnel have been dispatched."] },
+  { id: "pickup-delivery", title: "Pickup & Delivery", bullets: ["Pickup and delivery timings are estimates and may vary due to traffic, weather, or unforeseen circumstances.", "Customers must ensure vehicle keys and necessary documents are available at the time of pickup."] },
+  { id: "inspection", title: "Vehicle Inspection", bullets: ["The vehicle will be inspected during pickup.", "Existing damages may be documented through photographs.", "Customers are advised to remove all personal belongings before handing over the vehicle."] },
+  { id: "warranty", title: "Warranty", bullets: ["Warranty, if applicable, will be provided by the respective service partner for eligible repairs and spare parts.", "Warranty does not cover accidents, misuse, unauthorized modifications, or normal wear and tear."] },
+  { id: "responsibilities", title: "Customer Responsibilities", bullets: ["Provide accurate vehicle information.", "Make timely payments.", "Remove valuables from the vehicle.", "Cooperate during inspection, pickup, and delivery."] },
+  { id: "liability", title: "Liability", paragraphs: ["Rovauto acts as a service platform connecting customers with verified garages. While we strive to ensure quality service, Rovauto shall not be liable for indirect, incidental, or consequential damages beyond the value of the booked service, except where required by applicable law."] },
+  { id: "spare-parts", title: "Spare Parts", bullets: ["Genuine or equivalent quality spare parts will be used based on customer preference and availability.", "Delivery timelines may change due to spare part availability."] },
+  { id: "delays", title: "Service Delays", paragraphs: ["Rovauto shall not be responsible for delays caused by spare part shortages, supplier delays, traffic conditions, natural disasters, government restrictions, or technical/mechanical complications."] },
+  { id: "refunds", title: "Refund Policy", paragraphs: ["Eligible refunds will be processed to the original payment method after verification and approval."] },
+  { id: "conduct", title: "User Conduct", paragraphs: ["Customers shall not provide false information, abuse staff, or misuse the platform."] },
+  { id: "privacy", title: "Privacy", paragraphs: ["Customer information is collected only to provide and improve Rovauto services and is handled according to our Privacy Policy."] },
+  { id: "intellectual-property", title: "Intellectual Property", paragraphs: ["All Rovauto trademarks, logos, graphics, software, and content are the exclusive property of Rovauto."] },
+  { id: "modification", title: "Modification of Terms", paragraphs: ["Rovauto reserves the right to update these Terms & Conditions at any time."] },
+  { id: "law", title: "Governing Law", paragraphs: ["These Terms & Conditions shall be governed by the laws of India."] },
+  { id: "contact", title: "Contact Us", content: <div className="mt-4 rounded-xl border border-line bg-bg-soft p-4 text-sm leading-7 text-muted sm:text-base"><p><strong className="text-ink">Email:</strong> <a className="underline underline-offset-2" href="mailto:rovauto.official@gmail.com">rovauto.official@gmail.com</a></p><p><strong className="text-ink">Phone:</strong> <a className="underline underline-offset-2" href="tel:+919354906339">+91 9354906339</a></p></div> },
 ];
 
 export default function TermsAndConditions() {
-  return <div className="container-x py-10 sm:py-16"><article className="mx-auto max-w-3xl rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-10"><p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-dark">Legal</p><h1 className="mt-2 text-3xl font-bold text-ink">Rovauto Terms &amp; Conditions</h1><p className="mt-2 text-sm text-muted">Effective Date: —</p><p className="mt-6 leading-7 text-ink">Welcome to Rovauto. By accessing or using Rovauto&apos;s platform, you agree to these Terms &amp; Conditions.</p><ol className="mt-6 list-decimal space-y-4 pl-5 leading-7 text-ink">{terms.map((term) => <li key={term}>{term}</li>)}</ol><div className="mt-8 border-t border-line pt-6 text-sm text-muted"><p className="font-semibold text-ink">Contact</p><a className="mt-2 block underline" href="mailto:support@rovauto.com">support@rovauto.com</a><a className="mt-1 block underline" href="https://rovauto.com">https://rovauto.com</a></div></article></div>;
+  return <LegalPageShell type="terms" title="Terms & Conditions" effectiveDate="18 July 2026" description="The rules and responsibilities governing customer access to Rovauto's vehicle service platform." sections={sections}>Welcome to Rovauto. By accessing or using Rovauto&apos;s website, mobile application, or booking any service through our platform, you agree to these Terms &amp; Conditions.<div className="mt-5 rounded-lg border border-white/15 bg-white/10 p-4"><strong className="block text-sm text-white">Customer Declaration</strong><span className="mt-1 block text-sm leading-6 text-white/80">By booking a service through Rovauto, I confirm that I have read, understood, and agreed to these Terms &amp; Conditions.</span></div></LegalPageShell>;
 }
