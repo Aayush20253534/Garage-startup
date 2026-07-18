@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import CitySelect from "@/components/common/CitySelect";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import {
   buildFullAddress,
   getLocationStateFromUser,
@@ -87,6 +88,7 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationSaving, setLocationSaving] = useState(false);
+  const [locationDetecting, setLocationDetecting] = useState(false);
   const [locationDraft, setLocationDraft] = useState({
     address: "",
     area: "",
@@ -245,6 +247,7 @@ export default function Profile() {
     if (locationSaving) return;
 
     setLocationSaving(true);
+    setLocationDetecting(true);
     setLocationError("");
 
     try {
@@ -273,6 +276,7 @@ export default function Profile() {
           "Could not detect location.",
       );
     } finally {
+      setLocationDetecting(false);
       setLocationSaving(false);
     }
   };
@@ -515,7 +519,14 @@ export default function Profile() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <>
+      <CustomerLoginLoader
+        visible={locationDetecting}
+        eyebrow="ROVAUTO LOCATION"
+        title="Finding your location"
+        message="Using GPS to update your service address."
+      />
+      <div className="max-w-2xl">
       <h2 className="mb-6 text-2xl font-bold">Profile Settings</h2>
 
       <form onSubmit={saveProfile} className="card-soft grid gap-4 p-6">
@@ -713,6 +724,7 @@ export default function Profile() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

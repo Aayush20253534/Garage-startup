@@ -16,6 +16,7 @@ import {
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import Seo from "@/components/seo/Seo";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import { formatServicePriceRange } from "@/utils/priceRange";
 import { hasUsableIndiaCoordinates } from "@/utils/address";
 
@@ -485,6 +486,12 @@ export default function Garages() {
 
   return (
     <>
+      <CustomerLoginLoader
+        visible={locationLoading}
+        eyebrow="ROVAUTO LOCATION"
+        title="Finding garages near you"
+        message="Using your current location to find nearby verified garages."
+      />
       <Seo
         title="Verified Garages in Prayagraj"
         description="Browse verified Rovauto garage partners with ratings, service coverage, hours and booking access."

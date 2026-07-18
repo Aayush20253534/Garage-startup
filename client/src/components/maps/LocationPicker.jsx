@@ -12,6 +12,7 @@ import {
   reverseGeocodeCoordinates,
 } from "@/utils/address";
 import { requireAvailableCityName } from "@/utils/cityAvailability";
+import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import MapPanel from "./MapPanel";
 
 const createSessionToken = () =>
@@ -215,7 +216,14 @@ export default function LocationPicker({
   };
 
   return (
-    <div className="space-y-3">
+    <>
+      <CustomerLoginLoader
+        visible={locating}
+        eyebrow="ROVAUTO LOCATION"
+        title="Finding your location"
+        message="Using GPS to place you in the correct service area."
+      />
+      <div className="space-y-3">
       <div>
         <div className="flex items-center justify-between gap-3">
           <label
@@ -360,6 +368,7 @@ export default function LocationPicker({
           height={320}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 }
