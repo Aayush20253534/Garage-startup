@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { FiAlertCircle, FiArrowLeft, FiCheckCircle } from "react-icons/fi";
@@ -26,6 +26,7 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
   const [brands, setBrands] = useState([]);
   const [brandsLoading, setBrandsLoading] = useState(true);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const actionSectionRef = useRef(null);
 
   useEffect(() => {
     const loadBrands = async () => {
@@ -48,10 +49,22 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
 
   const toggleBrand = (brandName) => {
     if (data.garageType === "AUTHORIZED") {
+      const isSelecting = !data.brands.includes(brandName);
       onChange({
         ...data,
-        brands: data.brands.includes(brandName) ? [] : [brandName],
+        brands: isSelecting ? [brandName] : [],
       });
+
+      if (isSelecting && window.matchMedia("(max-width: 639px)").matches) {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            actionSectionRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          });
+        });
+      }
       return;
     }
 
@@ -255,7 +268,7 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
               )}
             </div>
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-white p-4 text-sm leading-6 text-ink">
+            <label ref={actionSectionRef} className="flex scroll-mt-4 cursor-pointer items-start gap-3 rounded-lg border border-line bg-white p-4 text-sm leading-6 text-ink">
               <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required className="mt-1 h-4 w-4 shrink-0 accent-brand" />
               <span>I have read and agree to the <Link to="/garage-partner-terms" target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2 hover:text-brand-dark">Garage Partner Terms & Conditions</Link>.</span>
             </label>

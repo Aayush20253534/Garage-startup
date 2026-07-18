@@ -32,7 +32,7 @@ export default function OnboardingStep3({ data, onChange, onNext, onBack }) {
         >
           <h1 className="text-3xl font-bold mb-2">Garage Images</h1>
           <p className="text-muted mb-8">
-            Upload 10 to 15 garage photos. Each photo must be 1 MB or less.
+            Upload 10 to 15 garage photos. Each photo must be 2 MB or less.
           </p>
           {error && (
             <div className="mb-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">
@@ -44,7 +44,7 @@ export default function OnboardingStep3({ data, onChange, onNext, onBack }) {
             <ImageUpload
               min={10}
               max={15}
-              maxSizeMb={1}
+              maxSizeMb={2}
               value={data.images}
               onChange={(images) => onChange({ ...data, images })}
             />
