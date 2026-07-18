@@ -891,7 +891,7 @@ export default function Navbar() {
                       }
                       className="inline-flex h-11 items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink"
                     >
-                      Register
+                      Signup
                     </Link>
                   </>
                 ) : (
