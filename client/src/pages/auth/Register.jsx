@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import api from "@/api/axios";
 import { FcGoogle } from "react-icons/fc";
@@ -27,6 +27,7 @@ const normalizeEmail = (value = "") => String(value).trim().toLowerCase();
 
 export default function Register() {
   const nav = useNavigate();
+  const { state } = useLocation();
   const { login } = useApp();
   const actionLockRef = useRef(false);
 
@@ -39,7 +40,9 @@ export default function Register() {
   });
 
   const [loadingAction, setLoadingAction] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(state?.message || "");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const loading = Boolean(loadingAction);
 
   const completeGoogleLogin = (freshUser) => {
@@ -139,6 +142,8 @@ export default function Register() {
         password: form.password,
         confirmPassword: form.confirmPassword,
         role: "CUSTOMER",
+        acceptedTerms,
+        acceptedPrivacy,
       };
 
       // Location is collected after authentication. This avoids delaying signup
@@ -180,7 +185,14 @@ export default function Register() {
     setLoadingAction("GOOGLE");
 
     try {
-      const data = await startGoogleAuth("CUSTOMER");
+      if (!acceptedTerms || !acceptedPrivacy) {
+        throw new Error("Accept the Terms and Conditions and Privacy Policy to continue with Google.");
+      }
+      const data = await startGoogleAuth("CUSTOMER", {
+        mode: "SIGNUP",
+        acceptedTerms,
+        acceptedPrivacy,
+      });
       if (!data) return;
 
       const freshUser = data?.user;
@@ -236,10 +248,14 @@ export default function Register() {
         )}
 
         <form onSubmit={submit} className="mt-5 grid gap-2.5">
+          <div className="grid gap-2 rounded-xl border border-line bg-bg-soft p-3 text-xs text-ink">
+            <label className="flex items-start gap-2"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} className="mt-0.5" /><span>I agree to the <Link to="/terms-and-conditions" target="_blank" className="font-semibold underline">Terms and Conditions</Link>.</span></label>
+            <label className="flex items-start gap-2"><input type="checkbox" checked={acceptedPrivacy} onChange={(event) => setAcceptedPrivacy(event.target.checked)} className="mt-0.5" /><span>I agree to the <Link to="/privacy-policy" target="_blank" className="font-semibold underline">Privacy Policy</Link>.</span></label>
+          </div>
           <button
             type="button"
             onClick={handleGoogleAuth}
-            disabled={loading}
+            disabled={loading || !acceptedTerms || !acceptedPrivacy}
             className="flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FcGoogle className="text-xl" />
@@ -331,7 +347,7 @@ export default function Register() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !acceptedTerms || !acceptedPrivacy}
             className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loadingAction === "FORM" ? "Creating..." : "Create Account"}

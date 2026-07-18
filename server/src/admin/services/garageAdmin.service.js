@@ -120,6 +120,48 @@ const getGarage = async (garageId) => {
   return garage;
 };
 
+const invalidateGarageAdminChanges = async (garageId) => Promise.allSettled([
+  deleteCache(`garages:${garageId}:services`),
+  deleteCache(`garages:detail:${garageId}`),
+  deleteCache("public:stats:v2"),
+  deletePattern("garages:list:*"),
+  deletePattern("garages:public:*"),
+]);
+
+const updateGarageDetails = async (garageId, payload = {}) => {
+  await getGarage(garageId);
+  const allowed = ["name", "description", "phone", "whatsappNo", "email", "address", "city", "area", "latitude", "longitude", "workingRadiusKm", "garageType", "supportedBrands", "openingTime", "closingTime", "isVerified"];
+  const data = Object.fromEntries(allowed.filter((key) => payload[key] !== undefined).map((key) => [key, payload[key]]));
+  if (!Object.keys(data).length) throw new ApiError(400, "No garage changes were provided");
+  await prisma.garage.update({ where: { id: garageId }, data });
+  await invalidateGarageAdminChanges(garageId);
+  return getGarage(garageId);
+};
+
+const setGarageThumbnail = async (garageId, imageId) => {
+  const image = await prisma.garageImage.findFirst({ where: { id: imageId, garageId } });
+  if (!image) throw new ApiError(404, "Garage photo not found");
+  await prisma.$transaction([
+    prisma.garageImage.updateMany({ where: { garageId }, data: { isThumbnail: false } }),
+    prisma.garageImage.update({ where: { id: imageId }, data: { isThumbnail: true, order: 0 } }),
+  ]);
+  const images = await prisma.garageImage.findMany({ where: { garageId }, orderBy: [{ isThumbnail: "desc" }, { order: "asc" }] });
+  await prisma.$transaction(images.map((item, index) => prisma.garageImage.update({ where: { id: item.id }, data: { order: index } })));
+  await invalidateGarageAdminChanges(garageId);
+  return getGarage(garageId);
+};
+
+const reorderGarageImages = async (garageId, imageIds = []) => {
+  const images = await prisma.garageImage.findMany({ where: { garageId }, select: { id: true, isThumbnail: true } });
+  if (images.length !== imageIds.length || new Set(imageIds).size !== imageIds.length || imageIds.some((id) => !images.some((image) => image.id === id))) {
+    throw new ApiError(400, "Photo order must include every garage photo exactly once");
+  }
+  const thumbnailId = images.find((image) => image.isThumbnail)?.id || imageIds[0];
+  await prisma.$transaction(imageIds.map((id, index) => prisma.garageImage.update({ where: { id }, data: { order: index, isThumbnail: id === thumbnailId } })));
+  await invalidateGarageAdminChanges(garageId);
+  return getGarage(garageId);
+};
+
 const setGarageActiveStatus = async (garageId, isActive) => {
   const nextIsActive = isActive === true;
   const now = new Date();
@@ -298,5 +340,8 @@ module.exports = {
   listGarages,
   removeGarageService,
   setGarageActiveStatus,
+  updateGarageDetails,
+  setGarageThumbnail,
+  reorderGarageImages,
   upsertGarageService,
 };

@@ -292,6 +292,8 @@ const signup = async ({
   password,
   confirmPassword,
   role = "CUSTOMER",
+  acceptedTerms,
+  acceptedPrivacy,
 }) => {
   const cleanName = name?.trim();
   const cleanEmail = normalizeEmail(email);
@@ -300,6 +302,10 @@ const signup = async ({
     throw new ApiError(403, "Garage owner accounts are created only after application approval");
   }
   const userRole = "CUSTOMER";
+  if (acceptedTerms !== true || acceptedPrivacy !== true) {
+    throw new ApiError(400, "Accept the Terms and Conditions and Privacy Policy to create an account");
+  }
+  const consentAcceptedAt = new Date();
 
   if (!cleanName || !cleanEmail || !cleanPhone || !password) {
     throw new ApiError(400, "Name, email, phone and password are required");
@@ -363,6 +369,8 @@ const signup = async ({
       isEmailVerified: false,
       isPhoneVerified: false,
       expiresAt: new Date(Date.now() + PENDING_SIGNUP_EXPIRY_MS),
+      termsAcceptedAt: consentAcceptedAt,
+      privacyAcceptedAt: consentAcceptedAt,
     },
     create: {
       name: cleanName,
@@ -371,6 +379,8 @@ const signup = async ({
       passwordHash: hashedPassword,
       role: userRole,
       expiresAt: new Date(Date.now() + PENDING_SIGNUP_EXPIRY_MS),
+      termsAcceptedAt: consentAcceptedAt,
+      privacyAcceptedAt: consentAcceptedAt,
     },
   });
 
@@ -446,6 +456,9 @@ const verifyOtp = async (
         role: pendingSignup.role,
         isEmailVerified: true,
         isPhoneVerified: false,
+        authProvider: "PASSWORD",
+        termsAcceptedAt: pendingSignup.termsAcceptedAt,
+        privacyAcceptedAt: pendingSignup.privacyAcceptedAt,
         ...(pendingSignup.role === "CUSTOMER" && {
           customerProfile: { create: {} },
         }),
@@ -754,7 +767,7 @@ const getMe = async (accountId, accountType, role = null) => {
 };
 
 const googleAuth = async (
-  { idToken, role = "CUSTOMER" },
+  { idToken, role = "CUSTOMER", mode, acceptedTerms = false, acceptedPrivacy = false },
   sessionMetadata = {},
 ) => {
   const decodedToken = await verifyFirebaseIdToken(idToken);
@@ -772,12 +785,24 @@ const googleAuth = async (
     throw new ApiError(400, "Google account email must be verified");
   }
 
+  const firebaseUid = String(decodedToken.uid || decodedToken.sub || "").trim();
+  if (!firebaseUid) throw new ApiError(400, "Google account identity is unavailable");
+
   let user = await prisma.user.findFirst({
-    where: { email: cleanEmail, role: userRole },
+    where: { role: userRole, OR: [{ firebaseUid }, { email: cleanEmail }] },
   });
   let isNewUser = false;
 
-  if (user) {
+  if (mode === "LOGIN") {
+    if (!user || user.authProvider !== "GOOGLE") {
+      throw new ApiError(404, "No Google signup was found. Create your Rovauto account with Google first.", "GOOGLE_SIGNUP_REQUIRED");
+    }
+    if (!user.firebaseUid) {
+      user = await prisma.user.update({ where: { id: user.id }, data: { firebaseUid } });
+    }
+    if (user.firebaseUid !== firebaseUid) {
+      throw new ApiError(409, "This email is linked to a different Google identity");
+    }
     if (!user.isActive) {
       throw new ApiError(403, "Account is disabled");
     }
@@ -789,6 +814,12 @@ const googleAuth = async (
       });
     }
   } else {
+    if (acceptedTerms !== true || acceptedPrivacy !== true) {
+      throw new ApiError(400, "Accept the Terms and Conditions and Privacy Policy to sign up with Google");
+    }
+    if (user) {
+      throw new ApiError(409, user.authProvider === "GOOGLE" ? "This Google account already exists. Use Google login." : "An account with this email already exists. Use email login.");
+    }
     isNewUser = true;
     const randomPassword = await argon2.hash(crypto.randomBytes(32).toString("hex"));
 
@@ -800,6 +831,10 @@ const googleAuth = async (
         role: userRole,
         isEmailVerified: true,
         isPhoneVerified: false,
+        authProvider: "GOOGLE",
+        firebaseUid,
+        termsAcceptedAt: new Date(),
+        privacyAcceptedAt: new Date(),
         ...(userRole === "CUSTOMER" && {
           customerProfile: { create: {} },
         }),

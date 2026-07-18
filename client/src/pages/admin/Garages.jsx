@@ -15,6 +15,9 @@ import {
   FiRefreshCw,
   FiStar,
   FiTrash2,
+  FiUpload,
+  FiArrowLeft,
+  FiArrowRight,
   FiX,
 } from "react-icons/fi";
 
@@ -158,6 +161,10 @@ export default function Garages() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [editingGarage, setEditingGarage] = useState(false);
+  const [garageEditForm, setGarageEditForm] = useState(null);
+  const [savingGarage, setSavingGarage] = useState(false);
+  const [photoBusyId, setPhotoBusyId] = useState("");
 
   const selectedGarage = useMemo(
     () =>
@@ -358,10 +365,70 @@ export default function Garages() {
     try {
       const data = await adminApi.getGarage(garageId);
       setSelectedGarageDetails(data);
+      setEditingGarage(false);
     } catch (err) {
       setSelectedGarageDetails(null);
       setError(err.response?.data?.message || "Unable to load garage details");
     }
+  };
+
+  const beginGarageEdit = () => {
+    if (!selectedGarage) return;
+    setGarageEditForm({
+      name: selectedGarage.name || "", description: getCleanGarageDescription(selectedGarage.description),
+      phone: selectedGarage.phone || "", whatsappNo: selectedGarage.whatsappNo || "", email: selectedGarage.email || "",
+      address: selectedGarage.address || "", city: selectedGarage.city || "", area: selectedGarage.area || "",
+      latitude: selectedGarage.latitude ?? "", longitude: selectedGarage.longitude ?? "", workingRadiusKm: selectedGarage.workingRadiusKm || 15,
+      garageType: selectedGarage.garageType || "MULTI_BRAND", supportedBrands: getGarageBrands(selectedGarage).join(", "),
+      openingTime: selectedGarage.openingTime || "", closingTime: selectedGarage.closingTime || "", isVerified: Boolean(selectedGarage.isVerified),
+    });
+    setEditingGarage(true);
+  };
+
+  const saveGarageDetails = async (event) => {
+    event.preventDefault();
+    setSavingGarage(true); setError(""); setSuccess("");
+    try {
+      const payload = { ...garageEditForm, latitude: Number(garageEditForm.latitude), longitude: Number(garageEditForm.longitude), workingRadiusKm: Number(garageEditForm.workingRadiusKm), supportedBrands: garageEditForm.supportedBrands.split(",").map((item) => item.trim()).filter(Boolean), email: garageEditForm.email || null, whatsappNo: garageEditForm.whatsappNo || null, openingTime: garageEditForm.openingTime || null, closingTime: garageEditForm.closingTime || null };
+      const updated = await adminApi.updateGarage(selectedGarage.id, payload);
+      setSelectedGarageDetails(updated); setEditingGarage(false); setSuccess("Garage details updated successfully.");
+      await loadGaragesAndServices();
+    } catch (err) { setError(err.response?.data?.message || "Unable to update garage details"); }
+    finally { setSavingGarage(false); }
+  };
+
+  const uploadGaragePhotos = async (event) => {
+    const files = [...(event.target.files || [])]; event.target.value = "";
+    if (!files.length) return;
+    setPhotoBusyId("upload"); setError("");
+    try { await adminApi.uploadGaragePhotos(selectedGarage.id, files); await openGarageDetails(selectedGarage.id); setSuccess("Garage photos uploaded."); }
+    catch (err) { setError(err.response?.data?.message || "Unable to upload garage photos"); }
+    finally { setPhotoBusyId(""); }
+  };
+
+  const deleteGaragePhoto = async (image) => {
+    if (!window.confirm("Delete this garage photo permanently?")) return;
+    setPhotoBusyId(image.id); setError("");
+    try { await adminApi.deleteGaragePhoto(selectedGarage.id, image.id); await openGarageDetails(selectedGarage.id); setSuccess("Garage photo deleted."); }
+    catch (err) { setError(err.response?.data?.message || "Unable to delete garage photo"); }
+    finally { setPhotoBusyId(""); }
+  };
+
+  const setGarageThumbnail = async (image) => {
+    setPhotoBusyId(image.id); setError("");
+    try { const updated = await adminApi.setGarageThumbnail(selectedGarage.id, image.id); setSelectedGarageDetails(updated); setSuccess("Garage thumbnail updated."); }
+    catch (err) { setError(err.response?.data?.message || "Unable to update thumbnail"); }
+    finally { setPhotoBusyId(""); }
+  };
+
+  const moveGaragePhoto = async (index, direction) => {
+    const images = [...(selectedGarage.images || [])];
+    const nextIndex = index + direction; if (nextIndex < 0 || nextIndex >= images.length) return;
+    [images[index], images[nextIndex]] = [images[nextIndex], images[index]];
+    setPhotoBusyId(images[nextIndex].id);
+    try { const updated = await adminApi.reorderGaragePhotos(selectedGarage.id, images.map((image) => image.id)); setSelectedGarageDetails(updated); }
+    catch (err) { setError(err.response?.data?.message || "Unable to reorder photos"); }
+    finally { setPhotoBusyId(""); }
   };
 
   const toggleApplicationSelection = (applicationId) => {
@@ -1006,13 +1073,27 @@ export default function Garages() {
 
             {selectedGarage && (
               <section className="card-soft space-y-4 rounded-xl p-4 shadow-sm">
-                <div>
-                  <h4 className="font-bold text-ink">Garage Details</h4>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div><h4 className="font-bold text-ink">Garage Details</h4>
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted">
                     {getCleanGarageDescription(selectedGarage.description) ||
                       "No garage description submitted."}
                   </p>
+                  </div>
+                  {!isIntern && <button type="button" onClick={beginGarageEdit} className={`${adminButtonBase} border border-line bg-white text-ink hover:border-ink`}><FiEdit3 /> Edit all details</button>}
                 </div>
+
+                {editingGarage && garageEditForm && (
+                  <form onSubmit={saveGarageDetails} className="grid gap-4 rounded-xl border border-line bg-bg-soft p-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {["name", "phone", "whatsappNo", "email", "address", "area", "latitude", "longitude", "workingRadiusKm", "openingTime", "closingTime"].map((key) => <label key={key} className={`grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted ${key === "address" ? "sm:col-span-2" : ""}`}>{key.replace(/([A-Z])/g, " $1")}<input required={["name", "phone", "address", "area", "latitude", "longitude", "workingRadiusKm"].includes(key)} type={["latitude", "longitude", "workingRadiusKm"].includes(key) ? "number" : ["openingTime", "closingTime"].includes(key) ? "time" : key === "email" ? "email" : "text"} step={["latitude", "longitude"].includes(key) ? "any" : undefined} value={garageEditForm[key]} onChange={(event) => setGarageEditForm({ ...garageEditForm, [key]: event.target.value })} className={fieldClass} /></label>)}
+                    <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">City<CitySelect required value={garageEditForm.city} onChange={(city) => setGarageEditForm({ ...garageEditForm, city })} className={fieldClass} /></label>
+                    <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">Garage type<select value={garageEditForm.garageType} onChange={(event) => setGarageEditForm({ ...garageEditForm, garageType: event.target.value })} className={fieldClass}><option value="MULTI_BRAND">Multi-brand</option><option value="AUTHORIZED">Authorized</option></select></label>
+                    <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted sm:col-span-2">Supported brands (comma separated)<input value={garageEditForm.supportedBrands} onChange={(event) => setGarageEditForm({ ...garageEditForm, supportedBrands: event.target.value })} className={fieldClass} /></label>
+                    <label className="flex items-center gap-2 self-end rounded-lg border border-line bg-white px-3 py-3 text-sm font-semibold text-ink"><input type="checkbox" checked={garageEditForm.isVerified} onChange={(event) => setGarageEditForm({ ...garageEditForm, isVerified: event.target.checked })} /> Verified garage</label>
+                    <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted sm:col-span-2 lg:col-span-3">Description<textarea rows={4} value={garageEditForm.description} onChange={(event) => setGarageEditForm({ ...garageEditForm, description: event.target.value })} className="rounded-lg border border-line bg-white p-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-ink" /></label>
+                    <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-3"><button type="button" onClick={() => setEditingGarage(false)} className={`${adminButtonBase} border border-line bg-white text-ink`}>Cancel</button><button type="submit" disabled={savingGarage} className={`${adminButtonBase} bg-ink text-white`}>{savingGarage ? "Saving..." : "Save garage details"}</button></div>
+                  </form>
+                )}
 
                 <div className="grid gap-3 text-sm text-muted sm:grid-cols-2 lg:grid-cols-3">
                   <span>
@@ -1099,25 +1180,23 @@ export default function Garages() {
                   /15)
                 </div>
 
+                {!isIntern && <label className={`${adminButtonBase} w-fit cursor-pointer border border-line bg-white text-ink hover:border-ink`}><FiUpload />{photoBusyId === "upload" ? "Uploading..." : "Add photos"}<input type="file" accept="image/*" multiple disabled={Boolean(photoBusyId) || (selectedGarage.images?.length || 0) >= 15} onChange={uploadGaragePhotos} className="hidden" /></label>}
+
                 {selectedGarage.images?.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
                     {selectedGarage.images.map((image, index) => (
-                      <a
+                      <div
                         key={image.id}
-                        href={getGarageImageUrl(image)}
-                        target="_blank"
-                        rel="noreferrer"
                         className="block overflow-hidden rounded-lg border border-line bg-bg-soft"
                       >
-                        <img
+                        <a href={getGarageImageUrl(image)} target="_blank" rel="noreferrer"><img
                           src={getGarageImageUrl(image)}
                           alt={`${selectedGarage.name} garage photo ${index + 1}`}
                           className="aspect-square w-full object-cover"
-                        />
-                        <div className="px-2 py-1 text-xs text-muted">
-                          Photo {index + 1}
-                        </div>
-                      </a>
+                        /></a>
+                        <div className="flex items-center justify-between gap-1 px-2 py-1 text-xs text-muted"><span>{image.isThumbnail ? "Thumbnail" : `Photo ${index + 1}`}</span>{!isIntern && <div className="flex"><button type="button" title="Move left" disabled={index === 0 || Boolean(photoBusyId)} onClick={() => moveGaragePhoto(index, -1)} className="grid h-7 w-7 place-items-center disabled:opacity-30"><FiArrowLeft /></button><button type="button" title="Move right" disabled={index === selectedGarage.images.length - 1 || Boolean(photoBusyId)} onClick={() => moveGaragePhoto(index, 1)} className="grid h-7 w-7 place-items-center disabled:opacity-30"><FiArrowRight /></button></div>}</div>
+                        {!isIntern && <div className="grid grid-cols-2 border-t border-line"><button type="button" disabled={image.isThumbnail || Boolean(photoBusyId)} onClick={() => setGarageThumbnail(image)} className="px-1 py-2 text-[11px] font-semibold text-ink disabled:text-muted">Set cover</button><button type="button" disabled={Boolean(photoBusyId)} onClick={() => deleteGaragePhoto(image)} className="border-l border-line px-1 py-2 text-[11px] font-semibold text-red-700">Delete</button></div>}
+                      </div>
                     ))}
                   </div>
                 ) : (

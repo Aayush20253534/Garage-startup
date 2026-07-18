@@ -130,6 +130,10 @@ export default function Login() {
         await completeLogin(freshUser);
       } catch (err) {
         if (!active) return;
+        if (err.response?.data?.code === "GOOGLE_SIGNUP_REQUIRED") {
+          nav("/register", { state: { message: err.response?.data?.message }, replace: true });
+          return;
+        }
         setError(
           err.response?.data?.message ||
             err.response?.data?.error ||
@@ -199,7 +203,7 @@ export default function Login() {
     beginLoginLoading();
 
     try {
-      const data = await startGoogleAuth("CUSTOMER");
+      const data = await startGoogleAuth("CUSTOMER", { mode: "LOGIN" });
       if (!data) return;
 
       const freshUser = data?.user;
@@ -210,6 +214,10 @@ export default function Login() {
 
       await completeLogin(freshUser);
     } catch (err) {
+      if (err.response?.data?.code === "GOOGLE_SIGNUP_REQUIRED") {
+        nav("/register", { state: { message: err.response?.data?.message }, replace: true });
+        return;
+      }
       setError(
         err.response?.data?.message ||
           err.response?.data?.error ||

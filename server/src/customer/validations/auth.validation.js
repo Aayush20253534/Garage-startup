@@ -10,6 +10,8 @@ const USER_ROLES = ["CUSTOMER", "GARAGE_OWNER"];
 const AUTH_ROLES = [...USER_ROLES, "ADMIN", "INTERN", "CUSTOMER_SUPPORT"];
 
 const signupValidation = [
+  body("acceptedTerms").custom((value) => value === true).withMessage("You must accept the Terms and Conditions"),
+  body("acceptedPrivacy").custom((value) => value === true).withMessage("You must accept the Privacy Policy"),
   body("name")
     .trim()
     .notEmpty()
@@ -204,6 +206,9 @@ const googleAuthValidation = [
     .trim()
     .isIn(PUBLIC_SIGNUP_ROLES)
     .withMessage("Google registration is available only for CUSTOMER accounts"),
+  body("mode").isIn(["LOGIN", "SIGNUP"]).withMessage("Google authentication mode must be LOGIN or SIGNUP"),
+  body("acceptedTerms").optional().isBoolean(),
+  body("acceptedPrivacy").optional().isBoolean(),
 ];
 
 const forgotPasswordValidation = [

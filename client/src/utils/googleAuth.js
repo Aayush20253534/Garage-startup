@@ -8,10 +8,22 @@ import { auth, googleProvider } from "@/config/firebase";
 import { verifyCurrentSession } from "@/utils/authSession";
 
 export const GOOGLE_AUTH_PENDING_ROLE_KEY = "rov_google_auth_role";
+const GOOGLE_AUTH_PENDING_OPTIONS_KEY = "rov_google_auth_options";
 
 const writePendingRole = (role) => {
   sessionStorage.setItem(GOOGLE_AUTH_PENDING_ROLE_KEY, role);
   localStorage.setItem(GOOGLE_AUTH_PENDING_ROLE_KEY, role);
+};
+
+const writePendingOptions = (options) => {
+  const value = JSON.stringify(options || {});
+  sessionStorage.setItem(GOOGLE_AUTH_PENDING_OPTIONS_KEY, value);
+  localStorage.setItem(GOOGLE_AUTH_PENDING_OPTIONS_KEY, value);
+};
+
+const readPendingOptions = () => {
+  const value = sessionStorage.getItem(GOOGLE_AUTH_PENDING_OPTIONS_KEY) || localStorage.getItem(GOOGLE_AUTH_PENDING_OPTIONS_KEY);
+  try { return value ? JSON.parse(value) : {}; } catch { return {}; }
 };
 
 const readPendingRole = () =>
@@ -21,6 +33,8 @@ const readPendingRole = () =>
 const clearPendingRole = () => {
   sessionStorage.removeItem(GOOGLE_AUTH_PENDING_ROLE_KEY);
   localStorage.removeItem(GOOGLE_AUTH_PENDING_ROLE_KEY);
+  sessionStorage.removeItem(GOOGLE_AUTH_PENDING_OPTIONS_KEY);
+  localStorage.removeItem(GOOGLE_AUTH_PENDING_OPTIONS_KEY);
 };
 
 const shouldFallbackToRedirect = (error) => {
@@ -35,7 +49,7 @@ const shouldFallbackToRedirect = (error) => {
   );
 };
 
-const finishGoogleCredential = async (credential, role = "CUSTOMER") => {
+const finishGoogleCredential = async (credential, role = "CUSTOMER", options = {}) => {
   if (!credential?.user) {
     return null;
   }
@@ -45,6 +59,9 @@ const finishGoogleCredential = async (credential, role = "CUSTOMER") => {
   const response = await api.post("/auth/google", {
     idToken,
     role,
+    mode: options.mode || "LOGIN",
+    acceptedTerms: options.acceptedTerms === true,
+    acceptedPrivacy: options.acceptedPrivacy === true,
   });
 
   const data = response.data?.data;
@@ -64,12 +81,13 @@ const finishGoogleCredential = async (credential, role = "CUSTOMER") => {
   };
 };
 
-export const startGoogleAuth = async (role = "CUSTOMER") => {
+export const startGoogleAuth = async (role = "CUSTOMER", options = {}) => {
   writePendingRole(role);
+  writePendingOptions(options);
 
   try {
     const credential = await signInWithPopup(auth, googleProvider);
-    const result = await finishGoogleCredential(credential, role);
+    const result = await finishGoogleCredential(credential, role, options);
     clearPendingRole();
     return result;
   } catch (error) {
@@ -85,6 +103,7 @@ export const startGoogleAuth = async (role = "CUSTOMER") => {
 
 export const completeGoogleRedirectAuth = async () => {
   const pendingRole = readPendingRole();
+  const pendingOptions = readPendingOptions();
 
   if (!pendingRole) {
     return null;
@@ -97,7 +116,7 @@ export const completeGoogleRedirectAuth = async () => {
   }
 
   try {
-    return await finishGoogleCredential(credential, pendingRole || "CUSTOMER");
+    return await finishGoogleCredential(credential, pendingRole || "CUSTOMER", pendingOptions);
   } finally {
     clearPendingRole();
   }

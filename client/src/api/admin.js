@@ -98,6 +98,28 @@ export const adminApi = {
     );
   },
 
+  async updateGarage(garageId, payload) {
+    return unwrap(await api.patch(`/admin/garages/${garageId}`, payload));
+  },
+
+  async uploadGaragePhotos(garageId, files = []) {
+    const formData = new FormData();
+    files.forEach((file) => formData.append("images", file));
+    return unwrap(await api.post(`/garages/${garageId}/media`, formData));
+  },
+
+  async deleteGaragePhoto(garageId, imageId) {
+    return unwrap(await api.delete(`/garages/${garageId}/media/${imageId}`));
+  },
+
+  async setGarageThumbnail(garageId, imageId) {
+    return unwrap(await api.patch(`/admin/garages/${garageId}/images/${imageId}/thumbnail`));
+  },
+
+  async reorderGaragePhotos(garageId, imageIds) {
+    return unwrap(await api.patch(`/admin/garages/${garageId}/images/order`, { imageIds }));
+  },
+
   async deleteGarages(garageIds = []) {
     return unwrap(await api.delete("/admin/garages", { data: { garageIds } }));
   },

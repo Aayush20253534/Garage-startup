@@ -24,6 +24,21 @@ const setGarageActiveStatus = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, `Garage ${action} successfully`, garage));
 });
 
+const updateGarageDetails = asyncHandler(async (req, res) => {
+  const garage = await service.updateGarageDetails(req.params.garageId, req.body);
+  return res.status(200).json(new ApiResponse(200, "Garage details updated successfully", garage));
+});
+
+const setGarageThumbnail = asyncHandler(async (req, res) => {
+  const garage = await service.setGarageThumbnail(req.params.garageId, req.params.imageId);
+  return res.status(200).json(new ApiResponse(200, "Garage thumbnail updated successfully", garage));
+});
+
+const reorderGarageImages = asyncHandler(async (req, res) => {
+  const garage = await service.reorderGarageImages(req.params.garageId, req.body.imageIds);
+  return res.status(200).json(new ApiResponse(200, "Garage photos reordered successfully", garage));
+});
+
 const listAssignableServices = asyncHandler(async (req, res) => {
   const services = await service.listAssignableServices(req.query);
   return res.status(200).json(new ApiResponse(200, "Assignable services fetched successfully", services));
@@ -55,5 +70,8 @@ module.exports = {
   listGarages,
   removeGarageService,
   setGarageActiveStatus,
+  updateGarageDetails,
+  setGarageThumbnail,
+  reorderGarageImages,
   upsertGarageService,
 };

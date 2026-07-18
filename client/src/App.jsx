@@ -631,6 +631,8 @@ const GarageSelect = lazyPage(
   () => import("@/pages/booking/GarageSelect"),
   "GarageSelect",
 );
+const TermsAndConditions = lazyPage(() => import("@/pages/legal/TermsAndConditions"), "TermsAndConditions");
+const PrivacyPolicy = lazyPage(() => import("@/pages/legal/PrivacyPolicy"), "PrivacyPolicy");
 const Checkout = lazyPage(() => import("@/pages/booking/Checkout"), "Checkout");
 const Tracking = lazyPage(() => import("@/pages/booking/Tracking"), "Tracking");
 
@@ -1049,6 +1051,8 @@ function AppRoutes() {
           <Route path="/partner" element={<Partner />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/warranty" element={<Warranty />} />
+          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
 
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

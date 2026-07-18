@@ -20,6 +20,10 @@ model User {
   passwordChangedAt     DateTime?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
+  authProvider          String                 @default("PASSWORD")
+  firebaseUid           String?                @unique
+  termsAcceptedAt       DateTime?
+  privacyAcceptedAt     DateTime?
   bookings              Booking[]
   complaints            Complaint[]
   locations             CustomerLocation[]
@@ -295,6 +299,8 @@ model PendingSignup {
   expiresAt       DateTime
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  termsAcceptedAt   DateTime
+  privacyAcceptedAt DateTime
 
   @@unique([email, role])
   @@unique([phone, role])

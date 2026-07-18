@@ -13,6 +13,23 @@ const normalizeCity = (value) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const stripAdministrativeSuffix = (value) =>
+  normalizeCity(value)
+    .replace(
+      /\s+(?:municipal corporation|municipality|metropolitan city|urban district|rural district|district|division)$/,
+      "",
+    )
+    .trim();
+
+const containsWholeCityName = (candidate, cityName) => {
+  const candidateKey = stripAdministrativeSuffix(candidate);
+  const cityKey = normalizeCity(cityName);
+  if (!candidateKey || !cityKey) return false;
+  if (candidateKey === cityKey) return true;
+
+  return ` ${candidateKey} `.includes(` ${cityKey} `);
+};
+
 const compact = (values = []) =>
   values.map((value) => String(value || "").trim()).filter(Boolean);
 
@@ -93,6 +110,19 @@ export const findAvailableCity = async (locationOrCity) => {
 
   for (const candidate of candidates) {
     const matchedCity = cityByKey.get(normalizeCity(candidate));
+    if (matchedCity) return matchedCity;
+  }
+
+  // Reverse geocoding often decorates a valid configured city (for example,
+  // "New Delhi" or "Foo Municipal Corporation"). Match only complete city
+  // words so similarly named places such as Rampur and Rampura do not collide.
+  const longestCityNamesFirst = [...cities].sort(
+    (left, right) => normalizeCity(right.name).length - normalizeCity(left.name).length,
+  );
+  for (const candidate of candidates) {
+    const matchedCity = longestCityNamesFirst.find((city) =>
+      containsWholeCityName(candidate, city.name),
+    );
     if (matchedCity) return matchedCity;
   }
 

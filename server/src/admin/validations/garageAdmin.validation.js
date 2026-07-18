@@ -47,12 +47,47 @@ const updateGarageStatusSchema = [
     .toBoolean(),
 ];
 
+const updateGarageDetailsSchema = [
+  ...garageIdSchema,
+  body("name").optional().trim().notEmpty().isLength({ max: 160 }),
+  body("description").optional({ nullable: true }).trim().isLength({ max: 3000 }),
+  body("phone").optional().trim().matches(/^\+91[6-9]\d{9}$/).withMessage("Enter a valid Indian garage phone number"),
+  body("whatsappNo").optional({ nullable: true, checkFalsy: true }).trim().matches(/^\+91[6-9]\d{9}$/),
+  body("email").optional({ nullable: true, checkFalsy: true }).trim().isEmail().normalizeEmail(),
+  body("address").optional().trim().notEmpty().isLength({ max: 500 }),
+  body("city").optional().trim().notEmpty().isLength({ max: 120 }),
+  body("area").optional().trim().notEmpty().isLength({ max: 120 }),
+  body("latitude").optional().isFloat({ min: 6, max: 38 }).toFloat(),
+  body("longitude").optional().isFloat({ min: 68, max: 98 }).toFloat(),
+  body("workingRadiusKm").optional().isInt({ min: 1, max: 100 }).toInt(),
+  body("garageType").optional().isIn(["MULTI_BRAND", "AUTHORIZED"]),
+  body("supportedBrands").optional().isArray({ max: 100 }),
+  body("supportedBrands.*").optional().trim().isLength({ min: 1, max: 120 }),
+  body("openingTime").optional({ nullable: true, checkFalsy: true }).matches(/^([01]\d|2[0-3]):[0-5]\d$/),
+  body("closingTime").optional({ nullable: true, checkFalsy: true }).matches(/^([01]\d|2[0-3]):[0-5]\d$/),
+  body("isVerified").optional().isBoolean().toBoolean(),
+];
+
+const garageImageSchema = [
+  ...garageIdSchema,
+  param("imageId").isUUID().withMessage("Invalid garage image ID"),
+];
+
+const reorderGarageImagesSchema = [
+  ...garageIdSchema,
+  body("imageIds").isArray({ min: 1, max: 15 }),
+  body("imageIds.*").isUUID().withMessage("Invalid garage image ID"),
+];
+
 module.exports = {
   assignableServiceQuerySchema,
   deleteGaragesSchema,
   garageIdSchema,
   garageQuerySchema,
+  garageImageSchema,
+  reorderGarageImagesSchema,
   serviceIdSchema,
   updateGarageStatusSchema,
+  updateGarageDetailsSchema,
   upsertGarageServiceSchema,
 };

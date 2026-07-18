@@ -14,6 +14,23 @@ const normalizeKey = (value) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const stripAdministrativeSuffix = (value) =>
+  normalizeKey(value)
+    .replace(
+      /\s+(?:municipal corporation|municipality|metropolitan city|urban district|rural district|district|division)$/,
+      "",
+    )
+    .trim();
+
+const containsWholeCityName = (candidate, cityName) => {
+  const candidateKey = stripAdministrativeSuffix(candidate);
+  const cityKey = normalizeKey(cityName);
+  if (!candidateKey || !cityKey) return false;
+  if (candidateKey === cityKey) return true;
+
+  return ` ${candidateKey} `.includes(` ${cityKey} `);
+};
+
 const compact = (values = []) => values.map(normalizeName).filter(Boolean);
 
 const getCityListCacheKey = (includeInactive) =>
@@ -115,6 +132,16 @@ const findActiveCityFromLocation = async (locationOrCity) => {
     if (matchedCity) return matchedCity;
   }
 
+  const longestCityNamesFirst = [...cities].sort(
+    (left, right) => normalizeKey(right.name).length - normalizeKey(left.name).length,
+  );
+  for (const candidate of candidates) {
+    const matchedCity = longestCityNamesFirst.find((city) =>
+      containsWholeCityName(candidate, city.name),
+    );
+    if (matchedCity) return matchedCity;
+  }
+
   return null;
 };
 
@@ -192,6 +219,7 @@ const updateCity = async (cityId, payload = {}) => {
 
 module.exports = {
   createCity,
+  containsWholeCityName,
   ensureAddressContainsCity,
   findActiveCityFromLocation,
   invalidateCityCache,
