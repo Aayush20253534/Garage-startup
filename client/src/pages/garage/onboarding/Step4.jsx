@@ -25,6 +25,7 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
   const [error, setError] = useState("");
   const [brands, setBrands] = useState([]);
   const [brandsLoading, setBrandsLoading] = useState(true);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     const loadBrands = async () => {
@@ -62,6 +63,10 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!acceptedTerms) {
+      setError("You must accept the Garage Partner Terms & Conditions");
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -88,6 +93,7 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
         longitude: data.location?.lng,
         placeId: data.placeId || null,
         workingRadiusKm: data.workingRadius,
+        acceptedTerms: "true",
       };
 
       Object.entries(fields).forEach(([key, value]) => {
@@ -249,6 +255,11 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
               )}
             </div>
 
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-white p-4 text-sm leading-6 text-ink">
+              <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required className="mt-1 h-4 w-4 shrink-0 accent-brand" />
+              <span>I have read and agree to the <Link to="/garage-partner-terms" target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2 hover:text-brand-dark">Garage Partner Terms & Conditions</Link>.</span>
+            </label>
+
             <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
               <button
                 type="button"
@@ -261,7 +272,7 @@ export default function OnboardingStep4({ data, onChange, onBack }) {
               </button>
               <button
                 type="submit"
-                disabled={loading || brandsLoading || data.brands.length === 0}
+                disabled={loading || brandsLoading || data.brands.length === 0 || !acceptedTerms}
                 className="inline-flex h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? "Submitting..." : "Submit Application"}

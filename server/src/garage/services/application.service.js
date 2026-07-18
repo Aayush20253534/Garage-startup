@@ -102,6 +102,10 @@ const submitApplication = async (payload, files = []) => {
   let latitude = payload.latitude === undefined ? null : Number(payload.latitude);
   let longitude = payload.longitude === undefined ? null : Number(payload.longitude);
 
+  if (payload.acceptedTerms !== "true") {
+    throw new ApiError(400, "You must accept the Garage Partner Terms & Conditions");
+  }
+
   if (files.length < 10) {
     throw new ApiError(400, "Upload at least 10 garage photos");
   }
@@ -154,6 +158,7 @@ const submitApplication = async (payload, files = []) => {
         placeId: payload.placeId?.trim() || null,
         workingRadiusKm: Number(payload.workingRadiusKm) || 15,
         status: "PENDING",
+        termsAcceptedAt: new Date(),
         images: uploadedImages.length ? { create: uploadedImages } : undefined,
       },
       select: applicationSelect,

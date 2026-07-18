@@ -1139,6 +1139,7 @@ model GarageApplication {
   status           GarageApplicationStatus        @default(PENDING)
   adminNote        String?
   reviewedAt       DateTime?
+  termsAcceptedAt  DateTime?
   approvedGarageId String?                        @unique
   createdAt        DateTime                       @default(now())
   updatedAt        DateTime                       @updatedAt

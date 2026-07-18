@@ -44,6 +44,10 @@ const submitGarageApplicationSchema = [
     .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 1, max: 100 })
     .withMessage("Working radius must be between 1 and 100 km"),
+
+  body("acceptedTerms")
+    .equals("true")
+    .withMessage("You must accept the Garage Partner Terms & Conditions"),
 ];
 
 const geocodeGarageApplicationSchema = [

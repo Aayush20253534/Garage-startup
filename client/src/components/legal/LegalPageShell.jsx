@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-export default function LegalPageShell({ type, title, description, effectiveDate, sections, children }) {
+export default function LegalPageShell({ type, title, description, effectiveDate, sections, children, backTo = "/register", backLabel = "Back to signup" }) {
   const otherPolicy = type === "privacy"
     ? { to: "/terms-and-conditions", label: "Terms & Conditions" }
     : { to: "/privacy-policy", label: "Privacy Policy" };
@@ -9,7 +9,7 @@ export default function LegalPageShell({ type, title, description, effectiveDate
     <div className="min-h-screen bg-bg-soft py-8 sm:py-12">
       <main className="container-x">
         <article className="mx-auto max-w-4xl rounded-xl border border-line bg-white px-5 py-7 shadow-sm sm:px-10 sm:py-10">
-          <Link to="/register" className="text-sm font-medium text-muted underline underline-offset-2 hover:text-ink">Back to signup</Link>
+          <Link to={backTo} className="text-sm font-medium text-muted underline underline-offset-2 hover:text-ink">{backLabel}</Link>
 
           <header className="mt-6 border-b border-line pb-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Rovauto Legal</p>
