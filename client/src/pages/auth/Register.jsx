@@ -248,10 +248,6 @@ export default function Register() {
         )}
 
         <form onSubmit={submit} className="mt-5 grid gap-2.5">
-          <div className="grid gap-2 rounded-xl border border-line bg-bg-soft p-3 text-xs text-ink">
-            <label className="flex items-start gap-2"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} className="mt-0.5" /><span>I agree to the <Link to="/terms-and-conditions" target="_blank" className="font-semibold underline">Terms and Conditions</Link>.</span></label>
-            <label className="flex items-start gap-2"><input type="checkbox" checked={acceptedPrivacy} onChange={(event) => setAcceptedPrivacy(event.target.checked)} className="mt-0.5" /><span>I agree to the <Link to="/privacy-policy" target="_blank" className="font-semibold underline">Privacy Policy</Link>.</span></label>
-          </div>
           <button
             type="button"
             onClick={handleGoogleAuth}
@@ -344,6 +340,11 @@ export default function Register() {
           <p className="text-[11px] leading-snug text-muted">
             {PASSWORD_MESSAGE}
           </p>
+
+          <div className="grid gap-2 rounded-xl border border-line bg-bg-soft p-3 text-xs text-ink">
+            <label className="flex items-start gap-2"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} className="mt-0.5" /><span>I agree to the <Link to="/terms-and-conditions" target="_blank" className="font-semibold underline">Terms and Conditions</Link>.</span></label>
+            <label className="flex items-start gap-2"><input type="checkbox" checked={acceptedPrivacy} onChange={(event) => setAcceptedPrivacy(event.target.checked)} className="mt-0.5" /><span>I agree to the <Link to="/privacy-policy" target="_blank" className="font-semibold underline">Privacy Policy</Link>.</span></label>
+          </div>
 
           <button
             type="submit"
