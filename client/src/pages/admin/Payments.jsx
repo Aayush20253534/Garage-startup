@@ -8,7 +8,10 @@ import {
   FiDownload,
   FiRefreshCw,
   FiSearch,
+  FiSend,
   FiShield,
+  FiUser,
+  FiTool,
 } from "react-icons/fi";
 
 const paymentTypes = [
@@ -19,6 +22,8 @@ const paymentTypes = [
   { value: "CUSTOMER_WALLET_RECHARGE", label: "Customer wallet recharge" },
   { value: "CUSTOMER_WALLET_PAYMENT", label: "Customer wallet payment" },
   { value: "CUSTOMER_SOS_CHARGE", label: "Customer SOS charge" },
+  { value: "ADMIN_CUSTOMER_WALLET_CREDIT", label: "Admin → customer wallet" },
+  { value: "ADMIN_GARAGE_WALLET_CREDIT", label: "Admin → garage wallet" },
 ];
 
 const statuses = [
@@ -141,6 +146,151 @@ const StatCard = ({ icon: Icon, label, value, caption }) => (
     </div>
   </div>
 );
+
+const WalletTransferPanel = ({ onTransferred }) => {
+  const [recipientType, setRecipientType] = useState("CUSTOMER");
+  const [search, setSearch] = useState("");
+  const [recipients, setRecipients] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [message, setMessage] = useState({ type: "", text: "" });
+
+  useEffect(() => {
+    setSelected(null);
+    setReviewing(false);
+    const timeout = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const data = await adminApi.searchWalletTransferRecipients({
+          type: recipientType,
+          search: search.trim() || undefined,
+        });
+        setRecipients(Array.isArray(data) ? data : []);
+      } catch (error) {
+        setMessage({ type: "error", text: error.response?.data?.message || "Unable to search wallet recipients" });
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [recipientType, search]);
+
+  const changeType = (type) => {
+    setRecipientType(type);
+    setSearch("");
+    setRecipients([]);
+    setMessage({ type: "", text: "" });
+  };
+
+  const recipientName = selected?.name || "Recipient";
+  const recipientMeta = selected?.owner
+    ? `${selected.owner.name} · ${selected.owner.phone || selected.owner.email || "Garage owner"}`
+    : selected?.email || selected?.phone || "Customer";
+
+  const reviewTransfer = (event) => {
+    event.preventDefault();
+    const numericAmount = Number(amount);
+    if (!selected) return setMessage({ type: "error", text: "Select a recipient first" });
+    if (!Number.isInteger(numericAmount) || numericAmount < 1 || numericAmount > 1000000) {
+      return setMessage({ type: "error", text: "Enter a whole amount between Rs. 1 and Rs. 10,00,000" });
+    }
+    if (note.trim().length < 3) return setMessage({ type: "error", text: "Enter a transfer reason" });
+    setMessage({ type: "", text: "" });
+    setReviewing(true);
+  };
+
+  const confirmTransfer = async () => {
+    setSubmitting(true);
+    setMessage({ type: "", text: "" });
+    try {
+      const result = await adminApi.transferWalletFunds({
+        recipientType,
+        recipientId: selected.id,
+        amount: Number(amount),
+        note: note.trim(),
+        requestId: crypto.randomUUID(),
+      });
+      setMessage({
+        type: "success",
+        text: `${formatCurrency(amount)} transferred to ${recipientName}. New balance: ${formatCurrency(result?.wallet?.balance ?? result?.transaction?.balanceAfter)}.`,
+      });
+      setAmount("");
+      setNote("");
+      setSelected(null);
+      setReviewing(false);
+      onTransferred?.();
+    } catch (error) {
+      setMessage({ type: "error", text: error.response?.data?.message || "Wallet transfer failed" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+      <div className="border-b border-line p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-ink"><FiSend /></div>
+          <div><h3 className="font-bold text-ink">Transfer to wallet</h3><p className="mt-1 text-sm text-muted">Credit a customer or garage wallet. Every transfer is recorded in the ledger.</p></div>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <div className="border-b border-line p-4 sm:p-5 lg:border-b-0 lg:border-r">
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-bg-soft p-1">
+            {[
+              { value: "CUSTOMER", label: "Customers", icon: FiUser },
+              { value: "GARAGE_OWNER", label: "Garage owners", icon: FiTool },
+            ].map(({ value, label, icon: Icon }) => (
+              <button key={value} type="button" onClick={() => changeType(value)} className={`flex h-10 items-center justify-center gap-2 rounded-md text-sm font-semibold transition ${recipientType === value ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
+                <Icon /> {label}
+              </button>
+            ))}
+          </div>
+
+          <label className="relative mt-4 block">
+            <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={recipientType === "CUSTOMER" ? "Search customer by name, email or phone" : "Search garage or owner"} className={`${controlClass} pl-10`} />
+          </label>
+
+          <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+            {recipients.map((recipient) => {
+              const active = selected?.id === recipient.id;
+              const meta = recipient.owner ? `${recipient.owner.name} · ${recipient.owner.phone || recipient.owner.email || "Owner"}` : recipient.email || recipient.phone;
+              return (
+                <button key={recipient.id} type="button" onClick={() => { setSelected(recipient); setReviewing(false); }} className={`w-full rounded-lg border p-3 text-left transition ${active ? "border-ink bg-bg-soft" : "border-line hover:border-ink/40"}`}>
+                  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate font-semibold text-ink">{recipient.name}</p><p className="mt-1 truncate text-xs text-muted">{meta || "No contact details"}</p></div><div className="shrink-0 text-right"><p className="text-[11px] uppercase tracking-wide text-muted">Balance</p><p className="text-sm font-bold text-ink">{formatCurrency(recipient.walletBalance)}</p></div></div>
+                </button>
+              );
+            })}
+            {!recipients.length && <p className="py-7 text-center text-sm text-muted">{searching ? "Searching..." : "No matching recipients found."}</p>}
+          </div>
+        </div>
+
+        <form onSubmit={reviewTransfer} className="p-4 sm:p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Selected recipient</p>
+          <div className="mt-2 min-h-[66px] rounded-lg border border-line bg-bg-soft p-3">
+            {selected ? <><p className="font-semibold text-ink">{recipientName}</p><p className="mt-1 text-xs text-muted">{recipientMeta}</p></> : <p className="py-2 text-sm text-muted">Choose a recipient from the list.</p>}
+          </div>
+          <label className="mt-4 block text-sm font-semibold text-ink">Amount (₹)<input type="number" min="1" max="1000000" step="1" value={amount} onChange={(event) => { setAmount(event.target.value); setReviewing(false); }} placeholder="Enter amount" className={`${controlClass} mt-2`} /></label>
+          <label className="mt-4 block text-sm font-semibold text-ink">Transfer reason<textarea value={note} onChange={(event) => { setNote(event.target.value); setReviewing(false); }} maxLength={300} rows={3} placeholder="Why is this amount being credited?" className="mt-2 w-full resize-none rounded-lg border border-line bg-white p-3 text-sm outline-none transition focus:border-ink" /></label>
+
+          {message.text && <div className={`mt-4 rounded-lg border px-3 py-2 text-sm ${message.type === "success" ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"}`}>{message.text}</div>}
+          {reviewing && selected && <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><p className="font-semibold">Confirm wallet credit</p><p className="mt-1">Transfer {formatCurrency(amount)} to {recipientName}? This immediately changes their wallet balance.</p></div>}
+
+          <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            {reviewing && <button type="button" onClick={() => setReviewing(false)} disabled={submitting} className="h-11 rounded-lg border border-line px-4 text-sm font-semibold text-ink">Edit</button>}
+            <button type={reviewing ? "button" : "submit"} onClick={reviewing ? confirmTransfer : undefined} disabled={submitting || !selected} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-ink px-5 text-sm font-semibold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-50"><FiSend />{submitting ? "Transferring..." : reviewing ? "Confirm transfer" : "Review transfer"}</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+};
 
 function Payments() {
   const [filters, setFilters] = useState(initialFilters);
@@ -329,6 +479,8 @@ function Payments() {
           <span>{error}</span>
         </div>
       )}
+
+      <WalletTransferPanel onTransferred={() => load()} />
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard

@@ -27,6 +27,8 @@ const paymentRecordTypes = [
   "CUSTOMER_SOS_CHARGE",
   "GARAGE_WALLET_RECHARGE",
   "GARAGE_PLATFORM_FEE",
+  "ADMIN_CUSTOMER_WALLET_CREDIT",
+  "ADMIN_GARAGE_WALLET_CREDIT",
 ];
 
 const paymentRecordStatuses = [
@@ -154,6 +156,34 @@ const paymentQuerySchema = [
     .withMessage("Limit must be between 1 and 500"),
 ];
 
+const walletRecipientQuerySchema = [
+  query("type")
+    .isIn(["CUSTOMER", "GARAGE_OWNER"])
+    .withMessage("Recipient type must be CUSTOMER or GARAGE_OWNER"),
+  query("search")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage("Search cannot exceed 120 characters"),
+];
+
+const adminWalletTransferSchema = [
+  body("recipientType")
+    .isIn(["CUSTOMER", "GARAGE_OWNER"])
+    .withMessage("Select a valid recipient type"),
+  body("recipientId").isUUID().withMessage("Select a valid recipient"),
+  body("amount")
+    .isInt({ min: 1, max: 1000000 })
+    .withMessage("Amount must be between Rs. 1 and Rs. 10,00,000"),
+  body("note")
+    .trim()
+    .notEmpty()
+    .withMessage("Transfer reason is required")
+    .isLength({ min: 3, max: 300 })
+    .withMessage("Transfer reason must be between 3 and 300 characters"),
+  body("requestId").isUUID().withMessage("Valid transfer request ID is required"),
+];
+
 const sendNotificationSchema = [
   body("audience")
     .isIn(["ALL", "CITY", "USER"])
@@ -225,6 +255,7 @@ const sendUserEmailSchema = [
 ];
 
 module.exports = {
+  adminWalletTransferSchema,
   addBookingNoteSchema,
   bookingIdParamSchema,
   bookingQuerySchema,
@@ -237,4 +268,5 @@ module.exports = {
   sendNotificationSchema,
   updateBookingStatusSchema,
   userEmailSearchSchema,
+  walletRecipientQuerySchema,
 };

@@ -86,6 +86,24 @@ const listPayments = asyncHandler(async (req, res) => {
     );
 });
 
+const searchWalletTransferRecipients = asyncHandler(async (req, res) => {
+  const recipients = await service.searchWalletTransferRecipients(req.query);
+  return res.status(200).json(
+    new ApiResponse(200, "Wallet recipients fetched successfully", recipients),
+  );
+});
+
+const transferWalletFunds = asyncHandler(async (req, res) => {
+  const result = await service.transferWalletFunds({
+    ...req.body,
+    amount: Number(req.body.amount),
+    staff: req.user,
+  });
+  return res.status(201).json(
+    new ApiResponse(201, "Wallet funds transferred successfully", result),
+  );
+});
+
 const clearAllBookings = asyncHandler(async (req, res) => {
   const result = await service.clearAllBookings({
     confirmation: req.body.confirmation,
@@ -147,9 +165,11 @@ module.exports = {
   listBookings,
   listCustomers,
   listPayments,
+  searchWalletTransferRecipients,
   reassignBookingGarage,
   searchEmailUsers,
   sendUserEmail,
   sendNotification,
   updateBookingStatus,
+  transferWalletFunds,
 };

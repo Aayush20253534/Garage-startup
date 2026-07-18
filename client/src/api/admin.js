@@ -224,6 +224,14 @@ export const adminApi = {
     return unwrap(await api.get("/admin/payments", { params }));
   },
 
+  async searchWalletTransferRecipients(params) {
+    return unwrap(await api.get("/admin/wallet-transfers/recipients", { params }));
+  },
+
+  async transferWalletFunds(payload) {
+    return unwrap(await api.post("/admin/wallet-transfers", payload));
+  },
+
   async clearAllBookings(confirmation) {
     return unwrap(
       await api.delete("/admin/bookings/all", {

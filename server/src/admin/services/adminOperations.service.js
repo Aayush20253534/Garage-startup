@@ -808,6 +808,8 @@ const PAYMENT_RECORD_TYPES = {
   CUSTOMER_SOS_CHARGE: "CUSTOMER_SOS_CHARGE",
   GARAGE_WALLET_RECHARGE: "GARAGE_WALLET_RECHARGE",
   GARAGE_PLATFORM_FEE: "GARAGE_PLATFORM_FEE",
+  ADMIN_CUSTOMER_WALLET_CREDIT: "ADMIN_CUSTOMER_WALLET_CREDIT",
+  ADMIN_GARAGE_WALLET_CREDIT: "ADMIN_GARAGE_WALLET_CREDIT",
 };
 
 const PAYMENT_STATUSES = ["CREATED", "PAID", "FAILED", "REFUNDED"];
@@ -910,6 +912,7 @@ const normalizeCustomerWalletRecord = (transaction) => {
     RECHARGE: PAYMENT_RECORD_TYPES.CUSTOMER_WALLET_RECHARGE,
     BOOKING_PAYMENT: PAYMENT_RECORD_TYPES.CUSTOMER_WALLET_PAYMENT,
     SOS_DEDUCTION: PAYMENT_RECORD_TYPES.CUSTOMER_SOS_CHARGE,
+    CREDIT: PAYMENT_RECORD_TYPES.ADMIN_CUSTOMER_WALLET_CREDIT,
   };
 
   return {
@@ -943,14 +946,17 @@ const normalizeCustomerWalletRecord = (transaction) => {
 
 const normalizeGarageWalletRecord = (transaction) => {
   const isRecharge = transaction.type === "RECHARGE";
+  const isAdminCredit = transaction.type === "CREDIT";
 
   return {
     id: `garage-wallet:${transaction.id}`,
     source: "GarageWalletTransaction",
     sourceId: transaction.id,
-    type: isRecharge
-      ? PAYMENT_RECORD_TYPES.GARAGE_WALLET_RECHARGE
-      : PAYMENT_RECORD_TYPES.GARAGE_PLATFORM_FEE,
+    type: isAdminCredit
+      ? PAYMENT_RECORD_TYPES.ADMIN_GARAGE_WALLET_CREDIT
+      : isRecharge
+        ? PAYMENT_RECORD_TYPES.GARAGE_WALLET_RECHARGE
+        : PAYMENT_RECORD_TYPES.GARAGE_PLATFORM_FEE,
     title: transaction.description || transaction.type,
     amount: transaction.amount || 0,
     currency: "INR",
@@ -1073,6 +1079,9 @@ const buildGarageWalletSearchWhere = (search) => {
 };
 
 const getCustomerWalletTypeFilter = (paymentType) => {
+  if (paymentType === PAYMENT_RECORD_TYPES.ADMIN_CUSTOMER_WALLET_CREDIT) {
+    return { type: "CREDIT" };
+  }
   if (paymentType === PAYMENT_RECORD_TYPES.CUSTOMER_WALLET_RECHARGE) {
     return { type: "RECHARGE" };
   }
@@ -1085,10 +1094,13 @@ const getCustomerWalletTypeFilter = (paymentType) => {
     return { type: "SOS_DEDUCTION" };
   }
 
-  return { type: { in: ["RECHARGE", "BOOKING_PAYMENT", "SOS_DEDUCTION"] } };
+  return { type: { in: ["RECHARGE", "BOOKING_PAYMENT", "SOS_DEDUCTION", "CREDIT"] } };
 };
 
 const getGarageWalletTypeFilter = (paymentType) => {
+  if (paymentType === PAYMENT_RECORD_TYPES.ADMIN_GARAGE_WALLET_CREDIT) {
+    return { type: "CREDIT" };
+  }
   if (paymentType === PAYMENT_RECORD_TYPES.GARAGE_WALLET_RECHARGE) {
     return { type: "RECHARGE" };
   }
@@ -1097,7 +1109,7 @@ const getGarageWalletTypeFilter = (paymentType) => {
     return { type: "GARAGE_ACCEPT_FEE" };
   }
 
-  return { type: { in: ["RECHARGE", "GARAGE_ACCEPT_FEE"] } };
+  return { type: { in: ["RECHARGE", "GARAGE_ACCEPT_FEE", "CREDIT"] } };
 };
 
 const shouldFetchPaymentRows = (paymentType) =>
@@ -1109,6 +1121,7 @@ const shouldFetchCustomerWalletRows = (paymentType) =>
     PAYMENT_RECORD_TYPES.CUSTOMER_WALLET_RECHARGE,
     PAYMENT_RECORD_TYPES.CUSTOMER_WALLET_PAYMENT,
     PAYMENT_RECORD_TYPES.CUSTOMER_SOS_CHARGE,
+    PAYMENT_RECORD_TYPES.ADMIN_CUSTOMER_WALLET_CREDIT,
   ].includes(paymentType);
 
 const shouldFetchGarageWalletRows = (paymentType) =>
@@ -1116,6 +1129,7 @@ const shouldFetchGarageWalletRows = (paymentType) =>
   [
     PAYMENT_RECORD_TYPES.GARAGE_WALLET_RECHARGE,
     PAYMENT_RECORD_TYPES.GARAGE_PLATFORM_FEE,
+    PAYMENT_RECORD_TYPES.ADMIN_GARAGE_WALLET_CREDIT,
   ].includes(paymentType);
 
 const getPaymentSummary = (records = []) =>
@@ -1419,6 +1433,142 @@ const listPayments = async (query = {}) => {
       canFetchWalletStatus,
     }),
   };
+};
+
+const searchWalletTransferRecipients = async ({ type, search = "" } = {}) => {
+  const term = String(search).trim();
+  const match = term ? { contains: term, mode: "insensitive" } : undefined;
+
+  if (type === "CUSTOMER") {
+    const customers = await prisma.user.findMany({
+      where: {
+        role: "CUSTOMER",
+        isActive: true,
+        ...(match && { OR: [{ name: match }, { email: match }, { phone: match }] }),
+      },
+      select: { id: true, name: true, email: true, phone: true, wallet: { select: { balance: true } } },
+      orderBy: { name: "asc" },
+      take: 20,
+    });
+    return customers.map(({ wallet, ...customer }) => ({
+      ...customer,
+      recipientType: "CUSTOMER",
+      walletBalance: wallet?.balance || 0,
+    }));
+  }
+
+  const garages = await prisma.garage.findMany({
+    where: {
+      ownerId: { not: null },
+      owner: { is: { isActive: true } },
+      ...(match && {
+        OR: [
+          { name: match }, { email: match }, { phone: match },
+          { owner: { is: { name: match } } },
+          { owner: { is: { email: match } } },
+          { owner: { is: { phone: match } } },
+        ],
+      }),
+    },
+    select: {
+      id: true, name: true, email: true, phone: true,
+      owner: { select: { id: true, name: true, email: true, phone: true } },
+      wallet: { select: { balance: true } },
+    },
+    orderBy: { name: "asc" },
+    take: 20,
+  });
+  return garages.map(({ wallet, owner, ...garage }) => ({
+    ...garage,
+    owner,
+    recipientType: "GARAGE_OWNER",
+    walletBalance: wallet?.balance || 0,
+  }));
+};
+
+const transferWalletFunds = async ({ recipientType, recipientId, amount, note, requestId, staff }) => {
+  const description = `Admin wallet credit: ${String(note).trim()}`;
+
+  if (recipientType === "CUSTOMER") {
+    const customer = await prisma.user.findFirst({
+      where: { id: recipientId, role: "CUSTOMER", isActive: true },
+      select: { id: true, name: true },
+    });
+    if (!customer) throw new ApiError(404, "Active customer not found");
+
+    const existing = await prisma.walletTransaction.findUnique({ where: { idempotencyKey: requestId } });
+    if (existing) {
+      if (existing.userId !== customer.id || existing.amount !== amount) {
+        throw new ApiError(409, "Transfer request ID was already used");
+      }
+      return { recipientType, recipient: customer, transaction: existing, duplicate: true };
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const wallet = await tx.wallet.upsert({
+        where: { userId: customer.id },
+        update: { balance: { increment: amount } },
+        create: { userId: customer.id, type: "CUSTOMER", balance: amount },
+      });
+      const transaction = await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id, userId: customer.id, type: "CREDIT", status: "SUCCESS",
+          amount, balanceAfter: wallet.balance, description, idempotencyKey: requestId,
+        },
+      });
+      return { wallet, transaction };
+    });
+    await invalidateCustomerCache(customer.id);
+    await notificationService.createNotification({
+      userId: customer.id,
+      title: "Wallet credited",
+      message: `Rs. ${amount.toLocaleString("en-IN")} was added to your Rovauto wallet.`,
+      type: "PAYMENT",
+      link: "/wallet",
+      metadata: { transactionId: result.transaction.id },
+    });
+    console.info("[admin] Customer wallet credited", { staffId: staff.id, userId: customer.id, amount, requestId });
+    return { recipientType, recipient: customer, ...result, duplicate: false };
+  }
+
+  const garage = await prisma.garage.findFirst({
+    where: { id: recipientId, ownerId: { not: null }, owner: { is: { isActive: true } } },
+    select: { id: true, name: true, ownerId: true },
+  });
+  if (!garage) throw new ApiError(404, "Active garage owner not found");
+
+  const existing = await prisma.garageWalletTransaction.findUnique({ where: { idempotencyKey: requestId } });
+  if (existing) {
+    if (existing.garageId !== garage.id || existing.amount !== amount) {
+      throw new ApiError(409, "Transfer request ID was already used");
+    }
+    return { recipientType, recipient: garage, transaction: existing, duplicate: true };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const wallet = await tx.garageWallet.upsert({
+      where: { garageId: garage.id },
+      update: { balance: { increment: amount } },
+      create: { garageId: garage.id, balance: amount },
+    });
+    const transaction = await tx.garageWalletTransaction.create({
+      data: {
+        garageWalletId: wallet.id, garageId: garage.id, type: "CREDIT", status: "SUCCESS",
+        amount, balanceAfter: wallet.balance, description, idempotencyKey: requestId,
+      },
+    });
+    return { wallet, transaction };
+  });
+  await notificationService.createNotification({
+    garageOwnerId: garage.ownerId,
+    title: "Wallet credited",
+    message: `Rs. ${amount.toLocaleString("en-IN")} was added to your garage wallet.`,
+    type: "PAYMENT",
+    link: "/garage/wallet",
+    metadata: { transactionId: result.transaction.id, garageId: garage.id },
+  });
+  console.info("[admin] Garage wallet credited", { staffId: staff.id, garageId: garage.id, amount, requestId });
+  return { recipientType, recipient: garage, ...result, duplicate: false };
 };
 
 const getDashboardStats = async () => {
@@ -1898,6 +2048,7 @@ module.exports = {
   getDashboardStats,
   getOperationsDashboard,
   listPayments,
+  searchWalletTransferRecipients,
   listBookings,
   listCustomers,
   reassignBookingGarage,
@@ -1905,4 +2056,5 @@ module.exports = {
   sendUserEmail,
   sendNotification,
   updateBookingStatus,
+  transferWalletFunds,
 };

@@ -847,6 +847,7 @@ model GarageWalletTransaction {
   description       String?
   cashfreeOrderId   String?
   cashfreePaymentId String?
+  idempotencyKey    String?                 @unique
   createdAt         DateTime                @default(now())
   garage            Garage                  @relation(fields: [garageId], references: [id], onDelete: Cascade)
   garageWallet      GarageWallet            @relation(fields: [garageWalletId], references: [id], onDelete: Cascade)

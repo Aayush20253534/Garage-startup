@@ -5,6 +5,7 @@ const { protect } = require("../../middlewares/auth.middleware");
 const { authorizeRoles } = require("../../middlewares/role.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const {
+  adminWalletTransferSchema,
   addBookingNoteSchema,
   bookingIdParamSchema,
   bookingQuerySchema,
@@ -14,6 +15,7 @@ const {
   paymentQuerySchema,
   reassignBookingGarageSchema,
   updateBookingStatusSchema,
+  walletRecipientQuerySchema,
 } = require("../validations/adminOperations.validation");
 
 const router = express.Router();
@@ -79,5 +81,19 @@ router.get(
   paymentQuerySchema,
   validate,
   controller.listPayments,
+);
+router.get(
+  "/wallet-transfers/recipients",
+  authorizeRoles("ADMIN"),
+  walletRecipientQuerySchema,
+  validate,
+  controller.searchWalletTransferRecipients,
+);
+router.post(
+  "/wallet-transfers",
+  authorizeRoles("ADMIN"),
+  adminWalletTransferSchema,
+  validate,
+  controller.transferWalletFunds,
 );
 module.exports = router;
