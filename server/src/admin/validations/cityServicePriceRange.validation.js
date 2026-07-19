@@ -1,6 +1,6 @@
 const { body, param, query } = require("express-validator");
 
-const fuelTypes = ["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"];
+const fuelTypes = ["PETROL", "DIESEL", "HYBRID", "CNG", "OTHER"];
 
 const priceRangeIdSchema = [param("id").isUUID().withMessage("Invalid price range ID")];
 

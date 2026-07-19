@@ -37,16 +37,36 @@ export default function ImageUpload({
   const handleFiles = (files) => {
     setError("");
     const maxSizeBytes = maxSizeMb * 1024 * 1024;
-    const oversizedFile = files.find(
-      (file) => file.type.startsWith("image/") && file.size > maxSizeBytes,
+    const selectedImages = files.filter((file) =>
+      file.type.startsWith("image/"),
     );
-    if (oversizedFile) {
-      setError(`Each image must be less than or equal to ${maxSizeMb} MB.`);
-      return;
+    const oversizedFiles = selectedImages.filter(
+      (file) => file.size > maxSizeBytes,
+    );
+    const validFiles = selectedImages.filter(
+      (file) => file.size <= maxSizeBytes,
+    );
+    const remainingSlots = Math.max(0, max - value.length);
+    const acceptedFiles = validFiles.slice(0, remainingSlots);
+    const capacitySkippedCount = validFiles.length - acceptedFiles.length;
+    const messages = [];
+
+    if (oversizedFiles.length > 0) {
+      messages.push(
+        `${oversizedFiles.length} image${oversizedFiles.length === 1 ? " was" : "s were"} skipped because ${oversizedFiles.length === 1 ? "it is" : "they are"} larger than ${maxSizeMb} MB`,
+      );
+    }
+    if (capacitySkippedCount > 0) {
+      messages.push(
+        `${capacitySkippedCount} image${capacitySkippedCount === 1 ? " was" : "s were"} skipped because no gallery slots remain`,
+      );
     }
 
-    const imageFiles = files
-      .filter((file) => file.type.startsWith("image/"))
+    if (messages.length > 0) {
+      setError(`${messages.join(". ")}.`);
+    }
+
+    const imageFiles = acceptedFiles
       .map((file) => ({
         id: `${file.name}-${file.lastModified}-${file.size}`,
         file,
@@ -54,7 +74,9 @@ export default function ImageUpload({
         name: file.name,
       }));
 
-    onChange([...value, ...imageFiles].slice(0, max));
+    if (imageFiles.length === 0) return;
+
+    onChange([...value, ...imageFiles]);
   };
 
   const removeImage = (index) => {

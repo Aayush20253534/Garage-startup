@@ -985,7 +985,7 @@ export default function GarageProfile() {
                     <ImageUpload
                       min={0}
                       max={remainingPhotoSlots}
-                      maxSizeMb={1}
+                      maxSizeMb={2}
                       countOffset={uploadedImages.length}
                       totalMax={MAX_GARAGE_PHOTOS}
                       value={photoFiles}

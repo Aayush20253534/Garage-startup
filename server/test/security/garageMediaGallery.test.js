@@ -6,6 +6,24 @@ const test = require("node:test");
 const readSource = (relativePath) =>
   fs.readFileSync(path.join(__dirname, "../..", relativePath), "utf8");
 
+test("garage galleries accept 2 MB photos and clients skip oversized selections", () => {
+  const routeSource = readSource("src/routes/garageMedia.routes.js");
+  const constantsSource = readSource("src/garage/constants.js");
+  const serviceSource = readSource("src/services/garageMedia.service.js");
+  const uploadSource = readSource("../client/src/components/garage/ImageUpload.jsx");
+  const profileSource = readSource("../client/src/pages/garage/Profile.jsx");
+  const adminGarageSource = readSource("../client/src/pages/admin/Garages.jsx");
+
+  assert.match(routeSource, /fileSize: 2 \* 1024 \* 1024/);
+  assert.match(routeSource, /\{ name: "images", maxCount: 15 \}/);
+  assert.match(constantsSource, /GARAGE_MAX_IMAGE_SIZE_BYTES = 2 \* 1024 \* 1024/);
+  assert.match(serviceSource, /less than or equal to 2 MB/);
+  assert.match(uploadSource, /file\.size <= maxSizeBytes/);
+  assert.match(profileSource, /maxSizeMb=\{2\}/);
+  assert.match(adminGarageSource, /file\.size <= MAX_GARAGE_PHOTO_SIZE_BYTES/);
+  assert.match(adminGarageSource, /over \$\{MAX_GARAGE_PHOTO_SIZE_MB\} MB/);
+});
+
 test("garage media uploads append within the remaining gallery capacity", () => {
   const serviceSource = readSource("src/services/garageMedia.service.js");
   const uploadStart = serviceSource.indexOf("const uploadGarageMedia");

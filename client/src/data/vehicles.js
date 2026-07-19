@@ -6,7 +6,6 @@ export const FUEL_TYPES = [
   { label: "Petrol", value: "PETROL" },
   { label: "Diesel", value: "DIESEL" },
   { label: "CNG", value: "CNG" },
-  { label: "Electric", value: "ELECTRIC" },
   { label: "Hybrid", value: "HYBRID" },
   { label: "Other", value: "OTHER" },
 ];

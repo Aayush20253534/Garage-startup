@@ -19,7 +19,7 @@ const validateImageFile = (file) => {
   }
 
   if (file.size > GARAGE_MAX_IMAGE_SIZE_BYTES) {
-    throw new ApiError(400, "Each garage photo must be less than or equal to 1 MB");
+    throw new ApiError(400, "Each garage photo must be less than or equal to 2 MB");
   }
 };
 

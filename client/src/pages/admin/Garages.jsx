@@ -54,6 +54,17 @@ const applicationStatusMeta = {
 const adminButtonBase =
   "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:cursor-not-allowed disabled:opacity-50";
 
+const MAX_GARAGE_PHOTOS = 15;
+const MAX_GARAGE_PHOTO_SIZE_MB = 2;
+const MAX_GARAGE_PHOTO_SIZE_BYTES =
+  MAX_GARAGE_PHOTO_SIZE_MB * 1024 * 1024;
+const GARAGE_PHOTO_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
+
 const money = (value) => formatRupees(value);
 
 const fieldClass =
@@ -408,10 +419,59 @@ export default function Garages() {
   };
 
   const uploadGaragePhotos = async (event) => {
-    const files = [...(event.target.files || [])]; event.target.value = "";
-    if (!files.length) return;
-    setPhotoBusyId("upload"); setError("");
-    try { await adminApi.uploadGaragePhotos(selectedGarage.id, files); await openGarageDetails(selectedGarage.id); setSuccess("Garage photos uploaded."); }
+    const selectedFiles = [...(event.target.files || [])];
+    event.target.value = "";
+    if (!selectedFiles.length) return;
+
+    const remainingSlots = Math.max(
+      0,
+      MAX_GARAGE_PHOTOS - (selectedGarage.images?.length || 0),
+    );
+    const supportedFiles = selectedFiles.filter((file) =>
+      GARAGE_PHOTO_MIME_TYPES.has(String(file.type || "").toLowerCase()),
+    );
+    const unsupportedCount = selectedFiles.length - supportedFiles.length;
+    const oversizedFiles = supportedFiles.filter(
+      (file) => file.size > MAX_GARAGE_PHOTO_SIZE_BYTES,
+    );
+    const files = supportedFiles
+      .filter((file) => file.size <= MAX_GARAGE_PHOTO_SIZE_BYTES)
+      .slice(0, remainingSlots);
+    const capacitySkippedCount = Math.max(
+      0,
+      supportedFiles.length - oversizedFiles.length - files.length,
+    );
+    const skippedMessages = [];
+
+    if (oversizedFiles.length > 0) {
+      skippedMessages.push(
+        `${oversizedFiles.length} over ${MAX_GARAGE_PHOTO_SIZE_MB} MB`,
+      );
+    }
+    if (unsupportedCount > 0) {
+      skippedMessages.push(`${unsupportedCount} unsupported format`);
+    }
+    if (capacitySkippedCount > 0) {
+      skippedMessages.push(`${capacitySkippedCount} beyond gallery capacity`);
+    }
+
+    if (!files.length) {
+      setError(
+        skippedMessages.length > 0
+          ? `No photos uploaded. Skipped: ${skippedMessages.join(", ")}.`
+          : "No gallery slots are available.",
+      );
+      return;
+    }
+
+    setPhotoBusyId("upload"); setError(""); setSuccess("");
+    try {
+      await adminApi.uploadGaragePhotos(selectedGarage.id, files);
+      await openGarageDetails(selectedGarage.id);
+      setSuccess(
+        `${files.length} garage photo${files.length === 1 ? "" : "s"} uploaded.${skippedMessages.length > 0 ? ` Skipped: ${skippedMessages.join(", ")}.` : ""}`,
+      );
+    }
     catch (err) { setError(err.response?.data?.message || "Unable to upload garage photos"); }
     finally { setPhotoBusyId(""); }
   };
@@ -1232,7 +1292,7 @@ export default function Garages() {
                 <div className="flex items-center gap-2 pt-2 text-sm font-bold text-ink">
                   <FiImage />
                   Uploaded Garage Photos ({selectedGarage.images?.length || 0}
-                  /15)
+                  /{MAX_GARAGE_PHOTOS})
                 </div>
 
                 {!isIntern && (
@@ -1242,13 +1302,17 @@ export default function Garages() {
                       {photoBusyId === "upload" ? "Uploading..." : "Add photos"}
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
                         multiple
-                        disabled={Boolean(photoBusyId) || (selectedGarage.images?.length || 0) >= 15}
+                        disabled={Boolean(photoBusyId) || (selectedGarage.images?.length || 0) >= MAX_GARAGE_PHOTOS}
                         onChange={uploadGaragePhotos}
                         className="hidden"
                       />
                     </label>
+
+                    <span className="text-xs font-medium text-muted">
+                      JPEG, PNG or WebP · up to {MAX_GARAGE_PHOTO_SIZE_MB} MB each
+                    </span>
 
                     {selectedGarage.images?.length > 0 && (
                       <>
