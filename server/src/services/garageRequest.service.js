@@ -305,6 +305,7 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
               serviceId: true,
               vehicleBrand: true,
               vehicleModel: true,
+              isExcluded: true,
               isActive: true,
               service: {
                 select: {

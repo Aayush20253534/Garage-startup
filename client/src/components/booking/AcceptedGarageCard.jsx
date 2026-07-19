@@ -41,9 +41,7 @@ const getCoverImage = (garage) => {
   return resolveMediaUrl(image) || getGarageImageDeliveryUrl(image);
 };
 
-const hasVehicleCoverage = (assignment) =>
-  String(assignment?.vehicleBrand || "ALL").trim().toUpperCase() !== "NONE" &&
-  String(assignment?.vehicleModel || "ALL").trim().toUpperCase() !== "NONE";
+const hasVehicleCoverage = (assignment) => assignment?.isExcluded !== true;
 
 const getServiceNames = (garage) =>
   unique(

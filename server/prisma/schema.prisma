@@ -523,6 +523,7 @@ model GarageService {
   serviceId    String
   vehicleBrand String   @default("ALL")
   vehicleModel String   @default("ALL")
+  isExcluded   Boolean  @default(false)
   price        Int?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -535,6 +536,7 @@ model GarageService {
   @@index([serviceId])
   @@index([vehicleBrand])
   @@index([vehicleModel])
+  @@index([isExcluded])
   @@index([isActive])
 }
 

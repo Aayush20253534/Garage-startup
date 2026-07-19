@@ -40,15 +40,9 @@ const normalizeBrands = (value) => {
 };
 
 const getAssignmentLabel = ({ vehicleBrand, vehicleModel }) => {
-  if (vehicleBrand === "NONE") {
-    return "No vehicle brand · No vehicle model";
-  }
-
   const brand = vehicleBrand && vehicleBrand !== "ALL"
     ? vehicleBrand
     : "All supported brands";
-
-  if (vehicleModel === "NONE") return `${brand} · No vehicle model`;
 
   return vehicleModel && vehicleModel !== "ALL"
     ? `${brand} · ${vehicleModel}`
@@ -83,11 +77,17 @@ export default function GarageServices() {
 
       const vehicleBrand = assignment.vehicleBrand || "ALL";
       const vehicleModel = assignment.vehicleModel || "ALL";
-      const scopeKey = `${vehicleBrand.toLowerCase()}:${vehicleModel.toLowerCase()}`;
+      const isExcluded = assignment.isExcluded === true;
+      const scopeKey = `${isExcluded ? "exclude" : "include"}:${vehicleBrand.toLowerCase()}:${vehicleModel.toLowerCase()}`;
       const group = grouped.get(service.id);
 
       if (!group.assignments.some((item) => item.scopeKey === scopeKey)) {
-        group.assignments.push({ vehicleBrand, vehicleModel, scopeKey });
+        group.assignments.push({
+          vehicleBrand,
+          vehicleModel,
+          isExcluded,
+          scopeKey,
+        });
       }
     });
 
@@ -148,8 +148,9 @@ export default function GarageServices() {
                 </span>
               </div>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-                These are the services allocated to your garage. Booking alerts
-                are matched against these allocations and your supported brands.
+                These are the service rules allocated to your garage. Excluded
+                brands or models override broader coverage when booking alerts
+                are matched.
               </p>
             </div>
 
@@ -273,7 +274,7 @@ export default function GarageServices() {
                           </div>
                           <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-1 text-[11px] font-semibold text-green-700">
                             <FiCheckCircle className="h-3 w-3" />
-                            Assigned
+                            Configured
                           </span>
                         </div>
 
@@ -289,8 +290,13 @@ export default function GarageServices() {
                             {assignments.map((assignment) => (
                               <span
                                 key={assignment.scopeKey}
-                                className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink"
+                                className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                                  assignment.isExcluded
+                                    ? "border-red-200 bg-red-50 text-red-700"
+                                    : "border-line bg-white text-ink"
+                                }`}
                               >
+                                {assignment.isExcluded ? "Excluded: " : ""}
                                 {getAssignmentLabel(assignment)}
                               </span>
                             ))}

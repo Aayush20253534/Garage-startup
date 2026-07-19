@@ -23,7 +23,7 @@ const garageIncludeForList = {
     orderBy: { order: "asc" },
   },
   services: {
-    where: { isActive: true },
+    where: { isActive: true, isExcluded: false },
     include: {
       service: {
         include: {
@@ -45,7 +45,7 @@ const garageIncludeForDetails = {
     orderBy: { order: "asc" },
   },
   services: {
-    where: { isActive: true },
+    where: { isActive: true, isExcluded: false },
     include: {
       service: {
         include: {
@@ -69,6 +69,14 @@ const garageIncludeForDetails = {
         },
       },
     },
+  },
+};
+
+const garageMatchingInclude = {
+  ...garageIncludeForList,
+  services: {
+    ...garageIncludeForList.services,
+    where: { isActive: true },
   },
 };
 
@@ -197,11 +205,23 @@ const buildRawGarageConditions = ({
       WHERE gs."garageId" = g."id"
         AND gs."serviceId" = ${serviceId}
         AND gs."isActive" = true
-        AND LOWER(gs."vehicleBrand") <> 'none'
-        AND LOWER(gs."vehicleModel") <> 'none'
+        AND gs."isExcluded" = false
         ${vehicleBrand ? Prisma.sql`AND (LOWER(gs."vehicleBrand") = 'all' OR LOWER(gs."vehicleBrand") = LOWER(${vehicleBrand}))` : Prisma.empty}
         ${vehicleModel ? Prisma.sql`AND (LOWER(gs."vehicleModel") = 'all' OR LOWER(gs."vehicleModel") = LOWER(${vehicleModel}))` : Prisma.empty}
     )`);
+
+    if (vehicleBrand || vehicleModel) {
+      conditions.push(Prisma.sql`NOT EXISTS (
+        SELECT 1
+        FROM "GarageService" excluded_gs
+        WHERE excluded_gs."garageId" = g."id"
+          AND excluded_gs."serviceId" = ${serviceId}
+          AND excluded_gs."isActive" = true
+          AND excluded_gs."isExcluded" = true
+          ${vehicleBrand ? Prisma.sql`AND (LOWER(excluded_gs."vehicleBrand") = 'all' OR LOWER(excluded_gs."vehicleBrand") = LOWER(${vehicleBrand}))` : Prisma.empty}
+          ${vehicleModel ? Prisma.sql`AND (LOWER(excluded_gs."vehicleModel") = 'all' OR LOWER(excluded_gs."vehicleModel") = LOWER(${vehicleModel}))` : Prisma.sql`AND LOWER(excluded_gs."vehicleModel") = 'all'`}
+      )`);
+    }
   });
 
   if (requireWalletBalance) {
@@ -305,35 +325,68 @@ const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
 
   const vehicleBrand = String(vehicle?.brand || "").trim();
   const vehicleModel = String(vehicle?.model || "").trim();
+  const hasVehicleScope = Boolean(vehicleBrand || vehicleModel);
 
   return {
     AND: uniqueServiceIds.map((serviceId) => ({
-      services: {
-        some: {
-          serviceId,
-          isActive: true,
-          NOT: [
-            { vehicleBrand: { equals: "NONE", mode: "insensitive" } },
-            { vehicleModel: { equals: "NONE", mode: "insensitive" } },
-          ],
-          ...(vehicleBrand && {
-            OR: [
-              { vehicleBrand: "ALL" },
-              { vehicleBrand: { equals: vehicleBrand, mode: "insensitive" } },
-            ],
-          }),
-          ...(vehicleModel && {
-            AND: [
-              {
+      AND: [
+        {
+          services: {
+            some: {
+              serviceId,
+              isActive: true,
+              isExcluded: false,
+              ...(vehicleBrand && {
                 OR: [
-                  { vehicleModel: "ALL" },
-                  { vehicleModel: { equals: vehicleModel, mode: "insensitive" } },
+                  { vehicleBrand: "ALL" },
+                  { vehicleBrand: { equals: vehicleBrand, mode: "insensitive" } },
                 ],
-              },
-            ],
-          }),
+              }),
+              ...(vehicleModel && {
+                AND: [
+                  {
+                    OR: [
+                      { vehicleModel: "ALL" },
+                      { vehicleModel: { equals: vehicleModel, mode: "insensitive" } },
+                    ],
+                  },
+                ],
+              }),
+            },
+          },
         },
-      },
+        ...(hasVehicleScope
+          ? [
+              {
+                services: {
+                  none: {
+                    serviceId,
+                    isActive: true,
+                    isExcluded: true,
+                    ...(vehicleBrand && {
+                      OR: [
+                        { vehicleBrand: "ALL" },
+                        { vehicleBrand: { equals: vehicleBrand, mode: "insensitive" } },
+                      ],
+                    }),
+                    ...(vehicleModel
+                      ? {
+                          AND: [
+                            {
+                              OR: [
+                                { vehicleModel: "ALL" },
+                                { vehicleModel: { equals: vehicleModel, mode: "insensitive" } },
+                              ],
+                            },
+                          ],
+                        }
+                      : { vehicleModel: "ALL" }),
+                  },
+                },
+              },
+            ]
+          : []),
+      ],
     })),
   };
 };
@@ -808,7 +861,7 @@ const findNearbyEligibleGarages = async ({
     ? await fetchGaragesByDistanceRows(
         distanceRows,
         {
-          ...garageIncludeForList,
+          ...garageMatchingInclude,
           wallet: true,
         },
         serializeGarage,
@@ -832,7 +885,7 @@ const findNearbyEligibleGarages = async ({
           }),
         },
         include: {
-          ...garageIncludeForList,
+          ...garageMatchingInclude,
           wallet: true,
         },
         orderBy: [{ isVerified: "desc" }, { ratingAvg: "desc" }],
@@ -932,6 +985,7 @@ const getGarageServices = async (garageId) => {
     where: {
       garageId,
       isActive: true,
+      isExcluded: false,
     },
     include: {
       service: {

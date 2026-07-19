@@ -81,29 +81,77 @@ test("brand and model scoped assignments cannot receive unrelated alerts", () =>
   );
 });
 
-test("explicit no-brand and no-model scopes never match a customer vehicle", () => {
+test("brand and model exclusions override broader service allocations", () => {
   const activeService = {
     isActive: true,
     service: { isActive: true, category: { isActive: true } },
   };
+  const garageWithExclusions = {
+    supportedBrands: ["Ford", "Honda"],
+    services: [
+      {
+        ...activeService,
+        serviceId: "service-oil",
+        vehicleBrand: "ALL",
+        vehicleModel: "ALL",
+        isExcluded: false,
+      },
+      {
+        ...activeService,
+        serviceId: "service-oil",
+        vehicleBrand: "Ford",
+        vehicleModel: "ALL",
+        isExcluded: true,
+      },
+      {
+        ...activeService,
+        serviceId: "service-oil",
+        vehicleBrand: "Honda",
+        vehicleModel: "City",
+        isExcluded: true,
+      },
+    ],
+  };
 
   assert.equal(
-    assignmentMatchesVehicle(
-      { ...activeService, vehicleBrand: "NONE", vehicleModel: "NONE" },
-      { brand: "Ford", model: "EcoSport" },
-    ),
+    garageCanServeBooking({
+      garage: garageWithExclusions,
+      serviceIds: ["service-oil"],
+      vehicle: { brand: "Ford", model: "EcoSport" },
+    }),
     false,
   );
   assert.equal(
+    garageCanServeBooking({
+      garage: garageWithExclusions,
+      serviceIds: ["service-oil"],
+      vehicle: { brand: "Honda", model: "City" },
+    }),
+    false,
+  );
+  assert.equal(
+    garageCanServeBooking({
+      garage: garageWithExclusions,
+      serviceIds: ["service-oil"],
+      vehicle: { brand: "Honda", model: "Amaze" },
+    }),
+    true,
+  );
+  assert.equal(
     assignmentMatchesVehicle(
-      { ...activeService, vehicleBrand: "Ford", vehicleModel: "NONE" },
+      {
+        ...activeService,
+        vehicleBrand: "Ford",
+        vehicleModel: "ALL",
+        isExcluded: true,
+      },
       { brand: "Ford", model: "EcoSport" },
     ),
     false,
   );
 });
 
-test("garage assignment UI and queries preserve explicit no-vehicle scopes", () => {
+test("garage assignment UI and queries preserve exclusion precedence", () => {
   const adminPage = readProjectFile("client/src/pages/admin/Garages.jsx");
   const garagePage = readProjectFile("client/src/pages/garage/Services.jsx");
   const customerGarageCard = readProjectFile(
@@ -115,15 +163,21 @@ test("garage assignment UI and queries preserve explicit no-vehicle scopes", () 
   const eligibilityService = readProjectFile(
     "server/src/services/garage.service.js",
   );
+  const schema = readProjectFile("server/prisma/schema.prisma");
+  const migration = readProjectFile(
+    "server/prisma/migrations/20260719110000_add_garage_service_exclusions/migration.sql",
+  );
 
-  assert.match(adminPage, /value="NONE">No vehicle brand/);
-  assert.match(adminPage, /value="NONE">No vehicle model/);
-  assert.match(adminPage, /vehicleBrand === "ALL" \? "ALL" : "NONE"/);
+  assert.match(adminPage, /value="EXCLUDE">Exclude vehicle/);
+  assert.match(adminPage, /isExcluded: serviceForm\.isExcluded/);
+  assert.match(adminPage, /All models \(exclude brand\)/);
   assert.match(adminService, /const normalizeVehicleScope/);
-  assert.match(adminService, /vehicleBrand === "NONE"/);
-  assert.match(eligibilityService, /LOWER\(gs\."vehicleBrand"\) <> 'none'/);
-  assert.match(eligibilityService, /vehicleModel: \{ equals: "NONE"/);
-  assert.match(garagePage, /No vehicle brand · No vehicle model/);
+  assert.match(adminService, /Choose a specific vehicle brand to exclude/);
+  assert.match(schema, /isExcluded\s+Boolean\s+@default\(false\)/);
+  assert.match(migration, /ADD COLUMN "isExcluded" BOOLEAN NOT NULL DEFAULT false/);
+  assert.match(eligibilityService, /excluded_gs\."isExcluded" = true/);
+  assert.match(eligibilityService, /services:\s*\{\s*none:/);
+  assert.match(garagePage, /Excluded: /);
   assert.match(customerGarageCard, /\.filter\(hasVehicleCoverage\)/);
 });
 

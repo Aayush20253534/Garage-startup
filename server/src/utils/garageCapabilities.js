@@ -34,7 +34,7 @@ const garageSupportsVehicleBrand = (garage, vehicle = {}) => {
   return supportedBrands.includes("all") || supportedBrands.includes(vehicleBrand);
 };
 
-const assignmentMatchesVehicle = (assignment, vehicle = {}) => {
+const assignmentScopeMatchesVehicle = (assignment, vehicle = {}) => {
   if (!assignment || assignment.isActive === false) return false;
   if (assignment.service?.isActive === false) return false;
   if (assignment.service?.category?.isActive === false) return false;
@@ -48,8 +48,6 @@ const assignmentMatchesVehicle = (assignment, vehicle = {}) => {
   const vehicleBrand = normalizeCapabilityValue(vehicle.brand);
   const vehicleModel = normalizeCapabilityValue(vehicle.model);
 
-  if (assignedBrand === "none" || assignedModel === "none") return false;
-
   const brandMatches =
     assignedBrand === "all" ||
     (vehicleBrand && assignedBrand === vehicleBrand);
@@ -60,6 +58,14 @@ const assignmentMatchesVehicle = (assignment, vehicle = {}) => {
   return Boolean(brandMatches && modelMatches);
 };
 
+const assignmentMatchesVehicle = (assignment, vehicle = {}) =>
+  assignment?.isExcluded !== true &&
+  assignmentScopeMatchesVehicle(assignment, vehicle);
+
+const assignmentExcludesVehicle = (assignment, vehicle = {}) =>
+  assignment?.isExcluded === true &&
+  assignmentScopeMatchesVehicle(assignment, vehicle);
+
 const garageCanServeBooking = ({ garage, serviceIds = [], vehicle = {} }) => {
   const requiredServiceIds = normalizeServiceIds(serviceIds);
   const assignments = Array.isArray(garage?.services) ? garage.services : [];
@@ -68,16 +74,25 @@ const garageCanServeBooking = ({ garage, serviceIds = [], vehicle = {} }) => {
     return false;
   }
 
-  return requiredServiceIds.every((serviceId) =>
-    assignments.some(
+  return requiredServiceIds.every((serviceId) => {
+    const serviceAssignments = assignments.filter(
       (assignment) =>
-        assignment.serviceId === serviceId &&
-        assignmentMatchesVehicle(assignment, vehicle),
-    ),
-  );
+        assignment.serviceId === serviceId && assignment.isActive !== false,
+    );
+
+    const isProvided = serviceAssignments.some((assignment) =>
+      assignmentMatchesVehicle(assignment, vehicle),
+    );
+    const isExcluded = serviceAssignments.some((assignment) =>
+      assignmentExcludesVehicle(assignment, vehicle),
+    );
+
+    return isProvided && !isExcluded;
+  });
 };
 
 module.exports = {
+  assignmentExcludesVehicle,
   assignmentMatchesVehicle,
   garageCanServeBooking,
   garageSupportsVehicleBrand,

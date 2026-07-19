@@ -74,11 +74,7 @@ const formatGarageServiceScope = ({ vehicleBrand, vehicleModel }) => {
   const brandScope = String(vehicleBrand || "ALL").toUpperCase();
   const modelScope = String(vehicleModel || "ALL").toUpperCase();
 
-  if (brandScope === "NONE") {
-    return "No vehicle brand / no vehicle model";
-  }
   if (brandScope === "ALL") return "All brands / all models";
-  if (modelScope === "NONE") return `${vehicleBrand} / No vehicle model`;
   if (modelScope === "ALL") return `${vehicleBrand} / All models`;
   return `${vehicleBrand} / ${vehicleModel}`;
 };
@@ -177,6 +173,7 @@ export default function Garages() {
     serviceId: "",
     vehicleBrand: "ALL",
     vehicleModel: "ALL",
+    isExcluded: false,
   });
   const [noteByApplication, setNoteByApplication] = useState({});
   const [selectedApplicationIds, setSelectedApplicationIds] = useState([]);
@@ -341,6 +338,11 @@ export default function Garages() {
       return;
     }
 
+    if (serviceForm.isExcluded && !serviceForm.vehicleBrand) {
+      setError("Select a vehicle brand to exclude.");
+      return;
+    }
+
     setError("");
     setSuccess("");
 
@@ -349,6 +351,7 @@ export default function Garages() {
         serviceId: serviceForm.serviceId,
         vehicleBrand: serviceForm.vehicleBrand,
         vehicleModel: serviceForm.vehicleModel,
+        isExcluded: serviceForm.isExcluded,
         isActive: true,
       });
 
@@ -357,6 +360,7 @@ export default function Garages() {
         serviceId: "",
         vehicleBrand: "ALL",
         vehicleModel: "ALL",
+        isExcluded: false,
       });
 
       await loadGaragesAndServices();
@@ -387,6 +391,7 @@ export default function Garages() {
       serviceId: item.serviceId,
       vehicleBrand: item.vehicleBrand || "ALL",
       vehicleModel: item.vehicleModel || "ALL",
+      isExcluded: Boolean(item.isExcluded),
     });
   };
 
@@ -1557,7 +1562,7 @@ export default function Garages() {
             {!isIntern && (
             <form
               onSubmit={saveGarageService}
-              className="card-soft grid gap-3 rounded-xl p-4 shadow-sm md:grid-cols-2 2xl:grid-cols-[minmax(190px,1fr)_minmax(230px,1.2fr)_minmax(150px,0.8fr)_minmax(150px,0.8fr)]"
+              className="card-soft grid gap-3 rounded-xl p-4 shadow-sm md:grid-cols-2 2xl:grid-cols-[minmax(180px,1fr)_minmax(210px,1.15fr)_minmax(150px,0.75fr)_minmax(150px,0.8fr)_minmax(150px,0.8fr)]"
             >
               <label className="grid min-w-0 gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
                 Garage
@@ -1606,6 +1611,26 @@ export default function Garages() {
               </label>
 
               <label className="grid min-w-0 gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                Assignment rule
+                <select
+                  value={serviceForm.isExcluded ? "EXCLUDE" : "INCLUDE"}
+                  onChange={(event) => {
+                    const isExcluded = event.target.value === "EXCLUDE";
+                    setServiceForm((current) => ({
+                      ...current,
+                      isExcluded,
+                      vehicleBrand: isExcluded ? "" : "ALL",
+                      vehicleModel: "ALL",
+                    }));
+                  }}
+                  className={fieldClass}
+                >
+                  <option value="INCLUDE">Provide service</option>
+                  <option value="EXCLUDE">Exclude vehicle</option>
+                </select>
+              </label>
+
+              <label className="grid min-w-0 gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
                 Vehicle brand
                 <select
                 value={serviceForm.vehicleBrand}
@@ -1615,14 +1640,17 @@ export default function Garages() {
                     return {
                       ...current,
                       vehicleBrand,
-                      vehicleModel: vehicleBrand === "ALL" ? "ALL" : "NONE",
+                      vehicleModel: "ALL",
                     };
                   })
                 }
                 className={fieldClass}
               >
-                <option value="NONE">No vehicle brand</option>
-                <option value="ALL">All brands</option>
+                {serviceForm.isExcluded ? (
+                  <option value="">Select brand to exclude</option>
+                ) : (
+                  <option value="ALL">All brands</option>
+                )}
                 {vehicleBrands.map((brand) => (
                   <option key={brand.id || brand.name} value={brand.name}>
                     {brand.name}
@@ -1641,14 +1669,14 @@ export default function Garages() {
                     vehicleModel: event.target.value,
                   })
                 }
-                disabled={
-                  serviceForm.vehicleBrand === "ALL" ||
-                  serviceForm.vehicleBrand === "NONE"
-                }
+                disabled={!serviceForm.vehicleBrand || serviceForm.vehicleBrand === "ALL"}
                 className={fieldClass}
               >
-                <option value="NONE">No vehicle model</option>
-                <option value="ALL">All models</option>
+                <option value="ALL">
+                  {serviceForm.isExcluded
+                    ? "All models (exclude brand)"
+                    : "All models"}
+                </option>
                 {vehicleModels.map((model) => (
                   <option key={model.id || model.name} value={model.name}>
                     {model.name}
@@ -1659,8 +1687,12 @@ export default function Garages() {
 
               <button
                 type="submit"
-                disabled={!selectedGarageId || !serviceForm.serviceId}
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-ink px-5 text-sm font-bold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 2xl:col-span-4"
+                disabled={
+                  !selectedGarageId ||
+                  !serviceForm.serviceId ||
+                  (serviceForm.isExcluded && !serviceForm.vehicleBrand)
+                }
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-ink px-5 text-sm font-bold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 2xl:col-span-5"
               >
                 Save
               </button>
@@ -1669,10 +1701,10 @@ export default function Garages() {
 
             <section className="card-soft overflow-hidden rounded-xl shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[620px] text-sm">
+                <table className="w-full min-w-[760px] text-sm">
                   <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
                     <tr>
-                      {["Service", "Category", "Vehicle Scope", "Actions"].map(
+                      {["Service", "Category", "Rule", "Vehicle Scope", "Actions"].map(
                         (heading) => (
                           <th
                             key={heading}
@@ -1698,6 +1730,18 @@ export default function Garages() {
 
                           <td className="px-4 py-3 text-muted">
                             {item.service?.category?.name || "General"}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${
+                                item.isExcluded
+                                  ? "border-red-200 bg-red-50 text-red-700"
+                                  : "border-green-200 bg-green-50 text-green-700"
+                              }`}
+                            >
+                              {item.isExcluded ? "Excluded" : "Provided"}
+                            </span>
                           </td>
 
                           <td className="px-4 py-3 text-muted">

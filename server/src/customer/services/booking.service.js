@@ -48,7 +48,7 @@ const bookingInclude = {
         },
       },
       services: {
-        where: { isActive: true },
+        where: { isActive: true, isExcluded: false },
         select: {
           serviceId: true,
           vehicleBrand: true,

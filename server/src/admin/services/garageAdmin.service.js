@@ -87,9 +87,7 @@ const normalizeScope = (value, fallback = "ALL") => {
   if (!text) return fallback;
 
   const reservedScope = text.toUpperCase();
-  return reservedScope === "ALL" || reservedScope === "NONE"
-    ? reservedScope
-    : text;
+  return reservedScope === "ALL" ? reservedScope : text;
 };
 
 const normalizeVehicleScope = (brandValue, modelValue) => {
@@ -98,13 +96,10 @@ const normalizeVehicleScope = (brandValue, modelValue) => {
   if (vehicleBrand === "ALL") {
     return { vehicleBrand, vehicleModel: "ALL" };
   }
-  if (vehicleBrand === "NONE") {
-    return { vehicleBrand, vehicleModel: "NONE" };
-  }
 
   return {
     vehicleBrand,
-    vehicleModel: normalizeScope(modelValue, "NONE"),
+    vehicleModel: normalizeScope(modelValue),
   };
 };
 
@@ -303,6 +298,11 @@ const upsertGarageService = async (garageId, payload) => {
     payload.vehicleBrand,
     payload.vehicleModel,
   );
+  const isExcluded = parseBoolean(payload.isExcluded, false);
+
+  if (isExcluded && vehicleBrand === "ALL") {
+    throw new ApiError(400, "Choose a specific vehicle brand to exclude");
+  }
 
   const garageService = await prisma.garageService.upsert({
     where: {
@@ -318,10 +318,12 @@ const upsertGarageService = async (garageId, payload) => {
       serviceId: payload.serviceId,
       vehicleBrand,
       vehicleModel,
+      isExcluded,
       price: null,
       isActive: parseBoolean(payload.isActive, true),
     },
     update: {
+      isExcluded,
       isActive: parseBoolean(payload.isActive, true),
     },
     include: {
