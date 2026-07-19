@@ -70,6 +70,16 @@ const money = (value) => formatRupees(value);
 const fieldClass =
   "h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/5 disabled:bg-bg-soft";
 
+const createEmptyServiceForm = () => ({
+  serviceId: "",
+  vehicleBrand: "ALL",
+  vehicleModel: "ALL",
+  isExcluded: false,
+  exclusionMode: "BRANDS",
+  excludedBrands: [],
+  excludedModels: [],
+});
+
 const formatGarageServiceScope = ({ vehicleBrand, vehicleModel }) => {
   const brandScope = String(vehicleBrand || "ALL").toUpperCase();
   const modelScope = String(vehicleModel || "ALL").toUpperCase();
@@ -169,12 +179,7 @@ export default function Garages() {
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [selectedGarageId, setSelectedGarageId] = useState("");
   const [selectedGarageDetails, setSelectedGarageDetails] = useState(null);
-  const [serviceForm, setServiceForm] = useState({
-    serviceId: "",
-    vehicleBrand: "ALL",
-    vehicleModel: "ALL",
-    isExcluded: false,
-  });
+  const [serviceForm, setServiceForm] = useState(createEmptyServiceForm);
   const [noteByApplication, setNoteByApplication] = useState({});
   const [selectedApplicationIds, setSelectedApplicationIds] = useState([]);
   const [selectedGarageIds, setSelectedGarageIds] = useState([]);
@@ -338,8 +343,24 @@ export default function Garages() {
       return;
     }
 
-    if (serviceForm.isExcluded && !serviceForm.vehicleBrand) {
-      setError("Select a vehicle brand to exclude.");
+    const exclusionScopes = serviceForm.isExcluded
+      ? serviceForm.exclusionMode === "BRANDS"
+        ? serviceForm.excludedBrands.map((vehicleBrand) => ({
+            vehicleBrand,
+            vehicleModel: "ALL",
+          }))
+        : serviceForm.excludedModels.map((vehicleModel) => ({
+            vehicleBrand: serviceForm.vehicleBrand,
+            vehicleModel,
+          }))
+      : [];
+
+    if (serviceForm.isExcluded && exclusionScopes.length === 0) {
+      setError(
+        serviceForm.exclusionMode === "BRANDS"
+          ? "Select at least one vehicle brand to exclude."
+          : "Select at least one vehicle model to exclude.",
+      );
       return;
     }
 
@@ -349,19 +370,22 @@ export default function Garages() {
     try {
       await adminApi.saveGarageService(selectedGarageId, {
         serviceId: serviceForm.serviceId,
-        vehicleBrand: serviceForm.vehicleBrand,
-        vehicleModel: serviceForm.vehicleModel,
+        ...(serviceForm.isExcluded
+          ? { vehicleScopes: exclusionScopes }
+          : {
+              vehicleBrand: serviceForm.vehicleBrand,
+              vehicleModel: serviceForm.vehicleModel,
+            }),
         isExcluded: serviceForm.isExcluded,
         isActive: true,
       });
 
-      setSuccess("Garage service saved.");
-      setServiceForm({
-        serviceId: "",
-        vehicleBrand: "ALL",
-        vehicleModel: "ALL",
-        isExcluded: false,
-      });
+      setSuccess(
+        serviceForm.isExcluded && exclusionScopes.length > 1
+          ? `${exclusionScopes.length} vehicle exclusions saved.`
+          : "Garage service saved.",
+      );
+      setServiceForm(createEmptyServiceForm());
 
       await loadGaragesAndServices();
     } catch (err) {
@@ -387,11 +411,19 @@ export default function Garages() {
   };
 
   const editGarageService = (item) => {
+    const isExcluded = Boolean(item.isExcluded);
+    const excludesWholeBrand =
+      isExcluded && String(item.vehicleModel || "ALL").toUpperCase() === "ALL";
+
     setServiceForm({
+      ...createEmptyServiceForm(),
       serviceId: item.serviceId,
-      vehicleBrand: item.vehicleBrand || "ALL",
-      vehicleModel: item.vehicleModel || "ALL",
-      isExcluded: Boolean(item.isExcluded),
+      vehicleBrand: excludesWholeBrand ? "" : item.vehicleBrand || "ALL",
+      vehicleModel: isExcluded ? "ALL" : item.vehicleModel || "ALL",
+      isExcluded,
+      exclusionMode: excludesWholeBrand ? "BRANDS" : "MODELS",
+      excludedBrands: excludesWholeBrand ? [item.vehicleBrand] : [],
+      excludedModels: isExcluded && !excludesWholeBrand ? [item.vehicleModel] : [],
     });
   };
 
@@ -1617,19 +1649,43 @@ export default function Garages() {
                   onChange={(event) => {
                     const isExcluded = event.target.value === "EXCLUDE";
                     setServiceForm((current) => ({
-                      ...current,
+                      ...createEmptyServiceForm(),
+                      serviceId: current.serviceId,
                       isExcluded,
                       vehicleBrand: isExcluded ? "" : "ALL",
-                      vehicleModel: "ALL",
                     }));
                   }}
                   className={fieldClass}
                 >
                   <option value="INCLUDE">Provide service</option>
-                  <option value="EXCLUDE">Exclude vehicle</option>
+                  <option value="EXCLUDE">Exclude vehicles</option>
                 </select>
               </label>
 
+              {serviceForm.isExcluded && (
+                <label className="grid min-w-0 gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                  Exclusion scope
+                  <select
+                    value={serviceForm.exclusionMode}
+                    onChange={(event) =>
+                      setServiceForm((current) => ({
+                        ...current,
+                        exclusionMode: event.target.value,
+                        vehicleBrand: "",
+                        excludedBrands: [],
+                        excludedModels: [],
+                      }))
+                    }
+                    className={fieldClass}
+                  >
+                    <option value="BRANDS">Entire brands</option>
+                    <option value="MODELS">Specific models</option>
+                  </select>
+                </label>
+              )}
+
+              {!serviceForm.isExcluded && (
+                <>
               <label className="grid min-w-0 gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
                 Vehicle brand
                 <select
@@ -1646,11 +1702,7 @@ export default function Garages() {
                 }
                 className={fieldClass}
               >
-                {serviceForm.isExcluded ? (
-                  <option value="">Select brand to exclude</option>
-                ) : (
-                  <option value="ALL">All brands</option>
-                )}
+                <option value="ALL">All brands</option>
                 {vehicleBrands.map((brand) => (
                   <option key={brand.id || brand.name} value={brand.name}>
                     {brand.name}
@@ -1672,11 +1724,7 @@ export default function Garages() {
                 disabled={!serviceForm.vehicleBrand || serviceForm.vehicleBrand === "ALL"}
                 className={fieldClass}
               >
-                <option value="ALL">
-                  {serviceForm.isExcluded
-                    ? "All models (exclude brand)"
-                    : "All models"}
-                </option>
+                <option value="ALL">All models</option>
                 {vehicleModels.map((model) => (
                   <option key={model.id || model.name} value={model.name}>
                     {model.name}
@@ -1684,13 +1732,132 @@ export default function Garages() {
                 ))}
                 </select>
               </label>
+                </>
+              )}
+
+              {serviceForm.isExcluded && serviceForm.exclusionMode === "BRANDS" && (
+                <fieldset className="rounded-xl border border-line bg-white p-3 md:col-span-2 2xl:col-span-5">
+                  <legend className="px-1 text-xs font-bold uppercase tracking-wide text-muted">
+                    Brands to exclude
+                  </legend>
+                  <p className="mb-3 text-sm text-muted">
+                    Select every brand that must not receive this service. All models under each selected brand will be excluded.
+                  </p>
+                  <div className="grid max-h-52 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {vehicleBrands.map((brand) => {
+                      const checked = serviceForm.excludedBrands.includes(brand.name);
+                      return (
+                        <label
+                          key={brand.id || brand.name}
+                          className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                            checked
+                              ? "border-ink bg-bg-soft text-ink"
+                              : "border-line bg-white text-muted hover:border-ink/30"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setServiceForm((current) => ({
+                                ...current,
+                                excludedBrands: checked
+                                  ? current.excludedBrands.filter((name) => name !== brand.name)
+                                  : [...current.excludedBrands, brand.name],
+                              }))
+                            }
+                            className="h-4 w-4 accent-black"
+                          />
+                          <span className="truncate">{brand.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-xs font-semibold text-muted">
+                    {serviceForm.excludedBrands.length
+                      ? `${serviceForm.excludedBrands.length} brand${serviceForm.excludedBrands.length === 1 ? "" : "s"} selected`
+                      : "No brands selected"}
+                  </p>
+                </fieldset>
+              )}
+
+              {serviceForm.isExcluded && serviceForm.exclusionMode === "MODELS" && (
+                <>
+                  <label className="grid min-w-0 gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                    Vehicle brand
+                    <select
+                      value={serviceForm.vehicleBrand}
+                      onChange={(event) =>
+                        setServiceForm((current) => ({
+                          ...current,
+                          vehicleBrand: event.target.value,
+                          excludedModels: [],
+                        }))
+                      }
+                      className={fieldClass}
+                    >
+                      <option value="">Select brand</option>
+                      {vehicleBrands.map((brand) => (
+                        <option key={brand.id || brand.name} value={brand.name}>
+                          {brand.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <fieldset className="rounded-xl border border-line bg-white p-3 md:col-span-2 2xl:col-span-5">
+                    <legend className="px-1 text-xs font-bold uppercase tracking-wide text-muted">
+                      Models to exclude
+                    </legend>
+                    {!serviceForm.vehicleBrand ? (
+                      <p className="text-sm text-muted">Select a brand to see its models.</p>
+                    ) : vehicleModels.length ? (
+                      <div className="grid max-h-52 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {vehicleModels.map((model) => {
+                          const checked = serviceForm.excludedModels.includes(model.name);
+                          return (
+                            <label
+                              key={model.id || model.name}
+                              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                                checked
+                                  ? "border-ink bg-bg-soft text-ink"
+                                  : "border-line bg-white text-muted hover:border-ink/30"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  setServiceForm((current) => ({
+                                    ...current,
+                                    excludedModels: checked
+                                      ? current.excludedModels.filter((name) => name !== model.name)
+                                      : [...current.excludedModels, model.name],
+                                  }))
+                                }
+                                className="h-4 w-4 accent-black"
+                              />
+                              <span className="truncate">{model.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted">No models are available for this brand.</p>
+                    )}
+                  </fieldset>
+                </>
+              )}
 
               <button
                 type="submit"
                 disabled={
                   !selectedGarageId ||
                   !serviceForm.serviceId ||
-                  (serviceForm.isExcluded && !serviceForm.vehicleBrand)
+                  (serviceForm.isExcluded &&
+                    (serviceForm.exclusionMode === "BRANDS"
+                      ? serviceForm.excludedBrands.length === 0
+                      : !serviceForm.vehicleBrand || serviceForm.excludedModels.length === 0))
                 }
                 className="inline-flex h-10 items-center justify-center rounded-lg bg-ink px-5 text-sm font-bold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 2xl:col-span-5"
               >

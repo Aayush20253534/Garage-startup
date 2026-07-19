@@ -33,6 +33,22 @@ const upsertGarageServiceSchema = [
   body("serviceId").isUUID().withMessage("Valid service ID is required"),
   body("vehicleBrand").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
   body("vehicleModel").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
+  body("vehicleScopes")
+    .optional({ nullable: true })
+    .isArray({ min: 1, max: 100 })
+    .withMessage("Select between 1 and 100 vehicle exclusions"),
+  body("vehicleScopes.*.vehicleBrand")
+    .if(body("vehicleScopes").exists())
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 120 })
+    .withMessage("Each exclusion requires a valid vehicle brand"),
+  body("vehicleScopes.*.vehicleModel")
+    .if(body("vehicleScopes").exists())
+    .optional({ nullable: true, checkFalsy: true })
+    .isString()
+    .trim()
+    .isLength({ max: 120 }),
   body("isExcluded").optional({ nullable: true }).isBoolean(),
   body("isActive").optional({ nullable: true }).isBoolean(),
 ];

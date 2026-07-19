@@ -170,9 +170,12 @@ test("garage assignment UI and queries preserve exclusion precedence", () => {
 
   assert.match(adminPage, /value="EXCLUDE">Exclude vehicle/);
   assert.match(adminPage, /isExcluded: serviceForm\.isExcluded/);
-  assert.match(adminPage, /All models \(exclude brand\)/);
+  assert.match(adminPage, /Entire brands/);
+  assert.match(adminPage, /Specific models/);
+  assert.match(adminPage, /vehicleScopes: exclusionScopes/);
   assert.match(adminService, /const normalizeVehicleScope/);
-  assert.match(adminService, /Choose a specific vehicle brand to exclude/);
+  assert.match(adminService, /prisma\.\$transaction/);
+  assert.match(adminService, /Choose specific vehicle brands to exclude/);
   assert.match(schema, /isExcluded\s+Boolean\s+@default\(false\)/);
   assert.match(migration, /ADD COLUMN "isExcluded" BOOLEAN NOT NULL DEFAULT false/);
   assert.match(eligibilityService, /excluded_gs\."isExcluded" = true/);

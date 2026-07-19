@@ -294,44 +294,69 @@ const upsertGarageService = async (garageId, payload) => {
   const service = await prisma.service.findUnique({ where: { id: payload.serviceId } });
   if (!service) throw new ApiError(404, "Service not found");
 
-  const { vehicleBrand, vehicleModel } = normalizeVehicleScope(
-    payload.vehicleBrand,
-    payload.vehicleModel,
-  );
   const isExcluded = parseBoolean(payload.isExcluded, false);
+  const hasBatchScopes = Array.isArray(payload.vehicleScopes);
+  const rawScopes = hasBatchScopes
+    ? payload.vehicleScopes
+    : [
+        {
+          vehicleBrand: payload.vehicleBrand,
+          vehicleModel: payload.vehicleModel,
+        },
+      ];
 
-  if (isExcluded && vehicleBrand === "ALL") {
-    throw new ApiError(400, "Choose a specific vehicle brand to exclude");
+  if (!rawScopes.length || rawScopes.length > 100) {
+    throw new ApiError(400, "Select between 1 and 100 vehicle scopes");
   }
 
-  const garageService = await prisma.garageService.upsert({
-    where: {
-      garageId_serviceId_vehicleBrand_vehicleModel: {
-        garageId,
-        serviceId: payload.serviceId,
-        vehicleBrand,
-        vehicleModel,
-      },
-    },
-    create: {
-      garageId,
-      serviceId: payload.serviceId,
-      vehicleBrand,
-      vehicleModel,
-      isExcluded,
-      price: null,
-      isActive: parseBoolean(payload.isActive, true),
-    },
-    update: {
-      isExcluded,
-      isActive: parseBoolean(payload.isActive, true),
-    },
-    include: {
-      service: {
-        include: { category: true },
-      },
-    },
+  const uniqueScopes = new Map();
+  rawScopes.forEach((scope = {}) => {
+    const normalizedScope = normalizeVehicleScope(
+      scope.vehicleBrand,
+      scope.vehicleModel,
+    );
+    const scopeKey = `${normalizedScope.vehicleBrand.toLocaleLowerCase()}::${normalizedScope.vehicleModel.toLocaleLowerCase()}`;
+    uniqueScopes.set(scopeKey, normalizedScope);
   });
+  const vehicleScopes = [...uniqueScopes.values()];
+
+  if (isExcluded && vehicleScopes.some(({ vehicleBrand }) => vehicleBrand === "ALL")) {
+    throw new ApiError(400, "Choose specific vehicle brands to exclude");
+  }
+
+  const isActive = parseBoolean(payload.isActive, true);
+  const garageServices = await prisma.$transaction(
+    vehicleScopes.map(({ vehicleBrand, vehicleModel }) =>
+      prisma.garageService.upsert({
+        where: {
+          garageId_serviceId_vehicleBrand_vehicleModel: {
+            garageId,
+            serviceId: payload.serviceId,
+            vehicleBrand,
+            vehicleModel,
+          },
+        },
+        create: {
+          garageId,
+          serviceId: payload.serviceId,
+          vehicleBrand,
+          vehicleModel,
+          isExcluded,
+          price: null,
+          isActive,
+        },
+        update: {
+          isExcluded,
+          isActive,
+        },
+        include: {
+          service: {
+            include: { category: true },
+          },
+        },
+      }),
+    ),
+  );
 
   await Promise.all([
     deleteCache(`garages:${garageId}:services`),
@@ -340,7 +365,7 @@ const upsertGarageService = async (garageId, payload) => {
     deletePattern("garages:public:*"),
   ]);
 
-  return garageService;
+  return hasBatchScopes ? garageServices : garageServices[0];
 };
 
 const removeGarageService = async (garageId, serviceId, scope = {}) => {
