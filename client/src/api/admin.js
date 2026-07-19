@@ -288,6 +288,14 @@ export const adminApi = {
     return unwrap(await api.delete(`/admin/city-service-price-ranges/${id}`));
   },
 
+  async deletePriceRanges(priceRangeIds = [], deleteAll = false) {
+    return unwrap(
+      await api.delete("/admin/city-service-price-ranges", {
+        data: { priceRangeIds, deleteAll },
+      }),
+    );
+  },
+
   async getCarBrands(params = {}) {
     return unwrap(await api.get("/admin/cars/brands", { params }));
   },

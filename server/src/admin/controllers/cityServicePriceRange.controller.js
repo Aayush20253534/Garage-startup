@@ -27,9 +27,17 @@ const deletePriceRange = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Price range deleted successfully", range));
 });
 
+const deletePriceRanges = asyncHandler(async (req, res) => {
+  const result = await service.deletePriceRanges(req.body);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Price ranges deleted successfully", result));
+});
+
 module.exports = {
   createPriceRange,
   deletePriceRange,
+  deletePriceRanges,
   getPriceRange,
   listPriceRanges,
   updatePriceRange,

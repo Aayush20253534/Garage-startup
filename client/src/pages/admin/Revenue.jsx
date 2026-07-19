@@ -64,6 +64,8 @@ export default function Revenue() {
   const [saving, setSaving] = useState(false);
   const [citySaving, setCitySaving] = useState(false);
   const [citySelectKey, setCitySelectKey] = useState(0);
+  const [selectedRangeIds, setSelectedRangeIds] = useState([]);
+  const [deletingRanges, setDeletingRanges] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -88,6 +90,7 @@ export default function Revenue() {
 
       setRanges(rangeList || []);
       setServices(serviceList || []);
+      setSelectedRangeIds([]);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load price ranges");
     } finally {
@@ -240,6 +243,76 @@ export default function Revenue() {
       await load();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to delete price range");
+    }
+  };
+
+  const visibleRangeIds = ranges.map((range) => range.id);
+  const allVisibleRangesSelected =
+    visibleRangeIds.length > 0 &&
+    visibleRangeIds.every((rangeId) => selectedRangeIds.includes(rangeId));
+
+  const toggleRangeSelection = (rangeId) => {
+    setSelectedRangeIds((current) =>
+      current.includes(rangeId)
+        ? current.filter((id) => id !== rangeId)
+        : [...current, rangeId],
+    );
+  };
+
+  const toggleAllVisibleRanges = () => {
+    setSelectedRangeIds(allVisibleRangesSelected ? [] : visibleRangeIds);
+  };
+
+  const deleteSelectedRanges = async () => {
+    const rangeIds = selectedRangeIds.filter((rangeId) =>
+      visibleRangeIds.includes(rangeId),
+    );
+    if (!rangeIds.length) return;
+
+    const confirmed = window.confirm(
+      `Delete ${rangeIds.length} selected price range${rangeIds.length === 1 ? "" : "s"}? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingRanges(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await adminApi.deletePriceRanges(rangeIds, false);
+      if (rangeIds.includes(form.id)) setForm(emptyForm);
+      setSuccess(
+        `${result.deleted || rangeIds.length} price range${(result.deleted || rangeIds.length) === 1 ? "" : "s"} deleted.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected price ranges");
+    } finally {
+      setDeletingRanges(false);
+    }
+  };
+
+  const deleteAllRanges = async () => {
+    const confirmation = window.prompt(
+      "This deletes every price range across all cities. Type DELETE ALL PRICE RANGES to continue.",
+    );
+    if (confirmation !== "DELETE ALL PRICE RANGES") return;
+
+    setDeletingRanges(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await adminApi.deletePriceRanges([], true);
+      setForm(emptyForm);
+      setSuccess(
+        `${result.deleted || 0} price range${result.deleted === 1 ? "" : "s"} deleted across all cities.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete all price ranges");
+    } finally {
+      setDeletingRanges(false);
     }
   };
 
@@ -502,10 +575,62 @@ export default function Revenue() {
       </section>
 
       <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold text-ink">Price range records</p>
+            <p className="mt-1 text-xs text-muted">
+              {ranges.length} shown · {selectedRangeIds.length} selected
+            </p>
+          </div>
+
+          {!isIntern && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={toggleAllVisibleRanges}
+                disabled={!ranges.length || loading || deletingRanges}
+                className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-white px-3 text-xs font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {allVisibleRangesSelected ? "Clear selection" : "Select all shown"}
+              </button>
+              <button
+                type="button"
+                onClick={deleteSelectedRanges}
+                disabled={!selectedRangeIds.length || loading || deletingRanges}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FiTrash2 />
+                Delete selected ({selectedRangeIds.length})
+              </button>
+              <button
+                type="button"
+                onClick={deleteAllRanges}
+                disabled={loading || deletingRanges}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-red-700 px-3 text-xs font-semibold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FiTrash2 />
+                {deletingRanges ? "Deleting..." : "Delete all cities"}
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[880px] text-sm">
             <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
               <tr>
+                <th className="w-12 px-4 py-3">
+                  {!isIntern && (
+                    <input
+                      type="checkbox"
+                      checked={allVisibleRangesSelected}
+                      disabled={!ranges.length || loading || deletingRanges}
+                      onChange={toggleAllVisibleRanges}
+                      className="h-4 w-4 rounded border-line accent-ink"
+                      aria-label="Select all shown price ranges"
+                    />
+                  )}
+                </th>
                 {[
                   "City",
                   "Service",
@@ -528,7 +653,7 @@ export default function Revenue() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-6 text-sm text-muted">
+                  <td colSpan="8" className="px-4 py-6 text-sm text-muted">
                     Loading price ranges...
                   </td>
                 </tr>
@@ -540,8 +665,22 @@ export default function Revenue() {
                   return (
                     <tr
                       key={range.id}
-                      className="border-t border-line transition hover:bg-bg-soft/70"
+                      className={`border-t border-line transition hover:bg-bg-soft/70 ${
+                        selectedRangeIds.includes(range.id) ? "bg-bg-soft/80" : ""
+                      }`}
                     >
+                      <td className="w-12 px-4 py-3">
+                        {!isIntern && (
+                          <input
+                            type="checkbox"
+                            checked={selectedRangeIds.includes(range.id)}
+                            disabled={deletingRanges}
+                            onChange={() => toggleRangeSelection(range.id)}
+                            className="h-4 w-4 rounded border-line accent-ink"
+                            aria-label={`Select price range for ${range.city}`}
+                          />
+                        )}
+                      </td>
                       <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
                         {range.city}
                       </td>
@@ -617,7 +756,7 @@ export default function Revenue() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" className="px-4 py-6 text-sm text-muted">
+                  <td colSpan="8" className="px-4 py-6 text-sm text-muted">
                     No price ranges found.
                   </td>
                 </tr>

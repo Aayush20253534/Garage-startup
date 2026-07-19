@@ -4,6 +4,25 @@ const fuelTypes = ["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"];
 
 const priceRangeIdSchema = [param("id").isUUID().withMessage("Invalid price range ID")];
 
+const deletePriceRangesSchema = [
+  body("priceRangeIds")
+    .optional()
+    .isArray({ min: 1, max: 1000 })
+    .withMessage("Select between 1 and 1000 price ranges"),
+  body("priceRangeIds.*")
+    .optional()
+    .isUUID()
+    .withMessage("Invalid price range ID"),
+  body("deleteAll").optional().isBoolean(),
+  body().custom((payload = {}) => {
+    if (payload.deleteAll === true) return true;
+    if (Array.isArray(payload.priceRangeIds) && payload.priceRangeIds.length > 0) {
+      return true;
+    }
+    throw new Error("Select price ranges or request deletion of all price ranges");
+  }),
+];
+
 const priceRangeQuerySchema = [
   query("city").optional({ nullable: true, checkFalsy: true }).trim(),
   query("serviceId").optional({ nullable: true, checkFalsy: true }).isUUID(),
@@ -42,6 +61,7 @@ const updatePriceRangeSchema = [
 
 module.exports = {
   createPriceRangeSchema,
+  deletePriceRangesSchema,
   priceRangeIdSchema,
   priceRangeQuerySchema,
   updatePriceRangeSchema,

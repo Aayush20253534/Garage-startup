@@ -6,6 +6,7 @@ const { authorizeRoles } = require("../../middlewares/role.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const {
   createPriceRangeSchema,
+  deletePriceRangesSchema,
   priceRangeIdSchema,
   priceRangeQuerySchema,
   updatePriceRangeSchema,
@@ -31,6 +32,13 @@ router.patch(
   updatePriceRangeSchema,
   validate,
   controller.updatePriceRange,
+);
+router.delete(
+  "/",
+  authorizeRoles("ADMIN"),
+  deletePriceRangesSchema,
+  validate,
+  controller.deletePriceRanges,
 );
 router.delete(
   "/:id",

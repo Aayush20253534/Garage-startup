@@ -216,6 +216,31 @@ const deletePriceRange = async (id) => {
   return deleted;
 };
 
+const deletePriceRanges = async ({ priceRangeIds = [], deleteAll = false } = {}) => {
+  const uniqueIds = [
+    ...new Set(
+      (Array.isArray(priceRangeIds) ? priceRangeIds : [])
+        .map((id) => String(id || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+
+  if (deleteAll !== true && uniqueIds.length === 0) {
+    throw new ApiError(400, "Select at least one price range to delete");
+  }
+
+  const deleted = await prisma.cityServicePriceRange.deleteMany({
+    where: deleteAll === true ? {} : { id: { in: uniqueIds } },
+  });
+
+  if (deleteAll !== true && deleted.count === 0) {
+    throw new ApiError(404, "No matching price ranges were found");
+  }
+
+  await invalidatePriceRangeCaches();
+  return { deleted: deleted.count, deleteAll: deleteAll === true };
+};
+
 const scoreMatch = (range, vehicle) => {
   let score = 0;
 
@@ -278,6 +303,7 @@ const findBestPriceRangesForBooking = async ({ city, services, vehicle }) => {
 module.exports = {
   createPriceRange,
   deletePriceRange,
+  deletePriceRanges,
   findBestPriceRangesForBooking,
   getPriceRange,
   invalidatePriceRangeCaches,
