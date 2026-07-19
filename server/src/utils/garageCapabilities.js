@@ -9,7 +9,7 @@ const normalizeServiceIds = (serviceIds = []) => [
   ),
 ];
 
-const parseSupportedBrands = (value) => {
+const parseBrandList = (value) => {
   if (Array.isArray(value)) return value;
   if (!value) return [];
 
@@ -23,11 +23,24 @@ const parseSupportedBrands = (value) => {
   return String(value).split(",");
 };
 
+const garageExcludesVehicleBrand = (garage, vehicle = {}) => {
+  const vehicleBrand = normalizeCapabilityValue(vehicle.brand);
+  if (!vehicleBrand) return false;
+
+  const excludedBrands = parseBrandList(garage?.excludedServiceBrands)
+    .map(normalizeCapabilityValue)
+    .filter(Boolean);
+
+  return excludedBrands.includes(vehicleBrand);
+};
+
 const garageSupportsVehicleBrand = (garage, vehicle = {}) => {
   const vehicleBrand = normalizeCapabilityValue(vehicle.brand);
   if (!vehicleBrand) return false;
 
-  const supportedBrands = parseSupportedBrands(garage?.supportedBrands)
+  if (garageExcludesVehicleBrand(garage, vehicle)) return false;
+
+  const supportedBrands = parseBrandList(garage?.supportedBrands)
     .map(normalizeCapabilityValue)
     .filter(Boolean);
 
@@ -95,5 +108,6 @@ module.exports = {
   assignmentExcludesVehicle,
   assignmentMatchesVehicle,
   garageCanServeBooking,
+  garageExcludesVehicleBrand,
   garageSupportsVehicleBrand,
 };

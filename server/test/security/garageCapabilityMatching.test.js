@@ -6,6 +6,7 @@ const test = require("node:test");
 const {
   assignmentMatchesVehicle,
   garageCanServeBooking,
+  garageExcludesVehicleBrand,
 } = require("../../src/utils/garageCapabilities");
 
 const projectRoot = path.resolve(__dirname, "../../..");
@@ -151,6 +152,44 @@ test("brand and model exclusions override broader service allocations", () => {
   );
 });
 
+test("multiple garage-wide brand exclusions block every allocated service", () => {
+  const garage = {
+    supportedBrands: ["ALL"],
+    excludedServiceBrands: ["BMW", "Audi", "Mercedes"],
+    services: [
+      {
+        serviceId: "service-ac",
+        vehicleBrand: "ALL",
+        vehicleModel: "ALL",
+        isExcluded: false,
+        isActive: true,
+        service: { isActive: true, category: { isActive: true } },
+      },
+    ],
+  };
+
+  ["BMW", "audi", "MERCEDES"].forEach((brand) => {
+    assert.equal(
+      garageCanServeBooking({
+        garage,
+        serviceIds: ["service-ac"],
+        vehicle: { brand, model: "Any model" },
+      }),
+      false,
+    );
+    assert.equal(garageExcludesVehicleBrand(garage, { brand }), true);
+  });
+
+  assert.equal(
+    garageCanServeBooking({
+      garage,
+      serviceIds: ["service-ac"],
+      vehicle: { brand: "Honda", model: "City" },
+    }),
+    true,
+  );
+});
+
 test("garage assignment UI and queries preserve exclusion precedence", () => {
   const adminPage = readProjectFile("client/src/pages/admin/Garages.jsx");
   const garagePage = readProjectFile("client/src/pages/garage/Services.jsx");
@@ -167,6 +206,12 @@ test("garage assignment UI and queries preserve exclusion precedence", () => {
   const migration = readProjectFile(
     "server/prisma/migrations/20260719110000_add_garage_service_exclusions/migration.sql",
   );
+  const garageWideMigration = readProjectFile(
+    "server/prisma/migrations/20260719120000_add_garage_wide_service_brand_exclusions/migration.sql",
+  );
+  const requestService = readProjectFile(
+    "server/src/services/garageRequest.service.js",
+  );
 
   assert.match(adminPage, /value="EXCLUDE">Exclude vehicle/);
   assert.match(adminPage, /isExcluded: serviceForm\.isExcluded/);
@@ -177,9 +222,15 @@ test("garage assignment UI and queries preserve exclusion precedence", () => {
   assert.match(adminService, /prisma\.\$transaction/);
   assert.match(adminService, /Choose specific vehicle brands to exclude/);
   assert.match(schema, /isExcluded\s+Boolean\s+@default\(false\)/);
+  assert.match(schema, /excludedServiceBrands\s+Json\s+@default\("\[\]"\)/);
   assert.match(migration, /ADD COLUMN "isExcluded" BOOLEAN NOT NULL DEFAULT false/);
+  assert.match(garageWideMigration, /ADD COLUMN "excludedServiceBrands" JSONB NOT NULL/);
   assert.match(eligibilityService, /excluded_gs\."isExcluded" = true/);
+  assert.match(eligibilityService, /g\."excludedServiceBrands"/);
   assert.match(eligibilityService, /services:\s*\{\s*none:/);
+  assert.match(requestService, /excludedServiceBrands: true/);
+  assert.match(adminPage, /Garage-wide brand exclusions/);
+  assert.match(garagePage, /Garage-wide excluded brands/);
   assert.match(garagePage, /Excluded: /);
   assert.match(customerGarageCard, /\.filter\(hasVehicleCoverage\)/);
 });

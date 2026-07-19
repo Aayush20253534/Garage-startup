@@ -401,6 +401,7 @@ model Garage {
   workingRadiusKm    Int                       @default(15)
   garageType         String?                   @default("MULTI_BRAND")
   supportedBrands    Json?
+  excludedServiceBrands Json                    @default("[]")
   isVerified         Boolean                   @default(false)
   isActive           Boolean                   @default(true)
   ratingAvg          Float                     @default(0)

@@ -83,6 +83,8 @@ const updateGarageDetailsSchema = [
   body("garageType").optional().isIn(["MULTI_BRAND", "AUTHORIZED"]),
   body("supportedBrands").optional().isArray({ max: 100 }),
   body("supportedBrands.*").optional().trim().isLength({ min: 1, max: 120 }),
+  body("excludedServiceBrands").optional().isArray({ max: 100 }),
+  body("excludedServiceBrands.*").optional().trim().isLength({ min: 1, max: 120 }),
   body("openingTime").optional({ nullable: true, checkFalsy: true }).matches(/^([01]\d|2[0-3]):[0-5]\d$/),
   body("closingTime").optional({ nullable: true, checkFalsy: true }).matches(/^([01]\d|2[0-3]):[0-5]\d$/),
   body("isVerified").optional().isBoolean().toBoolean(),

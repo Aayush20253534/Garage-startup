@@ -196,6 +196,17 @@ const buildRawGarageConditions = ({
       ) AS supported_brand(value)
       WHERE LOWER(supported_brand.value) IN (LOWER(${vehicleBrand}), 'all')
     )`);
+    conditions.push(Prisma.sql`NOT EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements_text(
+        CASE
+          WHEN jsonb_typeof(g."excludedServiceBrands") = 'array'
+            THEN g."excludedServiceBrands"
+          ELSE '[]'::jsonb
+        END
+      ) AS excluded_brand(value)
+      WHERE LOWER(excluded_brand.value) = LOWER(${vehicleBrand})
+    )`);
   }
 
   serviceIds.forEach((serviceId) => {
@@ -328,66 +339,97 @@ const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
   const hasVehicleScope = Boolean(vehicleBrand || vehicleModel);
 
   return {
-    AND: uniqueServiceIds.map((serviceId) => ({
-      AND: [
-        {
-          services: {
-            some: {
-              serviceId,
-              isActive: true,
-              isExcluded: false,
-              ...(vehicleBrand && {
-                OR: [
-                  { vehicleBrand: "ALL" },
-                  { vehicleBrand: { equals: vehicleBrand, mode: "insensitive" } },
-                ],
-              }),
-              ...(vehicleModel && {
-                AND: [
-                  {
-                    OR: [
-                      { vehicleModel: "ALL" },
-                      { vehicleModel: { equals: vehicleModel, mode: "insensitive" } },
-                    ],
-                  },
-                ],
-              }),
+    AND: [
+      ...(vehicleBrand
+        ? [
+            {
+              NOT: {
+                excludedServiceBrands: { array_contains: [vehicleBrand] },
+              },
+            },
+          ]
+        : []),
+      ...uniqueServiceIds.map((serviceId) => ({
+        AND: [
+          {
+            services: {
+              some: {
+                serviceId,
+                isActive: true,
+                isExcluded: false,
+                ...(vehicleBrand && {
+                  OR: [
+                    { vehicleBrand: "ALL" },
+                    {
+                      vehicleBrand: {
+                        equals: vehicleBrand,
+                        mode: "insensitive",
+                      },
+                    },
+                  ],
+                }),
+                ...(vehicleModel && {
+                  AND: [
+                    {
+                      OR: [
+                        { vehicleModel: "ALL" },
+                        {
+                          vehicleModel: {
+                            equals: vehicleModel,
+                            mode: "insensitive",
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              },
             },
           },
-        },
-        ...(hasVehicleScope
-          ? [
-              {
-                services: {
-                  none: {
-                    serviceId,
-                    isActive: true,
-                    isExcluded: true,
-                    ...(vehicleBrand && {
-                      OR: [
-                        { vehicleBrand: "ALL" },
-                        { vehicleBrand: { equals: vehicleBrand, mode: "insensitive" } },
-                      ],
-                    }),
-                    ...(vehicleModel
-                      ? {
-                          AND: [
-                            {
-                              OR: [
-                                { vehicleModel: "ALL" },
-                                { vehicleModel: { equals: vehicleModel, mode: "insensitive" } },
-                              ],
+          ...(hasVehicleScope
+            ? [
+                {
+                  services: {
+                    none: {
+                      serviceId,
+                      isActive: true,
+                      isExcluded: true,
+                      ...(vehicleBrand && {
+                        OR: [
+                          { vehicleBrand: "ALL" },
+                          {
+                            vehicleBrand: {
+                              equals: vehicleBrand,
+                              mode: "insensitive",
                             },
-                          ],
-                        }
-                      : { vehicleModel: "ALL" }),
+                          },
+                        ],
+                      }),
+                      ...(vehicleModel
+                        ? {
+                            AND: [
+                              {
+                                OR: [
+                                  { vehicleModel: "ALL" },
+                                  {
+                                    vehicleModel: {
+                                      equals: vehicleModel,
+                                      mode: "insensitive",
+                                    },
+                                  },
+                                ],
+                              },
+                            ],
+                          }
+                        : { vehicleModel: "ALL" }),
+                    },
                   },
                 },
-              },
-            ]
-          : []),
-      ],
-    })),
+              ]
+            : []),
+        ],
+      })),
+    ],
   };
 };
 

@@ -63,6 +63,10 @@ export default function GarageServices() {
     () => normalizeBrands(garage?.supportedBrands),
     [garage?.supportedBrands],
   );
+  const excludedServiceBrands = useMemo(
+    () => normalizeBrands(garage?.excludedServiceBrands),
+    [garage?.excludedServiceBrands],
+  );
 
   const assignedServices = useMemo(() => {
     const grouped = new Map();
@@ -224,6 +228,32 @@ export default function GarageServices() {
                   {brand}
                 </span>
               ))}
+            </div>
+          </section>
+        )}
+
+        {excludedServiceBrands.length > 0 && (
+          <section className="rounded-xl border border-line bg-white p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-bg-soft text-ink">
+                <FiLock className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-ink">Garage-wide excluded brands</p>
+                <p className="mt-1 text-sm leading-6 text-muted">
+                  No service request or booking notification is sent to this garage for these brands, even when a service rule covers all vehicles.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {excludedServiceBrands.map((brand) => (
+                    <span
+                      key={brand}
+                      className="rounded-lg border border-line bg-bg-soft px-2.5 py-1.5 text-xs font-semibold text-ink"
+                    >
+                      {brand}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
         )}

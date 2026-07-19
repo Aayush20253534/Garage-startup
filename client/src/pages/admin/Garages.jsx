@@ -89,8 +89,8 @@ const formatGarageServiceScope = ({ vehicleBrand, vehicleModel }) => {
   return `${vehicleBrand} / ${vehicleModel}`;
 };
 
-const getGarageBrands = (garage) => {
-  const value = garage?.supportedBrands;
+const getGarageBrandField = (garage, field) => {
+  const value = garage?.[field];
   if (Array.isArray(value)) return value.filter(Boolean);
   if (!value) return [];
 
@@ -101,6 +101,12 @@ const getGarageBrands = (garage) => {
     return [];
   }
 };
+
+const getGarageBrands = (garage) =>
+  getGarageBrandField(garage, "supportedBrands");
+
+const getGarageExcludedServiceBrands = (garage) =>
+  getGarageBrandField(garage, "excludedServiceBrands");
 
 const getCleanGarageDescription = (description = "") =>
   String(description || "")
@@ -192,6 +198,8 @@ export default function Garages() {
   const [savingGarage, setSavingGarage] = useState(false);
   const [photoBusyId, setPhotoBusyId] = useState("");
   const [selectedPhotoIds, setSelectedPhotoIds] = useState([]);
+  const [garageWideExcludedBrands, setGarageWideExcludedBrands] = useState([]);
+  const [savingGarageWideExclusions, setSavingGarageWideExclusions] = useState(false);
 
   const selectedGarage = useMemo(
     () =>
@@ -200,6 +208,10 @@ export default function Garages() {
       null,
     [garages, selectedGarageDetails, selectedGarageId]
   );
+
+  useEffect(() => {
+    setGarageWideExcludedBrands(getGarageExcludedServiceBrands(selectedGarage));
+  }, [selectedGarage?.id, selectedGarage?.excludedServiceBrands]);
 
   const allGaragePhotoIds = (selectedGarage?.images || []).map(
     (image) => image.id,
@@ -407,6 +419,38 @@ export default function Garages() {
       await loadGaragesAndServices();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to remove garage service");
+    }
+  };
+
+  const saveGarageWideBrandExclusions = async () => {
+    if (!selectedGarage?.id) return;
+
+    setSavingGarageWideExclusions(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const updated = await adminApi.updateGarage(selectedGarage.id, {
+        excludedServiceBrands: garageWideExcludedBrands,
+      });
+      setSelectedGarageDetails(updated);
+      setGarages((current) =>
+        current.map((garage) =>
+          garage.id === updated.id ? { ...garage, ...updated } : garage,
+        ),
+      );
+      setSuccess(
+        garageWideExcludedBrands.length
+          ? `${garageWideExcludedBrands.length} garage-wide brand exclusion${garageWideExcludedBrands.length === 1 ? "" : "s"} saved.`
+          : "Garage-wide brand exclusions cleared.",
+      );
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to save garage-wide brand exclusions",
+      );
+    } finally {
+      setSavingGarageWideExclusions(false);
     }
   };
 
@@ -1587,6 +1631,73 @@ export default function Garages() {
                       No customer reviews have been submitted for this garage.
                     </div>
                   )}
+                </div>
+              </section>
+            )}
+
+            {!isIntern && selectedGarage && (
+              <section className="card-soft rounded-xl p-4 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h4 className="font-bold text-ink">Garage-wide brand exclusions</h4>
+                    <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">
+                      Select brands this garage does not service at all. These exclusions override every current and future service allocation and prevent matching notifications for those vehicles.
+                    </p>
+                  </div>
+                  <span className="whitespace-nowrap rounded-full border border-line bg-bg-soft px-3 py-1 text-xs font-semibold text-muted">
+                    {garageWideExcludedBrands.length} excluded
+                  </span>
+                </div>
+
+                <div className="mt-4 grid max-h-52 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {vehicleBrands.map((brand) => {
+                    const checked = garageWideExcludedBrands.includes(brand.name);
+                    return (
+                      <label
+                        key={brand.id || brand.name}
+                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                          checked
+                            ? "border-ink bg-bg-soft text-ink"
+                            : "border-line bg-white text-muted hover:border-ink/30"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setGarageWideExcludedBrands((current) =>
+                              checked
+                                ? current.filter((name) => name !== brand.name)
+                                : [...current, brand.name],
+                            )
+                          }
+                          className="h-4 w-4 accent-black"
+                        />
+                        <span className="truncate">{brand.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  {garageWideExcludedBrands.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setGarageWideExcludedBrands([])}
+                      disabled={savingGarageWideExclusions}
+                      className={`${adminButtonBase} border border-line bg-white text-ink hover:bg-bg-soft`}
+                    >
+                      Clear selection
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={saveGarageWideBrandExclusions}
+                    disabled={savingGarageWideExclusions}
+                    className={`${adminButtonBase} bg-ink text-white hover:bg-ink-2`}
+                  >
+                    {savingGarageWideExclusions ? "Saving..." : "Save brand exclusions"}
+                  </button>
                 </div>
               </section>
             )}
