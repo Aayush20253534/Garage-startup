@@ -200,6 +200,7 @@ export default function Garages() {
   const [selectedPhotoIds, setSelectedPhotoIds] = useState([]);
   const [garageWideExcludedBrands, setGarageWideExcludedBrands] = useState([]);
   const [savingGarageWideExclusions, setSavingGarageWideExclusions] = useState(false);
+  const [editingGarageWideExclusions, setEditingGarageWideExclusions] = useState(false);
 
   const selectedGarage = useMemo(
     () =>
@@ -212,6 +213,10 @@ export default function Garages() {
   useEffect(() => {
     setGarageWideExcludedBrands(getGarageExcludedServiceBrands(selectedGarage));
   }, [selectedGarage?.id, selectedGarage?.excludedServiceBrands]);
+
+  useEffect(() => {
+    setEditingGarageWideExclusions(false);
+  }, [selectedGarage?.id]);
 
   const allGaragePhotoIds = (selectedGarage?.images || []).map(
     (image) => image.id,
@@ -444,6 +449,7 @@ export default function Garages() {
           ? `${garageWideExcludedBrands.length} garage-wide brand exclusion${garageWideExcludedBrands.length === 1 ? "" : "s"} saved.`
           : "Garage-wide brand exclusions cleared.",
       );
+      setEditingGarageWideExclusions(false);
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -1644,11 +1650,31 @@ export default function Garages() {
                       Select brands this garage does not service at all. These exclusions override every current and future service allocation and prevent matching notifications for those vehicles.
                     </p>
                   </div>
-                  <span className="whitespace-nowrap rounded-full border border-line bg-bg-soft px-3 py-1 text-xs font-semibold text-muted">
-                    {garageWideExcludedBrands.length} excluded
-                  </span>
+                  <div className="flex items-center gap-2 self-start">
+                    <span className="whitespace-nowrap rounded-full border border-line bg-bg-soft px-3 py-1 text-xs font-semibold text-muted">
+                      {garageWideExcludedBrands.length} excluded
+                    </span>
+                    {!editingGarageWideExclusions && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGarageWideExcludedBrands(
+                            getGarageExcludedServiceBrands(selectedGarage),
+                          );
+                          setEditingGarageWideExclusions(true);
+                        }}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-white text-ink transition hover:border-ink/30 hover:bg-bg-soft"
+                        aria-label="Edit garage-wide brand exclusions"
+                        title="Edit brand exclusions"
+                      >
+                        <FiEdit3 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
+                {editingGarageWideExclusions && (
+                  <>
                 <div className="mt-4 grid max-h-52 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {vehicleBrands.map((brand) => {
                     const checked = garageWideExcludedBrands.includes(brand.name);
@@ -1692,6 +1718,19 @@ export default function Garages() {
                   )}
                   <button
                     type="button"
+                    onClick={() => {
+                      setGarageWideExcludedBrands(
+                        getGarageExcludedServiceBrands(selectedGarage),
+                      );
+                      setEditingGarageWideExclusions(false);
+                    }}
+                    disabled={savingGarageWideExclusions}
+                    className={`${adminButtonBase} border border-line bg-white text-ink hover:bg-bg-soft`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
                     onClick={saveGarageWideBrandExclusions}
                     disabled={savingGarageWideExclusions}
                     className={`${adminButtonBase} bg-ink text-white hover:bg-ink-2`}
@@ -1699,6 +1738,8 @@ export default function Garages() {
                     {savingGarageWideExclusions ? "Saving..." : "Save brand exclusions"}
                   </button>
                 </div>
+                  </>
+                )}
               </section>
             )}
 

@@ -230,6 +230,9 @@ test("garage assignment UI and queries preserve exclusion precedence", () => {
   assert.match(eligibilityService, /services:\s*\{\s*none:/);
   assert.match(requestService, /excludedServiceBrands: true/);
   assert.match(adminPage, /Garage-wide brand exclusions/);
+  assert.match(adminPage, /editingGarageWideExclusions/);
+  assert.match(adminPage, /Edit garage-wide brand exclusions/);
+  assert.match(adminPage, /setEditingGarageWideExclusions\(false\)/);
   assert.match(garagePage, /Garage-wide excluded brands/);
   assert.match(garagePage, /Excluded: /);
   assert.match(customerGarageCard, /\.filter\(hasVehicleCoverage\)/);
