@@ -112,6 +112,12 @@ export const adminApi = {
     return unwrap(await api.delete(`/garages/${garageId}/media/${imageId}`));
   },
 
+  async deleteGaragePhotos(garageId, imageIds = []) {
+    return unwrap(
+      await api.delete(`/garages/${garageId}/media`, { data: { imageIds } }),
+    );
+  },
+
   async setGarageThumbnail(garageId, imageId) {
     return unwrap(await api.patch(`/admin/garages/${garageId}/images/${imageId}/thumbnail`));
   },

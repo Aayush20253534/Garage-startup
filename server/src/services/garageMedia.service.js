@@ -229,7 +229,19 @@ const uploadGarageMedia = async (garageId, files = {}, user) => {
   return result;
 };
 
-const deleteGarageImage = async (garageId, imageId, user) => {
+const deleteGarageImages = async (garageId, imageIds = [], user) => {
+  const uniqueImageIds = [
+    ...new Set(
+      (Array.isArray(imageIds) ? imageIds : [])
+        .map((imageId) => String(imageId || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+
+  if (!uniqueImageIds.length || uniqueImageIds.length > GARAGE_MAXIMUM_IMAGES) {
+    throw new ApiError(400, "Select between 1 and 15 garage photos to delete");
+  }
+
   const garage = await prisma.garage.findUnique({
     where: { id: garageId },
     select: {
@@ -244,9 +256,9 @@ const deleteGarageImage = async (garageId, imageId, user) => {
 
   assertCanManageGarageMedia(garage, user);
 
-  const image = await prisma.garageImage.findFirst({
+  const images = await prisma.garageImage.findMany({
     where: {
-      id: imageId,
+      id: { in: uniqueImageIds },
       garageId,
     },
     select: {
@@ -255,16 +267,16 @@ const deleteGarageImage = async (garageId, imageId, user) => {
     },
   });
 
-  if (!image) {
-    throw new ApiError(404, "Garage photo not found");
+  if (images.length !== uniqueImageIds.length) {
+    throw new ApiError(404, "One or more garage photos were not found");
   }
 
   const result = await prisma.$transaction(async (tx) => {
     await lockGarageForMediaUpdate(tx, garageId);
 
-    const lockedImage = await tx.garageImage.findFirst({
+    const lockedImages = await tx.garageImage.findMany({
       where: {
-        id: imageId,
+        id: { in: uniqueImageIds },
         garageId,
       },
       select: {
@@ -272,12 +284,15 @@ const deleteGarageImage = async (garageId, imageId, user) => {
       },
     });
 
-    if (!lockedImage) {
-      throw new ApiError(404, "Garage photo not found");
+    if (lockedImages.length !== uniqueImageIds.length) {
+      throw new ApiError(404, "One or more garage photos were not found");
     }
 
-    await tx.garageImage.delete({
-      where: { id: imageId },
+    await tx.garageImage.deleteMany({
+      where: {
+        id: { in: uniqueImageIds },
+        garageId,
+      },
     });
 
     const remainingImages = await tx.garageImage.findMany({
@@ -300,15 +315,19 @@ const deleteGarageImage = async (garageId, imageId, user) => {
   });
 
   await Promise.allSettled([
-    deleteCloudinaryImagesIfUnreferenced([image.publicId]),
+    deleteCloudinaryImagesIfUnreferenced(images.map((image) => image.publicId)),
     invalidatePublicCache(),
   ]);
 
   return result;
 };
 
+const deleteGarageImage = (garageId, imageId, user) =>
+  deleteGarageImages(garageId, [imageId], user);
+
 module.exports = {
   deleteGarageImage,
+  deleteGarageImages,
   getGarageImageRecord,
   uploadGarageMedia,
 };

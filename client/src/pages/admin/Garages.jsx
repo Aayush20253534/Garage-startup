@@ -165,6 +165,7 @@ export default function Garages() {
   const [garageEditForm, setGarageEditForm] = useState(null);
   const [savingGarage, setSavingGarage] = useState(false);
   const [photoBusyId, setPhotoBusyId] = useState("");
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState([]);
 
   const selectedGarage = useMemo(
     () =>
@@ -173,6 +174,13 @@ export default function Garages() {
       null,
     [garages, selectedGarageDetails, selectedGarageId]
   );
+
+  const allGaragePhotoIds = (selectedGarage?.images || []).map(
+    (image) => image.id,
+  );
+  const allGaragePhotosSelected =
+    allGaragePhotoIds.length > 0 &&
+    allGaragePhotoIds.every((imageId) => selectedPhotoIds.includes(imageId));
 
   const canDeleteApplications =
     applicationStatus === "APPROVED" || applicationStatus === "DENIED";
@@ -360,6 +368,7 @@ export default function Garages() {
 
   const openGarageDetails = async (garageId) => {
     setSelectedGarageId(garageId);
+    setSelectedPhotoIds([]);
     setError("");
 
     try {
@@ -413,6 +422,48 @@ export default function Garages() {
     try { await adminApi.deleteGaragePhoto(selectedGarage.id, image.id); await openGarageDetails(selectedGarage.id); setSuccess("Garage photo deleted."); }
     catch (err) { setError(err.response?.data?.message || "Unable to delete garage photo"); }
     finally { setPhotoBusyId(""); }
+  };
+
+  const toggleGaragePhotoSelection = (imageId) => {
+    setSelectedPhotoIds((current) =>
+      current.includes(imageId)
+        ? current.filter((id) => id !== imageId)
+        : [...current, imageId],
+    );
+  };
+
+  const toggleAllGaragePhotos = () => {
+    setSelectedPhotoIds(allGaragePhotosSelected ? [] : allGaragePhotoIds);
+  };
+
+  const deleteSelectedGaragePhotos = async () => {
+    const imageIds = selectedPhotoIds.filter((imageId) =>
+      allGaragePhotoIds.includes(imageId),
+    );
+    if (!imageIds.length) return;
+
+    const confirmed = window.confirm(
+      `Delete ${imageIds.length} selected garage photo${imageIds.length === 1 ? "" : "s"} permanently?`,
+    );
+    if (!confirmed) return;
+
+    setPhotoBusyId("bulk-delete");
+    setError("");
+    setSuccess("");
+
+    try {
+      await adminApi.deleteGaragePhotos(selectedGarage.id, imageIds);
+      await openGarageDetails(selectedGarage.id);
+      setSuccess(
+        `${imageIds.length} garage photo${imageIds.length === 1 ? "" : "s"} deleted.`,
+      );
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Unable to delete selected garage photos",
+      );
+    } finally {
+      setPhotoBusyId("");
+    }
   };
 
   const setGarageThumbnail = async (image) => {
@@ -1184,15 +1235,73 @@ export default function Garages() {
                   /15)
                 </div>
 
-                {!isIntern && <label className={`${adminButtonBase} w-fit cursor-pointer border border-line bg-white text-ink hover:border-ink`}><FiUpload />{photoBusyId === "upload" ? "Uploading..." : "Add photos"}<input type="file" accept="image/*" multiple disabled={Boolean(photoBusyId) || (selectedGarage.images?.length || 0) >= 15} onChange={uploadGaragePhotos} className="hidden" /></label>}
+                {!isIntern && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className={`${adminButtonBase} w-fit cursor-pointer border border-line bg-white text-ink hover:border-ink`}>
+                      <FiUpload />
+                      {photoBusyId === "upload" ? "Uploading..." : "Add photos"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        disabled={Boolean(photoBusyId) || (selectedGarage.images?.length || 0) >= 15}
+                        onChange={uploadGaragePhotos}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {selectedGarage.images?.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={Boolean(photoBusyId)}
+                          onClick={toggleAllGaragePhotos}
+                          className={`${adminButtonBase} border border-line bg-white text-ink hover:border-ink`}
+                        >
+                          <FiCheck />
+                          {allGaragePhotosSelected ? "Clear selection" : "Select all"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!selectedPhotoIds.length || Boolean(photoBusyId)}
+                          onClick={deleteSelectedGaragePhotos}
+                          className={`${adminButtonBase} border border-red-200 bg-white text-red-700 hover:bg-red-50`}
+                        >
+                          <FiTrash2 />
+                          {photoBusyId === "bulk-delete"
+                            ? "Deleting..."
+                            : `Delete selected (${selectedPhotoIds.length})`}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {selectedGarage.images?.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
                     {selectedGarage.images.map((image, index) => (
                       <div
                         key={image.id}
-                        className="overflow-hidden rounded-xl border border-line bg-white shadow-sm"
+                        className={`relative overflow-hidden rounded-xl border bg-white shadow-sm transition ${
+                          selectedPhotoIds.includes(image.id)
+                            ? "border-ink ring-2 ring-ink/10"
+                            : "border-line"
+                        }`}
                       >
+                        {!isIntern && (
+                          <label className="absolute left-2 top-2 z-10 flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-white/95 px-2.5 py-2 text-xs font-semibold text-ink shadow-sm backdrop-blur">
+                            <input
+                              type="checkbox"
+                              checked={selectedPhotoIds.includes(image.id)}
+                              disabled={Boolean(photoBusyId)}
+                              onChange={() => toggleGaragePhotoSelection(image.id)}
+                              className="h-4 w-4 rounded border-line accent-ink"
+                              aria-label={`Select garage photo ${index + 1}`}
+                            />
+                            Select
+                          </label>
+                        )}
+
                         <a
                           href={getGarageImageUrl(image)}
                           target="_blank"

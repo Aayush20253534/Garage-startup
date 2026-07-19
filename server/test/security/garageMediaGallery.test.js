@@ -29,7 +29,11 @@ test("garage owners can delete only an image belonging to their garage", () => {
   );
   assert.match(
     serviceSource,
-    /where:\s*\{\s*id: imageId,\s*garageId,\s*\}/,
+    /const deleteGarageImage = \(garageId, imageId, user\) =>\s*deleteGarageImages\(garageId, \[imageId\], user\)/,
+  );
+  assert.match(
+    serviceSource,
+    /where:\s*\{\s*id: \{ in: uniqueImageIds \},\s*garageId,\s*\}/,
   );
 });
 
@@ -40,7 +44,29 @@ test("deleting a garage image compacts ordering and promotes a thumbnail", () =>
 
   assert.match(deleteSource, /isThumbnail: index === 0/);
   assert.match(deleteSource, /order: index/);
-  assert.match(deleteSource, /deleteCloudinaryImagesIfUnreferenced\(\[image\.publicId\]\)/);
+  assert.match(
+    deleteSource,
+    /deleteCloudinaryImagesIfUnreferenced\(images\.map\(\(image\) => image\.publicId\)\)/,
+  );
+});
+
+test("admins can select and atomically delete multiple garage photos", () => {
+  const routeSource = readSource("src/routes/garageMedia.routes.js");
+  const serviceSource = readSource("src/services/garageMedia.service.js");
+  const controllerSource = readSource("src/controllers/garageMedia.controller.js");
+  const adminGarageSource = readSource("../client/src/pages/admin/Garages.jsx");
+  const adminApiSource = readSource("../client/src/api/admin.js");
+
+  assert.match(
+    routeSource,
+    /router\.delete\([\s\S]*\/:garageId\/media[\s\S]*authorizeRoles\("ADMIN"\)[\s\S]*deleteGarageImages/,
+  );
+  assert.match(controllerSource, /req\.body\?\.imageIds/);
+  assert.match(serviceSource, /garageImage\.deleteMany/);
+  assert.match(serviceSource, /id: \{ in: uniqueImageIds \}/);
+  assert.match(adminGarageSource, /selectedPhotoIds/);
+  assert.match(adminGarageSource, /Delete selected \(\$\{selectedPhotoIds\.length\}\)/);
+  assert.match(adminApiSource, /data: \{ imageIds \}/);
 });
 
 test("garage profile limits new selections to free slots and exposes per-photo deletion", () => {
