@@ -72,9 +72,7 @@ function RatingStars({ rating = 0, size = "text-base" }) {
 
 function GarageStatCard({ label, value, icon: Icon }) {
   return (
-    <div className="group relative min-h-[126px] overflow-hidden rounded-2xl border border-brand/20 bg-gradient-to-br from-brand/5 via-white to-brand/10 p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:min-h-[150px] sm:p-5">
-      <div className="absolute inset-x-0 top-0 h-0.5 bg-brand/60" />
-
+    <div className="group min-h-[118px] rounded-xl border border-line bg-white p-3.5 shadow-sm transition-colors hover:border-ink/20 sm:min-h-[136px] sm:p-4">
       <div className="flex items-start justify-between gap-2 sm:gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold leading-4 text-slate-700 sm:text-sm sm:leading-5">
@@ -86,7 +84,7 @@ function GarageStatCard({ label, value, icon: Icon }) {
           </p>
         </div>
 
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand-dark shadow-sm ring-1 ring-brand/20 transition-transform group-hover:scale-105 sm:h-11 sm:w-11">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-bg-soft text-ink sm:h-10 sm:w-10">
           <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
       </div>
@@ -268,10 +266,10 @@ export default function GarageDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-brand/5">
-      <div className="mx-auto max-w-6xl space-y-5 px-3 py-5 sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
+    <div className="min-h-screen bg-bg-soft/30">
+      <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 sm:space-y-5 sm:px-6 sm:py-6 lg:px-8">
         {/* Header Section */}
-        <section className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm ring-1 ring-black/[0.03] backdrop-blur sm:p-5">
+        <section className="rounded-xl border border-line bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -280,7 +278,7 @@ export default function GarageDashboard() {
                   {garage?.ownerName?.split(" ")[0] || "Partner"}
                 </h1>
 
-                <span className="inline-flex items-center rounded-full bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand-dark ring-1 ring-brand/20">
+                <span className="inline-flex items-center rounded-full border border-line bg-bg-soft px-2.5 py-1 text-xs font-semibold text-muted">
                   Garage Portal
                 </span>
               </div>
@@ -296,7 +294,7 @@ export default function GarageDashboard() {
                 type="button"
                 onClick={loadDashboard}
                 disabled={loading}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-ink shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-10"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-white text-ink transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Refresh dashboard"
               >
                 <FiRefreshCw
@@ -307,7 +305,7 @@ export default function GarageDashboard() {
               <button
                 type="button"
                 onClick={() => navigate("/garage/bookings")}
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:brightness-95 sm:h-10 sm:w-auto"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink-2 sm:w-auto"
               >
                 Manage Jobs
                 <FiArrowRight className="h-4 w-4" />
@@ -320,7 +318,7 @@ export default function GarageDashboard() {
 
         {/* Alerts */}
         {!garage?.isActive && (
-          <section className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 shadow-sm">
+          <section className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
 
             <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -343,7 +341,7 @@ export default function GarageDashboard() {
         )}
 
         {error && (
-          <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -357,11 +355,11 @@ export default function GarageDashboard() {
         </section>
 
         {/* Main Content Area */}
-        <section className="grid gap-5 lg:grid-cols-3 lg:gap-6">
+        <section className="grid gap-4 2xl:grid-cols-3">
           {/* Ratings & Reviews */}
-          <div className="order-2 flex flex-col gap-4 lg:order-1">
-            <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/70 bg-white shadow-sm ring-1 ring-black/[0.02]">
-              <div className="border-b border-slate-100 bg-gradient-to-br from-brand/5 via-white to-amber-50/50 p-4 sm:p-5">
+          <div className="order-2 flex flex-col gap-4 2xl:order-1">
+            <div className="flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+              <div className="border-b border-line bg-bg-soft/50 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base font-semibold text-ink">
@@ -372,7 +370,7 @@ export default function GarageDashboard() {
                     </p>
                   </div>
 
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-500">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-white text-amber-500">
                     <FiStar className="h-5 w-5" fill="currentColor" />
                   </div>
                 </div>
@@ -392,12 +390,12 @@ export default function GarageDashboard() {
                 </div>
               </div>
 
-              <div className="flex-1 space-y-3 bg-white p-4 sm:space-y-4 sm:p-5 lg:max-h-[500px] lg:overflow-y-auto">
+              <div className="flex-1 space-y-3 bg-white p-4 sm:space-y-4 sm:p-5 2xl:max-h-[500px] 2xl:overflow-y-auto">
                 {recentReviews.length ? (
                   recentReviews.map((review) => (
                     <article
                       key={review.id || review.bookingId}
-                      className="rounded-xl border border-slate-100 p-4 shadow-sm transition-colors hover:bg-slate-50/70"
+                      className="rounded-lg border border-line p-4 transition-colors hover:bg-bg-soft"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-2.5">
@@ -447,8 +445,8 @@ export default function GarageDashboard() {
           </div>
 
           {/* Recent Bookings */}
-          <div className="order-1 lg:order-2 lg:col-span-2">
-            <div className="rounded-2xl border border-white/70 bg-white p-4 shadow-sm ring-1 ring-black/[0.02] sm:p-5">
+          <div className="order-1 2xl:order-2 2xl:col-span-2">
+            <div className="rounded-xl border border-line bg-white p-4 shadow-sm sm:p-5">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-ink">
@@ -462,7 +460,7 @@ export default function GarageDashboard() {
                 <button
                   type="button"
                   onClick={() => navigate("/garage/bookings")}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 sm:w-auto"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:bg-bg-soft sm:w-auto"
                 >
                   View All
                   <FiArrowRight className="h-4 w-4" />
@@ -470,7 +468,7 @@ export default function GarageDashboard() {
               </div>
 
               <div className="mb-5 grid grid-cols-2 gap-2 sm:mb-6 sm:grid-cols-4 sm:gap-4">
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:p-4">
+                <div className="rounded-lg border border-line bg-bg-soft/60 p-3 sm:p-4">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold leading-4 text-muted sm:text-xs">
                     <FiTrendingUp className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">Acceptance</span>
@@ -483,7 +481,7 @@ export default function GarageDashboard() {
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:p-4">
+                <div className="rounded-lg border border-line bg-bg-soft/60 p-3 sm:p-4">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold leading-4 text-muted sm:text-xs">
                     <FiCheckCircle className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">Completion</span>
@@ -496,7 +494,7 @@ export default function GarageDashboard() {
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:p-4">
+                <div className="rounded-lg border border-line bg-bg-soft/60 p-3 sm:p-4">
                   <p className="text-[11px] font-semibold leading-4 text-muted sm:text-xs">
                     Open
                   </p>
@@ -508,7 +506,7 @@ export default function GarageDashboard() {
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:p-4">
+                <div className="rounded-lg border border-line bg-bg-soft/60 p-3 sm:p-4">
                   <p className="text-[11px] font-semibold leading-4 text-muted sm:text-xs">
                     Rating
                   </p>

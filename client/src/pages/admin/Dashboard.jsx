@@ -188,15 +188,15 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 overflow-x-hidden">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mx-auto max-w-7xl space-y-4 overflow-x-hidden sm:space-y-5">
+      <section className="flex flex-col gap-4 rounded-xl border border-line bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">Live operations</p>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Live operations</p>
           </div>
           <h2 className="mt-1 text-2xl font-bold text-ink">
-            {isInternPortal ? "Intern operations centre" : "Admin command centre"}
+            {isInternPortal ? "Intern dashboard" : "Admin dashboard"}
           </h2>
           <p className="mt-1 text-sm text-muted">
             Current booking activity, payment problems and daily platform performance.
@@ -212,7 +212,7 @@ export default function AdminDashboard() {
           <FiRefreshCw className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
-      </div>
+      </section>
 
       {error && (
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -234,31 +234,31 @@ export default function AdminDashboard() {
           </Link>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {operationCards.map((card) => {
             const Icon = card.icon;
             return (
               <Link
                 key={card.label}
                 to={card.to || `${portalRoot}/bookings`}
-                className="rounded-2xl border border-line bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                className="min-w-0 rounded-xl border border-line bg-white p-3 shadow-sm transition-colors hover:border-ink/20 sm:p-4"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className={`grid h-11 w-11 place-items-center rounded-xl text-lg ${card.tone}`}>
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-bg-soft text-ink sm:h-10 sm:w-10">
                     <Icon />
                   </span>
-                  <span className="text-3xl font-bold text-ink">{card.value}</span>
+                  <span className="truncate text-2xl font-bold text-ink sm:text-3xl">{card.value}</span>
                 </div>
-                <p className="mt-4 font-bold text-ink">{card.label}</p>
-                <p className="mt-1 text-xs text-muted">{card.caption}</p>
+                <p className="mt-3 text-sm font-bold text-ink sm:text-base">{card.label}</p>
+                <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-muted sm:text-xs">{card.caption}</p>
               </Link>
             );
           })}
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.8fr)]">
-        <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.8fr)]">
+        <section className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <div>
               <h3 className="font-bold text-ink">Recent active bookings</h3>
@@ -299,7 +299,7 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-line bg-white p-4 shadow-sm">
+        <section className="rounded-xl border border-line bg-white p-4 shadow-sm">
           <h3 className="font-bold text-ink">Booking status mix</h3>
           <p className="mt-1 text-xs text-muted">All {totalStatusCount} bookings by current status.</p>
           <div className="mt-4 grid gap-3">
@@ -332,9 +332,9 @@ export default function AdminDashboard() {
           {financialCards.map((card) => {
             const Icon = card.icon;
             return (
-              <div key={card.label} className="rounded-2xl border border-line bg-white p-4 shadow-sm">
+              <div key={card.label} className="rounded-xl border border-line bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
-                  <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg ${card.tone}`}>
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-line bg-bg-soft text-ink">
                     <Icon />
                   </span>
                   <span className="text-right text-2xl font-bold text-ink sm:text-3xl">{card.value}</span>
@@ -349,13 +349,13 @@ export default function AdminDashboard() {
 
       <section>
         <h3 className="mb-3 text-lg font-bold text-ink">Business overview</h3>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-3">
           {businessCards.map((card) => {
             const Icon = card.icon;
             return (
-              <div key={card.label} className="card-soft rounded-2xl p-4 shadow-sm">
+              <div key={card.label} className="rounded-xl border border-line bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-lime-100 text-ink"><Icon /></span>
+                  <span className="grid h-10 w-10 place-items-center rounded-lg border border-line bg-bg-soft text-ink"><Icon /></span>
                   <span className="text-2xl font-bold text-ink">{card.value}</span>
                 </div>
                 <p className="mt-3 text-sm font-semibold text-muted">{card.label}</p>
@@ -365,13 +365,13 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
+      <section className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-line p-4">
           <div>
             <h3 className="text-lg font-bold text-ink">Recent garage applications</h3>
             <p className="mt-1 text-sm text-muted">Pending garage owners waiting for review.</p>
           </div>
-          <span className="rounded-full bg-lime-100 px-3 py-1 text-xs font-bold text-ink">{recentApplications.length}</span>
+          <span className="rounded-full bg-bg-soft px-3 py-1 text-xs font-bold text-muted">{recentApplications.length}</span>
         </div>
 
         {recentApplications.length ? (
