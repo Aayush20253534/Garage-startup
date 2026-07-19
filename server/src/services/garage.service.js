@@ -7,6 +7,7 @@ const { getCache, setCache } = require("../utils/cache");
 const { addGarageWhatsappLink, createWhatsappLink } = require("../utils/whatsapp");
 const googleMapsService = require("../maps/services/googleMaps.service");
 const { isGarageOpenNow } = require("../utils/garageHours");
+const { garageCanServeBooking } = require("../utils/garageCapabilities");
 
 const GARAGE_LIST_TTL = 5 * 60;
 const GARAGE_DETAIL_TTL = 5 * 60;
@@ -173,6 +174,22 @@ const buildRawGarageConditions = ({
   }
 
   const vehicleBrand = String(vehicle?.brand || "").trim();
+  const vehicleModel = String(vehicle?.model || "").trim();
+
+  if (vehicleBrand) {
+    conditions.push(Prisma.sql`EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements_text(
+        CASE
+          WHEN jsonb_typeof(g."supportedBrands") = 'array'
+            THEN g."supportedBrands"
+          ELSE '[]'::jsonb
+        END
+      ) AS supported_brand(value)
+      WHERE LOWER(supported_brand.value) IN (LOWER(${vehicleBrand}), 'all')
+    )`);
+  }
+
   serviceIds.forEach((serviceId) => {
     conditions.push(Prisma.sql`EXISTS (
       SELECT 1
@@ -180,7 +197,8 @@ const buildRawGarageConditions = ({
       WHERE gs."garageId" = g."id"
         AND gs."serviceId" = ${serviceId}
         AND gs."isActive" = true
-        ${vehicleBrand ? Prisma.sql`AND (gs."vehicleBrand" = 'ALL' OR gs."vehicleBrand" = ${vehicleBrand})` : Prisma.empty}
+        ${vehicleBrand ? Prisma.sql`AND (LOWER(gs."vehicleBrand") = 'all' OR LOWER(gs."vehicleBrand") = LOWER(${vehicleBrand}))` : Prisma.empty}
+        ${vehicleModel ? Prisma.sql`AND (LOWER(gs."vehicleModel") = 'all' OR LOWER(gs."vehicleModel") = LOWER(${vehicleModel}))` : Prisma.empty}
     )`);
   });
 
@@ -284,6 +302,7 @@ const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
   if (uniqueServiceIds.length === 0) return {};
 
   const vehicleBrand = String(vehicle?.brand || "").trim();
+  const vehicleModel = String(vehicle?.model || "").trim();
 
   return {
     AND: uniqueServiceIds.map((serviceId) => ({
@@ -294,7 +313,17 @@ const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
           ...(vehicleBrand && {
             OR: [
               { vehicleBrand: "ALL" },
-              { vehicleBrand },
+              { vehicleBrand: { equals: vehicleBrand, mode: "insensitive" } },
+            ],
+          }),
+          ...(vehicleModel && {
+            AND: [
+              {
+                OR: [
+                  { vehicleModel: "ALL" },
+                  { vehicleModel: { equals: vehicleModel, mode: "insensitive" } },
+                ],
+              },
             ],
           }),
         },
@@ -802,6 +831,14 @@ const findNearbyEligibleGarages = async ({
         },
         orderBy: [{ isVerified: "desc" }, { ratingAvg: "desc" }],
       });
+
+  garages = garages.filter((garage) =>
+    garageCanServeBooking({
+      garage,
+      serviceIds: finalServiceIds,
+      vehicle,
+    }),
+  );
 
   if (requireOpenNow) {
     garages = garages.filter(isGarageOpenNow);

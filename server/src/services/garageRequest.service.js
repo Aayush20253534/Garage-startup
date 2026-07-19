@@ -9,6 +9,7 @@ const WALLET_TRANSACTION_TYPE = require("../constants/walletTransactionType");
 const WALLET_TRANSACTION_STATUS = require("../constants/walletTransactionStatus");
 const { calculatePlatformFee } = require("../garage/constants");
 const { addGarageWhatsappLink } = require("../utils/whatsapp");
+const { garageCanServeBooking } = require("../utils/garageCapabilities");
 const calculateDistanceKm = require("../utils/distance");
 const invalidateCustomerCache = require("../utils/invalidateCustomerCache");
 const { deletePattern } = require("../utils/cache");
@@ -279,16 +280,54 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
   const requestGarageIds = [
     ...new Set(requests.map((request) => request.garage?.id).filter(Boolean)),
   ];
+  const requiredServiceIds = [
+    ...new Set(
+      (booking.services || [])
+        .map((item) => item.serviceId || item.service?.id)
+        .filter(Boolean),
+    ),
+  ];
   const activeGarages = requestGarageIds.length
     ? await prisma.garage.findMany({
         where: {
           id: { in: requestGarageIds },
           isActive: true,
         },
-        select: { id: true },
+        select: {
+          id: true,
+          supportedBrands: true,
+          services: {
+            where: {
+              isActive: true,
+              serviceId: { in: requiredServiceIds },
+            },
+            select: {
+              serviceId: true,
+              vehicleBrand: true,
+              vehicleModel: true,
+              isActive: true,
+              service: {
+                select: {
+                  isActive: true,
+                  category: { select: { isActive: true } },
+                },
+              },
+            },
+          },
+        },
       })
     : [];
-  const activeGarageIds = new Set(activeGarages.map((garage) => garage.id));
+  const activeGarageIds = new Set(
+    activeGarages
+      .filter((garage) =>
+        garageCanServeBooking({
+          garage,
+          serviceIds: requiredServiceIds,
+          vehicle: booking.vehicle,
+        }),
+      )
+      .map((garage) => garage.id),
+  );
   const activeRequests = requests.filter((request) =>
     activeGarageIds.has(request.garage?.id),
   );

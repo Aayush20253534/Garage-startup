@@ -121,6 +121,10 @@ const getGarageOwnerServices = async (userId) => {
     where: {
       garageId: garage.id,
       isActive: true,
+      service: {
+        isActive: true,
+        category: { isActive: true },
+      },
     },
     include: {
       service: {

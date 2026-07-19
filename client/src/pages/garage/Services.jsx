@@ -1,23 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { useSelector, useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import {
   FiAlertCircle,
+  FiCheckCircle,
+  FiLayers,
   FiLock,
   FiRefreshCw,
-  FiStar,
+  FiTag,
   FiTool,
 } from "react-icons/fi";
 import api from "@/api/axios";
-import { setServices } from "@/store/garageSlice";
-import { CATEGORY_UI } from "@/data/services";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
-import {
-  formatServicePriceRange,
-  getServiceMaxPrice,
-  getServiceMinPrice,
-} from "@/utils/priceRange";
+import { CATEGORY_UI } from "@/data/services";
+import { setServices } from "@/store/garageSlice";
 import { getServiceThumbnailUrl } from "@/utils/imageCache";
+import { formatServicePriceRange } from "@/utils/priceRange";
 
 const toBoolean = (value) =>
   value === true ||
@@ -25,29 +22,81 @@ const toBoolean = (value) =>
   value === "1" ||
   String(value).toLowerCase() === "true";
 
-const getIncludes = (service) => {
-  if (!service.description) return ["Service inspection", "Basic checks"];
+const normalizeBrands = (value) => {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (!value) return [];
 
-  return service.description
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+  } catch {
+    // Older garage records may use a comma-separated value.
+  }
+
+  return String(value)
     .split(",")
-    .map((item) => item.trim())
+    .map((brand) => brand.trim())
     .filter(Boolean);
+};
+
+const getAssignmentLabel = ({ vehicleBrand, vehicleModel }) => {
+  const brand = vehicleBrand && vehicleBrand !== "ALL"
+    ? vehicleBrand
+    : "All supported brands";
+  return vehicleModel && vehicleModel !== "ALL"
+    ? `${brand} · ${vehicleModel}`
+    : brand;
 };
 
 export default function GarageServices() {
   const { services, garage } = useSelector((state) => state.garage);
   const dispatch = useDispatch();
-
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const safeServices = useMemo(
+  const safeAssignments = useMemo(
     () => (Array.isArray(services) ? services : []),
-    [services]
+    [services],
   );
+  const supportedBrands = useMemo(
+    () => normalizeBrands(garage?.supportedBrands),
+    [garage?.supportedBrands],
+  );
+
+  const assignedServices = useMemo(() => {
+    const grouped = new Map();
+
+    safeAssignments.forEach((assignment) => {
+      const service = assignment?.service;
+      if (!assignment?.id || !service?.id) return;
+
+      if (!grouped.has(service.id)) {
+        grouped.set(service.id, { service, assignments: [] });
+      }
+
+      const vehicleBrand = assignment.vehicleBrand || "ALL";
+      const vehicleModel = assignment.vehicleModel || "ALL";
+      const scopeKey = `${vehicleBrand.toLowerCase()}:${vehicleModel.toLowerCase()}`;
+      const group = grouped.get(service.id);
+
+      if (!group.assignments.some((item) => item.scopeKey === scopeKey)) {
+        group.assignments.push({ vehicleBrand, vehicleModel, scopeKey });
+      }
+    });
+
+    return [...grouped.values()].sort((left, right) => {
+      const leftCategory = left.service.category?.name || "";
+      const rightCategory = right.service.category?.name || "";
+      return (
+        leftCategory.localeCompare(rightCategory) ||
+        left.service.name.localeCompare(right.service.name)
+      );
+    });
+  }, [safeAssignments]);
 
   const loadServices = useCallback(async () => {
     if (!garage?.id) {
+      dispatch(setServices([]));
       setLoading(false);
       return;
     }
@@ -56,17 +105,17 @@ export default function GarageServices() {
     setError("");
 
     try {
-      const res = await api.get("/garages/me/services");
-      const servicesList = res.data?.data || [];
-      dispatch(setServices(servicesList));
+      const response = await api.get("/garages/me/services");
+      dispatch(
+        setServices(Array.isArray(response.data?.data) ? response.data.data : []),
+      );
     } catch (err) {
+      dispatch(setServices([]));
       if (err.response?.status !== 404 && err.response?.status !== 403) {
         setError(
-          err.response?.data?.message || "Unable to load garage services"
+          err.response?.data?.message || "Unable to load assigned services",
         );
       }
-
-      dispatch(setServices([]));
     } finally {
       setLoading(false);
     }
@@ -77,209 +126,191 @@ export default function GarageServices() {
   }, [loadServices]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-brand/5">
-      <div className="mx-auto max-w-6xl space-y-5 px-3 py-5 sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
-        {/* Header Section */}
-        <section className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm ring-1 ring-black/[0.03] backdrop-blur sm:p-5">
+    <div className="min-h-screen bg-bg-soft/30">
+      <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 sm:space-y-5 sm:px-6 sm:py-6 lg:px-8">
+        <section className="rounded-xl border border-line bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
-                Services
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
-                View and manage services currently linked to your garage.
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
+                  Assigned services
+                </h1>
+                <span className="inline-flex items-center gap-1 rounded-full border border-line bg-bg-soft px-2.5 py-1 text-xs font-semibold text-muted">
+                  <FiLock className="h-3 w-3" />
+                  Managed by admin
+                </span>
+              </div>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+                These are the services allocated to your garage. Booking alerts
+                are matched against these allocations and your supported brands.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:gap-3">
-              <button
-                type="button"
-                disabled
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-muted shadow-sm cursor-not-allowed sm:w-auto"
-              >
-                <FiLock className="h-3.5 w-3.5" />
-                Managed by Admin
-              </button>
-
-              <button
-                type="button"
-                onClick={loadServices}
-                disabled={loading}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-              >
-                <FiRefreshCw
-                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={loadServices}
+              disabled={loading}
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              <FiRefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
           </div>
         </section>
 
-        {/* Error Alert */}
         {error && (
-          <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Services List Area */}
-        <section className="space-y-4">
-          {loading ? (
-            <div className="flex items-center gap-2 rounded-2xl border border-white/70 bg-white p-4 text-sm text-muted shadow-sm">
-              <FiRefreshCw className="h-4 w-4 animate-spin" />
-              <span>Loading services...</span>
+        {!loading && supportedBrands.length === 0 && (
+          <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-900">Brand coverage is missing</p>
+              <p className="mt-1 leading-5">
+                Add the brands your garage services in the garage profile. No
+                booking alert is sent until the customer vehicle brand matches.
+              </p>
             </div>
-          ) : safeServices.length > 0 ? (
-            <div className="grid gap-4">
-              {safeServices.map((item) => {
-                const service = item.service || item;
-                const categoryName =
-                  service.category?.name || service.category || "General";
+          </div>
+        )}
 
-                const ui = CATEGORY_UI[categoryName] || {};
-                const Icon = ui.icon || FiTool;
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+          <div className="rounded-xl border border-line bg-white p-4 shadow-sm">
+            <span className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-bg-soft text-ink">
+              <FiTool />
+            </span>
+            <p className="mt-4 text-2xl font-bold text-ink">{assignedServices.length}</p>
+            <p className="mt-1 text-xs font-semibold text-muted">Assigned services</p>
+          </div>
+          <div className="rounded-xl border border-line bg-white p-4 shadow-sm">
+            <span className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-bg-soft text-ink">
+              <FiLayers />
+            </span>
+            <p className="mt-4 text-2xl font-bold text-ink">{safeAssignments.length}</p>
+            <p className="mt-1 text-xs font-semibold text-muted">Vehicle scopes</p>
+          </div>
+          <div className="col-span-2 rounded-xl border border-line bg-white p-4 shadow-sm sm:col-span-1">
+            <span className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-bg-soft text-ink">
+              <FiTag />
+            </span>
+            <p className="mt-4 text-2xl font-bold text-ink">{supportedBrands.length}</p>
+            <p className="mt-1 text-xs font-semibold text-muted">Supported brands</p>
+          </div>
+        </section>
+
+        {supportedBrands.length > 0 && (
+          <section className="rounded-xl border border-line bg-white p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+              Your brand coverage
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {supportedBrands.map((brand) => (
+                <span
+                  key={brand}
+                  className="rounded-lg border border-line bg-bg-soft px-2.5 py-1.5 text-xs font-semibold text-ink"
+                >
+                  {brand}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section>
+          {loading ? (
+            <div className="flex items-center gap-2 rounded-xl border border-line bg-white p-4 text-sm text-muted shadow-sm">
+              <FiRefreshCw className="h-4 w-4 animate-spin" />
+              Loading assigned services...
+            </div>
+          ) : assignedServices.length > 0 ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {assignedServices.map(({ service, assignments }) => {
+                const categoryName = service.category?.name || "General";
+                const categoryUi = CATEGORY_UI[categoryName] || {};
+                const Icon = categoryUi.icon || FiTool;
                 const serviceImage = getServiceThumbnailUrl(service);
-                const includes = getIncludes(service);
-                const minPrice = getServiceMinPrice(service);
-                const maxPrice = getServiceMaxPrice(service);
-
                 const comingSoon =
                   toBoolean(service.isComingSoon) ||
                   toBoolean(service.category?.isComingSoon);
 
                 return (
-                  <motion.article
-                    key={item.id || service.id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="overflow-hidden rounded-2xl border border-white/70 bg-white shadow-sm ring-1 ring-black/[0.02] transition-shadow hover:shadow-md"
+                  <article
+                    key={service.id}
+                    className="overflow-hidden rounded-xl border border-line bg-white shadow-sm transition-colors hover:border-ink/20"
                   >
-                    <div className="flex flex-col sm:flex-row">
-                      {/* Image Area */}
-                      <div className="relative h-40 w-full shrink-0 border-b border-slate-100 bg-slate-50 sm:h-auto sm:w-52 sm:border-b-0 sm:border-r">
+                    <div className="grid sm:grid-cols-[180px_minmax(0,1fr)]">
+                      <div className="relative min-h-40 border-b border-line bg-bg-soft sm:border-b-0 sm:border-r">
                         {serviceImage ? (
                           <img
                             src={serviceImage}
-                            alt={service.name || "Garage service"}
-                            className={`h-full w-full object-cover ${
-                              comingSoon ? "blur-sm grayscale" : ""
-                            }`}
+                            alt={service.name}
+                            className={`absolute inset-0 h-full w-full object-cover ${comingSoon ? "grayscale" : ""}`}
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-muted">
+                          <div className="absolute inset-0 grid place-items-center text-muted">
                             <Icon className="h-8 w-8" />
                           </div>
                         )}
-
                         {comingSoon && <ComingSoonOverlay />}
                       </div>
 
-                      {/* Content Area */}
-                      <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
-                        {/* Top Row */}
-                        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex min-w-0 flex-col p-4">
+                        <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h2 className="max-w-full truncate text-base font-semibold text-ink sm:text-lg">
-                                {service.name}
-                              </h2>
-
-                              {comingSoon && (
-                                <span className="inline-flex shrink-0 items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-                                  Coming Soon
-                                </span>
-                              )}
-                            </div>
-
-                            <p className="mt-1 text-sm text-muted">
-                              {categoryName}
-                            </p>
+                            <span className="text-xs font-semibold text-muted">{categoryName}</span>
+                            <h2 className="mt-1 text-base font-bold text-ink">{service.name}</h2>
                           </div>
-
-                          <div className="rounded-xl border border-brand/20 bg-brand/10 px-3 py-2 sm:min-w-[130px] sm:text-right">
-                            <div className="text-base font-bold text-ink sm:text-lg">
-                              {comingSoon
-                                ? "TBD"
-                                : formatServicePriceRange(service)}
-                            </div>
-
-                            {!comingSoon && maxPrice > minPrice && (
-                              <div className="text-xs font-medium text-muted">
-                                Estimated Range
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Badges */}
-                        <div className="mb-4 flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-1 rounded-lg border border-amber-100 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
-                            <FiStar
-                              className="h-3.5 w-3.5"
-                              fill="currentColor"
-                            />
-                          </span>
-
-                          <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-muted">
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-1 text-[11px] font-semibold text-green-700">
+                            <FiCheckCircle className="h-3 w-3" />
                             Assigned
                           </span>
-
-                          <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-muted">
-                            Warranty available
-                          </span>
                         </div>
 
-                        {/* Warning */}
-                        {comingSoon && (
-                          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
-                            This service is visible to customers but cannot be
-                            booked until an admin activates it.
-                          </div>
-                        )}
+                        <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted">
+                          {service.description || "Service details are managed by the Rovauto admin team."}
+                        </p>
 
-                        {/* Includes */}
-                        <div className="mt-auto border-t border-slate-100 pt-4">
-                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
-                            Includes
+                        <div className="mt-4 rounded-lg border border-line bg-bg-soft/60 p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                            Allocated vehicle coverage
                           </p>
-
-                          <div className="flex flex-wrap gap-1.5">
-                            {includes.slice(0, 6).map((include) => (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {assignments.map((assignment) => (
                               <span
-                                key={include}
-                                className="inline-flex max-w-full items-center rounded-lg bg-slate-50 px-2 py-1 text-xs font-medium text-ink ring-1 ring-slate-100"
+                                key={assignment.scopeKey}
+                                className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink"
                               >
-                                <span className="truncate">{include}</span>
+                                {getAssignmentLabel(assignment)}
                               </span>
                             ))}
-
-                            {includes.length > 6 && (
-                              <span className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-muted">
-                                +{includes.length - 6} more
-                              </span>
-                            )}
                           </div>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-3">
+                          <span className="text-xs text-muted">Customer estimate</span>
+                          <span className="text-sm font-bold text-ink">
+                            {comingSoon ? "Coming soon" : formatServicePriceRange(service)}
+                          </span>
                         </div>
                       </div>
                     </div>
-                  </motion.article>
+                  </article>
                 );
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-12 text-center shadow-sm">
-              <FiTool className="mb-3 h-8 w-8 text-muted" />
-
-              <h3 className="text-sm font-semibold text-ink">
-                No services found
-              </h3>
-
-              <p className="mt-1 max-w-sm text-sm leading-6 text-muted">
-                {!garage?.id
-                  ? "Garage profile not loaded. Try refreshing the page."
-                  : "No services are linked to this garage yet. They will appear here once an admin assigns them to your profile."}
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line bg-white px-5 py-12 text-center shadow-sm">
+              <span className="grid h-12 w-12 place-items-center rounded-xl border border-line bg-bg-soft text-muted">
+                <FiTool className="h-6 w-6" />
+              </span>
+              <h3 className="mt-4 text-base font-bold text-ink">No services assigned yet</h3>
+              <p className="mt-2 max-w-md text-sm leading-6 text-muted">
+                Services will appear here after an administrator assigns them
+                to this garage. Unassigned catalogue services are never shown.
               </p>
             </div>
           )}
