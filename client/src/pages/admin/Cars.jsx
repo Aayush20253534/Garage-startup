@@ -196,21 +196,46 @@ export default function Cars() {
     setSuccess("");
 
     try {
+      let savedModel;
+
       if (modelForm.id) {
-        await adminApi.updateCarModel(modelForm.id, {
+        savedModel = await adminApi.updateCarModel(modelForm.id, {
           name: modelName,
           isActive: modelForm.isActive !== false,
         });
 
         setSuccess("Car model updated.");
       } else {
-        await adminApi.createCarModel(brand.id, {
+        savedModel = await adminApi.createCarModel(brand.id, {
           name: modelName,
           isActive: true,
         });
 
         setSuccess("Car model added.");
       }
+
+      const normalizedModelSearch = modelSearch.trim().toLowerCase();
+      const matchesModelSearch =
+        !normalizedModelSearch ||
+        String(savedModel.name || "")
+          .toLowerCase()
+          .includes(normalizedModelSearch);
+
+      setBrands((current) =>
+        current.flatMap((item) => {
+          if (item.id !== brand.id) return [item];
+
+          const models = (item.models || []).filter(
+            (model) => model.id !== savedModel.id
+          );
+
+          if (matchesModelSearch) models.push(savedModel);
+          models.sort((left, right) => left.name.localeCompare(right.name));
+
+          if (normalizedModelSearch && !models.length) return [];
+          return [{ ...item, models }];
+        })
+      );
 
       setModelForms((current) => ({
         ...current,
@@ -220,8 +245,6 @@ export default function Cars() {
           isActive: true,
         },
       }));
-
-      await load();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save car model");
     }

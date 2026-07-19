@@ -34,3 +34,16 @@ test("admin cars UI removes a deleted model without reloading the list", () => {
   assert.doesNotMatch(deleteSource, /await load\(\)/);
   assert.doesNotMatch(deleteSource, /window\.location\.reload/);
 });
+
+test("admin cars UI merges saved models without reloading the list", () => {
+  const page = readProjectFile("client/src/pages/admin/Cars.jsx");
+  const saveStart = page.indexOf("const saveModel");
+  const saveSource = page.slice(saveStart, page.indexOf("const editModel", saveStart));
+
+  assert.match(saveSource, /savedModel = await adminApi\.createCarModel/);
+  assert.match(saveSource, /savedModel = await adminApi\.updateCarModel/);
+  assert.match(saveSource, /setBrands/);
+  assert.match(saveSource, /models\.push\(savedModel\)/);
+  assert.doesNotMatch(saveSource, /await load\(\)/);
+  assert.doesNotMatch(saveSource, /window\.location\.reload/);
+});
