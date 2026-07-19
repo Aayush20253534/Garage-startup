@@ -12,6 +12,7 @@ const {
   clearBookingsSchema,
   customerIdParamSchema,
   customerQuerySchema,
+  deleteCustomersSchema,
   paymentQuerySchema,
   reassignBookingGarageSchema,
   updateBookingStatusSchema,
@@ -31,6 +32,13 @@ router.get(
   customerQuerySchema,
   validate,
   controller.listCustomers,
+);
+router.delete(
+  "/customers",
+  authorizeRoles("ADMIN"),
+  deleteCustomersSchema,
+  validate,
+  controller.deleteCustomers,
 );
 router.get(
   "/customers/:userId/profile",

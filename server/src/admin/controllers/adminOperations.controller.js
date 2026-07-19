@@ -9,6 +9,16 @@ const listCustomers = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Customers fetched successfully", customers));
 });
 
+const deleteCustomers = asyncHandler(async (req, res) => {
+  const result = await service.deleteCustomers({
+    customerIds: req.body.customerIds,
+    requestedById: req.user.id,
+  });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Customers deleted successfully", result));
+});
+
 const listBookings = asyncHandler(async (req, res) => {
   const bookings = await service.listBookings(req.query);
   return res
@@ -158,6 +168,7 @@ const sendUserEmail = asyncHandler(async (req, res) => {
 module.exports = {
   addBookingAdminNote,
   clearAllBookings,
+  deleteCustomers,
   getBookingDetails,
   getCustomerProfile,
   getDashboardStats,

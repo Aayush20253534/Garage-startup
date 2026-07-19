@@ -196,39 +196,24 @@ function Dashboard() {
     );
   }
 
-  const cardTone =
-    "border-brand/20 bg-gradient-to-br from-brand/5 via-white to-brand/10";
-  const cardIconTone =
-    "bg-brand/15 text-brand-dark ring-1 ring-brand/20";
-  const cardAccent = "bg-brand/60";
-
   const statCards = [
     {
       icon: FiCalendar,
       label: "Active Bookings",
       number: activeBookingsCount,
       sub: "Current service requests",
-      tone: cardTone,
-      iconTone: cardIconTone,
-      accent: cardAccent,
     },
     {
       icon: FiClock,
       label: "Pending Payments",
       number: pendingBookingsCount,
       sub: "Awaiting checkout",
-      tone: cardTone,
-      iconTone: cardIconTone,
-      accent: cardAccent,
     },
     {
       icon: FiCheckCircle,
       label: "Completed",
       number: completedCount,
       sub: "Historical services",
-      tone: cardTone,
-      iconTone: cardIconTone,
-      accent: cardAccent,
     },
     {
       icon: FiTruck,
@@ -239,9 +224,6 @@ function Dashboard() {
           ? `${vehicle.brand} ${vehicle.model}`
           : "Manage vehicles"
         : "No vehicles added",
-      tone: cardTone,
-      iconTone: cardIconTone,
-      accent: cardAccent,
     },
   ];
 
@@ -306,25 +288,23 @@ function Dashboard() {
   })();
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-4 sm:space-y-6">
+    <div className="mx-auto max-w-7xl space-y-4 sm:space-y-5">
       {/* Header Section */}
-      <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
+      <section className="rounded-xl border border-line bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-ink">
-              Overview
-            </h1>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Customer dashboard</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink">Welcome, {user?.name || "User"}</h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
-              Welcome back, {user?.name || "User"}. Here's what's happening
-              with your vehicles today.
+              Manage bookings, vehicles, payments and service updates from one place.
             </p>
           </div>
 
-          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-3 lg:justify-end">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-3 lg:justify-end">
             {pendingBookingsCount > 0 && (
               <Link
                 to="/dashboard/pending-bookings"
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 shadow-sm transition hover:bg-red-100 sm:w-auto"
+                className="col-span-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 sm:col-span-1 sm:w-auto"
               >
                 <FiAlertCircle />
                 Pay Pending
@@ -333,7 +313,7 @@ function Dashboard() {
 
             <Link
               to="/dashboard/payments"
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-ink shadow-sm transition hover:bg-bg-soft sm:w-auto"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-ink transition hover:bg-bg-soft sm:w-auto sm:px-4"
             >
               <FiCreditCard />
               Wallet: {formatRupees(wallet?.balance || 0)}
@@ -341,7 +321,7 @@ function Dashboard() {
 
             <Link
               to="/booking/vehicle"
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-bold text-black shadow-sm transition hover:brightness-95 sm:w-auto"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-ink-2 sm:w-auto"
             >
               {hasVehicles ? "Book Service" : "Add Vehicle"}
             </Link>
@@ -350,7 +330,7 @@ function Dashboard() {
               type="button"
               disabled={loading}
               onClick={() => loadDashboard({ force: true })}
-              className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-line bg-white text-ink shadow-sm transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50 sm:w-11"
+              className="col-span-2 inline-flex h-10 w-full items-center justify-center rounded-lg border border-line bg-white text-ink transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1 sm:w-10"
               aria-label="Refresh dashboard"
             >
               <FiRefreshCcw
@@ -365,7 +345,7 @@ function Dashboard() {
 
       {/* Alert / Setup Banner */}
       {!hasVehicles && (
-        <section className="flex flex-col gap-4 rounded-2xl border border-brand/25 bg-gradient-to-r from-brand/10 via-white to-brand/5 p-5 shadow-soft sm:flex-row sm:items-center sm:justify-between">
+        <section className="flex flex-col gap-4 rounded-xl border border-line bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <h3 className="text-sm font-semibold text-ink">
               Vehicle setup required
@@ -378,7 +358,7 @@ function Dashboard() {
 
           <Link
             to="/booking/vehicle"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:brightness-95"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink-2"
           >
             <FiPlusCircle />
             Add Vehicle
@@ -387,20 +367,15 @@ function Dashboard() {
       )}
 
       {/* Stats Grid */}
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {statCards.map((item) => {
           const Icon = item.icon;
 
           return (
             <div
               key={item.label}
-              className={`group relative min-w-0 overflow-hidden rounded-2xl border ${item.tone} p-3 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-4`}
+              className="group min-w-0 rounded-xl border border-line bg-white p-3 shadow-sm transition-colors hover:border-ink/20 sm:p-4"
             >
-              <div
-                className={`absolute inset-x-0 top-0 h-0.5 ${item.accent}`}
-                aria-hidden="true"
-              />
-
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <span className="block text-xs font-bold leading-5 text-slate-700 sm:text-sm">
@@ -413,7 +388,7 @@ function Dashboard() {
                 </div>
 
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.iconTone} shadow-sm transition-transform group-hover:scale-105 sm:h-11 sm:w-11`}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-bg-soft text-ink sm:h-10 sm:w-10"
                 >
                   <Icon className="h-5 w-5" />
                 </div>
@@ -428,10 +403,10 @@ function Dashboard() {
       </section>
 
       {/* Main Content Area */}
-      <section className="grid gap-4 xl:grid-cols-[1.45fr_0.75fr]">
+      <section className="grid gap-4 2xl:grid-cols-[1.35fr_0.85fr]">
         {/* Active Service Column */}
         <div className="min-w-0 space-y-4">
-          <div className="rounded-2xl border border-line bg-white p-5 shadow-soft">
+          <div className="rounded-xl border border-line bg-white p-4 shadow-sm sm:p-5">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <h3 className="text-base font-semibold text-ink">
@@ -454,7 +429,7 @@ function Dashboard() {
             </div>
 
             {activeBooking ? (
-              <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-white to-slate-50/80 p-4 shadow-sm">
+              <div className="rounded-xl border border-line bg-bg-soft/50 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-4">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand-dark shadow-sm">
@@ -531,7 +506,7 @@ function Dashboard() {
                 </div>
               </div>
             ) : (
-              <div className="flex h-32 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-4 text-center">
+              <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-bg-soft/60 p-4 text-center">
                 <p className="text-sm font-semibold text-ink">
                   No active services
                 </p>
@@ -547,7 +522,7 @@ function Dashboard() {
 
         {/* Quick Actions / Activity Sidebar */}
         <div className="min-w-0 space-y-4">
-          <div className="rounded-2xl border border-line bg-white p-5 shadow-soft">
+          <div className="rounded-xl border border-line bg-white p-4 shadow-sm sm:p-5">
             <div className="mb-4">
               <h3 className="text-base font-semibold text-ink">
                 Activity & Shortcuts
@@ -614,7 +589,7 @@ function Dashboard() {
                 <h4 className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-muted">
                   Shortcuts
                 </h4>
-                <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                <ul className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-1">
                   {quickActions.map((action) => {
                     const ActionIcon = action.icon;
 
@@ -622,9 +597,9 @@ function Dashboard() {
                       <li key={`${action.name}-${action.to}`}>
                         <Link
                           to={action.to}
-                          className="group flex h-full items-start gap-3 rounded-xl border border-transparent p-2.5 transition hover:border-brand/20 hover:bg-brand/5"
+                          className="group flex h-full items-start gap-3 rounded-lg border border-line p-2.5 transition hover:border-ink/20 hover:bg-bg-soft"
                         >
-                          <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand/10 text-brand-dark">
+                          <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-bg-soft text-ink">
                             <ActionIcon className="h-4 w-4" />
                           </span>
                           <div className="min-w-0 flex-1">

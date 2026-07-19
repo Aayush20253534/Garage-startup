@@ -181,13 +181,13 @@ export default function ChatbotPopup({ onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label="Rovauto Assistant"
-      className="fixed inset-x-2.5 top-[calc(env(safe-area-inset-top)+0.625rem)] bottom-[calc(env(safe-area-inset-bottom)+0.625rem)] z-50 flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)] sm:inset-x-auto sm:top-auto sm:bottom-6 sm:right-6 sm:h-[min(680px,calc(100dvh-3rem))] sm:w-[420px]"
+      className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 flex h-[min(72dvh,620px)] min-h-0 flex-col overflow-hidden rounded-[20px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[min(680px,calc(100dvh-3rem))] sm:w-[420px] sm:rounded-[24px]"
     >
-      <header className="relative shrink-0 overflow-hidden bg-ink px-4 py-4 text-white sm:px-5">
+      <header className="relative shrink-0 overflow-hidden bg-ink px-3.5 py-3 text-white sm:px-5 sm:py-4">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-80" />
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand font-display text-lg font-extrabold text-black shadow-[0_8px_24px_rgba(185,240,0,0.18)]">
+            <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand font-display text-base font-extrabold text-black sm:h-11 sm:w-11 sm:rounded-2xl sm:text-lg">
               R
               <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-ink bg-emerald-400" />
             </div>
@@ -195,7 +195,7 @@ export default function ChatbotPopup({ onClose }) {
               <h2 className="truncate text-base font-bold sm:text-lg">
                 Rovauto Assistant
               </h2>
-              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-300">
+              <p className="mt-0.5 hidden items-center gap-1.5 text-xs text-slate-300 min-[380px]:flex">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                 Online · Typically replies instantly
               </p>
@@ -227,7 +227,7 @@ export default function ChatbotPopup({ onClose }) {
 
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-slate-50/80 px-4 py-5 pb-6 sm:px-5"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-slate-50/80 px-3.5 py-4 sm:space-y-4 sm:px-5 sm:py-5 sm:pb-6"
       >
         {isLoadingHistory && (
           <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
@@ -251,7 +251,7 @@ export default function ChatbotPopup({ onClose }) {
               )}
               <div
                 className={[
-                  "max-w-[82%] break-words whitespace-pre-line px-4 py-3 text-sm leading-6 shadow-sm",
+                  "max-w-[86%] break-words whitespace-pre-line px-3 py-2.5 text-[13px] leading-5 shadow-sm sm:max-w-[82%] sm:px-4 sm:py-3 sm:text-sm sm:leading-6",
                   isBot
                     ? "rounded-2xl rounded-bl-md border border-slate-200 bg-white text-slate-700"
                     : "rounded-2xl rounded-br-md bg-ink text-white",
@@ -264,17 +264,17 @@ export default function ChatbotPopup({ onClose }) {
         })}
 
         {showQuickPrompts && (
-          <div className="pl-9">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+          <div className="pl-0 sm:pl-9">
+            <p className="mb-2 hidden text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 sm:block">
               Common questions
             </p>
-            <div className="grid gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:overflow-visible sm:pb-0">
               {quickPrompts.map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
                   onClick={() => sendMessage(prompt)}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                  className="flex shrink-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:rounded-xl sm:px-3.5 sm:py-2.5 sm:text-xs"
                 >
                   <span>{prompt}</span>
                   <FiChevronRight className="shrink-0 text-slate-400" />
@@ -298,7 +298,7 @@ export default function ChatbotPopup({ onClose }) {
         )}
       </div>
 
-      <footer className="shrink-0 border-t border-slate-200 bg-white p-3 sm:p-4">
+      <footer className="shrink-0 border-t border-slate-200 bg-white p-2.5 sm:p-4">
         <div className="flex items-end gap-2 rounded-2xl border border-slate-300 bg-slate-50 p-1.5 transition focus-within:border-ink focus-within:bg-white focus-within:ring-4 focus-within:ring-slate-100">
           <textarea
             ref={inputRef}
@@ -320,7 +320,7 @@ export default function ChatbotPopup({ onClose }) {
             <FiSend className="text-base" />
           </button>
         </div>
-        <p className="mt-2 text-center text-[10px] leading-4 text-slate-400">
+        <p className="mt-2 hidden text-center text-[10px] leading-4 text-slate-400 sm:block">
           Never share OTPs, passwords, card details, or account tokens. For
           urgent road help, use SOS or Call support.
         </p>

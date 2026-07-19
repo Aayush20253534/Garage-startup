@@ -326,7 +326,7 @@ export default function Dangerous() {
     const maintenance = commands.filter((command) => command.tone === "warning");
 
     return [
-      { title: "Critical nukes", commands: critical },
+      { title: "Platform-wide deletion", commands: critical },
       { title: "Delete scripts", commands: destructive },
       { title: "Maintenance scripts", commands: maintenance },
     ].filter((group) => group.commands.length > 0);

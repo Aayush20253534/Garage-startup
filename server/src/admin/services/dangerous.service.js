@@ -89,7 +89,7 @@ const COMMANDS = [
     label: "Delete all bookings",
     description:
       "Deletes every booking and cascaded booking records, detaches complaints, and removes inspection images from Cloudinary.",
-    tone: "danger",
+    tone: "critical",
     fields: [],
   },
   {
@@ -97,7 +97,7 @@ const COMMANDS = [
     label: "Delete all payment and wallet transactions",
     description:
       "Deletes all Cashfree payment rows plus customer and garage wallet transactions, then resets wallet balances to zero.",
-    tone: "danger",
+    tone: "critical",
     fields: [],
   },
   {
@@ -1219,6 +1219,44 @@ const deleteUserData = async ({ payload = {}, requestedById = null } = {}) => {
   };
 };
 
+const deleteCustomerUsersByIds = async ({ userIds = [], requestedById = null } = {}) => {
+  const ids = unique(userIds);
+
+  if (!ids.length) {
+    throw new ApiError(400, "Select at least one customer");
+  }
+
+  const customers = await prisma.user.findMany({
+    where: { id: { in: ids }, role: "CUSTOMER" },
+    select: { id: true },
+  });
+
+  if (customers.length !== ids.length) {
+    throw new ApiError(400, "One or more selected accounts are not customer accounts");
+  }
+
+  const results = [];
+  for (const customer of customers) {
+    results.push(
+      await deleteUserData({
+        payload: { targetType: "id", targetValue: customer.id },
+        requestedById,
+      }),
+    );
+  }
+
+  return {
+    deletedCustomers: results.reduce(
+      (total, result) => total + Number(result.deletedUsers || 0),
+      0,
+    ),
+    deletedCloudinaryAssets: results.reduce(
+      (total, result) => total + Number(result.cloudinary?.deleted || 0),
+      0,
+    ),
+  };
+};
+
 const deleteGarageData = async ({ payload = {}, requestedById = null } = {}) => {
   const garage = await findSelectedGarage(payload);
   const garageIds = [garage.id];
@@ -1869,6 +1907,7 @@ const runCommand = async ({
 
 module.exports = {
   createSqliteBackupFile,
+  deleteCustomerUsersByIds,
   getExpectedConfirmation,
   listCommands,
   runCommand,

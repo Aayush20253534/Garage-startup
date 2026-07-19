@@ -16,6 +16,7 @@ import {
 } from "react-icons/fi";
 
 import Seo, { SITE_URL } from "@/components/seo/Seo";
+import GaragePwaInstall from "@/components/garage/GaragePwaInstall";
 import homepageHero from "@/assets/Rovauto_home.png";
 
 const SUPPORT_PHONE_DISPLAY = "+91 86199 55850";
@@ -189,7 +190,11 @@ export default function Partner() {
         </section>
 
         <section className="border-b border-line bg-bg-soft">
-          <div className="container-x grid gap-4 py-6 md:grid-cols-3">
+          <div className="container-x py-6">
+            <div className="mb-4">
+              <GaragePwaInstall compact />
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
             {PARTNER_SIGNALS.map(({ icon: Icon, title, description }) => (
               <article
                 key={title}
@@ -206,6 +211,7 @@ export default function Partner() {
                 </div>
               </article>
             ))}
+            </div>
           </div>
         </section>
 

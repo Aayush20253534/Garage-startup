@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { useApp } from "@/hooks/useApp";
 import { cityApi } from "@/api/cities";
 import CitySelect from "@/components/common/CitySelect";
 import CustomerActivityProfileModal from "@/components/admin/CustomerActivityProfileModal";
@@ -11,6 +12,7 @@ import {
   FiPlus,
   FiRefreshCw,
   FiSearch,
+  FiTrash2,
   FiXCircle,
 } from "react-icons/fi";
 
@@ -135,6 +137,8 @@ const formatDeviceCount = (count) =>
   `${count || 0} ${count === 1 ? "device" : "devices"}`;
 
 export default function Customers() {
+  const { user } = useApp();
+  const isIntern = user?.role === "INTERN";
   const [customers, setCustomers] = useState([]);
   const [cities, setCities] = useState([]);
   const [cityForm, setCityForm] = useState({ name: "", state: "" });
@@ -144,6 +148,8 @@ export default function Customers() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
+  const [deletingCustomers, setDeletingCustomers] = useState(false);
 
   const customerRows = useMemo(
     () =>
@@ -185,6 +191,7 @@ export default function Customers() {
 
       const data = await adminApi.getCustomers(params);
       setCustomers(data || []);
+      setSelectedCustomerIds([]);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load customers");
     } finally {
@@ -226,6 +233,35 @@ export default function Customers() {
       await loadCities();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to update city");
+    }
+  };
+
+  const toggleCustomerSelection = (customerId) => {
+    setSelectedCustomerIds((current) =>
+      current.includes(customerId)
+        ? current.filter((id) => id !== customerId)
+        : [...current, customerId],
+    );
+  };
+
+  const deleteSelectedCustomers = async () => {
+    if (!selectedCustomerIds.length || deletingCustomers || isIntern) return;
+
+    const count = selectedCustomerIds.length;
+    if (!window.confirm(`Permanently delete ${count} selected customer${count === 1 ? "" : "s"} and all linked account data?`)) return;
+
+    setDeletingCustomers(true);
+    setError("");
+    setSuccess("");
+    try {
+      const result = await adminApi.deleteCustomers(selectedCustomerIds);
+      const deleted = result.deletedCustomers || count;
+      setSuccess(`${deleted} customer${deleted === 1 ? "" : "s"} deleted.`);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete customers");
+    } finally {
+      setDeletingCustomers(false);
     }
   };
 
@@ -376,7 +412,34 @@ export default function Customers() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-semibold">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+            {!isIntern && customerRows.length > 0 && (
+              <>
+                <label className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-white px-3 text-xs font-semibold text-ink">
+                  <input
+                    type="checkbox"
+                    checked={selectedCustomerIds.length === customerRows.length}
+                    onChange={(event) =>
+                      setSelectedCustomerIds(
+                        event.target.checked
+                          ? customerRows.map((customer) => customer.id)
+                          : [],
+                      )
+                    }
+                  />
+                  Select all
+                </label>
+                <button
+                  type="button"
+                  onClick={deleteSelectedCustomers}
+                  disabled={!selectedCustomerIds.length || deletingCustomers}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-white px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FiTrash2 />
+                  {deletingCustomers ? "Deleting..." : `Delete selected${selectedCustomerIds.length ? ` (${selectedCustomerIds.length})` : ""}`}
+                </button>
+              </>
+            )}
             <span className="rounded-full bg-lime-100 px-2.5 py-1 text-ink">
               {onlineCount} online
             </span>
@@ -390,6 +453,9 @@ export default function Customers() {
           <table className="w-full min-w-[1020px] text-sm">
             <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
               <tr>
+                {!isIntern && (
+                  <th className="w-12 px-4 py-3 font-bold">Select</th>
+                )}
                 {[
                   "Name",
                   "Email",
@@ -415,7 +481,7 @@ export default function Customers() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="10" className="px-4 py-6 text-sm text-muted">
+                  <td colSpan={isIntern ? 10 : 11} className="px-4 py-6 text-sm text-muted">
                     Loading customers...
                   </td>
                 </tr>
@@ -425,6 +491,16 @@ export default function Customers() {
                     key={customer.id}
                     className="border-t border-line transition hover:bg-bg-soft/70"
                   >
+                    {!isIntern && (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${customer.name || customer.email || "customer"}`}
+                          checked={selectedCustomerIds.includes(customer.id)}
+                          onChange={() => toggleCustomerSelection(customer.id)}
+                        />
+                      </td>
+                    )}
                     <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
                       {customer.name || "-"}
                     </td>
@@ -543,7 +619,7 @@ export default function Customers() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10" className="px-4 py-6 text-sm text-muted">
+                  <td colSpan={isIntern ? 10 : 11} className="px-4 py-6 text-sm text-muted">
                     No customers found.
                   </td>
                 </tr>

@@ -33,6 +33,8 @@ export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [markingIds, setMarkingIds] = useState([]);
+  const [markingAll, setMarkingAll] = useState(false);
 
   const loadNotifications = async () => {
     try {
@@ -53,36 +55,50 @@ export default function Notifications() {
   }, []);
 
   const markRead = async (notification) => {
-    if (notification.isRead) return;
+    if (notification.isRead || markingIds.includes(notification.id)) return;
+
+    const previous = notifications;
+    const optimistic = notifications.map((item) =>
+      item.id === notification.id ? { ...item, isRead: true } : item,
+    );
+    setNotifications(optimistic);
+    notifyUnreadChanged(optimistic);
+    setMarkingIds((current) => [...current, notification.id]);
+    setError("");
 
     try {
       await api.patch(`/notifications/${notification.id}/read`);
-
-      setNotifications((current) => {
-        const next = current.map((item) =>
-          item.id === notification.id ? { ...item, isRead: true } : item,
-        );
-        notifyUnreadChanged(next);
-        return next;
-      });
     } catch (err) {
+      setNotifications(previous);
+      notifyUnreadChanged(previous);
       setError(
         err.response?.data?.message || "Failed to mark notification read",
+      );
+    } finally {
+      setMarkingIds((current) =>
+        current.filter((id) => id !== notification.id),
       );
     }
   };
 
   const markAllRead = async () => {
+    if (markingAll) return;
+
+    const previous = notifications;
+    const optimistic = notifications.map((item) => ({ ...item, isRead: true }));
+    setNotifications(optimistic);
+    notifyUnreadChanged(optimistic);
+    setMarkingAll(true);
+    setError("");
+
     try {
       await api.patch("/notifications/read-all");
-
-      setNotifications((current) => {
-        const next = current.map((item) => ({ ...item, isRead: true }));
-        notifyUnreadChanged(next);
-        return next;
-      });
     } catch (err) {
+      setNotifications(previous);
+      notifyUnreadChanged(previous);
       setError(err.response?.data?.message || "Failed to mark all as read");
+    } finally {
+      setMarkingAll(false);
     }
   };
 
@@ -104,10 +120,11 @@ export default function Notifications() {
           <button
             type="button"
             onClick={markAllRead}
+            disabled={markingAll}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft"
           >
-            <FiCheckCircle />
-            Mark all read
+            <FiCheckCircle className={markingAll ? "animate-pulse" : ""} />
+            {markingAll ? "Marking..." : "Mark all read"}
           </button>
         )}
       </div>
@@ -127,8 +144,8 @@ export default function Notifications() {
           return (
             <div
               key={notification.id}
-              className={`card-soft p-4 flex items-center gap-4 text-left ${
-                !notification.isRead ? "border-l-4 border-l-brand" : ""
+              className={`card-soft flex items-center gap-3 p-4 text-left transition-all duration-200 sm:gap-4 ${
+                !notification.isRead ? "border-l-4 border-l-brand bg-brand/[0.03]" : "border-l-4 border-l-transparent"
               }`}
             >
               <span className="grid place-items-center h-10 w-10 rounded-xl bg-brand">
@@ -158,8 +175,8 @@ export default function Notifications() {
                   Mark as read
                 </button>
               ) : (
-                <span className="chip-brand shrink-0 bg-bg-soft text-muted">
-                  Read
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-bg-soft px-2.5 py-1.5 text-xs font-semibold text-muted transition-all duration-200">
+                  <FiCheckCircle /> Read
                 </span>
               )}
             </div>

@@ -152,6 +152,12 @@ export const adminApi = {
     return unwrap(await api.get("/admin/customers", { params }));
   },
 
+  async deleteCustomers(customerIds = []) {
+    return unwrap(
+      await api.delete("/admin/customers", { data: { customerIds } }),
+    );
+  },
+
   async getCustomerProfile(userId) {
     return unwrap(await api.get(`/admin/customers/${userId}/profile`));
   },

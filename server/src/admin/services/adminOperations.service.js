@@ -5,6 +5,7 @@ const { deleteFromCloudinary } = require("../../utils/cloudinaryUpload");
 const { Resend } = require("resend");
 const notificationService = require("../../customer/services/notification.service");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
+const dangerousService = require("./dangerous.service");
 
 let resend;
 if (process.env.RESEND_API_KEY) {
@@ -160,6 +161,12 @@ const listCustomers = async (query = {}) => {
 
   return attachCustomerSessionStatus(customers);
 };
+
+const deleteCustomers = async ({ customerIds = [], requestedById = null } = {}) =>
+  dangerousService.deleteCustomerUsersByIds({
+    userIds: customerIds,
+    requestedById,
+  });
 
 const bookingInclude = {
   user: {
@@ -2043,6 +2050,7 @@ const clearAllBookings = async ({
 module.exports = {
   addBookingAdminNote,
   clearAllBookings,
+  deleteCustomers,
   getBookingDetails,
   getCustomerProfile,
   getDashboardStats,

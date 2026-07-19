@@ -242,6 +242,10 @@ export default function GarageLogin() {
           </div>
         </section>
 
+        <div className="lg:hidden">
+          <GaragePwaInstall compact />
+        </div>
+
         <aside className="hidden gap-5 lg:grid">
           <div className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
             <div className="flex items-center gap-2 text-sm font-bold text-ink">

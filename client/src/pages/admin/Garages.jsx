@@ -598,7 +598,7 @@ export default function Garages() {
                         "rounded-lg border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition sm:text-sm",
                         applicationStatus === status
                           ? "border-ink bg-ink text-white shadow-sm"
-                          : `${meta.tone} hover:border-ink/20`,
+                          : "border-line bg-white text-muted hover:border-ink/25 hover:bg-bg-soft hover:text-ink",
                       ].join(" ")}
                     >
                       {meta.label}
@@ -779,7 +779,7 @@ export default function Garages() {
                             onClick={() =>
                               runApplicationAction(application, "approve")
                             }
-                            className={`${adminButtonBase} bg-lime-400 text-black shadow-sm hover:bg-lime-500`}
+                            className={`${adminButtonBase} border border-emerald-200 bg-white text-emerald-800 hover:border-emerald-300 hover:bg-emerald-50`}
                           >
                             <FiCheck />
                             Approve
@@ -801,7 +801,7 @@ export default function Garages() {
                             onClick={() =>
                               runApplicationAction(application, "deny")
                             }
-                            className={`${adminButtonBase} bg-red-700 text-white hover:bg-red-800`}
+                            className={`${adminButtonBase} border border-red-200 bg-white text-red-700 hover:border-red-300 hover:bg-red-50`}
                           >
                             <FiX />
                             Deny
@@ -819,7 +819,7 @@ export default function Garages() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
           <aside className="card-soft overflow-hidden rounded-xl shadow-sm">
             <div className="border-b border-line p-4">
               <div className="flex items-start justify-between gap-3">
@@ -1310,9 +1310,11 @@ export default function Garages() {
             {!isIntern && (
             <form
               onSubmit={saveGarageService}
-              className="card-soft grid gap-3 rounded-xl p-4 shadow-sm xl:grid-cols-[1fr_1.2fr_0.9fr_0.9fr_auto]"
+              className="card-soft grid gap-3 rounded-xl p-4 shadow-sm md:grid-cols-2 2xl:grid-cols-[minmax(190px,1fr)_minmax(230px,1.2fr)_minmax(150px,0.8fr)_minmax(150px,0.8fr)]"
             >
-              <select
+              <label className="grid min-w-0 gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                Garage
+                <select
                 required
                 value={selectedGarageId}
                 onChange={(event) => {
@@ -1328,9 +1330,12 @@ export default function Garages() {
                     {garage.city ? ` - ${garage.city}` : ""}
                   </option>
                 ))}
-              </select>
+                </select>
+              </label>
 
-              <select
+              <label className="grid min-w-0 gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                Service
+                <select
                 required
                 value={serviceForm.serviceId}
                 onChange={(event) =>
@@ -1350,9 +1355,12 @@ export default function Garages() {
                     {service.name}
                   </option>
                 ))}
-              </select>
+                </select>
+              </label>
 
-              <select
+              <label className="grid min-w-0 gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                Vehicle brand
+                <select
                 value={serviceForm.vehicleBrand}
                 onChange={(event) =>
                   setServiceForm({
@@ -1369,9 +1377,12 @@ export default function Garages() {
                     {brand.name}
                   </option>
                 ))}
-              </select>
+                </select>
+              </label>
 
-              <select
+              <label className="grid min-w-0 gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                Vehicle model
+                <select
                 value={serviceForm.vehicleModel}
                 onChange={(event) =>
                   setServiceForm({
@@ -1388,12 +1399,13 @@ export default function Garages() {
                     {model.name}
                   </option>
                 ))}
-              </select>
+                </select>
+              </label>
 
               <button
                 type="submit"
                 disabled={!selectedGarageId || !serviceForm.serviceId}
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-lime-400 px-5 text-sm font-bold text-black transition hover:bg-lime-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-ink px-5 text-sm font-bold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 2xl:col-span-4"
               >
                 Save
               </button>

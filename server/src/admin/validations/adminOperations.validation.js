@@ -52,6 +52,15 @@ const customerIdParamSchema = [
   param("userId").isUUID().withMessage("Valid customer ID is required"),
 ];
 
+const deleteCustomersSchema = [
+  body("customerIds")
+    .isArray({ min: 1, max: 100 })
+    .withMessage("Select between 1 and 100 customers"),
+  body("customerIds.*")
+    .isUUID()
+    .withMessage("Every customer ID must be valid"),
+];
+
 const updateBookingStatusSchema = [
   ...bookingIdParamSchema,
   body("status")
@@ -263,6 +272,7 @@ module.exports = {
   paymentQuerySchema,
   customerIdParamSchema,
   customerQuerySchema,
+  deleteCustomersSchema,
   reassignBookingGarageSchema,
   sendUserEmailSchema,
   sendNotificationSchema,
