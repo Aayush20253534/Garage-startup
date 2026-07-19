@@ -819,7 +819,7 @@ export default function Garages() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
+        <div className="grid gap-4">
           <aside className="card-soft overflow-hidden rounded-xl shadow-sm">
             <div className="border-b border-line p-4">
               <div className="flex items-start justify-between gap-3">
@@ -840,7 +840,7 @@ export default function Garages() {
                 </button>
               </div>
 
-              <div className="mt-3 grid gap-2">
+              <div className="mt-3 grid gap-2 md:grid-cols-[minmax(240px,1fr)_220px_auto]">
                 <CitySelect
                   value={filterCity}
                   onChange={setFilterCity}
@@ -897,13 +897,13 @@ export default function Garages() {
               )}
             </div>
 
-            <div className="max-h-[520px] overflow-y-auto">
+            <div className="grid max-h-[360px] grid-cols-1 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">
               {garages.length ? (
                 garages.map((garage) => (
                   <div
                     key={garage.id}
                     className={[
-                      "flex items-start gap-3 border-b border-line p-3 transition",
+                      "flex items-start gap-3 border-b border-line p-3 transition sm:border-r",
                       selectedGarageId === garage.id
                         ? "border-l-4 border-lime-400 bg-lime-50 text-ink"
                         : "border-l-4 border-transparent hover:bg-bg-soft",
@@ -1183,19 +1183,76 @@ export default function Garages() {
                 {!isIntern && <label className={`${adminButtonBase} w-fit cursor-pointer border border-line bg-white text-ink hover:border-ink`}><FiUpload />{photoBusyId === "upload" ? "Uploading..." : "Add photos"}<input type="file" accept="image/*" multiple disabled={Boolean(photoBusyId) || (selectedGarage.images?.length || 0) >= 15} onChange={uploadGaragePhotos} className="hidden" /></label>}
 
                 {selectedGarage.images?.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
                     {selectedGarage.images.map((image, index) => (
                       <div
                         key={image.id}
-                        className="block overflow-hidden rounded-lg border border-line bg-bg-soft"
+                        className="overflow-hidden rounded-xl border border-line bg-white shadow-sm"
                       >
-                        <a href={getGarageImageUrl(image)} target="_blank" rel="noreferrer"><img
-                          src={getGarageImageUrl(image)}
-                          alt={`${selectedGarage.name} garage photo ${index + 1}`}
-                          className="aspect-square w-full object-cover"
-                        /></a>
-                        <div className="flex items-center justify-between gap-1 px-2 py-1 text-xs text-muted"><span>{image.isThumbnail ? "Thumbnail" : `Photo ${index + 1}`}</span>{!isIntern && <div className="flex"><button type="button" title="Move left" disabled={index === 0 || Boolean(photoBusyId)} onClick={() => moveGaragePhoto(index, -1)} className="grid h-7 w-7 place-items-center disabled:opacity-30"><FiArrowLeft /></button><button type="button" title="Move right" disabled={index === selectedGarage.images.length - 1 || Boolean(photoBusyId)} onClick={() => moveGaragePhoto(index, 1)} className="grid h-7 w-7 place-items-center disabled:opacity-30"><FiArrowRight /></button></div>}</div>
-                        {!isIntern && <div className="grid grid-cols-2 border-t border-line"><button type="button" disabled={image.isThumbnail || Boolean(photoBusyId)} onClick={() => setGarageThumbnail(image)} className="px-1 py-2 text-[11px] font-semibold text-ink disabled:text-muted">Set cover</button><button type="button" disabled={Boolean(photoBusyId)} onClick={() => deleteGaragePhoto(image)} className="border-l border-line px-1 py-2 text-[11px] font-semibold text-red-700">Delete</button></div>}
+                        <a
+                          href={getGarageImageUrl(image)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block bg-bg-soft"
+                        >
+                          <img
+                            src={getGarageImageUrl(image)}
+                            alt={`${selectedGarage.name} garage photo ${index + 1}`}
+                            className="aspect-[4/3] w-full object-cover"
+                          />
+                        </a>
+
+                        <div className="flex min-h-11 items-center justify-between gap-2 border-t border-line px-3 py-2">
+                          <span className="truncate text-xs font-semibold text-muted">
+                            {image.isThumbnail ? "Current cover" : `Photo ${index + 1}`}
+                          </span>
+
+                          {!isIntern && (
+                            <div className="flex shrink-0 gap-1">
+                              <button
+                                type="button"
+                                title="Move photo left"
+                                aria-label={`Move photo ${index + 1} left`}
+                                disabled={index === 0 || Boolean(photoBusyId)}
+                                onClick={() => moveGaragePhoto(index, -1)}
+                                className="grid h-8 w-8 place-items-center rounded-md border border-line bg-white text-muted transition hover:border-ink/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+                              >
+                                <FiArrowLeft />
+                              </button>
+                              <button
+                                type="button"
+                                title="Move photo right"
+                                aria-label={`Move photo ${index + 1} right`}
+                                disabled={index === selectedGarage.images.length - 1 || Boolean(photoBusyId)}
+                                onClick={() => moveGaragePhoto(index, 1)}
+                                className="grid h-8 w-8 place-items-center rounded-md border border-line bg-white text-muted transition hover:border-ink/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+                              >
+                                <FiArrowRight />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {!isIntern && (
+                          <div className="grid grid-cols-2 gap-2 border-t border-line bg-bg-soft/50 p-2">
+                            <button
+                              type="button"
+                              disabled={image.isThumbnail || Boolean(photoBusyId)}
+                              onClick={() => setGarageThumbnail(image)}
+                              className="inline-flex min-h-9 items-center justify-center rounded-md border border-line bg-white px-2 text-xs font-semibold text-ink transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:text-muted"
+                            >
+                              {image.isThumbnail ? "Selected" : "Set cover"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={Boolean(photoBusyId)}
+                              onClick={() => deleteGaragePhoto(image)}
+                              className="inline-flex min-h-9 items-center justify-center rounded-md border border-red-200 bg-white px-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
