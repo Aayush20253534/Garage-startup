@@ -40,9 +40,16 @@ const normalizeBrands = (value) => {
 };
 
 const getAssignmentLabel = ({ vehicleBrand, vehicleModel }) => {
+  if (vehicleBrand === "NONE") {
+    return "No vehicle brand · No vehicle model";
+  }
+
   const brand = vehicleBrand && vehicleBrand !== "ALL"
     ? vehicleBrand
     : "All supported brands";
+
+  if (vehicleModel === "NONE") return `${brand} · No vehicle model`;
+
   return vehicleModel && vehicleModel !== "ALL"
     ? `${brand} · ${vehicleModel}`
     : brand;

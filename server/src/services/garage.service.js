@@ -197,6 +197,8 @@ const buildRawGarageConditions = ({
       WHERE gs."garageId" = g."id"
         AND gs."serviceId" = ${serviceId}
         AND gs."isActive" = true
+        AND LOWER(gs."vehicleBrand") <> 'none'
+        AND LOWER(gs."vehicleModel") <> 'none'
         ${vehicleBrand ? Prisma.sql`AND (LOWER(gs."vehicleBrand") = 'all' OR LOWER(gs."vehicleBrand") = LOWER(${vehicleBrand}))` : Prisma.empty}
         ${vehicleModel ? Prisma.sql`AND (LOWER(gs."vehicleModel") = 'all' OR LOWER(gs."vehicleModel") = LOWER(${vehicleModel}))` : Prisma.empty}
     )`);
@@ -310,6 +312,10 @@ const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
         some: {
           serviceId,
           isActive: true,
+          NOT: [
+            { vehicleBrand: { equals: "NONE", mode: "insensitive" } },
+            { vehicleModel: { equals: "NONE", mode: "insensitive" } },
+          ],
           ...(vehicleBrand && {
             OR: [
               { vehicleBrand: "ALL" },

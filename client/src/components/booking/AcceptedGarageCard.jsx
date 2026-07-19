@@ -41,15 +41,21 @@ const getCoverImage = (garage) => {
   return resolveMediaUrl(image) || getGarageImageDeliveryUrl(image);
 };
 
+const hasVehicleCoverage = (assignment) =>
+  String(assignment?.vehicleBrand || "ALL").trim().toUpperCase() !== "NONE" &&
+  String(assignment?.vehicleModel || "ALL").trim().toUpperCase() !== "NONE";
+
 const getServiceNames = (garage) =>
   unique(
-    (Array.isArray(garage?.services) ? garage.services : []).map(
-      (assignment) => assignment?.service?.name,
-    ),
+    (Array.isArray(garage?.services) ? garage.services : [])
+      .filter(hasVehicleCoverage)
+      .map((assignment) => assignment?.service?.name),
   ).sort((left, right) => left.localeCompare(right));
 
 const getVehicleCoverage = (garage) => {
-  const assignments = Array.isArray(garage?.services) ? garage.services : [];
+  const assignments = (
+    Array.isArray(garage?.services) ? garage.services : []
+  ).filter(hasVehicleCoverage);
   const scopes = assignments.map((assignment) => {
     const brand = String(assignment?.vehicleBrand || "ALL").trim();
     const model = String(assignment?.vehicleModel || "ALL").trim();

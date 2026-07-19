@@ -48,6 +48,8 @@ const assignmentMatchesVehicle = (assignment, vehicle = {}) => {
   const vehicleBrand = normalizeCapabilityValue(vehicle.brand);
   const vehicleModel = normalizeCapabilityValue(vehicle.model);
 
+  if (assignedBrand === "none" || assignedModel === "none") return false;
+
   const brandMatches =
     assignedBrand === "all" ||
     (vehicleBrand && assignedBrand === vehicleBrand);

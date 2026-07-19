@@ -70,6 +70,19 @@ const money = (value) => formatRupees(value);
 const fieldClass =
   "h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/5 disabled:bg-bg-soft";
 
+const formatGarageServiceScope = ({ vehicleBrand, vehicleModel }) => {
+  const brandScope = String(vehicleBrand || "ALL").toUpperCase();
+  const modelScope = String(vehicleModel || "ALL").toUpperCase();
+
+  if (brandScope === "NONE") {
+    return "No vehicle brand / no vehicle model";
+  }
+  if (brandScope === "ALL") return "All brands / all models";
+  if (modelScope === "NONE") return `${vehicleBrand} / No vehicle model`;
+  if (modelScope === "ALL") return `${vehicleBrand} / All models`;
+  return `${vehicleBrand} / ${vehicleModel}`;
+};
+
 const getGarageBrands = (garage) => {
   const value = garage?.supportedBrands;
   if (Array.isArray(value)) return value.filter(Boolean);
@@ -1597,14 +1610,18 @@ export default function Garages() {
                 <select
                 value={serviceForm.vehicleBrand}
                 onChange={(event) =>
-                  setServiceForm({
-                    ...serviceForm,
-                    vehicleBrand: event.target.value,
-                    vehicleModel: "ALL",
+                  setServiceForm((current) => {
+                    const vehicleBrand = event.target.value;
+                    return {
+                      ...current,
+                      vehicleBrand,
+                      vehicleModel: vehicleBrand === "ALL" ? "ALL" : "NONE",
+                    };
                   })
                 }
                 className={fieldClass}
               >
+                <option value="NONE">No vehicle brand</option>
                 <option value="ALL">All brands</option>
                 {vehicleBrands.map((brand) => (
                   <option key={brand.id || brand.name} value={brand.name}>
@@ -1624,9 +1641,13 @@ export default function Garages() {
                     vehicleModel: event.target.value,
                   })
                 }
-                disabled={serviceForm.vehicleBrand === "ALL"}
+                disabled={
+                  serviceForm.vehicleBrand === "ALL" ||
+                  serviceForm.vehicleBrand === "NONE"
+                }
                 className={fieldClass}
               >
+                <option value="NONE">No vehicle model</option>
                 <option value="ALL">All models</option>
                 {vehicleModels.map((model) => (
                   <option key={model.id || model.name} value={model.name}>
@@ -1680,13 +1701,7 @@ export default function Garages() {
                           </td>
 
                           <td className="px-4 py-3 text-muted">
-                            {item.vehicleBrand === "ALL"
-                              ? "All brands / all models"
-                              : `${item.vehicleBrand || "All brands"} / ${
-                                  item.vehicleModel === "ALL"
-                                    ? "All models"
-                                    : item.vehicleModel || "All models"
-                                }`}
+                            {formatGarageServiceScope(item)}
                           </td>
 
                           <td className="px-4 py-3">

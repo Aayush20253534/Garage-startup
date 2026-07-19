@@ -4,6 +4,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 const {
+  assignmentMatchesVehicle,
   garageCanServeBooking,
 } = require("../../src/utils/garageCapabilities");
 
@@ -78,6 +79,52 @@ test("brand and model scoped assignments cannot receive unrelated alerts", () =>
     }),
     false,
   );
+});
+
+test("explicit no-brand and no-model scopes never match a customer vehicle", () => {
+  const activeService = {
+    isActive: true,
+    service: { isActive: true, category: { isActive: true } },
+  };
+
+  assert.equal(
+    assignmentMatchesVehicle(
+      { ...activeService, vehicleBrand: "NONE", vehicleModel: "NONE" },
+      { brand: "Ford", model: "EcoSport" },
+    ),
+    false,
+  );
+  assert.equal(
+    assignmentMatchesVehicle(
+      { ...activeService, vehicleBrand: "Ford", vehicleModel: "NONE" },
+      { brand: "Ford", model: "EcoSport" },
+    ),
+    false,
+  );
+});
+
+test("garage assignment UI and queries preserve explicit no-vehicle scopes", () => {
+  const adminPage = readProjectFile("client/src/pages/admin/Garages.jsx");
+  const garagePage = readProjectFile("client/src/pages/garage/Services.jsx");
+  const customerGarageCard = readProjectFile(
+    "client/src/components/booking/AcceptedGarageCard.jsx",
+  );
+  const adminService = readProjectFile(
+    "server/src/admin/services/garageAdmin.service.js",
+  );
+  const eligibilityService = readProjectFile(
+    "server/src/services/garage.service.js",
+  );
+
+  assert.match(adminPage, /value="NONE">No vehicle brand/);
+  assert.match(adminPage, /value="NONE">No vehicle model/);
+  assert.match(adminPage, /vehicleBrand === "ALL" \? "ALL" : "NONE"/);
+  assert.match(adminService, /const normalizeVehicleScope/);
+  assert.match(adminService, /vehicleBrand === "NONE"/);
+  assert.match(eligibilityService, /LOWER\(gs\."vehicleBrand"\) <> 'none'/);
+  assert.match(eligibilityService, /vehicleModel: \{ equals: "NONE"/);
+  assert.match(garagePage, /No vehicle brand · No vehicle model/);
+  assert.match(customerGarageCard, /\.filter\(hasVehicleCoverage\)/);
 });
 
 test("garage alerts recheck capability before WhatsApp and in-app delivery", () => {

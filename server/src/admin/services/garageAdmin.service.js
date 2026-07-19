@@ -82,9 +82,30 @@ const parseBoolean = (value, fallback = true) => {
   return String(value).toLowerCase() === "true";
 };
 
-const normalizeScope = (value) => {
+const normalizeScope = (value, fallback = "ALL") => {
   const text = String(value || "").trim();
-  return text || "ALL";
+  if (!text) return fallback;
+
+  const reservedScope = text.toUpperCase();
+  return reservedScope === "ALL" || reservedScope === "NONE"
+    ? reservedScope
+    : text;
+};
+
+const normalizeVehicleScope = (brandValue, modelValue) => {
+  const vehicleBrand = normalizeScope(brandValue);
+
+  if (vehicleBrand === "ALL") {
+    return { vehicleBrand, vehicleModel: "ALL" };
+  }
+  if (vehicleBrand === "NONE") {
+    return { vehicleBrand, vehicleModel: "NONE" };
+  }
+
+  return {
+    vehicleBrand,
+    vehicleModel: normalizeScope(modelValue, "NONE"),
+  };
 };
 
 const listGarages = async (query = {}) => {
@@ -278,8 +299,10 @@ const upsertGarageService = async (garageId, payload) => {
   const service = await prisma.service.findUnique({ where: { id: payload.serviceId } });
   if (!service) throw new ApiError(404, "Service not found");
 
-  const vehicleBrand = normalizeScope(payload.vehicleBrand);
-  const vehicleModel = normalizeScope(payload.vehicleModel);
+  const { vehicleBrand, vehicleModel } = normalizeVehicleScope(
+    payload.vehicleBrand,
+    payload.vehicleModel,
+  );
 
   const garageService = await prisma.garageService.upsert({
     where: {
@@ -320,8 +343,10 @@ const upsertGarageService = async (garageId, payload) => {
 
 const removeGarageService = async (garageId, serviceId, scope = {}) => {
   await getGarage(garageId);
-  const vehicleBrand = normalizeScope(scope.vehicleBrand);
-  const vehicleModel = normalizeScope(scope.vehicleModel);
+  const { vehicleBrand, vehicleModel } = normalizeVehicleScope(
+    scope.vehicleBrand,
+    scope.vehicleModel,
+  );
 
   const garageService = await prisma.garageService.findUnique({
     where: {
