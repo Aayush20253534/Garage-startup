@@ -25,6 +25,15 @@ const NAV = [
   { to: "/contact", label: "Contact" },
 ];
 
+const AUTHENTICATED_MOBILE_NAV = [
+  { to: "/dashboard", label: "Dashboard" },
+  { to: "/services", label: "Services" },
+  { to: "/dashboard/notifications", label: "Notifications" },
+  { to: "/how-it-works", label: "How It Works" },
+  { to: "/contact", label: "Contact" },
+  { to: "/about", label: "About" },
+];
+
 const formatNotificationTime = (date) => {
   if (!date) return "";
 
@@ -65,6 +74,7 @@ export default function Navbar() {
 
   const safeCart = Array.isArray(cart) ? cart : [];
   const visibleNav = NAV;
+  const mobileNav = user ? AUTHENTICATED_MOBILE_NAV : NAV;
 
   const closeMobileMenu = () => {
     document.body.style.overflow = "";
@@ -833,48 +843,24 @@ export default function Navbar() {
               )}
 
               <nav className="mb-6 grid gap-1">
-                {visibleNav.map((item) => (
+                {mobileNav.map((item) => (
                   <Link
                     key={item.to}
                     to={item.to}
                     onClick={(event) =>
                       handleMobileNavigate(event, item.to)
                     }
-                    className="rounded-2xl px-4 py-3 text-base font-semibold hover:bg-bg-soft"
+                    className="flex items-center justify-between rounded-2xl px-4 py-3 text-base font-semibold hover:bg-bg-soft"
                   >
-                    {item.label}
-                  </Link>
-                ))}
-
-                {user && (
-                  <>
-                    <Link
-                      to="/dashboard"
-                      onClick={(event) =>
-                        handleMobileNavigate(event, "/dashboard")
-                      }
-                      className="rounded-2xl px-4 py-3 text-base font-semibold hover:bg-bg-soft"
-                    >
-                      Dashboard
-                    </Link>
-
-                    <Link
-                      to="/dashboard/notifications"
-                      onClick={(event) =>
-                        handleMobileNavigate(event, "/dashboard/notifications")
-                      }
-                      className="flex items-center justify-between rounded-2xl px-4 py-3 text-base font-semibold hover:bg-bg-soft"
-                    >
-                      <span>Notifications</span>
-
-                      {unreadCount > 0 && (
+                    <span>{item.label}</span>
+                    {item.to === "/dashboard/notifications" &&
+                      unreadCount > 0 && (
                         <span className="rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-black">
                           {unreadCount > 99 ? "99+" : unreadCount}
                         </span>
                       )}
-                    </Link>
-                  </>
-                )}
+                  </Link>
+                ))}
               </nav>
 
               <div className="grid gap-2">
