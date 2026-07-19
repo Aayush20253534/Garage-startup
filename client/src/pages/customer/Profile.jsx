@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import CitySelect from "@/components/common/CitySelect";
+import CustomerAvatar from "@/components/customer/CustomerAvatar";
 import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import {
   buildFullAddress,
@@ -18,6 +19,7 @@ import {
 import { addRecentActivity } from "@/utils/activityLog";
 import {
   FiCheckCircle,
+  FiCamera,
   FiMapPin,
   FiNavigation,
   FiSave,
@@ -25,6 +27,13 @@ import {
 } from "react-icons/fi";
 
 const INDIA_PHONE_REGEX = /^\+91[6-9]\d{9}$/;
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const AVATAR_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
 
 const hasCoordinateValue = (value) =>
   value !== null && value !== undefined && value !== "";
@@ -81,11 +90,13 @@ export default function Profile() {
 
   const initialLoadRef = useRef(false);
   const profileRequestRef = useRef(null);
+  const avatarInputRef = useRef(null);
   const mountedRef = useRef(true);
 
   const [form, setForm] = useState(() => createFormFromUser(user));
   const [loading, setLoading] = useState(!user);
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationSaving, setLocationSaving] = useState(false);
   const [locationDetecting, setLocationDetecting] = useState(false);
@@ -193,6 +204,72 @@ export default function Profile() {
 
     setError("");
     setSuccess("");
+  };
+
+  const uploadAvatar = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || avatarUploading) return;
+
+    setError("");
+    setSuccess("");
+
+    if (!AVATAR_TYPES.has(file.type)) {
+      setError("Choose a JPG, PNG, or WebP profile picture.");
+      return;
+    }
+
+    if (file.size > AVATAR_MAX_BYTES) {
+      setError("Profile picture must be 2 MB or smaller.");
+      return;
+    }
+
+    if (file.size <= 0) {
+      setError("The selected profile picture is empty.");
+      return;
+    }
+
+    setAvatarUploading(true);
+
+    try {
+      const body = new FormData();
+      body.append("avatar", file);
+
+      const response = await api.post("/customer/profile/avatar", body);
+      const responseData = response.data?.data;
+      const responseUser = responseData?.user || responseData || {};
+      const nextUser = {
+        ...(user || {}),
+        ...responseUser,
+        customerProfile: {
+          ...(user?.customerProfile || {}),
+          ...(responseUser.customerProfile || {}),
+        },
+      };
+
+      setUser(nextUser);
+      setForm(createFormFromUser(nextUser));
+      clearProfileCache?.();
+      clearDashboardCache?.();
+
+      addRecentActivity({
+        type: "PROFILE",
+        title: "Updated profile picture",
+        detail: "Changed customer profile picture",
+        path: "/dashboard/profile",
+      });
+
+      setSuccess("Profile picture updated successfully");
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to upload profile picture",
+      );
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const openLocationEditor = () => {
@@ -530,18 +607,59 @@ export default function Profile() {
       <h2 className="mb-6 text-2xl font-bold">Profile Settings</h2>
 
       <form onSubmit={saveProfile} className="card-soft grid gap-4 p-6">
-        <div className="flex items-center gap-4">
-          <span className="grid h-16 w-16 place-items-center rounded-2xl bg-ink text-xl font-bold text-white">
-            {form.name?.[0]?.toUpperCase() || "U"}
-          </span>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              aria-label="Choose customer profile picture"
+              className="group relative rounded-full focus:outline-none focus:ring-2 focus:ring-brand/50 disabled:cursor-wait disabled:opacity-70"
+            >
+              <CustomerAvatar
+                user={user}
+                name={form.name}
+                className="h-20 w-20 text-xl ring-2 ring-white"
+                fallbackClassName="bg-ink text-white"
+                imageClassName="transition group-hover:brightness-75"
+              />
+              <span className="absolute bottom-0 right-0 grid h-7 w-7 place-items-center rounded-full border-2 border-white bg-brand text-xs text-black shadow-sm">
+                <FiCamera />
+              </span>
+            </button>
 
-          <div>
-            <div className="text-lg font-semibold">
-              {form.name || user?.name || "User"}
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={uploadAvatar}
+              className="sr-only"
+              tabIndex={-1}
+            />
+
+            <div className="min-w-0">
+              <div className="truncate text-lg font-semibold">
+                {form.name || user?.name || "User"}
+              </div>
+              <div className="text-sm text-muted">
+                {form.phone || "Phone not available"}
+              </div>
             </div>
-            <div className="text-sm text-muted">
-              {form.phone || "Phone not available"}
-            </div>
+          </div>
+
+          <div className="sm:ml-auto sm:text-right">
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-ink transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-wait disabled:opacity-60"
+            >
+              <FiCamera />
+              {avatarUploading ? "Uploading..." : "Change photo"}
+            </button>
+            <p className="mt-1.5 text-xs text-muted">
+              JPG, PNG, or WebP · maximum 2 MB
+            </p>
           </div>
         </div>
 

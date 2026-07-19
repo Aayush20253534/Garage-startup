@@ -12,6 +12,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import Logo from "@/components/common/Logo";
+import CustomerAvatar from "@/components/customer/CustomerAvatar";
 import { useApp } from "@/hooks/useApp";
 import useUnreadNotifications from "@/hooks/useUnreadNotifications";
 import api from "@/api/axios";
@@ -521,9 +522,11 @@ export default function Navbar() {
                   }}
                   className="flex h-10 max-w-[190px] items-center gap-2 rounded-lg border border-line bg-white py-1 pl-1.5 pr-3 transition hover:border-ink"
                 >
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-white">
-                    {user.name?.[0] || "U"}
-                  </span>
+                  <CustomerAvatar
+                    user={user}
+                    className="h-8 w-8 text-xs"
+                    fallbackClassName="bg-ink text-white"
+                  />
 
                   <span className="truncate text-sm font-semibold text-ink">
                     {user.name || "User"}
@@ -813,9 +816,11 @@ export default function Navbar() {
                     className="card-soft flex items-center gap-3 rounded-2xl p-4 transition hover:border-ink/25 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
                     aria-label="Open customer profile"
                   >
-                    <span className="grid h-12 w-12 place-items-center rounded-2xl bg-ink font-bold text-white">
-                      {user.name?.[0] || "U"}
-                    </span>
+                    <CustomerAvatar
+                      user={user}
+                      className="h-12 w-12 text-base"
+                      fallbackClassName="bg-ink text-white"
+                    />
 
                     <div className="min-w-0">
                       <div className="truncate font-bold text-ink">

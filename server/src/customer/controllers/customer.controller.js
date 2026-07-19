@@ -29,6 +29,16 @@ const updateProfile = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, "Profile updated successfully", profile));
 });
+const uploadProfileAvatar = asyncHandler(async (req, res) => {
+  const profile = await customerService.uploadProfileAvatar(
+    req.user.id,
+    req.file,
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Profile picture updated successfully", profile));
+});
 const changePassword = asyncHandler(async (req, res) => {
   const result = await authService.changePassword(
     req.user.id,
@@ -59,6 +69,7 @@ module.exports = {
   completeOnboarding,
   getProfile,
   updateProfile,
+  uploadProfileAvatar,
   changePassword,
   deleteAccount,
 };

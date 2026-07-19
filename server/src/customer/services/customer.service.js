@@ -8,8 +8,11 @@ const cityService = require("../../services/city.service");
 const {
   deleteCloudinaryImagesIfUnreferenced,
 } = require("../../utils/cloudinaryCleanup");
+const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
 
 const PROFILE_CACHE_TTL = 5 * 60;
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const AVATAR_FOLDER = "rovauto/customer-avatars";
 
 const withUserAccountType = (user) =>
   user
@@ -261,6 +264,71 @@ const updateProfile = async (userId, data) => {
   return result;
 };
 
+const uploadProfileAvatar = async (userId, file) => {
+  if (!file) {
+    throw new ApiError(400, "Profile picture is required");
+  }
+
+  if (!file.mimetype?.startsWith("image/")) {
+    throw new ApiError(400, "Profile picture must be an image");
+  }
+
+  if (file.size > AVATAR_MAX_BYTES) {
+    throw new ApiError(400, "Profile picture must be 2 MB or smaller");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      customerProfile: {
+        select: { avatarPublicId: true },
+      },
+    },
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const uploaded = await uploadToCloudinary(
+    file.buffer,
+    AVATAR_FOLDER,
+    "image",
+  );
+
+  try {
+    await prisma.customerProfile.upsert({
+      where: { userId },
+      update: {
+        avatarUrl: uploaded.secure_url,
+        avatarPublicId: uploaded.public_id,
+      },
+      create: {
+        userId,
+        avatarUrl: uploaded.secure_url,
+        avatarPublicId: uploaded.public_id,
+      },
+    });
+  } catch (error) {
+    await deleteCloudinaryImagesIfUnreferenced([uploaded.public_id]);
+    throw error;
+  }
+
+  await invalidateProfileCaches(userId);
+
+  if (
+    user.customerProfile?.avatarPublicId &&
+    user.customerProfile.avatarPublicId !== uploaded.public_id
+  ) {
+    await deleteCloudinaryImagesIfUnreferenced([
+      user.customerProfile.avatarPublicId,
+    ]);
+  }
+
+  return getProfile(userId);
+};
+
 const deleteAccount = async (userId, { password }) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -348,5 +416,6 @@ module.exports = {
   completeOnboarding,
   getProfile,
   updateProfile,
+  uploadProfileAvatar,
   deleteAccount,
 };

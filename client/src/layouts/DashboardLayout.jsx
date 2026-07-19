@@ -1,7 +1,8 @@
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Logo from "@/components/common/Logo";
+import CustomerAvatar from "@/components/customer/CustomerAvatar";
 import SupportBrand from "@/components/support/SupportBrand";
 import StaffBrand from "@/components/staff/StaffBrand";
 import FAB from "@/components/FAB";
@@ -58,7 +59,24 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         : isCustomerSupportPortal
           ? "CUSTOMER SUPPORT"
           : account?.role || "CUSTOMER";
-  const accountInitial = accountName?.charAt(0)?.toUpperCase() || "R";
+  const accountSummary = (
+    <>
+      <CustomerAvatar
+        user={isCustomerPortal ? account : null}
+        name={accountName}
+        className="h-10 w-10 text-base"
+        fallbackClassName="bg-brand text-black"
+      />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-bold text-ink">
+          {accountName || "Guest"}
+        </p>
+        <p className="truncate text-xs font-bold uppercase text-muted">
+          {accountRole}
+        </p>
+      </div>
+    </>
+  );
 
   const isDashboardLink = (to) =>
     [
@@ -249,19 +267,20 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         </nav>
 
         <div className="shrink-0 border-t border-line bg-white p-4">
-          <div className="flex items-center gap-3 rounded-xl bg-bg-soft px-3 py-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand text-base font-bold text-black">
-              {accountInitial}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-ink">
-                {accountName || "Guest"}
-              </p>
-              <p className="truncate text-xs font-bold uppercase text-muted">
-                {accountRole}
-              </p>
+          {isCustomerPortal ? (
+            <Link
+              to="/dashboard/profile"
+              onClick={closeSidebar}
+              aria-label="Open customer profile"
+              className="flex items-center gap-3 rounded-xl bg-bg-soft px-3 py-3 transition hover:bg-line/60 focus:outline-none focus:ring-2 focus:ring-brand/50"
+            >
+              {accountSummary}
+            </Link>
+          ) : (
+            <div className="flex items-center gap-3 rounded-xl bg-bg-soft px-3 py-3">
+              {accountSummary}
             </div>
-          </div>
+          )}
 
           <button
             type="button"
