@@ -1,15 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FiAlertCircle,
-  FiAlertTriangle,
   FiBell,
   FiCheck,
   FiChevronDown,
   FiChevronUp,
   FiLock,
   FiLogOut,
-  FiTrash2,
   FiX,
 } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
@@ -34,13 +31,6 @@ export default function GarageSettings() {
   const [passwordSuccess, setPasswordSuccess] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
-  const [deleteNotice, setDeleteNotice] = useState("");
-  const [deleteMethod, setDeleteMethod] = useState("password");
-  const [deleteCredential, setDeleteCredential] = useState("");
-  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
-  const [deleteOtpLoading, setDeleteOtpLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   const settingsItems = [
@@ -63,13 +53,6 @@ export default function GarageSettings() {
       icon: FiLogOut,
       title: "Logout",
       description: "Sign out of your garage account",
-      type: "danger",
-    },
-    {
-      id: "delete",
-      icon: FiTrash2,
-      title: "Delete Account",
-      description: "Permanently delete your account",
       type: "danger",
     },
   ];
@@ -129,65 +112,6 @@ export default function GarageSettings() {
     navigate("/garage/login");
   };
 
-  const handleRequestDeleteOtp = async () => {
-    setDeleteOtpLoading(true);
-    setDeleteError("");
-    setDeleteNotice("");
-
-    try {
-      const result = await garageApi.requestDeleteAccountOtp();
-      setDeleteMethod("otp");
-      setDeleteCredential("");
-      setDeleteNotice(`A 6-digit OTP was sent to ${result.maskedEmail}.`);
-    } catch (err) {
-      setDeleteError(
-        err.response?.data?.message ||
-          err.message ||
-          "Unable to send account deletion OTP",
-      );
-    } finally {
-      setDeleteOtpLoading(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    setDeleteError("");
-
-    if (!deleteConfirmed) {
-      setDeleteError("Confirm that you understand this deletion is permanent.");
-      return;
-    }
-
-    if (!deleteCredential.trim()) {
-      setDeleteError(
-        deleteMethod === "otp"
-          ? "Enter the 6-digit OTP sent to your email."
-          : "Enter your current password.",
-      );
-      return;
-    }
-
-    setActionLoading(true);
-
-    try {
-      await garageApi.deleteAccount(
-        deleteMethod === "otp"
-          ? { otp: deleteCredential.trim() }
-          : { currentPassword: deleteCredential },
-      );
-      await logoutGarage();
-      navigate("/");
-    } catch (err) {
-      setDeleteError(
-        err.response?.data?.message ||
-          err.message ||
-          "Unable to delete this garage account",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   return (
     <div className="mx-auto max-w-5xl space-y-5 overflow-x-hidden">
       <div>
@@ -213,14 +137,6 @@ export default function GarageSettings() {
                 onClick={() => {
                   if (isDanger) {
                     if (item.id === "logout") setShowLogoutModal(true);
-                    if (item.id === "delete") {
-                      setDeleteError("");
-                      setDeleteNotice("");
-                      setDeleteMethod("password");
-                      setDeleteCredential("");
-                      setDeleteConfirmed(false);
-                      setShowDeleteModal(true);
-                    }
                     return;
                   }
 
@@ -401,111 +317,6 @@ export default function GarageSettings() {
         </div>
       )}
 
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-700">
-                <FiAlertTriangle className="text-2xl" />
-              </div>
-
-              <h3 className="text-xl font-bold text-ink">Delete Account</h3>
-
-              <p className="mt-2 text-sm text-muted">
-                This permanently removes the garage account and related profile data.
-                Confirm your identity with your current password or an email OTP.
-              </p>
-            </div>
-
-            {deleteError && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                <FiAlertCircle className="shrink-0" />
-                <span>{deleteError}</span>
-              </div>
-            )}
-
-            {deleteNotice && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                <FiCheck className="shrink-0" />
-                <span>{deleteNotice}</span>
-              </div>
-            )}
-
-            <div className="mt-5 grid gap-3">
-              <label className="grid gap-1.5 text-sm font-semibold text-ink">
-                {deleteMethod === "otp" ? "Email OTP" : "Current password"}
-                <input
-                  type={deleteMethod === "otp" ? "text" : "password"}
-                  inputMode={deleteMethod === "otp" ? "numeric" : undefined}
-                  autoComplete={deleteMethod === "otp" ? "one-time-code" : "current-password"}
-                  value={deleteCredential}
-                  onChange={(event) =>
-                    setDeleteCredential(
-                      deleteMethod === "otp"
-                        ? event.target.value.replace(/\D/g, "").slice(0, 6)
-                        : event.target.value,
-                    )
-                  }
-                  placeholder={deleteMethod === "otp" ? "6-digit OTP" : "Enter current password"}
-                  className={inputClass}
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={
-                  deleteMethod === "otp"
-                    ? () => {
-                        setDeleteMethod("password");
-                        setDeleteCredential("");
-                        setDeleteNotice("");
-                        setDeleteError("");
-                      }
-                    : handleRequestDeleteOtp
-                }
-                disabled={actionLoading || deleteOtpLoading}
-                className="text-left text-sm font-bold text-emerald-700 hover:text-emerald-800 disabled:opacity-60"
-              >
-                {deleteMethod === "otp"
-                  ? "Use current password instead"
-                  : deleteOtpLoading
-                    ? "Sending OTP..."
-                    : "Cannot use your password? Send an OTP to email"}
-              </button>
-
-              <label className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                <input
-                  type="checkbox"
-                  checked={deleteConfirmed}
-                  onChange={(event) => setDeleteConfirmed(event.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-red-700"
-                />
-                <span>I understand this action is permanent and cannot be undone.</span>
-              </label>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                disabled={actionLoading}
-                className="inline-flex h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:opacity-60"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDeleteAccount}
-                disabled={actionLoading}
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-red-700 px-4 text-sm font-bold text-white transition hover:bg-red-800 disabled:opacity-60"
-              >
-                {actionLoading ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
