@@ -56,6 +56,16 @@ const getModel = async (modelId) => {
 const listBrands = async (query = {}) => {
   const includeInactive = query.includeInactive === "true";
   const search = normalizeName(query.search);
+  const modelSearch = normalizeName(query.modelSearch);
+  const modelWhere = {
+    ...(!includeInactive && { isActive: true }),
+    ...(modelSearch && {
+      name: {
+        contains: modelSearch,
+        mode: "insensitive",
+      },
+    }),
+  };
 
   return prisma.vehicleBrand.findMany({
     where: {
@@ -66,8 +76,14 @@ const listBrands = async (query = {}) => {
           mode: "insensitive",
         },
       }),
+      ...(modelSearch && { models: { some: modelWhere } }),
     },
-    include: includeModels,
+    include: {
+      models: {
+        where: modelWhere,
+        orderBy: { name: "asc" },
+      },
+    },
     orderBy: { name: "asc" },
   });
 };

@@ -10,6 +10,7 @@ const modelIdSchema = [
 
 const brandQuerySchema = [
   query("search").optional({ nullable: true, checkFalsy: true }).trim(),
+  query("modelSearch").optional({ nullable: true, checkFalsy: true }).trim(),
   query("includeInactive").optional({ nullable: true }).isBoolean(),
 ];
 

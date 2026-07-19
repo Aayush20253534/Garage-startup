@@ -33,6 +33,7 @@ export default function Cars() {
   const [brandForm, setBrandForm] = useState(emptyBrandForm);
   const [modelForms, setModelForms] = useState({});
   const [search, setSearch] = useState("");
+  const [modelSearch, setModelSearch] = useState("");
   const [includeInactive, setIncludeInactive] = useState(true);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,6 +64,7 @@ export default function Cars() {
       const data = await adminApi.getCarBrands({
         includeInactive,
         ...(search.trim() && { search: search.trim() }),
+        ...(modelSearch.trim() && { modelSearch: modelSearch.trim() }),
       });
 
       setBrands(data || []);
@@ -402,13 +404,30 @@ export default function Cars() {
       </form>
 
       <section className="card-soft rounded-2xl p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            load();
+          }}
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]"
+        >
           <label className="relative min-w-0">
             <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search brands"
+              className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none transition focus:border-ink"
+            />
+          </label>
+
+          <label className="relative min-w-0">
+            <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              value={modelSearch}
+              onChange={(event) => setModelSearch(event.target.value)}
+              placeholder="Search models"
+              aria-label="Search car models"
               className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none transition focus:border-ink"
             />
           </label>
@@ -423,15 +442,14 @@ export default function Cars() {
           </label>
 
           <button
-            type="button"
-            onClick={load}
+            type="submit"
             disabled={loading}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FiRefreshCw className={loading ? "animate-spin" : ""} />
             Search
           </button>
-        </div>
+        </form>
       </section>
 
       <div className="grid gap-4">

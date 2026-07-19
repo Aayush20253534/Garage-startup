@@ -33,16 +33,25 @@ test("disabling a garage expires offers and refreshes customer search counts", (
   const service = readProjectFile(
     "server/src/admin/services/garageAdmin.service.js",
   );
+  const statusStart = service.indexOf("const setGarageActiveStatus");
+  const statusEnd = service.indexOf("const listAssignableServices", statusStart);
 
-  assert.match(service, /setGarageActiveStatus/);
-  assert.match(service, /data: \{ isActive: nextIsActive \}/);
+  assert.ok(statusStart >= 0, "setGarageActiveStatus must exist");
+  assert.ok(statusEnd > statusStart, "setGarageActiveStatus must be bounded");
+
+  const statusSource = service.slice(statusStart, statusEnd);
+
+  assert.match(statusSource, /data: \{ isActive: nextIsActive \}/);
   assert.match(
-    service,
+    statusSource,
     /status: BROADCAST_STATUS\.SENT[\s\S]*status: BROADCAST_STATUS\.EXPIRED/,
   );
-  assert.match(service, /invalidateCustomerCache\(userId\)/);
-  assert.match(service, /deleteCache\("public:stats:v2"\)/);
-  assert.doesNotMatch(service, /garageOwner\.update/);
+  assert.match(statusSource, /invalidateCustomerCache\(userId\)/);
+  assert.match(statusSource, /deleteCache\("public:stats:v2"\)/);
+  assert.doesNotMatch(
+    statusSource,
+    /garageOwner\.(?:update|updateMany|upsert|delete)/,
+  );
 });
 
 test("disabled garages are excluded from matching, alerts, and acceptance", () => {
