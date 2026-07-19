@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import api from "@/api/axios";
 import { FcGoogle } from "react-icons/fc";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 import startGoogleAuth, { completeGoogleRedirectAuth } from "@/utils/googleAuth";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { useApp } from "@/hooks/useApp";
@@ -43,7 +44,18 @@ export default function Register() {
   const [error, setError] = useState(state?.message || "");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({
+    password: false,
+    confirmPassword: false,
+  });
   const loading = Boolean(loadingAction);
+
+  const togglePasswordVisibility = (field) => {
+    setShowPasswords((previous) => ({
+      ...previous,
+      [field]: !previous[field],
+    }));
+  };
 
   const completeGoogleLogin = (freshUser) => {
     login(freshUser);
@@ -306,32 +318,56 @@ export default function Register() {
             />
           </div>
 
-          <input
-            required
-            name="password"
-            value={form.password}
-            onChange={change}
-            type="password"
-            autoComplete="new-password"
-            placeholder="Create password"
-            minLength={8}
-            title={PASSWORD_MESSAGE}
-            disabled={loading}
-            className="rounded-xl border border-line px-4 py-2.5 outline-none focus:border-ink disabled:opacity-60"
-          />
+          <div className="relative">
+            <input
+              required
+              name="password"
+              value={form.password}
+              onChange={change}
+              type={showPasswords.password ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="Create password"
+              minLength={8}
+              title={PASSWORD_MESSAGE}
+              disabled={loading}
+              className="w-full rounded-xl border border-line py-2.5 pl-4 pr-12 outline-none focus:border-ink disabled:opacity-60"
+            />
+            <button
+              type="button"
+              onClick={() => togglePasswordVisibility("password")}
+              aria-label={showPasswords.password ? "Hide password" : "Show password"}
+              aria-pressed={showPasswords.password}
+              disabled={loading}
+              className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-muted transition hover:bg-bg-soft hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
+            >
+              {showPasswords.password ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
 
-          <input
-            required
-            name="confirmPassword"
-            value={form.confirmPassword}
-            onChange={change}
-            type="password"
-            autoComplete="new-password"
-            placeholder="Re-enter password"
-            minLength={8}
-            disabled={loading}
-            className="rounded-xl border border-line px-4 py-2.5 outline-none focus:border-ink disabled:opacity-60"
-          />
+          <div className="relative">
+            <input
+              required
+              name="confirmPassword"
+              value={form.confirmPassword}
+              onChange={change}
+              type={showPasswords.confirmPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="Re-enter password"
+              minLength={8}
+              disabled={loading}
+              className="w-full rounded-xl border border-line py-2.5 pl-4 pr-12 outline-none focus:border-ink disabled:opacity-60"
+            />
+            <button
+              type="button"
+              onClick={() => togglePasswordVisibility("confirmPassword")}
+              aria-label={showPasswords.confirmPassword ? "Hide re-entered password" : "Show re-entered password"}
+              aria-pressed={showPasswords.confirmPassword}
+              disabled={loading}
+              className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-muted transition hover:bg-bg-soft hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
+            >
+              {showPasswords.confirmPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
 
           {form.confirmPassword && form.password !== form.confirmPassword && (
             <p className="text-xs text-red-600">Passwords do not match.</p>

@@ -285,6 +285,33 @@ const createGarageOwnerAuthResult = async (owner, sessionMetadata = {}) => {
   };
 };
 
+const findCustomerIdentity = async ({ email = null, phone = null } = {}) => {
+  const [customerByEmail, customerByPhone] = await Promise.all([
+    email
+      ? prisma.user.findUnique({
+          where: {
+            email_role: {
+              email,
+              role: "CUSTOMER",
+            },
+          },
+        })
+      : null,
+    phone
+      ? prisma.user.findUnique({
+          where: {
+            phone_role: {
+              phone,
+              role: "CUSTOMER",
+            },
+          },
+        })
+      : null,
+  ]);
+
+  return { customerByEmail, customerByPhone };
+};
+
 const signup = async ({
   name,
   email,
@@ -327,19 +354,17 @@ const signup = async ({
     },
   });
 
-  const existingUser = await prisma.user.findFirst({
-    where: {
-      role: userRole,
-      OR: [{ email: cleanEmail }, { phone: cleanPhone }],
-    },
+  const { customerByEmail, customerByPhone } = await findCustomerIdentity({
+    email: cleanEmail,
+    phone: cleanPhone,
   });
 
-  if (existingUser) {
+  if (customerByEmail || customerByPhone) {
     throw new ApiError(
       409,
-      existingUser.email === cleanEmail
-        ? "User with this email already exists"
-        : "User with this phone already exists"
+      customerByEmail
+        ? "A customer account with this email already exists"
+        : "A customer account with this phone already exists"
     );
   }
 
@@ -439,6 +464,21 @@ const verifyOtp = async (
       await prisma.pendingSignup.delete({ where: { id: pendingSignup.id } });
     }
     throw new ApiError(400, "Signup verification expired. Please register again.");
+  }
+
+  const { customerByEmail, customerByPhone } = await findCustomerIdentity({
+    email: cleanEmail,
+    phone: cleanPhone,
+  });
+
+  if (customerByEmail || customerByPhone) {
+    await prisma.pendingSignup.delete({ where: { id: pendingSignup.id } });
+    throw new ApiError(
+      409,
+      customerByEmail
+        ? "A customer account with this email already exists"
+        : "A customer account with this phone already exists",
+    );
   }
 
   await verifySignupOtp({
@@ -788,9 +828,20 @@ const googleAuth = async (
   const firebaseUid = String(decodedToken.uid || decodedToken.sub || "").trim();
   if (!firebaseUid) throw new ApiError(400, "Google account identity is unavailable");
 
-  let user = await prisma.user.findFirst({
-    where: { role: userRole, OR: [{ firebaseUid }, { email: cleanEmail }] },
-  });
+  const [customerByFirebaseUid, { customerByEmail }] = await Promise.all([
+    prisma.user.findUnique({ where: { firebaseUid } }),
+    findCustomerIdentity({ email: cleanEmail }),
+  ]);
+
+  if (
+    customerByFirebaseUid &&
+    (customerByFirebaseUid.role !== userRole ||
+      (customerByEmail && customerByEmail.id !== customerByFirebaseUid.id))
+  ) {
+    throw new ApiError(409, "This Google identity is linked to a different account");
+  }
+
+  let user = customerByFirebaseUid || customerByEmail;
   let isNewUser = false;
 
   if (mode === "LOGIN") {

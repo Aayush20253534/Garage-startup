@@ -18,6 +18,41 @@ test("customer signup requires both legal consents in UI and backend", () => {
   assert.match(service, /privacyAcceptedAt/);
 });
 
+test("customer registration has independent password visibility controls", () => {
+  const register = read("../client/src/pages/auth/Register.jsx");
+
+  assert.match(register, /showPasswords\.password \? "text" : "password"/);
+  assert.match(register, /showPasswords\.confirmPassword \? "text" : "password"/);
+  assert.match(register, /togglePasswordVisibility\("password"\)/);
+  assert.match(register, /togglePasswordVisibility\("confirmPassword"\)/);
+  assert.match(register, /FiEyeOff/);
+});
+
+test("customer signup identities remain separate from garage owner identities", () => {
+  const service = read("src/customer/services/auth.service.js");
+  const identityHelperStart = service.indexOf("const findCustomerIdentity");
+  const signupStart = service.indexOf("const signup", identityHelperStart);
+  const identityHelper = service.slice(identityHelperStart, signupStart);
+
+  assert.match(identityHelper, /prisma\.user\.findUnique/);
+  assert.match(identityHelper, /email_role:[\s\S]*role: "CUSTOMER"/);
+  assert.match(identityHelper, /phone_role:[\s\S]*role: "CUSTOMER"/);
+  assert.doesNotMatch(identityHelper, /garageOwner/);
+  assert.match(service, /customerByFirebaseUid[\s\S]*customerByEmail/);
+});
+
+test("mobile account cards replace the duplicate My Vehicles drawer button", () => {
+  const navbar = read("../client/src/components/navbar/Navbar.jsx");
+  const mobileDrawerStart = navbar.indexOf('className="fixed inset-0');
+  const mobileDrawer = navbar.slice(mobileDrawerStart);
+  const vehicleLinks = mobileDrawer.match(/to="\/dashboard\/vehicles"/g) || [];
+
+  assert.match(mobileDrawer, /aria-label="Open My Vehicles"/);
+  assert.match(mobileDrawer, /aria-label="Open customer profile"/);
+  assert.match(mobileDrawer, /handleMobileNavigate\(event, "\/dashboard\/profile"\)/);
+  assert.equal(vehicleLinks.length, 1);
+});
+
 test("Google login cannot create accounts while Google signup requires consent", () => {
   const service = read("src/customer/services/auth.service.js");
   const googleClient = read("../client/src/utils/googleAuth.js");

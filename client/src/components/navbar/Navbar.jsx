@@ -778,7 +778,14 @@ export default function Navbar() {
               {user && (
                 <div className="mb-5 grid gap-3">
                   {vehicle && (
-                    <div className="card-soft flex items-center gap-3 rounded-2xl p-4">
+                    <Link
+                      to="/dashboard/vehicles"
+                      onClick={(event) =>
+                        handleMobileNavigate(event, "/dashboard/vehicles")
+                      }
+                      className="card-soft flex items-center gap-3 rounded-2xl p-4 transition hover:border-ink/25 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
+                      aria-label="Open My Vehicles"
+                    >
                       <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand text-black">
                         <FiTruck className="text-xl" />
                       </span>
@@ -795,10 +802,17 @@ export default function Navbar() {
                             "No registration"}
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   )}
 
-                  <div className="card-soft flex items-center gap-3 rounded-2xl p-4">
+                  <Link
+                    to="/dashboard/profile"
+                    onClick={(event) =>
+                      handleMobileNavigate(event, "/dashboard/profile")
+                    }
+                    className="card-soft flex items-center gap-3 rounded-2xl p-4 transition hover:border-ink/25 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
+                    aria-label="Open customer profile"
+                  >
                     <span className="grid h-12 w-12 place-items-center rounded-2xl bg-ink font-bold text-white">
                       {user.name?.[0] || "U"}
                     </span>
@@ -809,7 +823,7 @@ export default function Navbar() {
                       </div>
                       <div className="text-xs text-muted">Welcome back</div>
                     </div>
-                  </div>
+                  </Link>
                 </div>
               )}
 
@@ -893,16 +907,6 @@ export default function Navbar() {
                   </>
                 ) : (
                   <>
-                    <Link
-                      to="/dashboard/vehicles"
-                      onClick={(event) =>
-                        handleMobileNavigate(event, "/dashboard/vehicles")
-                      }
-                      className="inline-flex h-11 items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink"
-                    >
-                      My Vehicles
-                    </Link>
-
                     <Link
                       to="/dashboard/bookings"
                       onClick={(event) =>
