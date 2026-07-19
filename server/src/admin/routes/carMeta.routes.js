@@ -32,6 +32,6 @@ router.patch("/brands/:brandId", authorizeRoles("ADMIN"), logoUpload, upload.val
 router.delete("/brands/:brandId", authorizeRoles("ADMIN"), brandIdSchema, validate, controller.deactivateBrand);
 router.post("/brands/:brandId/models", authorizeRoles("ADMIN"), createModelSchema, validate, controller.createModel);
 router.patch("/models/:modelId", authorizeRoles("ADMIN"), updateModelSchema, validate, controller.updateModel);
-router.delete("/models/:modelId", authorizeRoles("ADMIN"), modelIdSchema, validate, controller.deactivateModel);
+router.delete("/models/:modelId", authorizeRoles("ADMIN"), modelIdSchema, validate, controller.deleteModel);
 
 module.exports = router;

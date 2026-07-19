@@ -70,18 +70,18 @@ const updateModel = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Car model updated successfully", model));
 });
 
-const deactivateModel = asyncHandler(async (req, res) => {
-  const model = await service.deactivateModel(req.params.modelId);
+const deleteModel = asyncHandler(async (req, res) => {
+  const model = await service.deleteModel(req.params.modelId);
   return res
     .status(200)
-    .json(new ApiResponse(200, "Car model deactivated successfully", model));
+    .json(new ApiResponse(200, "Car model deleted successfully", model));
 });
 
 module.exports = {
   createBrand,
   createModel,
   deactivateBrand,
-  deactivateModel,
+  deleteModel,
   getBrand,
   listBrands,
   updateBrand,

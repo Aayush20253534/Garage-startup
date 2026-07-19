@@ -223,12 +223,11 @@ const updateModel = async (modelId, payload) => {
   }
 };
 
-const deactivateModel = async (modelId) => {
+const deleteModel = async (modelId) => {
   await getModel(modelId);
 
-  const model = await prisma.vehicleModel.update({
+  const model = await prisma.vehicleModel.delete({
     where: { id: modelId },
-    data: { isActive: false },
   });
 
   await invalidateVehicleMetaCache();
@@ -239,7 +238,7 @@ module.exports = {
   createBrand,
   createModel,
   deactivateBrand,
-  deactivateModel,
+  deleteModel,
   getBrand,
   listBrands,
   updateBrand,

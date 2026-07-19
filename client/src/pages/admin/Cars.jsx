@@ -36,6 +36,7 @@ export default function Cars() {
   const [includeInactive, setIncludeInactive] = useState(true);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingModelIds, setDeletingModelIds] = useState([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -246,22 +247,44 @@ export default function Cars() {
     }));
   };
 
-  const deactivateModel = async (model) => {
-    const ok = window.confirm(
-      `Deactivate ${model.name} from customer selection?`
-    );
+  const deleteModel = async (brandId, model) => {
+    const ok = window.confirm(`Permanently delete ${model.name}?`);
 
     if (!ok) return;
 
     setError("");
     setSuccess("");
+    setDeletingModelIds((current) => [...current, model.id]);
 
     try {
       await adminApi.deleteCarModel(model.id);
-      setSuccess("Car model deactivated.");
-      await load();
+      setBrands((current) =>
+        current.map((brand) =>
+          brand.id === brandId
+            ? {
+                ...brand,
+                models: (brand.models || []).filter(
+                  (item) => item.id !== model.id
+                ),
+              }
+            : brand
+        )
+      );
+      setModelForms((current) =>
+        current[brandId]?.id === model.id
+          ? {
+              ...current,
+              [brandId]: { name: "", id: "", isActive: true },
+            }
+          : current
+      );
+      setSuccess("Car model deleted.");
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to deactivate car model");
+      setError(err.response?.data?.message || "Unable to delete car model");
+    } finally {
+      setDeletingModelIds((current) =>
+        current.filter((modelId) => modelId !== model.id)
+      );
     }
   };
 
@@ -550,11 +573,18 @@ export default function Cars() {
 
                           <button
                             type="button"
-                            onClick={() => deactivateModel(model)}
-                            className="text-red-600"
-                            aria-label={`Deactivate ${model.name}`}
+                            onClick={() => deleteModel(brand.id, model)}
+                            disabled={deletingModelIds.includes(model.id)}
+                            className="text-red-600 transition hover:text-red-700 disabled:cursor-wait disabled:opacity-40"
+                            aria-label={`Delete ${model.name}`}
                           >
-                            <FiX />
+                            <FiTrash2
+                              className={
+                                deletingModelIds.includes(model.id)
+                                  ? "animate-pulse"
+                                  : ""
+                              }
+                            />
                           </button>
                         </span>
                       ))
