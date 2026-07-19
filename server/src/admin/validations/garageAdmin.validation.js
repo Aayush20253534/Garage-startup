@@ -50,6 +50,9 @@ const updateGarageStatusSchema = [
 const updateGarageDetailsSchema = [
   ...garageIdSchema,
   body("name").optional().trim().notEmpty().isLength({ max: 160 }),
+  body("ownerName").optional().trim().notEmpty().isLength({ max: 160 }),
+  body("ownerEmail").optional({ nullable: true, checkFalsy: true }).trim().isEmail().normalizeEmail(),
+  body("ownerPhone").optional().trim().matches(/^\+91[6-9]\d{9}$/).withMessage("Enter a valid Indian owner phone number"),
   body("description").optional({ nullable: true }).trim().isLength({ max: 3000 }),
   body("phone").optional().trim().matches(/^\+91[6-9]\d{9}$/).withMessage("Enter a valid Indian garage phone number"),
   body("whatsappNo").optional({ nullable: true, checkFalsy: true }).trim().matches(/^\+91[6-9]\d{9}$/),

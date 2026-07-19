@@ -129,11 +129,39 @@ const invalidateGarageAdminChanges = async (garageId) => Promise.allSettled([
 ]);
 
 const updateGarageDetails = async (garageId, payload = {}) => {
-  await getGarage(garageId);
+  const existingGarage = await getGarage(garageId);
   const allowed = ["name", "description", "phone", "whatsappNo", "email", "address", "city", "area", "latitude", "longitude", "workingRadiusKm", "garageType", "supportedBrands", "openingTime", "closingTime", "isVerified"];
   const data = Object.fromEntries(allowed.filter((key) => payload[key] !== undefined).map((key) => [key, payload[key]]));
-  if (!Object.keys(data).length) throw new ApiError(400, "No garage changes were provided");
-  await prisma.garage.update({ where: { id: garageId }, data });
+  const ownerFieldMap = {
+    ownerName: "name",
+    ownerEmail: "email",
+    ownerPhone: "phone",
+  };
+  const ownerData = Object.fromEntries(
+    Object.entries(ownerFieldMap)
+      .filter(([payloadKey]) => payload[payloadKey] !== undefined)
+      .map(([payloadKey, ownerKey]) => [ownerKey, payload[payloadKey]]),
+  );
+
+  if (!Object.keys(data).length && !Object.keys(ownerData).length) {
+    throw new ApiError(400, "No garage changes were provided");
+  }
+
+  if (Object.keys(ownerData).length && !existingGarage.ownerId) {
+    throw new ApiError(400, "This garage does not have a linked owner account");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (Object.keys(data).length) {
+      await tx.garage.update({ where: { id: garageId }, data });
+    }
+    if (Object.keys(ownerData).length) {
+      await tx.garageOwner.update({
+        where: { id: existingGarage.ownerId },
+        data: ownerData,
+      });
+    }
+  });
   await invalidateGarageAdminChanges(garageId);
   return getGarage(garageId);
 };

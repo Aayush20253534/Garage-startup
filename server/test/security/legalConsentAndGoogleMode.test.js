@@ -29,6 +29,8 @@ test("Google login cannot create accounts while Google signup requires consent",
 
 test("admins have full garage detail and per-photo management routes", () => {
   const routes = read("src/admin/routes/garageAdmin.routes.js");
+  const validation = read("src/admin/validations/garageAdmin.validation.js");
+  const service = read("src/admin/services/garageAdmin.service.js");
   const adminUi = read("../client/src/pages/admin/Garages.jsx");
   assert.match(routes, /updateGarageDetails/);
   assert.match(routes, /reorderGarageImages/);
@@ -37,4 +39,11 @@ test("admins have full garage detail and per-photo management routes", () => {
   assert.match(adminUi, /Add photos/);
   assert.match(adminUi, /Set cover/);
   assert.match(adminUi, /deleteGaragePhoto/);
+  assert.match(adminUi, /ownerName/);
+  assert.match(adminUi, /ownerEmail/);
+  assert.match(adminUi, /ownerPhone/);
+  assert.match(validation, /ownerName/);
+  assert.match(validation, /ownerEmail/);
+  assert.match(validation, /ownerPhone/);
+  assert.match(service, /garageOwner\.update/);
 });
