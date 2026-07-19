@@ -36,7 +36,40 @@ const bookingInclude = {
     },
   },
   vehicle: true,
-  garage: true,
+  garage: {
+    include: {
+      images: {
+        orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
+        select: {
+          id: true,
+          imageUrl: true,
+          order: true,
+          isThumbnail: true,
+        },
+      },
+      services: {
+        where: { isActive: true },
+        select: {
+          serviceId: true,
+          vehicleBrand: true,
+          vehicleModel: true,
+          service: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
   services: {
     include: {
       service: {
@@ -51,8 +84,18 @@ const bookingInclude = {
   },
   payment: true,
   broadcasts: {
-    include: {
-      garage: true,
+    select: {
+      id: true,
+      status: true,
+      sentAt: true,
+      acceptedAt: true,
+      rejectedAt: true,
+      expiredAt: true,
+      searchCycle: true,
+      searchRound: true,
+      searchRadiusKm: true,
+      createdAt: true,
+      updatedAt: true,
     },
     orderBy: {
       updatedAt: "desc",

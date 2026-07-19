@@ -8,6 +8,7 @@ import {
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import api from "@/api/axios";
+import AcceptedGarageCard from "@/components/booking/AcceptedGarageCard";
 import InspectionGallery from "@/components/booking/InspectionGallery";
 import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
 import ReviewModal from "@/components/reviews/ReviewModal";
@@ -1006,23 +1007,7 @@ function Tracking() {
           </div>
         ) : booking.garage ? (
           <div>
-            <div className="flex items-center gap-3">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-ink text-lg font-bold text-white">
-                {booking.garage.name?.slice(0, 2).toUpperCase() || "RG"}
-              </span>
-              <div className="min-w-0">
-                <div className="truncate font-semibold">
-                  {booking.garage.name}
-                </div>
-                <div className="truncate text-xs text-muted">
-                  {booking.garage.area || booking.garage.city}
-                </div>
-                <div className="mt-1 flex items-center gap-1 text-xs text-amber-500">
-                  <FiStar fill="currentColor" />
-                  {Number(booking.garage.ratingAvg || 0).toFixed(1)}
-                </div>
-              </div>
-            </div>
+            <AcceptedGarageCard garage={booking.garage} compact />
 
             <div className="mt-5 grid gap-3 text-sm">
               <Row label="Phone" value={booking.garage.phone || "Not provided"} />

@@ -19,7 +19,6 @@ import api from "@/api/axios";
 const NAV = [
   { to: "/", label: "Home" },
   { to: "/services", label: "Services" },
-  { to: "/garages", label: "Garages" },
   { to: "/how-it-works", label: "How It Works" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
@@ -64,9 +63,7 @@ export default function Navbar() {
   const { pathname } = useLocation();
 
   const safeCart = Array.isArray(cart) ? cart : [];
-  const visibleNav = user
-    ? NAV
-    : NAV.filter((item) => item.to !== "/garages");
+  const visibleNav = NAV;
 
   const closeMobileMenu = () => {
     document.body.style.overflow = "";

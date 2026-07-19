@@ -13,7 +13,6 @@ const routeLoaders = {
   "/booking/address": () => import("@/pages/booking/AddressForm"),
   "/booking/vehicle": () => import("@/pages/booking/VehicleSelect"),
   "/booking/services": () => import("@/pages/booking/ServiceSelect"),
-  "/booking/garage": () => import("@/pages/booking/GarageSelect"),
   "/checkout": () => import("@/pages/booking/Checkout"),
   "/tracking": () => import("@/pages/booking/Tracking"),
 };

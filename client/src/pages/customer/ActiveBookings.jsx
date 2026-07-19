@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
+import AcceptedGarageCard from "@/components/booking/AcceptedGarageCard";
 import {
   FiNavigation,
   FiRefreshCw,
@@ -191,6 +192,12 @@ export default function ActiveBookings() {
                       </div>
                     </div>
                   </div>
+
+                  {booking.garage && (
+                    <div className="mt-4">
+                      <AcceptedGarageCard garage={booking.garage} />
+                    </div>
+                  )}
                 </div>
 
                 <aside className="flex flex-col justify-center border-t border-line bg-bg-soft/50 p-4 sm:p-5 lg:border-l lg:border-t-0">

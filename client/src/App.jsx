@@ -582,7 +582,6 @@ const lazyPage = (loader, moduleName) =>
 
 const loadServicesPage = () => import("@/pages/Services");
 const Services = lazyPage(loadServicesPage, "Services");
-const Garages = lazyPage(() => import("@/pages/Garages"), "Garages");
 const CategoryDetail = lazyPage(
   () => import("@/pages/CategoryDetail"),
   "CategoryDetail",
@@ -626,10 +625,6 @@ const AddressForm = lazyPage(
 const ServiceSelect = lazyPage(
   () => import("@/pages/booking/ServiceSelect"),
   "ServiceSelect",
-);
-const GarageSelect = lazyPage(
-  () => import("@/pages/booking/GarageSelect"),
-  "GarageSelect",
 );
 const TermsAndConditions = lazyPage(() => import("@/pages/legal/TermsAndConditions"), "TermsAndConditions");
 const PrivacyPolicy = lazyPage(() => import("@/pages/legal/PrivacyPolicy"), "PrivacyPolicy");
@@ -1038,14 +1033,6 @@ function AppRoutes() {
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/services" element={<Services />} />
-          <Route
-            path="/garages"
-            element={
-              <ProtectedRoute>
-                <Garages />
-              </ProtectedRoute>
-            }
-          />
           <Route path="/services/:categoryId" element={<CategoryDetail />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/about" element={<About />} />
@@ -1106,18 +1093,6 @@ function AppRoutes() {
                 <AddressCheck>
                   <VehicleCheck>
                     <ServiceSelect />
-                  </VehicleCheck>
-                </AddressCheck>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/booking/garage"
-            element={
-              <ProtectedRoute>
-                <AddressCheck>
-                  <VehicleCheck>
-                    <GarageSelect />
                   </VehicleCheck>
                 </AddressCheck>
               </ProtectedRoute>

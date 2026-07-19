@@ -1,0 +1,1809 @@
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/client/src/App.jsx b/client/src/App.jsx
+--- a/client/src/App.jsx	2026-07-19 01:36:23.000000000 -0400
++++ b/client/src/App.jsx	2026-07-19 02:22:27.788379829 -0400
+@@ -582,7 +582,6 @@
+ 
+ const loadServicesPage = () => import("@/pages/Services");
+ const Services = lazyPage(loadServicesPage, "Services");
+-const Garages = lazyPage(() => import("@/pages/Garages"), "Garages");
+ const CategoryDetail = lazyPage(
+   () => import("@/pages/CategoryDetail"),
+   "CategoryDetail",
+@@ -627,10 +626,6 @@
+   () => import("@/pages/booking/ServiceSelect"),
+   "ServiceSelect",
+ );
+-const GarageSelect = lazyPage(
+-  () => import("@/pages/booking/GarageSelect"),
+-  "GarageSelect",
+-);
+ const TermsAndConditions = lazyPage(() => import("@/pages/legal/TermsAndConditions"), "TermsAndConditions");
+ const PrivacyPolicy = lazyPage(() => import("@/pages/legal/PrivacyPolicy"), "PrivacyPolicy");
+ const GaragePartnerTerms = lazyPage(() => import("@/pages/legal/GaragePartnerTerms"), "GaragePartnerTerms");
+@@ -1038,14 +1033,6 @@
+         <Route element={<MainLayout />}>
+           <Route path="/" element={<Home />} />
+           <Route path="/services" element={<Services />} />
+-          <Route
+-            path="/garages"
+-            element={
+-              <ProtectedRoute>
+-                <Garages />
+-              </ProtectedRoute>
+-            }
+-          />
+           <Route path="/services/:categoryId" element={<CategoryDetail />} />
+           <Route path="/how-it-works" element={<HowItWorks />} />
+           <Route path="/about" element={<About />} />
+@@ -1109,18 +1096,6 @@
+                   </VehicleCheck>
+                 </AddressCheck>
+               </ProtectedRoute>
+-            }
+-          />
+-          <Route
+-            path="/booking/garage"
+-            element={
+-              <ProtectedRoute>
+-                <AddressCheck>
+-                  <VehicleCheck>
+-                    <GarageSelect />
+-                  </VehicleCheck>
+-                </AddressCheck>
+-              </ProtectedRoute>
+             }
+           />
+           <Route
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/client/src/components/booking/AcceptedGarageCard.jsx b/client/src/components/booking/AcceptedGarageCard.jsx
+--- a/client/src/components/booking/AcceptedGarageCard.jsx	1969-12-31 19:00:00.000000000 -0500
++++ b/client/src/components/booking/AcceptedGarageCard.jsx	2026-07-19 02:27:56.376437865 -0400
+@@ -0,0 +1,319 @@
++import { useEffect, useMemo, useState } from "react";
++import {
++  FiCheckCircle,
++  FiChevronRight,
++  FiClock,
++  FiExternalLink,
++  FiMapPin,
++  FiTool,
++  FiTruck,
++  FiX,
++} from "react-icons/fi";
++import SafeImage from "@/components/common/SafeImage";
++import {
++  getGarageImageDeliveryUrl,
++  resolveMediaUrl,
++} from "@/utils/mediaUrl";
++
++const unique = (values = []) => [
++  ...new Set(values.map((value) => String(value || "").trim()).filter(Boolean)),
++];
++
++const normalizeBrands = (value) => {
++  if (Array.isArray(value)) return unique(value);
++  if (!value) return [];
++
++  try {
++    const parsed = JSON.parse(value);
++    return Array.isArray(parsed) ? unique(parsed) : [];
++  } catch {
++    return unique(String(value).split(","));
++  }
++};
++
++const getCoverImage = (garage) => {
++  const images = Array.isArray(garage?.images) ? garage.images : [];
++  const image =
++    garage?.thumbnail ||
++    images.find((item) => item?.isThumbnail) ||
++    images[0];
++
++  return resolveMediaUrl(image) || getGarageImageDeliveryUrl(image);
++};
++
++const getServiceNames = (garage) =>
++  unique(
++    (Array.isArray(garage?.services) ? garage.services : []).map(
++      (assignment) => assignment?.service?.name,
++    ),
++  ).sort((left, right) => left.localeCompare(right));
++
++const getVehicleCoverage = (garage) => {
++  const assignments = Array.isArray(garage?.services) ? garage.services : [];
++  const scopes = assignments.map((assignment) => {
++    const brand = String(assignment?.vehicleBrand || "ALL").trim();
++    const model = String(assignment?.vehicleModel || "ALL").trim();
++
++    if (brand === "ALL") return "All supported vehicles";
++    if (model === "ALL") return `${brand} · All models`;
++    return `${brand} ${model}`;
++  });
++
++  return unique(scopes).sort((left, right) => left.localeCompare(right));
++};
++
++const getGarageType = (value) => {
++  if (value === "AUTHORIZED") return "Authorized garage";
++  if (value === "MULTI_BRAND") return "Multi-brand garage";
++  return String(value || "Verified garage").replaceAll("_", " ");
++};
++
++function EmptyCover({ compact = false, className = "" }) {
++  return (
++    <div
++      className={`grid w-full place-items-center bg-bg-soft text-muted ${
++        className || (compact ? "h-32" : "h-40 sm:h-44")
++      }`}
++    >
++      <FiTool className="h-8 w-8" />
++    </div>
++  );
++}
++
++function DetailGroup({ icon: Icon, title, children }) {
++  return (
++    <section className="rounded-xl border border-line bg-white p-4">
++      <div className="flex items-center gap-2 text-sm font-bold text-ink">
++        <Icon className="text-muted" />
++        {title}
++      </div>
++      <div className="mt-3 text-sm leading-6 text-muted">{children}</div>
++    </section>
++  );
++}
++
++export default function AcceptedGarageCard({
++  garage,
++  compact = false,
++  className = "",
++}) {
++  const [open, setOpen] = useState(false);
++  const coverImage = useMemo(() => getCoverImage(garage), [garage]);
++  const serviceNames = useMemo(() => getServiceNames(garage), [garage]);
++  const supportedBrands = useMemo(
++    () => normalizeBrands(garage?.supportedBrands),
++    [garage?.supportedBrands],
++  );
++  const vehicleCoverage = useMemo(() => getVehicleCoverage(garage), [garage]);
++  const hasCoordinates =
++    Number.isFinite(Number(garage?.latitude)) &&
++    Number.isFinite(Number(garage?.longitude));
++  const address = unique([
++    garage?.address,
++    garage?.area,
++    garage?.city,
++  ]).join(", ");
++  const workingHours =
++    garage?.openingTime && garage?.closingTime
++      ? `${garage.openingTime} – ${garage.closingTime}`
++      : "Hours not provided";
++
++  useEffect(() => {
++    if (!open) return undefined;
++
++    const previousOverflow = document.body.style.overflow;
++    const closeOnEscape = (event) => {
++      if (event.key === "Escape") setOpen(false);
++    };
++
++    document.body.style.overflow = "hidden";
++    document.addEventListener("keydown", closeOnEscape);
++
++    return () => {
++      document.body.style.overflow = previousOverflow;
++      document.removeEventListener("keydown", closeOnEscape);
++    };
++  }, [open]);
++
++  if (!garage) return null;
++
++  return (
++    <>
++      <button
++        type="button"
++        onClick={() => setOpen(true)}
++        className={`group w-full overflow-hidden rounded-xl border border-line bg-white text-left shadow-sm transition hover:border-ink/25 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand/40 ${className}`}
++        aria-label={`View details for ${garage.name}`}
++      >
++        <div className="relative overflow-hidden bg-bg-soft">
++          <SafeImage
++            src={coverImage}
++            alt={`${garage.name} cover`}
++            className={`w-full object-cover transition duration-300 group-hover:scale-[1.02] ${
++              compact ? "h-32" : "h-40 sm:h-44"
++            }`}
++            fallback={<EmptyCover compact={compact} />}
++          />
++          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
++          <div className="absolute inset-x-0 bottom-0 p-4 text-white">
++            <div className="flex items-end justify-between gap-3">
++              <div className="min-w-0">
++                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-white/80">
++                  {garage.isVerified && <FiCheckCircle />}
++                  Assigned garage
++                </div>
++                <h3 className="mt-1 truncate text-lg font-bold">
++                  {garage.name}
++                </h3>
++                <p className="mt-0.5 truncate text-xs text-white/75">
++                  {garage.area || garage.city || "Location available in details"}
++                </p>
++              </div>
++              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15 backdrop-blur">
++                <FiChevronRight />
++              </span>
++            </div>
++          </div>
++        </div>
++        <div className="flex items-center justify-between gap-3 px-4 py-3">
++          <span className="min-w-0 truncate text-xs font-medium text-muted">
++            {getGarageType(garage.garageType)} · Tap for garage details
++          </span>
++          <span className="shrink-0 text-xs font-bold text-ink">View details</span>
++        </div>
++      </button>
++
++      {open && (
++        <div
++          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:p-6"
++          role="presentation"
++          onMouseDown={(event) => {
++            if (event.target === event.currentTarget) setOpen(false);
++          }}
++        >
++          <div
++            role="dialog"
++            aria-modal="true"
++            aria-labelledby="accepted-garage-title"
++            className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl bg-bg-soft shadow-2xl sm:max-w-3xl sm:rounded-2xl"
++          >
++            <div className="relative h-48 overflow-hidden bg-bg-soft sm:h-64">
++              <SafeImage
++                src={coverImage}
++                alt={`${garage.name} cover`}
++                className="h-full w-full object-cover"
++                fallback={<EmptyCover className="h-full" />}
++              />
++              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-black/20" />
++              <button
++                type="button"
++                onClick={() => setOpen(false)}
++                className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-black/75"
++                aria-label="Close garage details"
++              >
++                <FiX />
++              </button>
++              <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6">
++                <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-white/80">
++                  {garage.isVerified && (
++                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 backdrop-blur">
++                      <FiCheckCircle /> Verified
++                    </span>
++                  )}
++                  <span className="rounded-full bg-white/15 px-2.5 py-1 backdrop-blur">
++                    {getGarageType(garage.garageType)}
++                  </span>
++                </div>
++                <h2
++                  id="accepted-garage-title"
++                  className="mt-3 text-2xl font-bold sm:text-3xl"
++                >
++                  {garage.name}
++                </h2>
++                <p className="mt-1 text-sm text-white/75">
++                  {garage.area || garage.city || "Assigned garage"}
++                </p>
++              </div>
++            </div>
++
++            <div className="space-y-4 p-4 sm:p-6">
++              {garage.description && (
++                <p className="rounded-xl border border-line bg-white p-4 text-sm leading-6 text-muted">
++                  {garage.description}
++                </p>
++              )}
++
++              <div className="grid gap-4 md:grid-cols-2">
++                <DetailGroup icon={FiMapPin} title="Location">
++                  <p>{address || "Location not provided"}</p>
++                  {hasCoordinates && (
++                    <a
++                      href={`https://www.google.com/maps?q=${garage.latitude},${garage.longitude}`}
++                      target="_blank"
++                      rel="noreferrer"
++                      className="mt-3 inline-flex items-center gap-2 font-bold text-ink hover:underline"
++                    >
++                      Open in Maps <FiExternalLink />
++                    </a>
++                  )}
++                </DetailGroup>
++
++                <DetailGroup icon={FiClock} title="Working hours">
++                  <p>{workingHours}</p>
++                </DetailGroup>
++
++                <DetailGroup icon={FiTool} title="Services provided">
++                  {serviceNames.length > 0 ? (
++                    <ul className="flex flex-wrap gap-2">
++                      {serviceNames.map((serviceName) => (
++                        <li
++                          key={serviceName}
++                          className="rounded-full border border-line bg-bg-soft px-3 py-1 text-xs font-semibold text-ink"
++                        >
++                          {serviceName}
++                        </li>
++                      ))}
++                    </ul>
++                  ) : (
++                    <p>Service information is not available.</p>
++                  )}
++                </DetailGroup>
++
++                <DetailGroup icon={FiTruck} title="Vehicles catered">
++                  {supportedBrands.length > 0 && (
++                    <div>
++                      <p className="text-xs font-bold uppercase tracking-wide text-muted">
++                        Brands
++                      </p>
++                      <div className="mt-2 flex flex-wrap gap-2">
++                        {supportedBrands.map((brand) => (
++                          <span
++                            key={brand}
++                            className="rounded-full border border-line bg-bg-soft px-3 py-1 text-xs font-semibold text-ink"
++                          >
++                            {brand}
++                          </span>
++                        ))}
++                      </div>
++                    </div>
++                  )}
++                  <div className={supportedBrands.length > 0 ? "mt-4" : ""}>
++                    {vehicleCoverage.length > 0 ? (
++                      <ul className="space-y-1.5">
++                        {vehicleCoverage.map((scope) => (
++                          <li key={scope}>• {scope}</li>
++                        ))}
++                      </ul>
++                    ) : (
++                      <p>Vehicle coverage is based on the assigned services.</p>
++                    )}
++                  </div>
++                </DetailGroup>
++              </div>
++            </div>
++          </div>
++        </div>
++      )}
++    </>
++  );
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/client/src/components/navbar/Navbar.jsx b/client/src/components/navbar/Navbar.jsx
+--- a/client/src/components/navbar/Navbar.jsx	2026-07-19 01:36:23.000000000 -0400
++++ b/client/src/components/navbar/Navbar.jsx	2026-07-19 02:22:27.692377317 -0400
+@@ -19,7 +19,6 @@
+ const NAV = [
+   { to: "/", label: "Home" },
+   { to: "/services", label: "Services" },
+-  { to: "/garages", label: "Garages" },
+   { to: "/how-it-works", label: "How It Works" },
+   { to: "/about", label: "About" },
+   { to: "/contact", label: "Contact" },
+@@ -64,9 +63,7 @@
+   const { pathname } = useLocation();
+ 
+   const safeCart = Array.isArray(cart) ? cart : [];
+-  const visibleNav = user
+-    ? NAV
+-    : NAV.filter((item) => item.to !== "/garages");
++  const visibleNav = NAV;
+ 
+   const closeMobileMenu = () => {
+     document.body.style.overflow = "";
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/client/src/pages/Garages.jsx b/client/src/pages/Garages.jsx
+--- a/client/src/pages/Garages.jsx	2026-07-19 01:36:23.000000000 -0400
++++ b/client/src/pages/Garages.jsx	1969-12-31 19:00:00.000000000 -0500
+@@ -1,717 +0,0 @@
+-import { useEffect, useMemo, useState } from "react";
+-import { Link, useSearchParams } from "react-router-dom";
+-import {
+-  FiArrowRight,
+-  FiCheck,
+-  FiClock,
+-  FiMapPin,
+-  FiNavigation,
+-  FiPhone,
+-  FiRefreshCw,
+-  FiSearch,
+-  FiShield,
+-  FiStar,
+-  FiTool,
+-} from "react-icons/fi";
+-import api from "@/api/axios";
+-import { useApp } from "@/hooks/useApp";
+-import Seo from "@/components/seo/Seo";
+-import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
+-import { formatServicePriceRange } from "@/utils/priceRange";
+-import { hasUsableIndiaCoordinates } from "@/utils/address";
+-
+-const NEARBY_RADIUS_KM = 10;
+-
+-const getGarageImage = (garage) =>
+-  garage?.thumbnail?.imageUrl || garage?.images?.[0]?.imageUrl || "";
+-
+-const getGarageServices = (garage) =>
+-  Array.isArray(garage?.services) ? garage.services : [];
+-
+-const getServiceName = (garageService) =>
+-  garageService?.service?.name || garageService?.name || "Vehicle service";
+-
+-const getServicePrice = (garageService) => {
+-  const service = garageService?.service || garageService || {};
+-  const hasAnyPrice = [
+-    service.priceRange?.min,
+-    service.priceRange?.max,
+-    service.estimatedMinPrice,
+-    service.estimatedMaxPrice,
+-    service.price,
+-  ].some((value) => value !== undefined && value !== null);
+-
+-  return hasAnyPrice ? formatServicePriceRange(service) : "Custom quote";
+-};
+-
+-const getGarageArea = (garage, fallbackCity = "") =>
+-  [garage?.area, garage?.city].filter(Boolean).join(", ") ||
+-  fallbackCity ||
+-  "Service area available";
+-
+-const getGarageAddress = (garage, fallbackCity = "") =>
+-  garage?.address || getGarageArea(garage, fallbackCity);
+-
+-const formatRating = (garage) => {
+-  const rating = Number(garage?.ratingAvg ?? garage?.rating ?? 0);
+-  return Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "New";
+-};
+-
+-const formatReviewCount = (garage) => {
+-  const count = Number(garage?.ratingCount ?? garage?.reviewCount ?? 0);
+-  if (!Number.isFinite(count) || count <= 0) return "No reviews yet";
+-  return `${count.toLocaleString("en-IN")} review${count === 1 ? "" : "s"}`;
+-};
+-
+-const formatHours = (garage) => {
+-  if (!garage?.openingTime || !garage?.closingTime) return "Hours not listed";
+-  return `${garage.openingTime} – ${garage.closingTime}`;
+-};
+-
+-const formatDistance = (garage) => {
+-  const roadDistance = Number(garage?.roadDistanceKm);
+-  const directDistance = Number(garage?.distanceKm);
+-  const distance =
+-    Number.isFinite(roadDistance) && roadDistance > 0
+-      ? roadDistance
+-      : directDistance;
+-
+-  if (!Number.isFinite(distance) || distance <= 0) return null;
+-  return `${distance.toFixed(distance >= 10 ? 0 : 1)} km away`;
+-};
+-
+-const getUsableCoordinates = (value) => {
+-  if (!value || typeof value !== "object") return null;
+-  if (!hasUsableIndiaCoordinates(value)) return null;
+-
+-  return {
+-    latitude: Number(value.latitude),
+-    longitude: Number(value.longitude),
+-  };
+-};
+-
+-const buildSearchParams = ({ city, search, openNow }) => {
+-  const next = new URLSearchParams();
+-  if (city.trim()) next.set("city", city.trim());
+-  if (search.trim()) next.set("search", search.trim());
+-  if (openNow) next.set("openNow", "true");
+-  return next;
+-};
+-
+-function GarageCard({ garage, fallbackCity }) {
+-  const image = getGarageImage(garage);
+-  const services = getGarageServices(garage);
+-  const shownServices = services.slice(0, 3);
+-  const remainingServices = Math.max(
+-    services.length - shownServices.length,
+-    0,
+-  );
+-  const distance = formatDistance(garage);
+-  const acceptingRequests = garage.isActive !== false;
+-
+-  return (
+-    <article className="group overflow-hidden rounded-2xl border border-line bg-white shadow-sm transition-all duration-300 hover:border-ink/20 hover:shadow-md md:rounded-3xl">
+-      <div className="grid lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]">
+-        {/* Left Side: Thumbnail section */}
+-        <div className="relative min-h-56 overflow-hidden bg-bg-soft lg:min-h-full">
+-          {image ? (
+-            <img
+-              src={image}
+-              alt={garage.name || "Garage"}
+-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 will-change-transform group-hover:scale-105"
+-              loading="lazy"
+-            />
+-          ) : (
+-            <div className="absolute inset-0 grid place-items-center bg-bg-soft text-5xl text-muted/40">
+-              <FiTool className="animate-pulse" />
+-            </div>
+-          )}
+-
+-          {/* Badges Layout inside image overlay */}
+-          <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
+-            {garage.isVerified ? (
+-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/90 px-2.5 py-1 text-xs font-bold text-ink shadow-sm backdrop-blur-md">
+-                <FiShield className="text-emerald-600" />
+-                Verified Partner
+-              </span>
+-            ) : (
+-              <span />
+-            )}
+-
+-            {distance && (
+-              <span className="rounded-full bg-ink/80 backdrop-blur-md px-2.5 py-1 text-xs font-bold text-white shadow-sm">
+-                {distance}
+-              </span>
+-            )}
+-          </div>
+-
+-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-5 pb-4 pt-14 text-white">
+-            <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-white/90">
+-              <FiMapPin className="shrink-0 text-brand" />
+-              <span className="line-clamp-1">
+-                {getGarageArea(garage, fallbackCity)}
+-              </span>
+-            </p>
+-          </div>
+-        </div>
+-
+-        {/* Right Side: Main content container */}
+-        <div className="flex min-w-0 flex-col p-5 sm:p-6 lg:p-8">
+-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+-            <div className="min-w-0">
+-              {/* Operational Status Tag */}
+-              <div className="flex flex-wrap items-center gap-2">
+-                <span
+-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold tracking-wide uppercase ${
+-                    acceptingRequests
+-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+-                      : "bg-rose-50 text-rose-700 border border-rose-200"
+-                  }`}
+-                >
+-                  <span
+-                    className={`h-1.5 w-1.5 rounded-full ${
+-                      acceptingRequests ? "bg-emerald-500" : "bg-rose-500"
+-                    }`}
+-                  />
+-                  {acceptingRequests ? "Accepting Bookings" : "Unavailable"}
+-                </span>
+-              </div>
+-
+-              <h2 className="mt-3.5 text-xl font-black tracking-tight text-ink sm:text-2xl">
+-                {garage.name || "Garage"}
+-              </h2>
+-
+-              <p className="mt-2 flex items-start gap-2 text-sm leading-relaxed text-muted">
+-                <FiMapPin className="mt-0.5 shrink-0 text-muted/70" />
+-                <span className="line-clamp-2">
+-                  {getGarageAddress(garage, fallbackCity)}
+-                </span>
+-              </p>
+-            </div>
+-
+-            {/* Rating / Review High-Fidelity Block */}
+-            <div className="flex shrink-0 items-center gap-2.5 self-start rounded-xl border border-line bg-bg-soft/50 p-2 sm:px-3 sm:py-2">
+-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-50 text-amber-500 shadow-sm">
+-                <FiStar fill="currentColor" className="text-sm" />
+-              </span>
+-              <div>
+-                <div className="text-sm font-black text-ink leading-none">
+-                  {formatRating(garage)}
+-                </div>
+-                <div className="mt-1 text-[11px] font-semibold text-muted leading-none">
+-                  {formatReviewCount(garage)}
+-                </div>
+-              </div>
+-            </div>
+-          </div>
+-
+-          {/* Quick Metrics Matrix Row */}
+-          <div className="mt-6 grid grid-cols-2 gap-4 border-y border-line/70 py-4 sm:grid-cols-3">
+-            <div>
+-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-muted">
+-                Operating Hours
+-              </p>
+-              <p className="mt-1.5 flex items-center gap-1.5 text-sm font-bold text-ink">
+-                <FiClock className="shrink-0 text-muted/60" />
+-                <span className="line-clamp-1">{formatHours(garage)}</span>
+-              </p>
+-            </div>
+-
+-            <div>
+-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-muted">
+-                Service Radius
+-              </p>
+-              <p className="mt-1.5 text-sm font-bold text-ink">
+-                {garage.workingRadiusKm || 15} km radius
+-              </p>
+-            </div>
+-
+-            <div className="col-span-2 sm:col-span-1">
+-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-muted">
+-                Proximity Distance
+-              </p>
+-              <p className="mt-1.5 text-sm font-bold text-ink">
+-                {distance || "Location Disabled"}
+-              </p>
+-            </div>
+-          </div>
+-
+-          {/* Service Listing Segment */}
+-          <div className="mt-6">
+-            <div className="mb-3 flex items-center justify-between gap-3">
+-              <p className="text-xs font-extrabold uppercase tracking-wider text-ink">Available Services</p>
+-              <p className="text-xs font-bold text-muted">
+-                {services.length > 0
+-                  ? `${services.length} Cataloged`
+-                  : "On-demand Booking Only"}
+-              </p>
+-            </div>
+-
+-            {shownServices.length > 0 ? (
+-              <div className="overflow-hidden rounded-xl border border-line bg-white shadow-2xs">
+-                {shownServices.map((item, index) => (
+-                  <div
+-                    key={item.id || item.serviceId || getServiceName(item)}
+-                    className={`flex items-center justify-between gap-4 px-4 py-3 transition hover:bg-bg-soft/40 ${
+-                      index > 0 ? "border-t border-line/60" : ""
+-                    }`}
+-                  >
+-                    <p className="min-w-0 truncate text-sm font-semibold text-ink">
+-                      {getServiceName(item)}
+-                    </p>
+-                    <p className="shrink-0 text-xs font-extrabold text-ink bg-bg-soft px-2 py-1 rounded-md">
+-                      {getServicePrice(item)}
+-                    </p>
+-                  </div>
+-                ))}
+-
+-                {remainingServices > 0 && (
+-                  <div className="border-t border-line bg-bg-soft/50 px-4 py-2 text-center text-xs font-bold text-muted transition hover:text-ink">
+-                    +{remainingServices} more service
+-                    {remainingServices === 1 ? "" : "s"} listed in directory
+-                  </div>
+-                )}
+-              </div>
+-            ) : (
+-              <div className="rounded-xl border border-dashed border-line bg-bg-soft/40 px-4 py-4 text-xs leading-relaxed text-muted">
+-                Service item pricing has not been published for this workspace. Proceed with standard checkout to match dynamically with eligibility rules.
+-              </div>
+-            )}
+-          </div>
+-
+-          {/* Interactive Footer Toolbar */}
+-          <div className="mt-6 flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between border-t border-line/40">
+-            <div className="flex flex-wrap items-center gap-2">
+-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50/50 px-3 py-1.5 text-xs font-bold text-emerald-800 border border-emerald-100">
+-                <FiCheck className="text-emerald-600" /> Catalog Verified
+-              </span>
+-
+-              {garage.whatsappLink && (
+-                <a
+-                  href={garage.whatsappLink}
+-                  target="_blank"
+-                  rel="noreferrer"
+-                  className="inline-flex items-center gap-1.5 rounded-lg bg-bg-soft px-3 py-1.5 text-xs font-bold text-muted border border-line/60 transition hover:bg-brand-soft hover:text-ink"
+-                >
+-                  <FiPhone /> WhatsApp Connect
+-                </a>
+-              )}
+-            </div>
+-
+-            <Link
+-              to="/booking/vehicle"
+-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-ink px-6 text-sm font-bold text-white shadow-xs transition hover:bg-ink/90 active:scale-[0.98]"
+-            >
+-              Configure Setup <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
+-            </Link>
+-          </div>
+-        </div>
+-      </div>
+-    </article>
+-  );
+-}
+-
+-function GarageSkeleton() {
+-  return (
+-    <div className="overflow-hidden rounded-3xl border border-line bg-white shadow-xs">
+-      <div className="grid lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]">
+-        <div className="h-56 animate-pulse bg-bg-soft lg:h-auto" />
+-        <div className="p-6 sm:p-8">
+-          <div className="h-5 w-28 animate-pulse rounded-full bg-bg-soft" />
+-          <div className="mt-4 h-8 w-2/3 animate-pulse rounded-lg bg-bg-soft" />
+-          <div className="mt-3 h-4 w-4/5 animate-pulse rounded bg-bg-soft" />
+-          <div className="mt-6 h-16 animate-pulse rounded-xl bg-bg-soft" />
+-          <div className="mt-5 h-28 animate-pulse rounded-xl bg-bg-soft" />
+-        </div>
+-      </div>
+-    </div>
+-  );
+-}
+-
+-export default function Garages() {
+-  const { location } = useApp();
+-  const [searchParams, setSearchParams] = useSearchParams();
+-
+-  const queryCity = searchParams.get("city") || "";
+-  const savedCity = String(location?.city || "").trim();
+-
+-  const initialFilters = {
+-    city: queryCity || savedCity,
+-    search: searchParams.get("search") || "",
+-    openNow: searchParams.get("openNow") === "true",
+-  };
+-
+-  const [city, setCity] = useState(initialFilters.city);
+-  const [search, setSearch] = useState(initialFilters.search);
+-  const [openNow, setOpenNow] = useState(initialFilters.openNow);
+-  const [appliedFilters, setAppliedFilters] = useState(initialFilters);
+-  const [garages, setGarages] = useState([]);
+-  const [loading, setLoading] = useState(true);
+-  const [error, setError] = useState("");
+-  const [browserLocation, setBrowserLocation] = useState(null);
+-  const [locationLoading, setLocationLoading] = useState(false);
+-  const [locationMessage, setLocationMessage] = useState("");
+-
+-  useEffect(() => {
+-    if (queryCity || city || !savedCity) return;
+-
+-    const nextFilters = { city: savedCity, search: "", openNow: false };
+-    setCity(savedCity);
+-    setAppliedFilters(nextFilters);
+-    setSearchParams(buildSearchParams(nextFilters), { replace: true });
+-  }, [city, queryCity, savedCity, setSearchParams]);
+-
+-  const activeLocation = useMemo(
+-    () => getUsableCoordinates(browserLocation),
+-    [browserLocation?.latitude, browserLocation?.longitude],
+-  );
+-
+-  const requestParams = useMemo(
+-    () => ({
+-      verified: "true",
+-      ...(appliedFilters.city.trim() && {
+-        city: appliedFilters.city.trim(),
+-      }),
+-      ...(appliedFilters.search.trim() && {
+-        search: appliedFilters.search.trim(),
+-      }),
+-      ...(appliedFilters.openNow && { openNow: "true" }),
+-      ...(activeLocation && {
+-        latitude: activeLocation.latitude,
+-        longitude: activeLocation.longitude,
+-        radiusKm: NEARBY_RADIUS_KM,
+-      }),
+-    }),
+-    [
+-      appliedFilters,
+-      activeLocation?.latitude,
+-      activeLocation?.longitude,
+-    ],
+-  );
+-
+-  useEffect(() => {
+-    const controller = new AbortController();
+-    let mounted = true;
+-
+-    setLoading(true);
+-    setError("");
+-
+-    api
+-      .get("/garages", {
+-        params: requestParams,
+-        signal: controller.signal,
+-      })
+-      .then((response) => {
+-        if (!mounted) return;
+-        const data = response.data?.data || response.data || [];
+-        setGarages(Array.isArray(data) ? data : []);
+-      })
+-      .catch((err) => {
+-        if (
+-          !mounted ||
+-          err.name === "CanceledError" ||
+-          err.code === "ERR_CANCELED"
+-        )
+-          return;
+-        setGarages([]);
+-        setError(
+-          err.response?.data?.message || "Unable to load garages right now.",
+-        );
+-      })
+-      .finally(() => {
+-        if (mounted) setLoading(false);
+-      });
+-
+-    return () => {
+-      mounted = false;
+-      controller.abort();
+-    };
+-  }, [requestParams]);
+-
+-  const handleSubmit = (event) => {
+-    event.preventDefault();
+-
+-    const nextFilters = { city, search, openNow };
+-    setAppliedFilters(nextFilters);
+-    setSearchParams(buildSearchParams(nextFilters), { replace: true });
+-  };
+-
+-  const clearFilters = () => {
+-    const nextCity = savedCity || "";
+-    const nextFilters = { city: nextCity, search: "", openNow: false };
+-
+-    setCity(nextCity);
+-    setSearch(nextFilters.search);
+-    setOpenNow(nextFilters.openNow);
+-    setAppliedFilters(nextFilters);
+-    setSearchParams(buildSearchParams(nextFilters), { replace: true });
+-  };
+-
+-  const requestCurrentLocation = () => {
+-    if (!navigator.geolocation) {
+-      setLocationMessage("Location is not supported by this browser.");
+-      return;
+-    }
+-
+-    setLocationLoading(true);
+-    setLocationMessage("");
+-
+-    navigator.geolocation.getCurrentPosition(
+-      (position) => {
+-        setBrowserLocation({
+-          latitude: position.coords.latitude,
+-          longitude: position.coords.longitude,
+-        });
+-        setLocationMessage(
+-          `Showing garages within ${NEARBY_RADIUS_KM} km of your current location.`,
+-        );
+-        setLocationLoading(false);
+-      },
+-      () => {
+-        setLocationMessage(
+-          "Allow location access to see nearby garages and distance.",
+-        );
+-        setLocationLoading(false);
+-      },
+-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+-    );
+-  };
+-
+-  const hasAppliedFilters = Boolean(
+-    appliedFilters.city.trim() ||
+-      appliedFilters.search.trim() ||
+-      appliedFilters.openNow ||
+-      activeLocation,
+-  );
+-
+-  return (
+-    <>
+-      <CustomerLoginLoader
+-        visible={locationLoading}
+-        eyebrow="ROVAUTO LOCATION"
+-        title="Finding garages near you"
+-        message="Using your current location to find nearby verified garages."
+-      />
+-      <Seo
+-        title="Verified Garages in Prayagraj"
+-        description="Browse verified Rovauto garage partners with ratings, service coverage, hours and booking access."
+-        path="/garages"
+-      />
+-
+-      <main className="min-h-screen bg-bg-soft/40 pb-16">
+-        {/* Premium Corporate Hero Section */}
+-        <section className="relative overflow-hidden bg-ink py-16 text-white sm:py-24">
+-          {/* Visual Grid Backdrop Decor */}
+-          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
+-          <div className="pointer-events-none absolute -right-12 -top-24 h-96 w-96 rounded-full bg-brand/10 blur-3xl" />
+-          <div className="pointer-events-none absolute -left-12 -bottom-24 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
+-
+-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative">
+-            <div className="max-w-3xl">
+-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-brand">
+-                <FiShield className="text-sm" /> Professional Auto Network
+-              </span>
+-
+-              <h1 className="mt-5 text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl lg:leading-[1.1]">
+-                Find a trusted garage <br className="hidden sm:inline"/>
+-                <span className="bg-gradient-to-r from-brand via-amber-300 to-white bg-clip-text text-transparent">near your location.</span>
+-              </h1>
+-
+-              <p className="mt-6 max-w-xl text-base leading-relaxed text-white/70 sm:text-lg">
+-                Compare top-tier verified automotive partners by neighborhood, community ratings, true operation windows, and standardized pricing models.
+-              </p>
+-
+-              <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-xs font-bold uppercase tracking-wide text-white/60">
+-                <span className="inline-flex items-center gap-2">
+-                  <FiCheck className="text-brand text-sm" /> Inspected Workspaces
+-                </span>
+-                <span className="inline-flex items-center gap-2">
+-                  <FiCheck className="text-brand text-sm" /> Spatial Proximity Tracking
+-                </span>
+-                <span className="inline-flex items-center gap-2">
+-                  <FiCheck className="text-brand text-sm" /> Encrypted Checkout Routes
+-                </span>
+-              </div>
+-            </div>
+-          </div>
+-        </section>
+-
+-        {/* Floating Combined Search & Controls Panel */}
+-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-20 -mt-10">
+-          <form
+-            onSubmit={handleSubmit}
+-            className="rounded-2xl border border-line bg-white p-5 shadow-xl sm:p-6"
+-          >
+-            <div className="grid gap-4 lg:grid-cols-[1.3fr_0.8fr_auto_auto] lg:items-end">
+-              <label className="block">
+-                <span className="mb-2 block text-[11px] font-extrabold uppercase tracking-widest text-muted">
+-                  Search Workspace
+-                </span>
+-                <span className="relative block group-within:text-ink text-muted">
+-                  <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base transition-colors" />
+-                  <input
+-                    value={search}
+-                    onChange={(event) => setSearch(event.target.value)}
+-                    placeholder="Search name, landmark, address..."
+-                    className="h-12 w-full rounded-xl border border-line bg-bg-soft pl-11 pr-4 text-sm font-medium text-ink outline-none transition focus:border-ink focus:bg-white focus:ring-2 focus:ring-ink/5"
+-                  />
+-                </span>
+-              </label>
+-
+-              <label className="block">
+-                <span className="mb-2 block text-[11px] font-extrabold uppercase tracking-widest text-muted">
+-                  Target City
+-                </span>
+-                <span className="relative block group-within:text-ink text-muted">
+-                  <FiMapPin className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base transition-colors" />
+-                  <input
+-                    value={city}
+-                    onChange={(event) => setCity(event.target.value)}
+-                    placeholder="Enter locality / city"
+-                    className="h-12 w-full rounded-xl border border-line bg-bg-soft pl-11 pr-4 text-sm font-medium text-ink outline-none transition focus:border-ink focus:bg-white focus:ring-2 focus:ring-ink/5"
+-                  />
+-                </span>
+-              </label>
+-
+-              <button
+-                type="button"
+-                onClick={() => setOpenNow((value) => !value)}
+-                aria-pressed={openNow}
+-                className={`inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-5 text-sm font-bold transition-all active:scale-[0.98] lg:min-w-36 ${
+-                  openNow
+-                    ? "border-ink bg-ink text-white shadow-xs"
+-                    : "border-line bg-white text-ink hover:bg-bg-soft"
+-                }`}
+-              >
+-                <FiClock className="text-base" /> Open Now
+-              </button>
+-
+-              <button
+-                type="submit"
+-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-brand px-7 text-sm font-black text-black shadow-sm transition-all hover:bg-brand/95 active:scale-[0.98]"
+-              >
+-                Query Database <FiArrowRight />
+-              </button>
+-            </div>
+-
+-            {/* Form Utility Metadata Toolbar */}
+-            <div className="mt-5 flex flex-col gap-4 border-t border-line/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+-              <button
+-                type="button"
+-                onClick={requestCurrentLocation}
+-                disabled={locationLoading}
+-                className="inline-flex items-center gap-2 self-start text-xs font-extrabold uppercase tracking-wider text-ink group disabled:cursor-not-allowed disabled:opacity-50"
+-              >
+-                <span className="grid h-8 w-8 place-items-center rounded-lg bg-bg-soft border border-line group-hover:bg-ink group-hover:text-white transition-colors">
+-                  <FiNavigation
+-                    className={locationLoading ? "animate-spin" : "text-sm"}
+-                  />
+-                </span>
+-                {locationLoading ? "Analyzing Telemetry..." : "Geolocate Position"}
+-              </button>
+-
+-              {hasAppliedFilters && (
+-                <button
+-                  type="button"
+-                  onClick={clearFilters}
+-                  className="inline-flex items-center gap-1.5 self-start text-xs font-bold text-muted transition hover:text-rose-600"
+-                >
+-                  <FiRefreshCw className="text-sm" /> Flush Search Parameters
+-                </button>
+-              )}
+-            </div>
+-          </form>
+-        </section>
+-
+-        {/* Directory Results Matrix */}
+-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-12">
+-          {/* Subheader and System Meta Diagnostics */}
+-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-line pb-5">
+-            <div>
+-              <p className="text-[11px] font-extrabold uppercase tracking-widest text-muted">
+-                System Registry View
+-              </p>
+-              <h2 className="mt-1 text-2xl font-black tracking-tight text-ink sm:text-3xl">
+-                {loading ? (
+-                  <span className="inline-flex items-center gap-3">
+-                    Querying nodes...
+-                  </span>
+-                ) : (
+-                  `${garages.length} Partner Workstation${garages.length === 1 ? "" : "s"} Online`
+-                )}
+-              </h2>
+-              <p className="mt-2 text-sm font-medium text-muted">
+-                {activeLocation
+-                  ? `Spatial search matrix enabled within ${NEARBY_RADIUS_KM} km coordinates${
+-                      appliedFilters.city.trim()
+-                        ? ` inside ${appliedFilters.city.trim()}`
+-                        : ""
+-                    }`
+-                  : appliedFilters.city.trim()
+-                    ? `Displaying dynamic indexes active in ${appliedFilters.city.trim()}`
+-                    : "Displaying complete public service directory"}
+-              </p>
+-            </div>
+-
+-            {activeLocation && (
+-              <span className="inline-flex self-start items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-1.5 text-xs font-bold text-emerald-800 sm:self-auto">
+-                <FiNavigation className="text-emerald-600" /> Active GPS Stream
+-              </span>
+-            )}
+-          </div>
+-
+-          {locationMessage && (
+-            <div className="mb-6 rounded-xl border border-line bg-white/80 backdrop-blur-xs px-4 py-3 text-xs font-bold text-muted shadow-2xs">
+-              {locationMessage}
+-            </div>
+-          )}
+-
+-          {error && (
+-            <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50/50 p-4 text-sm font-semibold text-rose-700">
+-              {error}
+-            </div>
+-          )}
+-
+-          {/* Conditional Output Logic */}
+-          {loading ? (
+-            <div className="grid gap-6">
+-              {Array.from({ length: 3 }).map((_, index) => (
+-                <GarageSkeleton key={index} />
+-              ))}
+-            </div>
+-          ) : garages.length > 0 ? (
+-            <div className="grid gap-6">
+-              {garages.map((garage) => (
+-                <GarageCard
+-                  key={garage.id}
+-                  garage={garage}
+-                  fallbackCity={appliedFilters.city}
+-                />
+-              ))}
+-            </div>
+-          ) : (
+-            /* Enhanced Clean Zero-state Screen */
+-            <div className="rounded-3xl border-2 border-dashed border-line bg-white px-6 py-16 text-center sm:px-10 shadow-sm">
+-              <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-bg-soft border border-line text-3xl text-muted/60">
+-                <FiNavigation />
+-              </div>
+-              <h3 className="mt-5 text-xl font-black text-ink">
+-                No Workspace Registry Matches
+-              </h3>
+-              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
+-                No active partners found for your search telemetry. Try modifying filters or checking surrounding territories.
+-              </p>
+-              <button
+-                type="button"
+-                onClick={clearFilters}
+-                className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-ink px-6 text-sm font-bold text-white transition hover:bg-ink/90"
+-              >
+-                <FiRefreshCw /> Reset All Criteria
+-              </button>
+-            </div>
+-          )}
+-        </section>
+-      </main>
+-    </>
+-  );
+-}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/client/src/pages/Home.jsx b/client/src/pages/Home.jsx
+--- a/client/src/pages/Home.jsx	2026-07-19 01:36:23.000000000 -0400
++++ b/client/src/pages/Home.jsx	2026-07-19 02:22:27.596374806 -0400
+@@ -5,7 +5,6 @@
+   FiArrowRight,
+   FiCheckCircle,
+   FiClock,
+-  FiHome,
+   FiNavigation,
+   FiShield,
+   FiStar,
+@@ -99,16 +98,6 @@
+     customers: null,
+     averageRating: null,
+   });
+-  const cityName = String(location?.city || "").trim();
+-  const garageSearch = cityName
+-    ? `?city=${encodeURIComponent(cityName)}`
+-    : "";
+-  const garagesPath = `${"/garages"}${garageSearch}`;
+-  const garagesReturnLocation = {
+-    pathname: "/garages",
+-    search: garageSearch,
+-  };
+-
+   useEffect(() => {
+     let mounted = true;
+ 
+@@ -258,20 +247,6 @@
+                   Become a Partner
+                 </Link>
+ 
+-                <Link
+-                  to={user ? garagesPath : "/login"}
+-                  state={
+-                    user
+-                      ? undefined
+-                      : {
+-                          from: garagesReturnLocation,
+-                          message: "Login to view verified garages.",
+-                        }
+-                  }
+-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-bold text-white transition hover:border-white hover:bg-white/15"
+-                >
+-                  <FiHome /> Garages
+-                </Link>
+               </div>
+ 
+               <div className="mt-7 flex flex-wrap gap-x-5 gap-y-3">
+@@ -792,4 +767,4 @@
+       </main>
+     </>
+   );
+-}
+\ No newline at end of file
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/client/src/pages/booking/GarageSelect.jsx b/client/src/pages/booking/GarageSelect.jsx
+--- a/client/src/pages/booking/GarageSelect.jsx	2026-07-19 01:36:23.000000000 -0400
++++ b/client/src/pages/booking/GarageSelect.jsx	1969-12-31 19:00:00.000000000 -0500
+@@ -1,247 +0,0 @@
+-import { useEffect, useMemo, useState } from "react";
+-import { useNavigate } from "react-router-dom";
+-import {
+-  FiArrowRight,
+-  FiCheckCircle,
+-  FiClock,
+-  FiMapPin,
+-  FiRefreshCw,
+-  FiShield,
+-  FiStar,
+-  FiTool,
+-  FiZap,
+-} from "react-icons/fi";
+-import api from "@/api/axios";
+-import RouteMapCard from "@/components/maps/RouteMapCard";
+-import { useApp } from "@/hooks/useApp";
+-import { hasUsableIndiaCoordinates } from "@/utils/address";
+-
+-const formatDistance = (garage) => {
+-  const value = garage.roadDistanceKm ?? garage.distanceKm;
+-  return Number.isFinite(Number(value))
+-    ? `${Number(value).toFixed(1)} km`
+-    : "Distance unavailable";
+-};
+-
+-const getImage = (garage) =>
+-  garage.thumbnail?.imageUrl || garage.images?.[0]?.imageUrl || "";
+-
+-export default function GarageSelect() {
+-  const { location, cart } = useApp();
+-  const nav = useNavigate();
+-  const [garages, setGarages] = useState([]);
+-  const [selectedGarageId, setSelectedGarageId] = useState(null);
+-  const [loading, setLoading] = useState(true);
+-  const [error, setError] = useState("");
+-
+-  const serviceIds = useMemo(
+-    () => cart.map((item) => item.id).filter(Boolean),
+-    [cart],
+-  );
+-  const selectedGarage =
+-    garages.find((garage) => garage.id === selectedGarageId) || garages[0] || null;
+-
+-  const loadGarages = async () => {
+-    if (!hasUsableIndiaCoordinates(location)) {
+-      setLoading(false);
+-      setError("Save a valid service location before finding garages.");
+-      return;
+-    }
+-
+-    try {
+-      setLoading(true);
+-      setError("");
+-      const response = await api.get("/garages/nearby", {
+-        params: {
+-          verified: true,
+-          openNow: true,
+-          maxDistance: 30,
+-          latitude: Number(location.latitude),
+-          longitude: Number(location.longitude),
+-          ...(serviceIds.length && { serviceIds: serviceIds.join(",") }),
+-        },
+-      });
+-      const result = Array.isArray(response.data?.data) ? response.data.data : [];
+-      setGarages(result.slice(0, 10));
+-      setSelectedGarageId((current) =>
+-        result.some((item) => item.id === current) ? current : result[0]?.id || null,
+-      );
+-    } catch (err) {
+-      setError(
+-        err.response?.data?.message ||
+-          err.message ||
+-          "Unable to rank nearby garages.",
+-      );
+-      setGarages([]);
+-    } finally {
+-      setLoading(false);
+-    }
+-  };
+-
+-  useEffect(() => {
+-    void loadGarages();
+-  }, [location?.latitude, location?.longitude, serviceIds.join(",")]);
+-
+-  return (
+-    <div className="container-x py-10 sm:py-12">
+-      <div className="flex flex-wrap items-center justify-between gap-4">
+-        <div>
+-          <span className="chip-brand">Step 3 of 3</span>
+-          <h1 className="mt-3 text-3xl font-bold sm:text-4xl">
+-            Best garages for this booking
+-          </h1>
+-          <p className="mt-2 max-w-2xl text-muted">
+-            RovAuto first filters eligible garages, then ranks the closest
+-            candidates by Google driving time. Final assignment still goes to
+-            the first eligible garage that accepts after payment.
+-          </p>
+-        </div>
+-        <button
+-          type="button"
+-          onClick={loadGarages}
+-          disabled={loading}
+-          className="btn-ghost"
+-        >
+-          <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
+-        </button>
+-      </div>
+-
+-      {error && (
+-        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+-          {error}
+-        </div>
+-      )}
+-
+-      <div className="mt-8 grid gap-7 xl:grid-cols-[420px_minmax(0,1fr)]">
+-        <section className="space-y-3">
+-          <div className="rounded-3xl border-2 border-ink bg-ink p-5 text-white">
+-            <div className="flex items-start gap-4">
+-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand text-xl text-ink">
+-                <FiZap />
+-              </div>
+-              <div>
+-                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
+-                  Assignment mode
+-                </span>
+-                <h2 className="mt-3 text-xl font-bold">Auto-assign best acceptance</h2>
+-                <p className="mt-1 text-sm leading-6 text-white/70">
+-                  Ranking influences the broadcast order, while live eligibility
+-                  and the first valid acceptance determine assignment.
+-                </p>
+-              </div>
+-            </div>
+-          </div>
+-
+-          {loading ? (
+-            <div className="card-soft p-6 text-sm text-muted">
+-              Calculating real driving times…
+-            </div>
+-          ) : garages.length ? (
+-            garages.slice(0, 5).map((garage, index) => {
+-              const selected = selectedGarage?.id === garage.id;
+-              return (
+-                <button
+-                  key={garage.id}
+-                  type="button"
+-                  onClick={() => setSelectedGarageId(garage.id)}
+-                  className={`w-full overflow-hidden rounded-3xl border p-4 text-left transition ${
+-                    selected
+-                      ? "border-ink bg-white shadow-soft ring-2 ring-ink/10"
+-                      : "border-line bg-white hover:border-ink/30"
+-                  }`}
+-                >
+-                  <div className="flex gap-4">
+-                    <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-2xl bg-bg-soft">
+-                      {getImage(garage) ? (
+-                        <img
+-                          src={getImage(garage)}
+-                          alt={garage.name}
+-                          className="h-full w-full object-cover"
+-                        />
+-                      ) : (
+-                        <div className="grid h-full place-items-center text-2xl text-muted">
+-                          <FiTool />
+-                        </div>
+-                      )}
+-                      <span className="absolute left-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-gray-950 text-[10px] font-bold text-white">
+-                        {index + 1}
+-                      </span>
+-                    </div>
+-                    <div className="min-w-0 flex-1">
+-                      <div className="flex items-start justify-between gap-3">
+-                        <div className="min-w-0">
+-                          <h3 className="truncate font-bold">{garage.name}</h3>
+-                          <p className="mt-1 truncate text-xs text-muted">
+-                            {garage.area}, {garage.city}
+-                          </p>
+-                        </div>
+-                        {garage.isVerified && (
+-                          <FiCheckCircle className="shrink-0 text-green-600" />
+-                        )}
+-                      </div>
+-                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+-                        <span className="inline-flex items-center gap-1 rounded-full bg-bg-soft px-2.5 py-1">
+-                          <FiClock /> {garage.etaMinutes ? `${garage.etaMinutes} min` : "ETA pending"}
+-                        </span>
+-                        <span className="inline-flex items-center gap-1 rounded-full bg-bg-soft px-2.5 py-1">
+-                          <FiMapPin /> {formatDistance(garage)}
+-                        </span>
+-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
+-                          <FiStar fill="currentColor" /> {Number(garage.ratingAvg || 0).toFixed(1)}
+-                        </span>
+-                      </div>
+-                    </div>
+-                  </div>
+-                </button>
+-              );
+-            })
+-          ) : (
+-            <div className="card-soft p-6 text-sm text-muted">
+-              No eligible garage is currently available for every selected service.
+-            </div>
+-          )}
+-        </section>
+-
+-        <section className="space-y-5">
+-          {selectedGarage && (
+-            <RouteMapCard
+-              origin={selectedGarage}
+-              destination={location}
+-              route={{
+-                distanceMeters: selectedGarage.routeDistanceMeters,
+-                durationSeconds: selectedGarage.etaSeconds,
+-              }}
+-              title={selectedGarage.name}
+-              subtitle="Preview route to your confirmed service location"
+-            />
+-          )}
+-
+-          <div className="card-soft p-6">
+-            <div className="flex items-start gap-4">
+-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand text-xl">
+-                <FiShield />
+-              </div>
+-              <div>
+-                <h2 className="font-bold">How ranking is used</h2>
+-                <p className="mt-2 text-sm leading-6 text-muted">
+-                  Straight-line distance is used only for the first shortlist.
+-                  Google Route Matrix then ranks up to ten candidates by driving
+-                  duration. Availability, supported services, vehicle scope,
+-                  verification, working radius, and acceptance still apply.
+-                </p>
+-              </div>
+-            </div>
+-          </div>
+-
+-          <button
+-            type="button"
+-            onClick={() => nav("/checkout")}
+-            className="btn-primary w-full"
+-          >
+-            Continue to checkout <FiArrowRight />
+-          </button>
+-        </section>
+-      </div>
+-    </div>
+-  );
+-}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/client/src/pages/booking/Tracking.jsx b/client/src/pages/booking/Tracking.jsx
+--- a/client/src/pages/booking/Tracking.jsx	2026-07-19 01:36:23.000000000 -0400
++++ b/client/src/pages/booking/Tracking.jsx	2026-07-19 02:24:51.127921890 -0400
+@@ -8,6 +8,7 @@
+ import { Link, useLocation, useNavigate } from "react-router-dom";
+ import { motion, useReducedMotion } from "framer-motion";
+ import api from "@/api/axios";
++import AcceptedGarageCard from "@/components/booking/AcceptedGarageCard";
+ import InspectionGallery from "@/components/booking/InspectionGallery";
+ import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
+ import ReviewModal from "@/components/reviews/ReviewModal";
+@@ -1006,23 +1007,7 @@
+           </div>
+         ) : booking.garage ? (
+           <div>
+-            <div className="flex items-center gap-3">
+-              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-ink text-lg font-bold text-white">
+-                {booking.garage.name?.slice(0, 2).toUpperCase() || "RG"}
+-              </span>
+-              <div className="min-w-0">
+-                <div className="truncate font-semibold">
+-                  {booking.garage.name}
+-                </div>
+-                <div className="truncate text-xs text-muted">
+-                  {booking.garage.area || booking.garage.city}
+-                </div>
+-                <div className="mt-1 flex items-center gap-1 text-xs text-amber-500">
+-                  <FiStar fill="currentColor" />
+-                  {Number(booking.garage.ratingAvg || 0).toFixed(1)}
+-                </div>
+-              </div>
+-            </div>
++            <AcceptedGarageCard garage={booking.garage} compact />
+ 
+             <div className="mt-5 grid gap-3 text-sm">
+               <Row label="Phone" value={booking.garage.phone || "Not provided"} />
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/client/src/pages/customer/ActiveBookings.jsx b/client/src/pages/customer/ActiveBookings.jsx
+--- a/client/src/pages/customer/ActiveBookings.jsx	2026-07-19 01:36:23.000000000 -0400
++++ b/client/src/pages/customer/ActiveBookings.jsx	2026-07-19 02:24:31.083600132 -0400
+@@ -1,6 +1,7 @@
+ import { useEffect, useState } from "react";
+ import { Link } from "react-router-dom";
+ import { useApp } from "@/hooks/useApp";
++import AcceptedGarageCard from "@/components/booking/AcceptedGarageCard";
+ import {
+   FiNavigation,
+   FiRefreshCw,
+@@ -191,6 +192,12 @@
+                       </div>
+                     </div>
+                   </div>
++
++                  {booking.garage && (
++                    <div className="mt-4">
++                      <AcceptedGarageCard garage={booking.garage} />
++                    </div>
++                  )}
+                 </div>
+ 
+                 <aside className="flex flex-col justify-center border-t border-line bg-bg-soft/50 p-4 sm:p-5 lg:border-l lg:border-t-0">
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/client/src/pages/customer/Dashboard.jsx b/client/src/pages/customer/Dashboard.jsx
+--- a/client/src/pages/customer/Dashboard.jsx	2026-07-19 01:36:23.000000000 -0400
++++ b/client/src/pages/customer/Dashboard.jsx	2026-07-19 02:24:51.023919694 -0400
+@@ -2,6 +2,7 @@
+ import { useEffect, useState } from "react";
+ import api from "@/api/axios";
+ import { useApp } from "@/hooks/useApp";
++import AcceptedGarageCard from "@/components/booking/AcceptedGarageCard";
+ import { formatRupees } from "@/utils/priceRange";
+ import CustomerPwaInstall from "@/components/pwa/CustomerPwaInstall";
+ import {
+@@ -504,6 +505,15 @@
+                     })}
+                   </div>
+                 </div>
++
++                {activeBooking.garage && (
++                  <div className="mt-5 border-t border-line pt-5">
++                    <AcceptedGarageCard
++                      garage={activeBooking.garage}
++                      compact
++                    />
++                  </div>
++                )}
+               </div>
+             ) : (
+               <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-bg-soft/60 p-4 text-center">
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/client/src/utils/customerPreload.js b/client/src/utils/customerPreload.js
+--- a/client/src/utils/customerPreload.js	2026-07-19 01:36:23.000000000 -0400
++++ b/client/src/utils/customerPreload.js	2026-07-19 02:22:27.880382235 -0400
+@@ -13,7 +13,6 @@
+   "/booking/address": () => import("@/pages/booking/AddressForm"),
+   "/booking/vehicle": () => import("@/pages/booking/VehicleSelect"),
+   "/booking/services": () => import("@/pages/booking/ServiceSelect"),
+-  "/booking/garage": () => import("@/pages/booking/GarageSelect"),
+   "/checkout": () => import("@/pages/booking/Checkout"),
+   "/tracking": () => import("@/pages/booking/Tracking"),
+ };
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/server/src/controllers/garage.controller.js b/server/src/controllers/garage.controller.js
+--- a/server/src/controllers/garage.controller.js	2026-07-19 01:36:23.000000000 -0400
++++ b/server/src/controllers/garage.controller.js	2026-07-19 02:22:45.228862760 -0400
+@@ -1,28 +1,11 @@
+ const asyncHandler = require("../utils/asyncHandler");
+ const ApiResponse = require("../utils/apiResponse");
+-const garageService = require("../services/garage.service");
+ const garageOwnerService = require("../garage/services/garageOwner.service");
+ const {
+   ACCESS_TOKEN_COOKIE_NAME,
+   accessTokenClearCookieOptions,
+ } = require("../config/authCookie");
+ 
+-const getGarages = asyncHandler(async (req, res) => {
+-  const garages = await garageService.getGarages(req.query);
+-
+-  return res
+-    .status(200)
+-    .json(new ApiResponse(200, "Garages fetched successfully", garages));
+-});
+-
+-const getNearbyGarages = asyncHandler(async (req, res) => {
+-  const garages = await garageService.getNearbyGarages(req.user.id, req.query);
+-
+-  return res
+-    .status(200)
+-    .json(new ApiResponse(200, "Nearby garages fetched successfully", garages));
+-});
+-
+ const getMyGarage = asyncHandler(async (req, res) => {
+   const garage = await garageOwnerService.getGarageOwnerProfile(req.user.id);
+ 
+@@ -76,30 +59,10 @@
+     .json(new ApiResponse(200, "Garage account deleted successfully", result));
+ });
+ 
+-const getGarageById = asyncHandler(async (req, res) => {
+-  const garage = await garageService.getGarageById(req.params.id);
+-
+-  return res
+-    .status(200)
+-    .json(new ApiResponse(200, "Garage fetched successfully", garage));
+-});
+-
+-const getGarageServices = asyncHandler(async (req, res) => {
+-  const services = await garageService.getGarageServices(req.params.id);
+-
+-  return res
+-    .status(200)
+-    .json(new ApiResponse(200, "Garage services fetched successfully", services));
+-});
+-
+ module.exports = {
+   deleteMyGarageAccount,
+   requestGarageAccountDeletionOtp,
+-  getGarages,
+-  getNearbyGarages,
+   getMyGarage,
+   getMyGarageServices,
+   updateMyGarage,
+-  getGarageById,
+-  getGarageServices,
+ };
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/server/src/customer/services/booking.service.js b/server/src/customer/services/booking.service.js
+--- a/server/src/customer/services/booking.service.js	2026-07-19 01:36:23.000000000 -0400
++++ b/server/src/customer/services/booking.service.js	2026-07-19 02:23:11.645552594 -0400
+@@ -36,7 +36,40 @@
+     },
+   },
+   vehicle: true,
+-  garage: true,
++  garage: {
++    include: {
++      images: {
++        orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
++        select: {
++          id: true,
++          imageUrl: true,
++          order: true,
++          isThumbnail: true,
++        },
++      },
++      services: {
++        where: { isActive: true },
++        select: {
++          serviceId: true,
++          vehicleBrand: true,
++          vehicleModel: true,
++          service: {
++            select: {
++              id: true,
++              name: true,
++              description: true,
++              category: {
++                select: {
++                  id: true,
++                  name: true,
++                },
++              },
++            },
++          },
++        },
++      },
++    },
++  },
+   services: {
+     include: {
+       service: {
+@@ -51,8 +84,18 @@
+   },
+   payment: true,
+   broadcasts: {
+-    include: {
+-      garage: true,
++    select: {
++      id: true,
++      status: true,
++      sentAt: true,
++      acceptedAt: true,
++      rejectedAt: true,
++      expiredAt: true,
++      searchCycle: true,
++      searchRound: true,
++      searchRadiusKm: true,
++      createdAt: true,
++      updatedAt: true,
+     },
+     orderBy: {
+       updatedAt: "desc",
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/server/src/customer/services/dashboard.service.js b/server/src/customer/services/dashboard.service.js
+--- a/server/src/customer/services/dashboard.service.js	2026-07-19 01:36:23.000000000 -0400
++++ b/server/src/customer/services/dashboard.service.js	2026-07-19 02:23:01.277281942 -0400
+@@ -34,6 +34,42 @@
+       ratingAvg: true,
+       ratingCount: true,
+       isVerified: true,
++      description: true,
++      address: true,
++      garageType: true,
++      supportedBrands: true,
++      openingTime: true,
++      closingTime: true,
++      images: {
++        orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
++        select: {
++          id: true,
++          imageUrl: true,
++          order: true,
++          isThumbnail: true,
++        },
++      },
++      services: {
++        where: { isActive: true },
++        select: {
++          serviceId: true,
++          vehicleBrand: true,
++          vehicleModel: true,
++          service: {
++            select: {
++              id: true,
++              name: true,
++              description: true,
++              category: {
++                select: {
++                  id: true,
++                  name: true,
++                },
++              },
++            },
++          },
++        },
++      },
+     },
+   },
+ 
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/server/src/routes/garage.routes.js b/server/src/routes/garage.routes.js
+--- a/server/src/routes/garage.routes.js	2026-07-19 01:36:23.000000000 -0400
++++ b/server/src/routes/garage.routes.js	2026-07-19 02:22:45.132860254 -0400
+@@ -8,9 +8,6 @@
+   deleteGarageAccountValidation,
+   updateGarageAccountValidation,
+ } = require("../validations/garageAccount.validation");
+-const {
+-  nearbyGarageQueryValidation,
+-} = require("../validations/garage.validation");
+ const rateLimit = require("../middlewares/rateLimit.middleware");
+ 
+ const router = express.Router();
+@@ -31,17 +28,6 @@
+ });
+ 
+ 
+-router.get("/", garageController.getGarages);
+-
+-router.get(
+-  "/nearby",
+-  protectUser,
+-  authorizeRoles("CUSTOMER"),
+-  nearbyGarageQueryValidation,
+-  validate,
+-  garageController.getNearbyGarages,
+-);
+-
+ router.get(
+   "/me",
+   protectUser,
+@@ -83,7 +69,4 @@
+   garageController.deleteMyGarageAccount,
+ );
+ 
+-router.get("/:id", garageController.getGarageById);
+-router.get("/:id/services", garageController.getGarageServices);
+-
+ module.exports = router;
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' a/server/test/security/bookingMapRoute.test.js b/server/test/security/bookingMapRoute.test.js
+--- a/server/test/security/bookingMapRoute.test.js	2026-07-19 01:36:23.000000000 -0400
++++ b/server/test/security/bookingMapRoute.test.js	2026-07-19 02:27:56.492440800 -0400
+@@ -7,21 +7,51 @@
+ const read = (relativePath) =>
+   fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+ 
+-test("garage selection ranks and draws routes from the current booking location", () => {
+-  const garageSelect = read("client/src/pages/booking/GarageSelect.jsx");
+-  const routeCard = read("client/src/components/maps/RouteMapCard.jsx");
+-  const mapPanel = read("client/src/components/maps/MapPanel.jsx");
+-  const garageService = read("server/src/services/garage.service.js");
++test("customers cannot browse garages before a booking is accepted", () => {
++  const app = read("client/src/App.jsx");
++  const home = read("client/src/pages/Home.jsx");
++  const navbar = read("client/src/components/navbar/Navbar.jsx");
++  const preload = read("client/src/utils/customerPreload.js");
++  const garageRoutes = read("server/src/routes/garage.routes.js");
+ 
+-  assert.match(garageSelect, /latitude: Number\(location\.latitude\)/);
+-  assert.match(garageSelect, /longitude: Number\(location\.longitude\)/);
+-  assert.match(routeCard, /mapsApi[\s\S]*\.computeRoute\(/);
+-  assert.match(routeCard, /encodedPolyline=\{resolvedRoute\?\.encodedPolyline\}/);
+-  assert.match(mapPanel, /google\.com\/maps\/dir\/\?/);
+-  assert.match(
+-    garageService,
+-    /requestedLocation = getGeoSearchContext\(query,[\s\S]*searchOrigin = requestedLocation \|\| defaultLocation/,
++  assert.doesNotMatch(app, /path="\/garages"/);
++  assert.doesNotMatch(app, /path="\/booking\/garage"/);
++  assert.doesNotMatch(home, /to=\{user \? garagesPath/);
++  assert.doesNotMatch(navbar, /to: "\/garages"/);
++  assert.doesNotMatch(preload, /"\/booking\/garage"/);
++  assert.doesNotMatch(garageRoutes, /router\.get\("\/"/);
++  assert.doesNotMatch(garageRoutes, /"\/nearby"/);
++  assert.doesNotMatch(garageRoutes, /router\.get\("\/:id"/);
++});
++
++test("accepted bookings expose a price-free garage cover and capability details", () => {
++  const bookingService = read(
++    "server/src/customer/services/booking.service.js",
++  );
++  const dashboardService = read(
++    "server/src/customer/services/dashboard.service.js",
+   );
++  const garageCard = read(
++    "client/src/components/booking/AcceptedGarageCard.jsx",
++  );
++  const activeBookings = read("client/src/pages/customer/ActiveBookings.jsx");
++  const dashboard = read("client/src/pages/customer/Dashboard.jsx");
++  const tracking = read("client/src/pages/booking/Tracking.jsx");
++  const broadcastsStart = bookingService.indexOf("broadcasts:");
++  const reviewStart = bookingService.indexOf("review:", broadcastsStart);
++  const broadcastsInclude = bookingService.slice(broadcastsStart, reviewStart);
++
++  assert.match(bookingService, /garage:\s*\{[\s\S]*images:[\s\S]*services:/);
++  assert.match(dashboardService, /garage:\s*\{[\s\S]*images:[\s\S]*services:/);
++  assert.match(bookingService, /vehicleBrand: true,[\s\S]*vehicleModel: true/);
++  assert.doesNotMatch(broadcastsInclude, /garage/);
++  assert.match(garageCard, /Services provided/);
++  assert.match(garageCard, /Vehicles catered/);
++  assert.match(garageCard, /Open in Maps/);
++  assert.doesNotMatch(garageCard, /estimatedPrice|finalPrice|price:/);
++  assert.match(activeBookings, /AcceptedGarageCard garage=\{booking\.garage\}/);
++  assert.match(dashboard, /AcceptedGarageCard[\s\S]*garage=\{activeBooking\.garage\}/);
++  assert.match(tracking, /AcceptedGarageCard garage=\{booking\.garage\}/);
+ });
+ 
+ test("accepted booking tracking uses garage GPS and the fixed booking address", () => {

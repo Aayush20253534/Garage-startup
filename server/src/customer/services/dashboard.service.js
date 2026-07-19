@@ -34,6 +34,42 @@ const bookingListInclude = {
       ratingAvg: true,
       ratingCount: true,
       isVerified: true,
+      description: true,
+      address: true,
+      garageType: true,
+      supportedBrands: true,
+      openingTime: true,
+      closingTime: true,
+      images: {
+        orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
+        select: {
+          id: true,
+          imageUrl: true,
+          order: true,
+          isThumbnail: true,
+        },
+      },
+      services: {
+        where: { isActive: true },
+        select: {
+          serviceId: true,
+          vehicleBrand: true,
+          vehicleModel: true,
+          service: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 

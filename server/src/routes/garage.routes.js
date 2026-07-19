@@ -8,9 +8,6 @@ const {
   deleteGarageAccountValidation,
   updateGarageAccountValidation,
 } = require("../validations/garageAccount.validation");
-const {
-  nearbyGarageQueryValidation,
-} = require("../validations/garage.validation");
 const rateLimit = require("../middlewares/rateLimit.middleware");
 
 const router = express.Router();
@@ -30,17 +27,6 @@ const deletionVerifyRateLimit = rateLimit({
   keyGenerator: (req) => `${req.ip}:${req.user?.id || "garage"}`,
 });
 
-
-router.get("/", garageController.getGarages);
-
-router.get(
-  "/nearby",
-  protectUser,
-  authorizeRoles("CUSTOMER"),
-  nearbyGarageQueryValidation,
-  validate,
-  garageController.getNearbyGarages,
-);
 
 router.get(
   "/me",
@@ -82,8 +68,5 @@ router.delete(
   validate,
   garageController.deleteMyGarageAccount,
 );
-
-router.get("/:id", garageController.getGarageById);
-router.get("/:id/services", garageController.getGarageServices);
 
 module.exports = router;

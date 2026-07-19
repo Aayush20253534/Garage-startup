@@ -5,7 +5,6 @@ import {
   FiArrowRight,
   FiCheckCircle,
   FiClock,
-  FiHome,
   FiNavigation,
   FiShield,
   FiStar,
@@ -99,16 +98,6 @@ export default function Home() {
     customers: null,
     averageRating: null,
   });
-  const cityName = String(location?.city || "").trim();
-  const garageSearch = cityName
-    ? `?city=${encodeURIComponent(cityName)}`
-    : "";
-  const garagesPath = `${"/garages"}${garageSearch}`;
-  const garagesReturnLocation = {
-    pathname: "/garages",
-    search: garageSearch,
-  };
-
   useEffect(() => {
     let mounted = true;
 
@@ -258,20 +247,6 @@ export default function Home() {
                   Become a Partner
                 </Link>
 
-                <Link
-                  to={user ? garagesPath : "/login"}
-                  state={
-                    user
-                      ? undefined
-                      : {
-                          from: garagesReturnLocation,
-                          message: "Login to view verified garages.",
-                        }
-                  }
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-bold text-white transition hover:border-white hover:bg-white/15"
-                >
-                  <FiHome /> Garages
-                </Link>
               </div>
 
               <div className="mt-7 flex flex-wrap gap-x-5 gap-y-3">

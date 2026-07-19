@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
+import AcceptedGarageCard from "@/components/booking/AcceptedGarageCard";
 import { formatRupees } from "@/utils/priceRange";
 import CustomerPwaInstall from "@/components/pwa/CustomerPwaInstall";
 import {
@@ -504,6 +505,15 @@ function Dashboard() {
                     })}
                   </div>
                 </div>
+
+                {activeBooking.garage && (
+                  <div className="mt-5 border-t border-line pt-5">
+                    <AcceptedGarageCard
+                      garage={activeBooking.garage}
+                      compact
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-bg-soft/60 p-4 text-center">

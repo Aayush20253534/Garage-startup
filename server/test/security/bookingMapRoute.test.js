@@ -7,21 +7,51 @@ const repoRoot = path.resolve(__dirname, "../../..");
 const read = (relativePath) =>
   fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 
-test("garage selection ranks and draws routes from the current booking location", () => {
-  const garageSelect = read("client/src/pages/booking/GarageSelect.jsx");
-  const routeCard = read("client/src/components/maps/RouteMapCard.jsx");
-  const mapPanel = read("client/src/components/maps/MapPanel.jsx");
-  const garageService = read("server/src/services/garage.service.js");
+test("customers cannot browse garages before a booking is accepted", () => {
+  const app = read("client/src/App.jsx");
+  const home = read("client/src/pages/Home.jsx");
+  const navbar = read("client/src/components/navbar/Navbar.jsx");
+  const preload = read("client/src/utils/customerPreload.js");
+  const garageRoutes = read("server/src/routes/garage.routes.js");
 
-  assert.match(garageSelect, /latitude: Number\(location\.latitude\)/);
-  assert.match(garageSelect, /longitude: Number\(location\.longitude\)/);
-  assert.match(routeCard, /mapsApi[\s\S]*\.computeRoute\(/);
-  assert.match(routeCard, /encodedPolyline=\{resolvedRoute\?\.encodedPolyline\}/);
-  assert.match(mapPanel, /google\.com\/maps\/dir\/\?/);
-  assert.match(
-    garageService,
-    /requestedLocation = getGeoSearchContext\(query,[\s\S]*searchOrigin = requestedLocation \|\| defaultLocation/,
+  assert.doesNotMatch(app, /path="\/garages"/);
+  assert.doesNotMatch(app, /path="\/booking\/garage"/);
+  assert.doesNotMatch(home, /to=\{user \? garagesPath/);
+  assert.doesNotMatch(navbar, /to: "\/garages"/);
+  assert.doesNotMatch(preload, /"\/booking\/garage"/);
+  assert.doesNotMatch(garageRoutes, /router\.get\("\/"/);
+  assert.doesNotMatch(garageRoutes, /"\/nearby"/);
+  assert.doesNotMatch(garageRoutes, /router\.get\("\/:id"/);
+});
+
+test("accepted bookings expose a price-free garage cover and capability details", () => {
+  const bookingService = read(
+    "server/src/customer/services/booking.service.js",
   );
+  const dashboardService = read(
+    "server/src/customer/services/dashboard.service.js",
+  );
+  const garageCard = read(
+    "client/src/components/booking/AcceptedGarageCard.jsx",
+  );
+  const activeBookings = read("client/src/pages/customer/ActiveBookings.jsx");
+  const dashboard = read("client/src/pages/customer/Dashboard.jsx");
+  const tracking = read("client/src/pages/booking/Tracking.jsx");
+  const broadcastsStart = bookingService.indexOf("broadcasts:");
+  const reviewStart = bookingService.indexOf("review:", broadcastsStart);
+  const broadcastsInclude = bookingService.slice(broadcastsStart, reviewStart);
+
+  assert.match(bookingService, /garage:\s*\{[\s\S]*images:[\s\S]*services:/);
+  assert.match(dashboardService, /garage:\s*\{[\s\S]*images:[\s\S]*services:/);
+  assert.match(bookingService, /vehicleBrand: true,[\s\S]*vehicleModel: true/);
+  assert.doesNotMatch(broadcastsInclude, /garage/);
+  assert.match(garageCard, /Services provided/);
+  assert.match(garageCard, /Vehicles catered/);
+  assert.match(garageCard, /Open in Maps/);
+  assert.doesNotMatch(garageCard, /estimatedPrice|finalPrice|price:/);
+  assert.match(activeBookings, /AcceptedGarageCard garage=\{booking\.garage\}/);
+  assert.match(dashboard, /AcceptedGarageCard[\s\S]*garage=\{activeBooking\.garage\}/);
+  assert.match(tracking, /AcceptedGarageCard garage=\{booking\.garage\}/);
 });
 
 test("accepted booking tracking uses garage GPS and the fixed booking address", () => {
