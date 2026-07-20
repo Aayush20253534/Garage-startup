@@ -577,7 +577,15 @@ export default function Revenue() {
               Loading submissions...
             </div>
           ) : visibleSubmissions.length ? (
-            <div className="grid gap-3 xl:grid-cols-2">
+            <div
+              className={[
+                "grid gap-3",
+                visibleSubmissions.length > 2
+                  ? "max-h-[680px] overflow-y-auto overscroll-contain pr-1 sm:max-h-[590px]"
+                  : "",
+              ].join(" ")}
+              aria-label="Price range submissions"
+            >
               {visibleSubmissions.map((submission) => (
                 <article
                   key={submission.id}

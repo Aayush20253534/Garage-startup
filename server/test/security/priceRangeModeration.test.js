@@ -26,6 +26,14 @@ test("price range moderation routes keep review admin-only", () => {
   assert.match(revenue, /Intern Price Range Review/);
   assert.match(revenue, /My Price Range Submissions/);
   assert.match(revenue, /SubmissionStatusBadge/);
+  assert.match(revenue, /visibleSubmissions\.length > 2/);
+  assert.match(revenue, /overflow-y-auto/);
+
+  const service = read(
+    "server/src/admin/services/cityServicePriceRange.service.js",
+  );
+  assert.match(service, /priceRangeSubmission\.deleteMany/);
+  assert.match(service, /approvedPriceRangeId/);
 });
 
 test("intern submissions stay outside live customer price ranges until approval", async () => {
@@ -110,6 +118,20 @@ test("intern submissions stay outside live customer price ranges until approval"
       Object.assign(submission, data, { updatedAt: new Date() });
       return submissionInclude(submission);
     },
+    async deleteMany({ where }) {
+      const approvedIds = Array.isArray(where.approvedPriceRangeId?.in)
+        ? where.approvedPriceRangeId.in
+        : [where.approvedPriceRangeId].filter(Boolean);
+      let count = 0;
+
+      for (const [id, submission] of submissions) {
+        if (!approvedIds.includes(submission.approvedPriceRangeId)) continue;
+        submissions.delete(id);
+        count += 1;
+      }
+
+      return { count };
+    },
   };
 
   const prismaMock = {
@@ -120,8 +142,14 @@ test("intern submissions stay outside live customer price ranges until approval"
     },
     priceRangeSubmission,
     cityServicePriceRange: {
-      async findMany() {
+      async findMany({ where = {} } = {}) {
+        if (where.id?.in) {
+          return liveRanges.filter((range) => where.id.in.includes(range.id));
+        }
         return [];
+      },
+      async findUnique({ where }) {
+        return liveRanges.find((range) => range.id === where.id) || null;
       },
       async create({ data }) {
         const range = { id: `range-${liveRanges.length + 1}`, ...data };
@@ -130,6 +158,10 @@ test("intern submissions stay outside live customer price ranges until approval"
       },
       async update() {
         throw new Error("Unexpected live range update");
+      },
+      async delete({ where }) {
+        const index = liveRanges.findIndex((range) => range.id === where.id);
+        return liveRanges.splice(index, 1)[0];
       },
       async deleteMany() {
         return { count: 0 };
@@ -200,6 +232,18 @@ test("intern submissions stay outside live customer price ranges until approval"
     assert.equal(liveRanges.length, 1);
     assert.equal(approved.approvedPriceRangeId, liveRanges[0].id);
 
+    await service.deletePriceRange(approved.approvedPriceRangeId);
+    assert.equal(liveRanges.length, 0);
+
+    const historyAfterLiveDelete = await service.listPriceRangeSubmissions(
+      {},
+      { id: "intern-1", role: "INTERN" },
+    );
+    assert.equal(
+      historyAfterLiveDelete.some((submission) => submission.id === pending.id),
+      false,
+    );
+
     const rejectedPending = await service.createPriceRangeSubmission(
       { ...payload, vehicleModel: "Civic" },
       { id: "intern-1", role: "INTERN" },
@@ -211,7 +255,7 @@ test("intern submissions stay outside live customer price ranges until approval"
     );
     assert.equal(rejected.status, "REJECTED");
     assert.equal(rejected.rejectionReason, "Incorrect estimate");
-    assert.equal(liveRanges.length, 1);
+    assert.equal(liveRanges.length, 0);
   } finally {
     if (previousPrisma) require.cache[prismaPath] = previousPrisma;
     else delete require.cache[prismaPath];

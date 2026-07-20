@@ -362,8 +362,20 @@ const reviewPriceRangeSubmission = async (
 };
 
 const deletePriceRange = async (id) => {
-  await getPriceRange(id);
-  const deleted = await prisma.cityServicePriceRange.delete({ where: { id } });
+  const deleted = await prisma.$transaction(async (tx) => {
+    const existing = await tx.cityServicePriceRange.findUnique({
+      where: { id },
+      include: priceRangeInclude,
+    });
+    if (!existing) throw new ApiError(404, "Price range not found");
+
+    await tx.priceRangeSubmission.deleteMany({
+      where: { approvedPriceRangeId: id },
+    });
+
+    return tx.cityServicePriceRange.delete({ where: { id } });
+  });
+
   await invalidatePriceRangeCaches();
   return deleted;
 };
@@ -381,16 +393,36 @@ const deletePriceRanges = async ({ priceRangeIds = [], deleteAll = false } = {})
     throw new ApiError(400, "Select at least one price range to delete");
   }
 
-  const deleted = await prisma.cityServicePriceRange.deleteMany({
-    where: deleteAll === true ? {} : { id: { in: uniqueIds } },
+  const rangeWhere = deleteAll === true ? {} : { id: { in: uniqueIds } };
+  const result = await prisma.$transaction(async (tx) => {
+    const matchedRanges = await tx.cityServicePriceRange.findMany({
+      where: rangeWhere,
+      select: { id: true },
+    });
+    const matchedIds = matchedRanges.map((range) => range.id);
+
+    if (deleteAll !== true && matchedIds.length === 0) {
+      throw new ApiError(404, "No matching price ranges were found");
+    }
+
+    const removedSubmissions = matchedIds.length
+      ? await tx.priceRangeSubmission.deleteMany({
+          where: { approvedPriceRangeId: { in: matchedIds } },
+        })
+      : { count: 0 };
+    const deleted = await tx.cityServicePriceRange.deleteMany({
+      where: rangeWhere,
+    });
+
+    return {
+      deleted: deleted.count,
+      removedSubmissions: removedSubmissions.count,
+      deleteAll: deleteAll === true,
+    };
   });
 
-  if (deleteAll !== true && deleted.count === 0) {
-    throw new ApiError(404, "No matching price ranges were found");
-  }
-
   await invalidatePriceRangeCaches();
-  return { deleted: deleted.count, deleteAll: deleteAll === true };
+  return result;
 };
 
 const scoreMatch = (range, vehicle) => {
