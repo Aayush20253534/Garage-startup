@@ -6,11 +6,15 @@ import { useApp } from "@/hooks/useApp";
 import CitySelect from "@/components/common/CitySelect";
 import { resetCityAvailabilityCache } from "@/utils/cityAvailability";
 import {
+  FiCheck,
   FiCheckCircle,
+  FiClock,
   FiEdit3,
   FiPlus,
   FiRefreshCw,
   FiTrash2,
+  FiUser,
+  FiX,
   FiXCircle,
 } from "react-icons/fi";
 
@@ -49,18 +53,67 @@ const formatServiceLabel = (service = {}) =>
   service.id ||
   "Unknown service";
 
+const submissionFilters = ["ALL", "PENDING", "APPROVED", "REJECTED"];
+
+const submissionStatusStyles = {
+  PENDING: "border-amber-200 bg-amber-50 text-amber-800",
+  APPROVED: "border-green-200 bg-green-50 text-green-800",
+  REJECTED: "border-red-200 bg-red-50 text-red-700",
+};
+
+const formatSubmittedAt = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Date unavailable";
+  return date.toLocaleString([], {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+function SubmissionStatusBadge({ status }) {
+  const normalizedStatus = status || "PENDING";
+  return (
+    <span
+      className={[
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold",
+        submissionStatusStyles[normalizedStatus] ||
+          submissionStatusStyles.PENDING,
+      ].join(" ")}
+    >
+      {normalizedStatus === "PENDING" ? (
+        <FiClock />
+      ) : normalizedStatus === "APPROVED" ? (
+        <FiCheck />
+      ) : (
+        <FiX />
+      )}
+      {normalizedStatus.charAt(0) + normalizedStatus.slice(1).toLowerCase()}
+    </span>
+  );
+}
+
 export default function Revenue() {
   const { user } = useApp();
   const isIntern = user?.role === "INTERN";
   const [ranges, setRanges] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
   const [services, setServices] = useState([]);
   const [cities, setCities] = useState([]);
   const [vehicleBrands, setVehicleBrands] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [cityForm, setCityForm] = useState({ name: "", state: "" });
   const [filterCity, setFilterCity] = useState("");
+  const [submissionFilter, setSubmissionFilter] = useState(
+    isIntern ? "ALL" : "PENDING",
+  );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [reviewingId, setReviewingId] = useState("");
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   const [citySaving, setCitySaving] = useState(false);
   const [citySelectKey, setCitySelectKey] = useState(0);
   const [selectedRangeIds, setSelectedRangeIds] = useState([]);
@@ -82,13 +135,15 @@ export default function Revenue() {
     setError("");
 
     try {
-      const [rangeList, serviceList] = await Promise.all([
+      const [rangeList, serviceList, submissionList] = await Promise.all([
         adminApi.getPriceRanges(filterCity ? { city: filterCity.trim() } : {}),
         adminApi.getAssignableServices(),
+        adminApi.getPriceRangeSubmissions(),
       ]);
 
       setRanges(rangeList || []);
       setServices(serviceList || []);
+      setSubmissions(submissionList || []);
       setSelectedRangeIds([]);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load price ranges");
@@ -108,6 +163,10 @@ export default function Revenue() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (isIntern) setSubmissionFilter("ALL");
+  }, [isIntern]);
 
   const updateForm = (key, value) => {
     setForm((prev) => ({
@@ -167,7 +226,11 @@ export default function Revenue() {
         setSuccess("Price range updated.");
       } else {
         await adminApi.createPriceRange(payload);
-        setSuccess("Price range created.");
+        setSuccess(
+          isIntern
+            ? "Price range submitted for admin approval. Customers cannot see it yet."
+            : "Price range created and published.",
+        );
       }
 
       setForm(emptyForm);
@@ -249,6 +312,45 @@ export default function Revenue() {
     } catch (err) {
       setError(err.response?.data?.message || "Unable to delete price range");
     }
+  };
+
+  const reviewSubmission = async (
+    submission,
+    decision,
+    reason = "",
+  ) => {
+    if (isIntern || submission.status !== "PENDING") return;
+
+    setReviewingId(submission.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await adminApi.reviewPriceRangeSubmission(submission.id, {
+        decision,
+        ...(decision === "REJECTED" && {
+          rejectionReason: reason.trim() || undefined,
+        }),
+      });
+      setRejectTarget(null);
+      setRejectionReason("");
+      setSuccess(
+        decision === "APPROVED"
+          ? "Submission approved and published to customers."
+          : "Submission rejected. It was not added to live customer pricing.",
+      );
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to review submission");
+    } finally {
+      setReviewingId("");
+    }
+  };
+
+  const submitRejection = async (event) => {
+    event.preventDefault();
+    if (!rejectTarget) return;
+    await reviewSubmission(rejectTarget, "REJECTED", rejectionReason);
   };
 
   const visibleRangeIds = ranges.map((range) => range.id);
@@ -333,6 +435,19 @@ export default function Revenue() {
     return counts;
   }, {});
 
+  const submissionCounts = submissions.reduce(
+    (counts, submission) => ({
+      ...counts,
+      [submission.status]: (counts[submission.status] || 0) + 1,
+    }),
+    { PENDING: 0, APPROVED: 0, REJECTED: 0 },
+  );
+
+  const visibleSubmissions = submissions.filter(
+    (submission) =>
+      submissionFilter === "ALL" || submission.status === submissionFilter,
+  );
+
   return (
     <div className="mx-auto max-w-6xl space-y-4 overflow-x-hidden">
       <div className="flex items-start justify-between gap-4">
@@ -341,7 +456,7 @@ export default function Revenue() {
             Price Ranges
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Manage city and vehicle-specific service estimate ranges.
+            Manage live pricing and review intern-submitted estimates.
           </p>
         </div>
 
@@ -372,16 +487,237 @@ export default function Revenue() {
 
       {isIntern && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
-          Interns can add new price ranges. Only admins can edit or delete
-          existing ranges, add cities, or change city status.
+          New price ranges are sent to an admin for approval. You can track
+          pending, approved, and rejected submissions below; only approved
+          entries become visible to customers.
         </div>
       )}
+
+      <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
+        <div className="border-b border-line p-4 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-bg-soft text-ink">
+                  <FiClock />
+                </span>
+                <div>
+                  <h3 className="font-bold text-ink">
+                    {isIntern
+                      ? "My Price Range Submissions"
+                      : "Intern Price Range Review"}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-muted sm:text-sm">
+                    {isIntern
+                      ? "Track the admin decision for every range you submit."
+                      : "Approve a submission to publish it, or reject it to keep it out of live pricing."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 sm:min-w-[330px]">
+              {[
+                ["Pending", submissionCounts.PENDING, "text-amber-700"],
+                ["Approved", submissionCounts.APPROVED, "text-green-700"],
+                ["Rejected", submissionCounts.REJECTED, "text-red-700"],
+              ].map(([label, count, color]) => (
+                <div
+                  key={label}
+                  className="rounded-xl border border-line bg-white px-3 py-2 text-center"
+                >
+                  <div className={`text-lg font-bold ${color}`}>{count}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            {submissionFilters.map((filter) => {
+              const count =
+                filter === "ALL"
+                  ? submissions.length
+                  : submissionCounts[filter] || 0;
+              const active = submissionFilter === filter;
+
+              return (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => setSubmissionFilter(filter)}
+                  className={[
+                    "inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition",
+                    active
+                      ? "border-ink bg-ink text-white"
+                      : "border-line bg-white text-muted hover:border-ink hover:text-ink",
+                  ].join(" ")}
+                >
+                  {filter.charAt(0) + filter.slice(1).toLowerCase()}
+                  <span
+                    className={[
+                      "rounded-full px-1.5 py-0.5 text-[10px]",
+                      active ? "bg-white/15 text-white" : "bg-bg-soft text-muted",
+                    ].join(" ")}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-5">
+          {loading && submissions.length === 0 ? (
+            <div className="flex min-h-32 items-center justify-center gap-2 text-sm text-muted">
+              <FiRefreshCw className="animate-spin" />
+              Loading submissions...
+            </div>
+          ) : visibleSubmissions.length ? (
+            <div className="grid gap-3 xl:grid-cols-2">
+              {visibleSubmissions.map((submission) => (
+                <article
+                  key={submission.id}
+                  className="rounded-xl border border-line bg-white p-4 transition hover:border-gray-300"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h4 className="truncate font-bold text-ink">
+                        {formatServiceLabel(submission.service)}
+                      </h4>
+                      <p className="mt-1 text-xs text-muted">
+                        Submitted {formatSubmittedAt(submission.createdAt)}
+                      </p>
+                    </div>
+                    <SubmissionStatusBadge status={submission.status} />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                        City
+                      </div>
+                      <div className="mt-1 font-semibold capitalize text-ink">
+                        {submission.city}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                        Price range
+                      </div>
+                      <div className="mt-1 font-semibold text-ink">
+                        {formatRupeeRange(
+                          submission.minPrice,
+                          submission.maxPrice,
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                        Vehicle
+                      </div>
+                      <div className="mt-1 text-ink">
+                        {submission.vehicleBrand} /{" "}
+                        {submission.vehicleModel || "All models"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                        Fuel
+                      </div>
+                      <div className="mt-1 text-ink">
+                        {submission.fuelType || "Any fuel"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {!isIntern && submission.submittedBy && (
+                    <div className="mt-4 flex items-center gap-2 border-t border-line pt-3 text-xs text-muted">
+                      <FiUser />
+                      <span>
+                        Submitted by{" "}
+                        <strong className="text-ink">
+                          {submission.submittedBy.name ||
+                            submission.submittedBy.loginId}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
+
+                  {submission.status === "REJECTED" &&
+                    submission.rejectionReason && (
+                      <div className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
+                        <strong>Reason:</strong> {submission.rejectionReason}
+                      </div>
+                    )}
+
+                  {!isIntern && submission.status === "PENDING" && (
+                    <div className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          reviewSubmission(submission, "APPROVED")
+                        }
+                        disabled={reviewingId === submission.id}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <FiCheck />
+                        {reviewingId === submission.id
+                          ? "Reviewing..."
+                          : "Approve"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRejectTarget(submission);
+                          setRejectionReason("");
+                        }}
+                        disabled={reviewingId === submission.id}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <FiX />
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-32 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-bg-soft/50 px-4 text-center">
+              <FiClock className="text-xl text-muted" />
+              <p className="mt-2 text-sm font-semibold text-ink">
+                No {submissionFilter.toLowerCase()} submissions
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {isIntern
+                  ? "Your submitted price ranges and their decisions will appear here."
+                  : "New intern price ranges will appear here for review."}
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
 
       <form
         onSubmit={submit}
         className="card-soft rounded-2xl p-4 shadow-sm"
       >
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <h3 className="font-bold text-ink">
+            {isIntern ? "Submit a Price Range" : "Create a Live Price Range"}
+          </h3>
+          <p className="mt-1 text-xs text-muted sm:text-sm">
+            {isIntern
+              ? "Your submission stays private until an admin approves it."
+              : "Admin-created ranges are published immediately."}
+          </p>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <CitySelect
             key={`form-city-${citySelectKey}`}
             required
@@ -478,7 +814,7 @@ export default function Revenue() {
                 : form.id
                   ? "Update"
                   : isIntern
-                    ? "Add price range"
+                    ? "Submit for review"
                     : "Create"}
             </button>
 
@@ -589,9 +925,14 @@ export default function Revenue() {
       <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
         <div className="flex flex-col gap-3 border-b border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-bold text-ink">Price range records</p>
+            <p className="text-sm font-bold text-ink">
+              Approved Live Price Ranges
+            </p>
             <p className="mt-1 text-xs text-muted">
-              {ranges.length} shown · {selectedRangeIds.length} selected
+              {ranges.length} customer-visible range{ranges.length === 1 ? "" : "s"}
+              {selectedRangeIds.length
+                ? ` · ${selectedRangeIds.length} selected`
+                : ""}
             </p>
           </div>
 
@@ -779,6 +1120,106 @@ export default function Revenue() {
           </table>
         </div>
       </section>
+
+      {rejectTarget && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !reviewingId) {
+              setRejectTarget(null);
+              setRejectionReason("");
+            }
+          }}
+        >
+          <form
+            onSubmit={submitRejection}
+            className="w-full rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-md sm:rounded-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reject-price-range-title"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3
+                  id="reject-price-range-title"
+                  className="text-lg font-bold text-ink"
+                >
+                  Reject submission
+                </h3>
+                <p className="mt-1 text-sm text-muted">
+                  This range will not be published. The intern will see the
+                  rejected status and your reason.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectTarget(null);
+                  setRejectionReason("");
+                }}
+                disabled={Boolean(reviewingId)}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-muted transition hover:border-ink hover:text-ink disabled:opacity-50"
+                aria-label="Close rejection dialog"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-line bg-bg-soft p-3 text-sm">
+              <div className="font-semibold text-ink">
+                {formatServiceLabel(rejectTarget.service)}
+              </div>
+              <div className="mt-1 text-xs text-muted">
+                {rejectTarget.city} · {rejectTarget.vehicleBrand} ·{" "}
+                {formatRupeeRange(
+                  rejectTarget.minPrice,
+                  rejectTarget.maxPrice,
+                )}
+              </div>
+            </div>
+
+            <label className="mt-4 block">
+              <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                Reason (optional)
+              </span>
+              <textarea
+                value={rejectionReason}
+                onChange={(event) => setRejectionReason(event.target.value)}
+                maxLength={500}
+                rows={4}
+                placeholder="Explain what should be corrected before resubmitting."
+                className="mt-2 w-full resize-none rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none transition focus:border-ink"
+              />
+              <span className="mt-1 block text-right text-[11px] text-muted">
+                {rejectionReason.length}/500
+              </span>
+            </label>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectTarget(null);
+                  setRejectionReason("");
+                }}
+                disabled={Boolean(reviewingId)}
+                className="h-10 rounded-lg border border-line text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={Boolean(reviewingId)}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FiX />
+                {reviewingId ? "Rejecting..." : "Reject submission"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

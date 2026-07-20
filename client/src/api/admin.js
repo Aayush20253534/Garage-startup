@@ -154,6 +154,12 @@ export const adminApi = {
     );
   },
 
+  async getPriceRangeSubmissions(params = {}) {
+    return unwrap(
+      await api.get("/admin/city-service-price-ranges/submissions", { params }),
+    );
+  },
+
   async getCustomers(params = {}) {
     return unwrap(await api.get("/admin/customers", { params }));
   },
@@ -276,6 +282,15 @@ export const adminApi = {
 
   async createPriceRange(payload) {
     return unwrap(await api.post("/admin/city-service-price-ranges", payload));
+  },
+
+  async reviewPriceRangeSubmission(id, payload) {
+    return unwrap(
+      await api.patch(
+        `/admin/city-service-price-ranges/submissions/${id}/review`,
+        payload,
+      ),
+    );
   },
 
   async updatePriceRange(id, payload) {

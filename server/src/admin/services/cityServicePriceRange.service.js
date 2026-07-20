@@ -5,6 +5,24 @@ const { getCache, setCache, deletePattern } = require("../../utils/cache");
 const PRICE_RANGE_CACHE_TTL_SECONDS = Number(
   process.env.PRICE_RANGE_CACHE_TTL_SECONDS || 5 * 60,
 );
+const SUBMISSION_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED"]);
+
+const priceRangeInclude = {
+  service: { include: { category: true } },
+};
+
+const submissionInclude = {
+  service: { include: { category: true } },
+  submittedBy: {
+    select: { id: true, name: true, loginId: true },
+  },
+  reviewedBy: {
+    select: { id: true, name: true, loginId: true },
+  },
+  approvedPriceRange: {
+    select: { id: true, isActive: true },
+  },
+};
 
 const normalizeText = (value) => String(value || "").trim();
 const normalizeCity = (city) => normalizeText(city).toLowerCase();
@@ -57,19 +75,61 @@ const scopeWhere = (payload = {}) => ({
   fuelType: payload.fuelType || null,
 });
 
-const findDuplicateScopes = async (payload = {}) => {
+const findDuplicateScopes = async (payload = {}, db = prisma) => {
   const scope = scopeWhere(payload);
-  return prisma.cityServicePriceRange.findMany({
+  return db.cityServicePriceRange.findMany({
     where: scope,
     orderBy: { createdAt: "desc" },
   });
 };
 
-const removeOlderDuplicates = async (duplicates = []) => {
+const removeOlderDuplicates = async (duplicates = [], db = prisma) => {
   const olderIds = duplicates.slice(1).map((item) => item.id);
   if (olderIds.length === 0) return;
-  await prisma.cityServicePriceRange.deleteMany({
+  await db.cityServicePriceRange.deleteMany({
     where: { id: { in: olderIds } },
+  });
+};
+
+const validatePriceRangePayload = async (payload = {}, db = prisma) => {
+  if (Number(payload.maxPrice) < Number(payload.minPrice)) {
+    throw new ApiError(400, "maxPrice must be greater than or equal to minPrice");
+  }
+
+  const service = await db.service.findUnique({ where: { id: payload.serviceId } });
+  if (!service) throw new ApiError(404, "Service not found");
+
+  if (!normalizeScopeValue(payload.vehicleBrand)) {
+    throw new ApiError(400, "Vehicle brand is required for a price range");
+  }
+};
+
+const upsertLivePriceRange = async (payload = {}, db = prisma) => {
+  const duplicates = await findDuplicateScopes(payload, db);
+  const data = {
+    minPrice: Number(payload.minPrice),
+    maxPrice: Number(payload.maxPrice),
+    isActive:
+      payload.isActive === undefined
+        ? true
+        : payload.isActive === true || payload.isActive === "true",
+  };
+
+  if (duplicates.length > 0) {
+    await removeOlderDuplicates(duplicates, db);
+    return db.cityServicePriceRange.update({
+      where: { id: duplicates[0].id },
+      data,
+      include: priceRangeInclude,
+    });
+  }
+
+  return db.cityServicePriceRange.create({
+    data: {
+      ...scopeWhere(payload),
+      ...data,
+    },
+    include: priceRangeInclude,
   });
 };
 
@@ -85,7 +145,7 @@ const listPriceRanges = async (query = {}) => {
 
   return prisma.cityServicePriceRange.findMany({
     where,
-    include: { service: { include: { category: true } } },
+    include: priceRangeInclude,
     orderBy: [{ city: "asc" }, { createdAt: "desc" }],
   });
 };
@@ -93,52 +153,63 @@ const listPriceRanges = async (query = {}) => {
 const getPriceRange = async (id) => {
   const priceRange = await prisma.cityServicePriceRange.findUnique({
     where: { id },
-    include: { service: { include: { category: true } } },
+    include: priceRangeInclude,
   });
   if (!priceRange) throw new ApiError(404, "Price range not found");
   return priceRange;
 };
 
 const createPriceRange = async (payload) => {
-  if (Number(payload.maxPrice) < Number(payload.minPrice)) {
-    throw new ApiError(400, "maxPrice must be greater than or equal to minPrice");
-  }
-
-  const service = await prisma.service.findUnique({ where: { id: payload.serviceId } });
-  if (!service) throw new ApiError(404, "Service not found");
-
-  if (!normalizeScopeValue(payload.vehicleBrand)) {
-    throw new ApiError(400, "Vehicle brand is required for a price range");
-  }
-
-  const duplicates = await findDuplicateScopes(payload);
-  let priceRange;
-
-  if (duplicates.length > 0) {
-    await removeOlderDuplicates(duplicates);
-    priceRange = await prisma.cityServicePriceRange.update({
-      where: { id: duplicates[0].id },
-      data: {
-        minPrice: Number(payload.minPrice),
-        maxPrice: Number(payload.maxPrice),
-        isActive: payload.isActive === undefined ? true : payload.isActive === true || payload.isActive === "true",
-      },
-      include: { service: { include: { category: true } } },
-    });
-  } else {
-    priceRange = await prisma.cityServicePriceRange.create({
-      data: {
-        ...scopeWhere(payload),
-        minPrice: Number(payload.minPrice),
-        maxPrice: Number(payload.maxPrice),
-        isActive: payload.isActive === undefined ? true : payload.isActive === true || payload.isActive === "true",
-      },
-      include: { service: { include: { category: true } } },
-    });
-  }
+  await validatePriceRangePayload(payload);
+  const priceRange = await upsertLivePriceRange(payload);
 
   await invalidatePriceRangeCaches();
   return priceRange;
+};
+
+const createPriceRangeSubmission = async (payload, submittedBy) => {
+  if (!submittedBy?.id || submittedBy.role !== "INTERN") {
+    throw new ApiError(403, "Only intern accounts can submit price ranges for review");
+  }
+
+  await validatePriceRangePayload(payload);
+
+  return prisma.priceRangeSubmission.create({
+    data: {
+      ...scopeWhere(payload),
+      minPrice: Number(payload.minPrice),
+      maxPrice: Number(payload.maxPrice),
+      isActive:
+        payload.isActive === undefined
+          ? true
+          : payload.isActive === true || payload.isActive === "true",
+      status: "PENDING",
+      submittedById: submittedBy.id,
+    },
+    include: submissionInclude,
+  });
+};
+
+const listPriceRangeSubmissions = async (query = {}, staff) => {
+  if (!staff?.id || !["ADMIN", "INTERN"].includes(staff.role)) {
+    throw new ApiError(403, "Staff access is required");
+  }
+
+  const normalizedStatus = normalizeText(query.status).toUpperCase();
+  const where = {
+    ...(staff.role === "INTERN" && { submittedById: staff.id }),
+    ...(normalizedStatus && SUBMISSION_STATUSES.has(normalizedStatus) && {
+      status: normalizedStatus,
+    }),
+    ...(query.city && { city: normalizeCity(query.city) }),
+  };
+
+  return prisma.priceRangeSubmission.findMany({
+    where,
+    include: submissionInclude,
+    orderBy: [{ createdAt: "desc" }],
+    take: 250,
+  });
 };
 
 const updatePriceRange = async (id, payload) => {
@@ -207,6 +278,87 @@ const updatePriceRange = async (id, payload) => {
 
   await invalidatePriceRangeCaches();
   return priceRange;
+};
+
+const reviewPriceRangeSubmission = async (
+  id,
+  { decision, rejectionReason },
+  reviewedBy,
+) => {
+  if (!reviewedBy?.id || reviewedBy.role !== "ADMIN") {
+    throw new ApiError(403, "Only admins can review price range submissions");
+  }
+
+  const nextStatus = normalizeText(decision).toUpperCase();
+  if (!["APPROVED", "REJECTED"].includes(nextStatus)) {
+    throw new ApiError(400, "Decision must be APPROVED or REJECTED");
+  }
+
+  const reviewedAt = new Date();
+  const result = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.priceRangeSubmission.updateMany({
+      where: { id, status: "PENDING" },
+      data: {
+        status: nextStatus,
+        reviewedById: reviewedBy.id,
+        reviewedAt,
+        rejectionReason:
+          nextStatus === "REJECTED"
+            ? normalizeText(rejectionReason) || "Not approved by admin"
+            : null,
+      },
+    });
+
+    if (claimed.count !== 1) {
+      const existing = await tx.priceRangeSubmission.findUnique({
+        where: { id },
+        select: { id: true, status: true },
+      });
+      if (!existing) throw new ApiError(404, "Price range submission not found");
+      throw new ApiError(409, `Submission is already ${existing.status.toLowerCase()}`);
+    }
+
+    const submission = await tx.priceRangeSubmission.findUnique({
+      where: { id },
+    });
+
+    if (nextStatus === "REJECTED") {
+      return tx.priceRangeSubmission.findUnique({
+        where: { id },
+        include: submissionInclude,
+      });
+    }
+
+    await validatePriceRangePayload(submission, tx);
+    const approvedPriceRange = await upsertLivePriceRange(submission, tx);
+
+    await tx.priceRangeSubmission.updateMany({
+      where: {
+        id: { not: id },
+        status: "PENDING",
+        ...scopeWhere(submission),
+      },
+      data: {
+        status: "REJECTED",
+        reviewedById: reviewedBy.id,
+        reviewedAt,
+        rejectionReason:
+          "Superseded by an approved submission for the same price scope",
+      },
+    });
+
+    return tx.priceRangeSubmission.update({
+      where: { id },
+      data: { approvedPriceRangeId: approvedPriceRange.id },
+      include: submissionInclude,
+    });
+  });
+
+  if (nextStatus === "APPROVED") {
+    await invalidatePriceRangeCaches();
+  }
+
+  return result;
 };
 
 const deletePriceRange = async (id) => {
@@ -302,11 +454,14 @@ const findBestPriceRangesForBooking = async ({ city, services, vehicle }) => {
 
 module.exports = {
   createPriceRange,
+  createPriceRangeSubmission,
   deletePriceRange,
   deletePriceRanges,
   findBestPriceRangesForBooking,
   getPriceRange,
   invalidatePriceRangeCaches,
   listPriceRanges,
+  listPriceRangeSubmissions,
+  reviewPriceRangeSubmission,
   updatePriceRange,
 };

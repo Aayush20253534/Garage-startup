@@ -12,9 +12,47 @@ const getPriceRange = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Price range fetched successfully", range));
 });
 
+const listPriceRangeSubmissions = asyncHandler(async (req, res) => {
+  const submissions = await service.listPriceRangeSubmissions(req.query, req.user);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Price range submissions fetched successfully",
+        submissions,
+      ),
+    );
+});
+
 const createPriceRange = asyncHandler(async (req, res) => {
+  if (req.user.role === "INTERN") {
+    const submission = await service.createPriceRangeSubmission(req.body, req.user);
+    return res
+      .status(201)
+      .json(
+        new ApiResponse(
+          201,
+          "Price range submitted for admin approval",
+          submission,
+        ),
+      );
+  }
+
   const range = await service.createPriceRange(req.body);
   return res.status(201).json(new ApiResponse(201, "Price range created successfully", range));
+});
+
+const reviewPriceRangeSubmission = asyncHandler(async (req, res) => {
+  const submission = await service.reviewPriceRangeSubmission(
+    req.params.id,
+    req.body,
+    req.user,
+  );
+  const verb = submission.status === "APPROVED" ? "approved" : "rejected";
+  return res
+    .status(200)
+    .json(new ApiResponse(200, `Price range submission ${verb}`, submission));
 });
 
 const updatePriceRange = asyncHandler(async (req, res) => {
@@ -39,6 +77,8 @@ module.exports = {
   deletePriceRange,
   deletePriceRanges,
   getPriceRange,
+  listPriceRangeSubmissions,
   listPriceRanges,
+  reviewPriceRangeSubmission,
   updatePriceRange,
 };

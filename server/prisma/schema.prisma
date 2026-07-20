@@ -127,22 +127,24 @@ model UserSession {
 }
 
 model StaffAccount {
-  id                     String                 @id @default(uuid())
+  id                     String                       @id @default(uuid())
   name                   String
-  loginId                String                 @unique
-  email                  String?                @unique
-  phone                  String?                @unique
+  loginId                String                       @unique
+  email                  String?                      @unique
+  phone                  String?                      @unique
   password               String
   role                   StaffRole
-  isActive               Boolean                @default(true)
+  isActive               Boolean                      @default(true)
   lastLoginAt            DateTime?
   passwordChangedAt      DateTime?
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
   sessions               StaffSession[]
   passwordResetChallenge StaffPasswordResetChallenge?
-  assignedSupportTickets SupportTicket[]        @relation("AssignedSupportTickets")
-  supportTicketMessages  SupportTicketMessage[] @relation("SupportTicketStaffMessages")
+  assignedSupportTickets SupportTicket[]              @relation("AssignedSupportTickets")
+  supportTicketMessages  SupportTicketMessage[]       @relation("SupportTicketStaffMessages")
+  priceRangeSubmissions  PriceRangeSubmission[]       @relation("PriceRangeSubmissionSubmitter")
+  priceRangeReviews      PriceRangeSubmission[]       @relation("PriceRangeSubmissionReviewer")
 
   @@index([role])
   @@index([isActive])
@@ -505,6 +507,7 @@ model Service {
 
   bookingItems     BookingService[]
   cityPriceRanges  CityServicePriceRange[]
+  priceSubmissions PriceRangeSubmission[]
   garageServices   GarageService[]
   category         ServiceCategory          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   media            ServiceMedia[]
@@ -558,7 +561,7 @@ model GarageService {
 }
 
 model CityServicePriceRange {
-  id           String    @id @default(uuid())
+  id           String                 @id @default(uuid())
   city         String
   serviceId    String
   vehicleBrand String?
@@ -566,10 +569,11 @@ model CityServicePriceRange {
   fuelType     FuelType?
   minPrice     Int
   maxPrice     Int
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  service      Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  isActive     Boolean                @default(true)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  service      Service                @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  submissions  PriceRangeSubmission[]
 
   @@index([city])
   @@index([serviceId])
@@ -577,6 +581,38 @@ model CityServicePriceRange {
   @@index([vehicleModel])
   @@index([fuelType])
   @@index([isActive])
+}
+
+model PriceRangeSubmission {
+  id                   String                     @id @default(uuid())
+  city                 String
+  serviceId            String
+  vehicleBrand         String?
+  vehicleModel         String?
+  fuelType             FuelType?
+  minPrice             Int
+  maxPrice             Int
+  isActive             Boolean                    @default(true)
+  status               PriceRangeSubmissionStatus @default(PENDING)
+  submittedById        String?
+  reviewedById         String?
+  reviewedAt           DateTime?
+  rejectionReason      String?
+  approvedPriceRangeId String?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  service              Service                    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  submittedBy          StaffAccount?              @relation("PriceRangeSubmissionSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  reviewedBy           StaffAccount?              @relation("PriceRangeSubmissionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  approvedPriceRange   CityServicePriceRange?     @relation(fields: [approvedPriceRangeId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([submittedById, createdAt])
+  @@index([reviewedById])
+  @@index([serviceId])
+  @@index([city])
+  @@index([approvedPriceRangeId])
+  @@map("price_range_submissions")
 }
 
 model City {
@@ -1306,6 +1342,12 @@ enum FuelType {
   HYBRID
   CNG
   OTHER
+}
+
+enum PriceRangeSubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum OtpPurpose {

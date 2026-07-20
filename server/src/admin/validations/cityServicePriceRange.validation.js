@@ -4,6 +4,29 @@ const fuelTypes = ["PETROL", "DIESEL", "HYBRID", "CNG", "OTHER"];
 
 const priceRangeIdSchema = [param("id").isUUID().withMessage("Invalid price range ID")];
 
+const submissionQuerySchema = [
+  query("status")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .toUpperCase()
+    .isIn(["PENDING", "APPROVED", "REJECTED"]),
+  query("city").optional({ nullable: true, checkFalsy: true }).trim(),
+];
+
+const reviewSubmissionSchema = [
+  param("id").isUUID().withMessage("Invalid submission ID"),
+  body("decision")
+    .trim()
+    .toUpperCase()
+    .isIn(["APPROVED", "REJECTED"])
+    .withMessage("Decision must be APPROVED or REJECTED"),
+  body("rejectionReason")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage("Rejection reason must be 500 characters or fewer"),
+];
+
 const deletePriceRangesSchema = [
   body("priceRangeIds")
     .optional()
@@ -64,5 +87,7 @@ module.exports = {
   deletePriceRangesSchema,
   priceRangeIdSchema,
   priceRangeQuerySchema,
+  reviewSubmissionSchema,
+  submissionQuerySchema,
   updatePriceRangeSchema,
 };

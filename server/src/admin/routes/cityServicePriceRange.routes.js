@@ -9,6 +9,8 @@ const {
   deletePriceRangesSchema,
   priceRangeIdSchema,
   priceRangeQuerySchema,
+  reviewSubmissionSchema,
+  submissionQuerySchema,
   updatePriceRangeSchema,
 } = require("../validations/cityServicePriceRange.validation");
 
@@ -18,6 +20,19 @@ router.use(protect);
 router.use(authorizeRoles("ADMIN", "INTERN"));
 
 router.get("/", priceRangeQuerySchema, validate, controller.listPriceRanges);
+router.get(
+  "/submissions",
+  submissionQuerySchema,
+  validate,
+  controller.listPriceRangeSubmissions,
+);
+router.patch(
+  "/submissions/:id/review",
+  authorizeRoles("ADMIN"),
+  reviewSubmissionSchema,
+  validate,
+  controller.reviewPriceRangeSubmission,
+);
 router.get("/:id", priceRangeIdSchema, validate, controller.getPriceRange);
 router.post(
   "/",
