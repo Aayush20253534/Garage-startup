@@ -232,17 +232,17 @@ export default function Home() {
                 tracking and a 30-day service warranty.
               </p>
 
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
                 <Link
                   to="/booking/vehicle"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-bold text-black shadow-2xl transition hover:bg-brand-dark"
+                  className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-brand px-2.5 text-xs font-bold text-black shadow-2xl transition hover:bg-brand-dark sm:w-auto sm:gap-2 sm:px-5 sm:text-sm"
                 >
                   Book Service <FiArrowRight />
                 </Link>
 
                 <Link
                   to="/partner"
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-bold text-white transition hover:border-white hover:bg-white/15"
+                  className="inline-flex h-11 min-w-0 items-center justify-center rounded-xl border border-white/30 bg-white/10 px-2.5 text-center text-xs font-bold text-white transition hover:border-white hover:bg-white/15 sm:w-auto sm:px-5 sm:text-sm"
                 >
                   Become a Partner
                 </Link>

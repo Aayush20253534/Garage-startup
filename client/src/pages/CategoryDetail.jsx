@@ -457,9 +457,6 @@ export default function CategoryDetail() {
                   : selectedModel?.name} in {guestCity}.
               </p>
             ) : (
-              <p className="text-muted">
-                Complete all three fields to view prices for this category.
-              </p>
             )}
           </div>
         </section>
