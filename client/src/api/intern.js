@@ -34,4 +34,24 @@ export const internApi = {
       await api.post("/auth/staff/resend-otp", { challengeId }),
     );
   },
+
+  async requestPasswordReset(email) {
+    return unwrap(
+      await api.post("/auth/forgot-password", {
+        email,
+        role: "INTERN",
+      }),
+    );
+  },
+
+  async resetPassword({ email, otp, newPassword }) {
+    return unwrap(
+      await api.post("/auth/reset-password", {
+        email,
+        otp,
+        newPassword,
+        role: "INTERN",
+      }),
+    );
+  },
 };

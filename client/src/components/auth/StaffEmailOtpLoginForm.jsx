@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   FiArrowLeft,
   FiArrowRight,
@@ -26,6 +27,7 @@ export default function StaffEmailOtpLoginForm({
   onSuccess,
   submitLabel = "Continue",
   loaderEyebrow = "STAFF ACCESS",
+  forgotPasswordTo = "",
 }) {
   const otpRefs = useRef([]);
   const [form, setForm] = useState({ identifier: "", password: "" });
@@ -310,6 +312,17 @@ export default function StaffEmailOtpLoginForm({
                 </button>
               </div>
             </label>
+
+            {forgotPasswordTo && (
+              <div className="-mt-1 flex justify-end">
+                <Link
+                  to={forgotPasswordTo}
+                  className="text-sm font-semibold text-muted transition hover:text-ink"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
           </>
         ) : (
           <>

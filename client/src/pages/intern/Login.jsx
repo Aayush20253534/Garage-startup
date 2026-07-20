@@ -54,11 +54,12 @@ export default function InternLogin() {
             onSuccess={handleAuthenticated}
             submitLabel="Continue"
             loaderEyebrow="INTERN ACCESS"
+            forgotPasswordTo="/intern/forgot-password"
           />
 
           <p className="mt-5 border-t border-line pt-4 text-xs leading-5 text-muted">
-            Intern accounts do not have self-registration or forgot-password
-            access. Contact an administrator for account or password changes.
+            Intern accounts do not have self-registration. Password recovery
+            is available through the registered intern email.
           </p>
         </section>
 
@@ -71,7 +72,7 @@ export default function InternLogin() {
               {[
                 "Open the assigned operations dashboard",
                 "Work from the dedicated intern PWA shell",
-                "Ask an admin for password or access changes",
+                "Reset a forgotten password through verified email OTP",
               ].map((item) => (
                 <div key={item} className="flex items-start gap-3 text-sm text-ink">
                   <FiCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-dark" />

@@ -73,6 +73,7 @@ const SESSION_EXPIRED_EVENT = "rovauto:session-expired";
 const CSRF_COOKIE_NAME = "rovautoCsrf";
 const CSRF_HEADER_NAME = "X-CSRF-Token";
 let csrfTokenCache = "";
+let csrfTokenRequest = null;
 const SESSION_ERROR_PATTERN =
   /authentication token missing|authentication required|invalid account session|account no longer exists|invalid or expired token|invalid or expired session|session expired/i;
 
@@ -87,6 +88,10 @@ const readCookie = (name) => {
 };
 
 const ensureCsrfToken = async ({ forceRefresh = false } = {}) => {
+  if (forceRefresh) {
+    csrfTokenCache = "";
+  }
+
   if (!forceRefresh && csrfTokenCache) return csrfTokenCache;
 
   const current = readCookie(CSRF_COOKIE_NAME);
@@ -95,26 +100,35 @@ const ensureCsrfToken = async ({ forceRefresh = false } = {}) => {
     return csrfTokenCache;
   }
 
-  const response = await axios.get(`${apiBaseUrl}/csrf-token`, {
-    withCredentials: true,
-    timeout: API_TIMEOUT_MS,
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  if (!csrfTokenRequest) {
+    csrfTokenRequest = axios
+      .get(`${apiBaseUrl}/csrf-token`, {
+        withCredentials: true,
+        timeout: API_TIMEOUT_MS,
+        headers: {
+          Accept: "application/json",
+        },
+      })
+      .then((response) => {
+        // Cross-subdomain cookies are not readable through document.cookie.
+        // The endpoint therefore returns the same token for the request header.
+        const issuedFromResponse = String(
+          response.data?.data?.token || "",
+        ).trim();
+        const issuedFromCookie = readCookie(CSRF_COOKIE_NAME);
+        const issued =
+          issuedFromResponse ||
+          (issuedFromCookie ? decodeURIComponent(issuedFromCookie) : "");
 
-  // When the API is hosted on api.rovauto.com and the frontend is on
-  // www.rovauto.com, the API cookie is intentionally not readable through
-  // document.cookie. The endpoint therefore also returns the same token in
-  // its JSON response so the frontend can send the matching CSRF header.
-  const issuedFromResponse = String(response.data?.data?.token || "").trim();
-  const issuedFromCookie = readCookie(CSRF_COOKIE_NAME);
-  const issued =
-    issuedFromResponse ||
-    (issuedFromCookie ? decodeURIComponent(issuedFromCookie) : "");
+        csrfTokenCache = issued;
+        return issued;
+      })
+      .finally(() => {
+        csrfTokenRequest = null;
+      });
+  }
 
-  csrfTokenCache = issued;
-  return issued;
+  return csrfTokenRequest;
 };
 
 const api = axios.create({
@@ -172,7 +186,6 @@ api.interceptors.response.use(
       status === 403 && /invalid csrf token/i.test(String(message));
 
     if (isCsrfFailure && !error.config?.__csrfRetry) {
-      csrfTokenCache = "";
       const csrfToken = await ensureCsrfToken({ forceRefresh: true });
 
       if (csrfToken) {

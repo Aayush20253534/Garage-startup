@@ -795,6 +795,10 @@ const CustomerSupportEmail = lazyPage(
   "CustomerSupportEmail",
 );
 const InternLogin = lazyPage(() => import("@/pages/intern/Login"), "InternLogin");
+const InternForgotPassword = lazyPage(
+  () => import("@/pages/intern/ForgotPassword"),
+  "InternForgotPassword",
+);
 
 import {
   FiArrowLeft,
@@ -1053,6 +1057,10 @@ function AppRoutes() {
           />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/intern/login" element={<InternLogin />} />
+          <Route
+            path="/intern/forgot-password"
+            element={<InternForgotPassword />}
+          />
 
           <Route path="/garage/login" element={<GarageLogin />} />
           <Route path="/garage/otp-login" element={<GarageOtpLogin />} />

@@ -329,7 +329,10 @@ const isProtectedPath = (pathname = window.location.pathname) => {
   }
 
   if (pathname === "/intern" || pathname.startsWith("/intern/")) {
-    return pathname !== "/intern/login";
+    return !(
+      pathname === "/intern/login" ||
+      pathname === "/intern/forgot-password"
+    );
   }
 
   if (pathname === "/support" || pathname.startsWith("/support/")) {

@@ -123,6 +123,12 @@ export default function Revenue() {
     setSuccess("");
     setSaving(true);
 
+    if (isIntern && form.id) {
+      setError("Interns can add new price ranges but cannot edit existing ranges.");
+      setSaving(false);
+      return;
+    }
+
     const minPrice = Number(form.minPrice);
     const maxPrice = Number(form.maxPrice);
 
@@ -364,11 +370,13 @@ export default function Revenue() {
         </div>
       )}
 
-      {isIntern ? (
+      {isIntern && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
-          Intern access is read-only. An admin must change cities or service price ranges.
+          Interns can add new price ranges. Only admins can edit or delete
+          existing ranges, add cities, or change city status.
         </div>
-      ) : (
+      )}
+
       <form
         onSubmit={submit}
         className="card-soft rounded-2xl p-4 shadow-sm"
@@ -465,7 +473,13 @@ export default function Revenue() {
               className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-lime-400 px-4 text-sm font-bold text-black transition hover:bg-lime-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FiPlus />
-              {saving ? "Saving..." : form.id ? "Update" : "Create"}
+              {saving
+                ? "Saving..."
+                : form.id
+                  ? "Update"
+                  : isIntern
+                    ? "Add price range"
+                    : "Create"}
             </button>
 
             {form.id && (
@@ -480,7 +494,6 @@ export default function Revenue() {
           </div>
         </div>
       </form>
-      )}
 
       <section className="card-soft rounded-2xl p-4 shadow-sm">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -746,7 +759,9 @@ export default function Revenue() {
                           </button>
                           </>
                           ) : (
-                            <span className="text-xs font-semibold text-muted">Read only</span>
+                            <span className="text-xs font-semibold text-muted">
+                              Admin edit/delete only
+                            </span>
                           )}
                         </div>
                       </td>
