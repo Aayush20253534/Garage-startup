@@ -11,6 +11,9 @@ test("the car loader is limited to genuinely long submit, upload, and payment op
   const loader = read(
     "client/src/components/auth/CustomerLoginLoader.jsx",
   );
+  const loaderStyles = read(
+    "client/src/components/auth/CustomerLoginLoader.css",
+  );
   const garageApplication = read(
     "client/src/pages/garage/onboarding/Step4.jsx",
   );
@@ -19,13 +22,22 @@ test("the car loader is limited to genuinely long submit, upload, and payment op
 
   assert.match(loader, /title = "Your drive is ready"/);
   assert.match(loader, /message = "Signing you in/);
+  assert.match(
+    loaderStyles,
+    /^\.customer-login-loader\s*\{[\s\S]*?display:\s*grid;/,
+  );
+  assert.doesNotMatch(
+    loaderStyles,
+    /\.customer-login-loader\s*\{\s*display:\s*none;/,
+  );
+  assert.match(loaderStyles, /@media \(min-width: 640px\)/);
   assert.match(garageApplication, /title="Submitting your garage"/);
   assert.match(garageProfile, /title="Uploading garage photos"/);
   assert.match(garageWallet, /VERIFYING_RECHARGE/);
   assert.match(garageWallet, /setPaymentProgress\(null\);[\s\S]*cashfree\.checkout/);
 });
 
-test("mobile authentication submissions use portal-specific car loader messages", () => {
+test("authentication submissions use portal-specific car loader messages", () => {
   const customerLogin = read("client/src/pages/auth/Login.jsx");
   const customerSignup = read("client/src/pages/auth/Register.jsx");
   const customerOtp = read("client/src/pages/auth/OTP.jsx");
