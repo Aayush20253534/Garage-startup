@@ -8,6 +8,7 @@ const validate = require("../../middlewares/validate.middleware");
 const {
   createPriceRangeSchema,
   deletePriceRangesSchema,
+  editPriceRangeSubmissionSchema,
   priceRangeIdSchema,
   priceRangeSubmissionIdSchema,
   priceRangeQuerySchema,
@@ -41,6 +42,13 @@ router.patch(
   reviewSubmissionSchema,
   validate,
   controller.reviewPriceRangeSubmission,
+);
+router.patch(
+  "/submissions/:id",
+  authorizeRoles("ADMIN"),
+  editPriceRangeSubmissionSchema,
+  validate,
+  controller.editPriceRangeSubmission,
 );
 router.delete(
   "/submissions/:id",

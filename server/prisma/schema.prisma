@@ -1346,6 +1346,7 @@ enum FuelType {
 
 enum PriceRangeSubmissionStatus {
   PENDING
+  EDITED
   APPROVED
   REJECTED
 }

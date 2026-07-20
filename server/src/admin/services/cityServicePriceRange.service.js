@@ -7,7 +7,12 @@ const { getCache, setCache, deletePattern } = require("../../utils/cache");
 const PRICE_RANGE_CACHE_TTL_SECONDS = Number(
   process.env.PRICE_RANGE_CACHE_TTL_SECONDS || 5 * 60,
 );
-const SUBMISSION_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED"]);
+const SUBMISSION_STATUSES = new Set([
+  "PENDING",
+  "EDITED",
+  "APPROVED",
+  "REJECTED",
+]);
 
 const priceRangeInclude = {
   service: { include: { category: true } },
@@ -282,6 +287,54 @@ const updatePriceRange = async (id, payload) => {
   return priceRange;
 };
 
+const editPriceRangeSubmission = async (id, payload, editedBy) => {
+  if (!editedBy?.id || editedBy.role !== "ADMIN") {
+    throw new ApiError(403, "Only admins can edit price range submissions");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.priceRangeSubmission.findUnique({
+      where: { id },
+      select: { id: true, status: true, isActive: true },
+    });
+    if (!existing) throw new ApiError(404, "Price range submission not found");
+    if (!["PENDING", "EDITED"].includes(existing.status)) {
+      throw new ApiError(
+        409,
+        "Only pending or edited submissions can be changed",
+      );
+    }
+
+    await validatePriceRangePayload(payload, tx);
+
+    const updated = await tx.priceRangeSubmission.updateMany({
+      where: { id, status: { in: ["PENDING", "EDITED"] } },
+      data: {
+        ...scopeWhere(payload),
+        minPrice: Number(payload.minPrice),
+        maxPrice: Number(payload.maxPrice),
+        isActive:
+          payload.isActive === undefined
+            ? existing.isActive
+            : payload.isActive === true || payload.isActive === "true",
+        status: "EDITED",
+        reviewedById: editedBy.id,
+        reviewedAt: null,
+        rejectionReason: null,
+      },
+    });
+
+    if (updated.count !== 1) {
+      throw new ApiError(409, "Submission changed while it was being edited");
+    }
+
+    return tx.priceRangeSubmission.findUnique({
+      where: { id },
+      include: submissionInclude,
+    });
+  });
+};
+
 const reviewPriceRangeSubmission = async (
   id,
   { decision, rejectionReason },
@@ -299,7 +352,7 @@ const reviewPriceRangeSubmission = async (
   const reviewedAt = new Date();
   const result = await prisma.$transaction(async (tx) => {
     const claimed = await tx.priceRangeSubmission.updateMany({
-      where: { id, status: "PENDING" },
+      where: { id, status: { in: ["PENDING", "EDITED"] } },
       data: {
         status: nextStatus,
         reviewedById: reviewedBy.id,
@@ -337,7 +390,7 @@ const reviewPriceRangeSubmission = async (
     await tx.priceRangeSubmission.updateMany({
       where: {
         id: { not: id },
-        status: "PENDING",
+        status: { in: ["PENDING", "EDITED"] },
         ...scopeWhere(submission),
       },
       data: {
@@ -562,6 +615,7 @@ module.exports = {
   deletePriceRange,
   deletePriceRanges,
   deletePriceRangeSubmission,
+  editPriceRangeSubmission,
   findBestPriceRangesForBooking,
   getPriceRange,
   invalidatePriceRangeCaches,

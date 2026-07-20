@@ -15,6 +15,8 @@ test("price range moderation routes keep review admin-only", () => {
     "server/src/admin/controllers/cityServicePriceRange.controller.js",
   );
   const revenue = read("client/src/pages/admin/Revenue.jsx");
+  const api = read("client/src/api/admin.js");
+  const schema = read("server/prisma/schema.prisma");
 
   assert.match(routes, /router\.get\(\s*"\/submissions"/);
   assert.match(
@@ -25,6 +27,10 @@ test("price range moderation routes keep review admin-only", () => {
     routes,
     /router\.delete\([\s\S]*?"\/submissions\/:id"[\s\S]*?authorizeRoles\("ADMIN"\)/,
   );
+  assert.match(
+    routes,
+    /router\.patch\([\s\S]*?"\/submissions\/:id"[\s\S]*?authorizeRoles\("ADMIN"\)[\s\S]*?editPriceRangeSubmission/,
+  );
   assert.match(controller, /req\.user\.role === "INTERN"/);
   assert.match(controller, /createPriceRangeSubmission\(req\.body, req\.user\)/);
   assert.match(revenue, /Intern Price Range Review/);
@@ -34,6 +40,10 @@ test("price range moderation routes keep review admin-only", () => {
   assert.match(revenue, /overflow-y-auto/);
   assert.match(revenue, /deleteSubmissionHistory/);
   assert.match(revenue, /Delete submission history/);
+  assert.match(revenue, /Save as edited/);
+  assert.match(revenue, /setSubmissionFilter\("EDITED"\)/);
+  assert.match(api, /editPriceRangeSubmission/);
+  assert.match(schema, /enum PriceRangeSubmissionStatus \{[\s\S]*EDITED/);
 
   const service = read(
     "server/src/admin/services/cityServicePriceRange.service.js",
@@ -76,7 +86,15 @@ test("intern submissions stay outside live customer price ranges until approval"
       return false;
     }
     if (where.id?.not && submission.id === where.id.not) return false;
-    if (where.status && submission.status !== where.status) return false;
+    if (
+      typeof where.status === "string" &&
+      submission.status !== where.status
+    ) {
+      return false;
+    }
+    if (where.status?.in && !where.status.in.includes(submission.status)) {
+      return false;
+    }
     if (
       where.submittedById &&
       submission.submittedById !== where.submittedById
@@ -233,6 +251,25 @@ test("intern submissions stay outside live customer price ranges until approval"
     });
     assert.equal(internView.length, 1);
     assert.equal(otherInternView.length, 0);
+
+    await assert.rejects(
+      service.editPriceRangeSubmission(
+        pending.id,
+        { ...payload, minPrice: 1100, maxPrice: 1600 },
+        { id: "intern-1", role: "INTERN" },
+      ),
+      /Only admins can edit/,
+    );
+
+    const edited = await service.editPriceRangeSubmission(
+      pending.id,
+      { ...payload, minPrice: 1100, maxPrice: 1600 },
+      { id: "admin-1", role: "ADMIN" },
+    );
+    assert.equal(edited.status, "EDITED");
+    assert.equal(edited.minPrice, 1100);
+    assert.equal(edited.maxPrice, 1600);
+    assert.equal(liveRanges.length, 0);
 
     const approved = await service.reviewPriceRangeSubmission(
       pending.id,

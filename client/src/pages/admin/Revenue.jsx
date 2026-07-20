@@ -40,6 +40,17 @@ const emptyForm = {
   isActive: true,
 };
 
+const emptySubmissionEditForm = {
+  city: "",
+  serviceId: "",
+  vehicleBrand: "",
+  vehicleModel: "",
+  fuelType: "",
+  minPrice: "",
+  maxPrice: "",
+  isActive: true,
+};
+
 const getRangeScopeKey = (range = {}) =>
   [
     String(range.city || "").trim().toLowerCase(),
@@ -54,10 +65,17 @@ const formatServiceLabel = (service = {}) =>
   service.id ||
   "Unknown service";
 
-const submissionFilters = ["ALL", "PENDING", "APPROVED", "REJECTED"];
+const submissionFilters = [
+  "ALL",
+  "PENDING",
+  "EDITED",
+  "APPROVED",
+  "REJECTED",
+];
 
 const submissionStatusStyles = {
   PENDING: "border-amber-200 bg-amber-50 text-amber-800",
+  EDITED: "border-blue-200 bg-blue-50 text-blue-800",
   APPROVED: "border-green-200 bg-green-50 text-green-800",
   REJECTED: "border-red-200 bg-red-50 text-red-700",
 };
@@ -86,6 +104,8 @@ function SubmissionStatusBadge({ status }) {
     >
       {normalizedStatus === "PENDING" ? (
         <FiClock />
+      ) : normalizedStatus === "EDITED" ? (
+        <FiEdit3 />
       ) : normalizedStatus === "APPROVED" ? (
         <FiCheck />
       ) : (
@@ -113,6 +133,12 @@ export default function Revenue() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reviewingId, setReviewingId] = useState("");
+  const [editSubmissionTarget, setEditSubmissionTarget] = useState(null);
+  const [submissionEditForm, setSubmissionEditForm] = useState(
+    emptySubmissionEditForm,
+  );
+  const [editingSubmissionId, setEditingSubmissionId] = useState("");
+  const [submissionEditError, setSubmissionEditError] = useState("");
   const [deletingSubmissionId, setDeletingSubmissionId] = useState("");
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -325,7 +351,12 @@ export default function Revenue() {
     decision,
     reason = "",
   ) => {
-    if (isIntern || submission.status !== "PENDING") return;
+    if (
+      isIntern ||
+      !["PENDING", "EDITED"].includes(submission.status)
+    ) {
+      return;
+    }
 
     setReviewingId(submission.id);
     setError("");
@@ -359,14 +390,101 @@ export default function Revenue() {
     await reviewSubmission(rejectTarget, "REJECTED", rejectionReason);
   };
 
+  const openSubmissionEditor = (submission) => {
+    if (isIntern || !["PENDING", "EDITED"].includes(submission.status)) {
+      return;
+    }
+
+    setEditSubmissionTarget(submission);
+    setSubmissionEditForm({
+      city: submission.city || "",
+      serviceId: submission.serviceId || submission.service?.id || "",
+      vehicleBrand: submission.vehicleBrand || "",
+      vehicleModel: submission.vehicleModel || "",
+      fuelType: submission.fuelType || "",
+      minPrice: submission.minPrice ?? "",
+      maxPrice: submission.maxPrice ?? "",
+      isActive: Boolean(submission.isActive),
+    });
+    setSubmissionEditError("");
+  };
+
+  const closeSubmissionEditor = () => {
+    if (editingSubmissionId) return;
+    setEditSubmissionTarget(null);
+    setSubmissionEditForm(emptySubmissionEditForm);
+    setSubmissionEditError("");
+  };
+
+  const updateSubmissionEditForm = (key, value) => {
+    setSubmissionEditForm((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "vehicleBrand" && { vehicleModel: "" }),
+    }));
+    setSubmissionEditError("");
+  };
+
+  const saveSubmissionEdit = async (event) => {
+    event.preventDefault();
+    if (!editSubmissionTarget) return;
+
+    const minPrice = Number(submissionEditForm.minPrice);
+    const maxPrice = Number(submissionEditForm.maxPrice);
+    if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice)) {
+      setSubmissionEditError("Enter valid minimum and maximum prices.");
+      return;
+    }
+    if (minPrice > maxPrice) {
+      setSubmissionEditError("Minimum price cannot exceed maximum price.");
+      return;
+    }
+
+    setEditingSubmissionId(editSubmissionTarget.id);
+    setSubmissionEditError("");
+    setError("");
+    setSuccess("");
+
+    try {
+      const updated = await adminApi.editPriceRangeSubmission(
+        editSubmissionTarget.id,
+        {
+          city: submissionEditForm.city.trim(),
+          serviceId: submissionEditForm.serviceId,
+          vehicleBrand: submissionEditForm.vehicleBrand.trim(),
+          vehicleModel: submissionEditForm.vehicleModel.trim() || null,
+          fuelType: submissionEditForm.fuelType || null,
+          minPrice,
+          maxPrice,
+          isActive: submissionEditForm.isActive,
+        },
+      );
+      setSubmissions((current) =>
+        current.map((submission) =>
+          submission.id === updated.id ? updated : submission,
+        ),
+      );
+      setEditSubmissionTarget(null);
+      setSubmissionEditForm(emptySubmissionEditForm);
+      setSubmissionFilter("EDITED");
+      setSuccess("Submission edited. Review the changes, then approve or reject it.");
+    } catch (err) {
+      setSubmissionEditError(
+        err.response?.data?.message || "Unable to edit submission",
+      );
+    } finally {
+      setEditingSubmissionId("");
+    }
+  };
+
   const deleteSubmissionHistory = async (submission) => {
     if (isIntern) return;
 
     const message =
       submission.status === "APPROVED"
         ? "Delete this submission history? Its approved live price range will remain available."
-        : submission.status === "PENDING"
-          ? "Delete this pending submission? It will no longer be available for review."
+        : ["PENDING", "EDITED"].includes(submission.status)
+          ? "Delete this submission awaiting review? It will no longer be available for approval."
           : "Delete this rejected submission history?";
     if (!window.confirm(message)) return;
 
@@ -489,6 +607,10 @@ export default function Revenue() {
   );
 
   const vehicleModels = selectedVehicleBrand?.models || [];
+  const submissionEditBrand = vehicleBrands.find(
+    (brand) => brand.name === submissionEditForm.vehicleBrand,
+  );
+  const submissionEditModels = submissionEditBrand?.models || [];
 
   const duplicateScopeKeys = ranges.reduce((counts, range) => {
     const key = getRangeScopeKey(range);
@@ -501,7 +623,7 @@ export default function Revenue() {
       ...counts,
       [submission.status]: (counts[submission.status] || 0) + 1,
     }),
-    { PENDING: 0, APPROVED: 0, REJECTED: 0 },
+    { PENDING: 0, EDITED: 0, APPROVED: 0, REJECTED: 0 },
   );
 
   const visibleSubmissions = submissions.filter(
@@ -561,8 +683,8 @@ export default function Revenue() {
       {isIntern && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
           New price ranges are sent to an admin for approval. You can track
-          pending, approved, and rejected submissions below; only approved
-          entries become visible to customers.
+          pending, edited, approved, and rejected submissions below; only
+          approved entries become visible to customers.
         </div>
       )}
 
@@ -589,9 +711,10 @@ export default function Revenue() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 sm:min-w-[330px]">
+            <div className="grid grid-cols-2 gap-2 sm:min-w-[440px] sm:grid-cols-4">
               {[
                 ["Pending", submissionCounts.PENDING, "text-amber-700"],
+                ["Edited", submissionCounts.EDITED, "text-blue-700"],
                 ["Approved", submissionCounts.APPROVED, "text-green-700"],
                 ["Rejected", submissionCounts.REJECTED, "text-red-700"],
               ].map(([label, count, color]) => (
@@ -681,7 +804,8 @@ export default function Revenue() {
                           onClick={() => deleteSubmissionHistory(submission)}
                           disabled={
                             deletingSubmissionId === submission.id ||
-                            reviewingId === submission.id
+                            reviewingId === submission.id ||
+                            editingSubmissionId === submission.id
                           }
                           className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 text-xs font-bold text-red-700 transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                           aria-label="Delete submission history"
@@ -757,14 +881,30 @@ export default function Revenue() {
                       </div>
                     )}
 
-                  {!isIntern && submission.status === "PENDING" && (
-                    <div className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-3">
+                  {!isIntern &&
+                    ["PENDING", "EDITED"].includes(submission.status) && (
+                    <div className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-3 sm:grid-cols-3">
+                      <button
+                        type="button"
+                        onClick={() => openSubmissionEditor(submission)}
+                        disabled={
+                          reviewingId === submission.id ||
+                          editingSubmissionId === submission.id
+                        }
+                        className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-1"
+                      >
+                        <FiEdit3 />
+                        Edit
+                      </button>
                       <button
                         type="button"
                         onClick={() =>
                           reviewSubmission(submission, "APPROVED")
                         }
-                        disabled={reviewingId === submission.id}
+                        disabled={
+                          reviewingId === submission.id ||
+                          editingSubmissionId === submission.id
+                        }
                         className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <FiCheck />
@@ -778,7 +918,10 @@ export default function Revenue() {
                           setRejectTarget(submission);
                           setRejectionReason("");
                         }}
-                        disabled={reviewingId === submission.id}
+                        disabled={
+                          reviewingId === submission.id ||
+                          editingSubmissionId === submission.id
+                        }
                         className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <FiX />
@@ -1223,6 +1366,238 @@ export default function Revenue() {
           </table>
         </div>
       </section>
+
+      {editSubmissionTarget && (
+        <div
+          className="fixed inset-0 z-[105] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeSubmissionEditor();
+          }}
+        >
+          <form
+            onSubmit={saveSubmissionEdit}
+            className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-2xl sm:rounded-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-price-submission-title"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700">
+                  <FiEdit3 />
+                </span>
+                <div>
+                  <h3
+                    id="edit-price-submission-title"
+                    className="text-lg font-bold text-ink"
+                  >
+                    Edit intern submission
+                  </h3>
+                  <p className="mt-1 text-sm leading-5 text-muted">
+                    Save your corrections first. The submission will move to
+                    Edited and still require a separate approval.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeSubmissionEditor}
+                disabled={Boolean(editingSubmissionId)}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-muted transition hover:border-ink hover:text-ink disabled:opacity-50"
+                aria-label="Close submission editor"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                  City
+                </span>
+                <CitySelect
+                  required
+                  includeInactive
+                  value={submissionEditForm.city}
+                  onChange={(value) =>
+                    updateSubmissionEditForm("city", value)
+                  }
+                  className="mt-2 h-11 w-full min-w-0 rounded-xl border border-line px-3 text-sm outline-none transition focus:border-ink"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                  Service
+                </span>
+                <select
+                  required
+                  value={submissionEditForm.serviceId}
+                  onChange={(event) =>
+                    updateSubmissionEditForm("serviceId", event.target.value)
+                  }
+                  className="mt-2 h-11 w-full min-w-0 rounded-xl border border-line px-3 text-sm outline-none transition focus:border-ink"
+                >
+                  <option value="">Select service</option>
+                  {services.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {formatServiceLabel(service)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                  Vehicle brand
+                </span>
+                <select
+                  required
+                  value={submissionEditForm.vehicleBrand}
+                  onChange={(event) =>
+                    updateSubmissionEditForm(
+                      "vehicleBrand",
+                      event.target.value,
+                    )
+                  }
+                  className="mt-2 h-11 w-full min-w-0 rounded-xl border border-line px-3 text-sm outline-none transition focus:border-ink"
+                >
+                  <option value="">Select brand</option>
+                  {vehicleBrands.map((brand) => (
+                    <option key={brand.id || brand.name} value={brand.name}>
+                      {brand.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                  Vehicle model
+                </span>
+                <select
+                  value={submissionEditForm.vehicleModel}
+                  onChange={(event) =>
+                    updateSubmissionEditForm("vehicleModel", event.target.value)
+                  }
+                  disabled={!submissionEditForm.vehicleBrand}
+                  className="mt-2 h-11 w-full min-w-0 rounded-xl border border-line px-3 text-sm outline-none transition focus:border-ink disabled:bg-bg-soft"
+                >
+                  <option value="">All models</option>
+                  {submissionEditModels.map((model) => (
+                    <option key={model.id || model.name} value={model.name}>
+                      {model.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                  Fuel type
+                </span>
+                <select
+                  value={submissionEditForm.fuelType}
+                  onChange={(event) =>
+                    updateSubmissionEditForm("fuelType", event.target.value)
+                  }
+                  className="mt-2 h-11 w-full min-w-0 rounded-xl border border-line px-3 text-sm outline-none transition focus:border-ink"
+                >
+                  {fuelTypes.map((fuelType) => (
+                    <option key={fuelType || "any"} value={fuelType}>
+                      {fuelType || "Any fuel"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                    Minimum
+                  </span>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={submissionEditForm.minPrice}
+                    onChange={(event) =>
+                      updateSubmissionEditForm("minPrice", event.target.value)
+                    }
+                    className="mt-2 h-11 w-full min-w-0 rounded-xl border border-line px-3 text-sm outline-none transition focus:border-ink"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                    Maximum
+                  </span>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={submissionEditForm.maxPrice}
+                    onChange={(event) =>
+                      updateSubmissionEditForm("maxPrice", event.target.value)
+                    }
+                    className="mt-2 h-11 w-full min-w-0 rounded-xl border border-line px-3 text-sm outline-none transition focus:border-ink"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <label className="mt-4 flex items-start gap-3 rounded-xl border border-line bg-bg-soft p-3">
+              <input
+                type="checkbox"
+                checked={submissionEditForm.isActive}
+                onChange={(event) =>
+                  updateSubmissionEditForm("isActive", event.target.checked)
+                }
+                className="mt-0.5 h-4 w-4 rounded border-line accent-ink"
+              />
+              <span>
+                <span className="block text-sm font-bold text-ink">
+                  Publish as active after approval
+                </span>
+                <span className="mt-0.5 block text-xs text-muted">
+                  Saving this edit does not publish it yet.
+                </span>
+              </span>
+            </label>
+
+            {submissionEditError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                {submissionEditError}
+              </div>
+            )}
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={closeSubmissionEditor}
+                disabled={Boolean(editingSubmissionId)}
+                className="h-11 rounded-xl border border-line text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={Boolean(editingSubmissionId)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-ink px-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {editingSubmissionId ? (
+                  <FiRefreshCw className="animate-spin" />
+                ) : (
+                  <FiEdit3 />
+                )}
+                {editingSubmissionId ? "Saving..." : "Save as edited"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {bulkDeleteTarget && (
         <div

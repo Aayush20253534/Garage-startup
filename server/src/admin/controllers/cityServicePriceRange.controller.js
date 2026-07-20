@@ -55,6 +55,17 @@ const reviewPriceRangeSubmission = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, `Price range submission ${verb}`, submission));
 });
 
+const editPriceRangeSubmission = asyncHandler(async (req, res) => {
+  const submission = await service.editPriceRangeSubmission(
+    req.params.id,
+    req.body,
+    req.user,
+  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Price range submission edited", submission));
+});
+
 const deletePriceRangeSubmission = asyncHandler(async (req, res) => {
   const submission = await service.deletePriceRangeSubmission(
     req.params.id,
@@ -93,6 +104,7 @@ module.exports = {
   deletePriceRange,
   deletePriceRanges,
   deletePriceRangeSubmission,
+  editPriceRangeSubmission,
   getPriceRange,
   listPriceRangeSubmissions,
   listPriceRanges,

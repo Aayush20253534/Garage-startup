@@ -1,0 +1,1 @@
+ALTER TYPE "PriceRangeSubmissionStatus" ADD VALUE IF NOT EXISTS 'EDITED';

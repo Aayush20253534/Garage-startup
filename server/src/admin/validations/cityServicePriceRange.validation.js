@@ -13,7 +13,7 @@ const submissionQuerySchema = [
     .optional({ nullable: true, checkFalsy: true })
     .trim()
     .toUpperCase()
-    .isIn(["PENDING", "APPROVED", "REJECTED"]),
+    .isIn(["PENDING", "EDITED", "APPROVED", "REJECTED"]),
   query("city").optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
@@ -29,6 +29,23 @@ const reviewSubmissionSchema = [
     .trim()
     .isLength({ max: 500 })
     .withMessage("Rejection reason must be 500 characters or fewer"),
+];
+
+const editPriceRangeSubmissionSchema = [
+  param("id").isUUID().withMessage("Invalid price range submission ID"),
+  body("city").trim().notEmpty().withMessage("City is required"),
+  body("serviceId").isUUID().withMessage("Valid service ID is required"),
+  body("vehicleBrand")
+    .trim()
+    .notEmpty()
+    .withMessage("Vehicle brand is required"),
+  body("vehicleModel").optional({ nullable: true, checkFalsy: true }).trim(),
+  body("fuelType")
+    .optional({ nullable: true, checkFalsy: true })
+    .isIn(fuelTypes),
+  body("minPrice").isInt({ min: 0 }).withMessage("minPrice must be positive"),
+  body("maxPrice").isInt({ min: 0 }).withMessage("maxPrice must be positive"),
+  body("isActive").optional({ nullable: true }).isBoolean(),
 ];
 
 const deletePriceRangesSchema = [
@@ -97,6 +114,7 @@ const updatePriceRangeSchema = [
 module.exports = {
   createPriceRangeSchema,
   deletePriceRangesSchema,
+  editPriceRangeSubmissionSchema,
   priceRangeIdSchema,
   priceRangeSubmissionIdSchema,
   priceRangeQuerySchema,
