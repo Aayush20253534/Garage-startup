@@ -363,7 +363,7 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
           } needs ${booking.services
             .map((item) => item.service?.name)
             .filter(Boolean)
-            .join(", ") || "garage service"}. Open the request before this two-minute round expires.${feeMessage}`,
+            .join(", ") || "garage service"}. The search expands every 2 minutes 30 seconds; you can accept while this booking is still unassigned.${feeMessage}`,
           link: `/garage/magic/${request.id}`,
           metadata: {
             bookingId: booking.id,
@@ -433,7 +433,7 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
 };
 
 /**
- * Claims and starts one two-minute radius round: 5 km, 10 km, then 20 km.
+ * Claims one 2-minute-30-second radius round: 5 km, 10 km, then 20 km.
  *
  * The compare-and-set update on searchExpiresAt prevents two simultaneous
  * tracking polls from creating the same round twice.
@@ -493,17 +493,6 @@ const startNextGarageSearchCycle = async (bookingId) => {
       await getCurrentRoundRequests(bookingId),
     );
   }
-
-  await prisma.garageBroadcastRequest.updateMany({
-    where: {
-      bookingId,
-      status: BROADCAST_STATUS.SENT,
-    },
-    data: {
-      status: BROADCAST_STATUS.EXPIRED,
-      expiredAt: now,
-    },
-  });
 
   // Publish the new radius/round immediately, even when this stage finds no
   // garages. Otherwise a cached booking can leave the tracker showing the
@@ -664,19 +653,6 @@ const getGarageRequests = async (garageId, query = {}) => {
 };
 
 const acceptGarageRequest = async (garageId, requestId, note) => {
-  const requestIdentity = await prisma.garageBroadcastRequest.findUnique({
-    where: { id: requestId },
-    select: { bookingId: true },
-  });
-
-  if (!requestIdentity) {
-    throw new ApiError(404, "Garage request not found");
-  }
-
-  await bookingLifecycleService.expireBookingSearch(
-    requestIdentity.bookingId,
-  );
-
   const request = await prisma.garageBroadcastRequest.findFirst({
     where: { id: requestId, garageId },
     include: {
@@ -693,13 +669,6 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
 
   if (request.status !== BROADCAST_STATUS.SENT) {
     throw new ApiError(400, "This request is no longer available");
-  }
-
-  if (
-    request.booking.searchExpiresAt &&
-    request.booking.searchExpiresAt < new Date()
-  ) {
-    throw new ApiError(400, "This two-minute request round has expired");
   }
 
   if (
@@ -757,13 +726,6 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       ].includes(freshBooking.status)
     ) {
       throw new ApiError(400, "Booking is no longer available");
-    }
-
-    if (
-      freshBooking.searchExpiresAt &&
-      freshBooking.searchExpiresAt < new Date()
-    ) {
-      throw new ApiError(400, "This two-minute request round has expired");
     }
 
     const garageAcceptFee = getGarageAcceptFee(freshBooking);

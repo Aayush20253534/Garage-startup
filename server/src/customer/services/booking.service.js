@@ -349,7 +349,7 @@ const createBooking = async (userId, data) => {
             requestType: "NORMAL",
             status: "PENDING_PAYMENT",
 
-            // Payment verification starts the first two-minute garage search round.
+            // Payment verification starts the first 2-minute-30-second search round.
             searchExpiresAt: null,
 
             customerLatitude: Number(location.latitude),

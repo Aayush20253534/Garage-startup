@@ -18,7 +18,7 @@ const {
 } = require("../utils/cloudinaryUpload");
 const { REQUIRED_BOOKING_INSPECTION_IMAGES } = require("../garage/constants");
 
-const DEFAULT_SEARCH_TIMEOUT_SECONDS = 120;
+const DEFAULT_SEARCH_TIMEOUT_SECONDS = 150;
 const HANDOVER_OTP_TTL_MS = 2 * 60 * 60 * 1000;
 const DEFAULT_HANDOVER_OTP_RESEND_COOLDOWN_SECONDS = 60;
 const HANDOVER_OTP_MAX_ATTEMPTS = 5;
@@ -319,11 +319,11 @@ const bookingDetailInclude = {
 };
 
 /**
- * Expires only the current two-minute broadcast round.
+ * Closes only the current two-minute-thirty-second search round.
  *
- * The booking deliberately stays SEARCHING_GARAGE. The next customer tracking
- * poll will claim and start another round. This avoids relying on an in-memory
- * setTimeout, which disappears whenever the server sleeps or restarts.
+ * The booking deliberately stays SEARCHING_GARAGE and previously sent garage
+ * offers remain available. The next customer tracking poll can expand the
+ * radius without invalidating an older notification.
  */
 const expireBookingSearch = async (bookingId) => {
   if (!bookingId) return null;
@@ -346,29 +346,27 @@ const expireBookingSearch = async (bookingId) => {
     return booking;
   }
 
-  const updatedBooking = await prisma.$transaction(async (tx) => {
-    await tx.garageBroadcastRequest.updateMany({
-      where: {
-        bookingId,
-        status: BROADCAST_STATUS.SENT,
-      },
-      data: {
-        status: BROADCAST_STATUS.EXPIRED,
-        expiredAt: now,
-      },
-    });
-
-    return tx.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: BOOKING_STATUS.SEARCHING_GARAGE,
-        searchExpiresAt: null,
-        expiredAt: null,
-      },
-    });
+  const clearedRound = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      status: BOOKING_STATUS.SEARCHING_GARAGE,
+      garageId: null,
+      searchExpiresAt: booking.searchExpiresAt || null,
+    },
+    data: {
+      searchExpiresAt: null,
+      expiredAt: null,
+    },
   });
 
-  await invalidateBookingReadCaches(booking.userId, booking.id);
+  const updatedBooking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+  });
+
+  if (clearedRound.count > 0) {
+    await invalidateBookingReadCaches(booking.userId, booking.id);
+  }
+
   return updatedBooking;
 };
 

@@ -33,7 +33,7 @@ After the platform fee is confirmed, the booking enters garage search:
 3. If nobody accepts, the search expands to 20 km.
 4. If the 20 km round also ends without acceptance, Rovauto shows a clear retry message and automatically starts a new cycle from 5 km.
 
-Each radius round normally lasts about two minutes. Garages already contacted in the same 5 km, 10 km, and 20 km cycle are not repeatedly notified in every round. A restarted cycle does not require another platform-fee payment or any action from the customer.
+Each radius round normally lasts 2 minutes 30 seconds. Garages already contacted in the same 5 km, 10 km, and 20 km cycle are not repeatedly notified in every round. Their original request remains available while the booking is still unassigned. A restarted cycle does not require another platform-fee payment or any action from the customer.
 
 Garage eligibility depends on current availability, supported services, vehicle support, verification status, and service radius. The assistant must not guarantee that a garage will be found or accepted within a specific time.
 

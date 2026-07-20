@@ -92,6 +92,44 @@ test("garage request integration uses the persisted radius and no batch cap", ()
   assert.match(source, /invalidateBookingReadCaches\(booking\.userId\)/);
 });
 
+test("each garage search round lasts 2 minutes 30 seconds", () => {
+  const source = readProjectFile(
+    "server/src/services/bookingLifecycle.service.js",
+  );
+
+  assert.match(source, /DEFAULT_SEARCH_TIMEOUT_SECONDS = 150/);
+});
+
+test("expanding the radius keeps older garage offers available", () => {
+  const lifecycleSource = readProjectFile(
+    "server/src/services/bookingLifecycle.service.js",
+  );
+  const requestSource = readProjectFile(
+    "server/src/services/garageRequest.service.js",
+  );
+  const expireSearchSource = lifecycleSource.slice(
+    lifecycleSource.indexOf("const expireBookingSearch"),
+    lifecycleSource.indexOf("const expireStaleGarageSearchesForUser"),
+  );
+  const nextRoundSource = requestSource.slice(
+    requestSource.indexOf("const startNextGarageSearchCycle"),
+    requestSource.indexOf("const ensureBookingSearchActive"),
+  );
+  const acceptSource = requestSource.slice(
+    requestSource.indexOf("const acceptGarageRequest"),
+    requestSource.indexOf("const rejectGarageRequest"),
+  );
+
+  assert.doesNotMatch(expireSearchSource, /garageBroadcastRequest\.updateMany/);
+  assert.doesNotMatch(nextRoundSource, /status:\s*BROADCAST_STATUS\.EXPIRED/);
+  assert.doesNotMatch(acceptSource, /request round has expired/);
+  assert.doesNotMatch(acceptSource, /searchExpiresAt\s*&&/);
+  assert.match(
+    requestSource,
+    /you can accept while this booking is still unassigned/,
+  );
+});
+
 test("checkout uses the selected saved address without reading customer GPS", () => {
   const source = readProjectFile("client/src/pages/booking/Checkout.jsx");
   const selectedLocationIndex = source.indexOf(

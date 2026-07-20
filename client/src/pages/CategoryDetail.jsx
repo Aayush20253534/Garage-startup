@@ -13,9 +13,13 @@ import {
   FiArrowLeft,
   FiCheckCircle,
   FiLayers,
+  FiMapPin,
+  FiSettings,
   FiShield,
+  FiSliders,
   FiStar,
   FiTool,
+  FiTruck,
   FiX,
 } from "react-icons/fi";
 import { useApp } from "@/hooks/useApp";
@@ -35,6 +39,7 @@ import {
   getServiceThumbnailUrl,
   warmImageCache,
 } from "@/utils/imageCache";
+import { loadActiveCities } from "@/utils/cityAvailability";
 
 const toBoolean = (value) =>
   value === true ||
@@ -54,7 +59,7 @@ const getIncludes = (service) => {
 export default function CategoryDetail() {
   const { categoryId } = useParams();
   const { user, vehicle, location, addToCart } = useApp();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const nav = useNavigate();
   const guestCity = !user ? searchParams.get("city") || "" : "";
@@ -76,11 +81,82 @@ export default function CategoryDetail() {
   const [packages, setPackages] = useState([]);
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [cities, setCities] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
+  const [filterOptionsError, setFilterOptionsError] = useState("");
+  const [pricingError, setPricingError] = useState("");
+
+  const selectedBrand = brands.find((brand) => brand.id === guestBrandId);
+  const selectedModel = selectedBrand?.models?.find(
+    (model) => model.id === guestModelId,
+  );
+  const availableModels = Array.isArray(selectedBrand?.models)
+    ? selectedBrand.models
+    : [];
+  const allModelsSelected = guestModelId.toUpperCase() === "ALL";
+  const guestFiltersActive = Boolean(
+    !user && (guestCity || guestBrandId || guestModelId),
+  );
+
+  const updateGuestFilters = (nextValues) => {
+    const next = new URLSearchParams(searchParams);
+
+    Object.entries(nextValues).forEach(([key, value]) => {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    });
+
+    setSearchParams(next, { replace: true });
+  };
+
+  useEffect(() => {
+    if (user) return undefined;
+
+    let cancelled = false;
+
+    const loadFilterOptions = async () => {
+      try {
+        setFilterOptionsLoading(true);
+        setFilterOptionsError("");
+
+        const [cityList, brandResponse] = await Promise.all([
+          loadActiveCities(),
+          api.get("/vehicle-meta/brands"),
+        ]);
+
+        if (cancelled) return;
+
+        setCities(Array.isArray(cityList) ? cityList : []);
+        setBrands(
+          Array.isArray(brandResponse.data?.data)
+            ? brandResponse.data.data
+            : [],
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setFilterOptionsError(
+            error.response?.data?.message ||
+              "Price filters are temporarily unavailable.",
+          );
+        }
+      } finally {
+        if (!cancelled) setFilterOptionsLoading(false);
+      }
+    };
+
+    void loadFilterOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     const loadCategory = async () => {
       try {
         setLoading(true);
+        setPricingError("");
 
         const res = await api.get("/services/categories", {
           params: user
@@ -100,17 +176,30 @@ export default function CategoryDetail() {
           matchesServiceCategoryRoute(item, categoryId),
         );
 
+        if (cancelled) return;
+
         setCategory(found || null);
         setPackages(found?.services || []);
         if (found) warmImageCache(getServiceImageUrls([found]));
       } catch (err) {
         console.error("Failed to load category:", err);
+        if (!cancelled) {
+          setPricingError(
+            err.response?.data?.message ||
+              "We could not refresh prices for these filters.",
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    loadCategory();
+    let cancelled = false;
+    void loadCategory();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     categoryId,
     user,
@@ -230,7 +319,7 @@ export default function CategoryDetail() {
 
       <div className="container-x max-w-6xl py-8">
       <Link
-        to={`/services${guestFilterSearch}`}
+        to="/services"
         className="mb-5 flex items-center gap-2 text-ink hover:opacity-80"
       >
         <FiArrowLeft /> Back to Services
@@ -246,11 +335,131 @@ export default function CategoryDetail() {
         )}
       </div>
 
-      {guestPricingReady && (
-        <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold leading-6 text-emerald-800">
-          These are preview prices for your selected city and vehicle. Sign in
-          when you are ready to book.
-        </div>
+      {!user && (
+        <section
+          aria-labelledby="category-price-filter-heading"
+          className="mb-6 overflow-hidden rounded-[24px] border border-gray-200 bg-white shadow-[0_12px_36px_rgba(15,23,42,0.06)]"
+        >
+          <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-950 px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#b9f000] text-lg text-gray-950">
+                <FiSliders aria-hidden="true" />
+              </span>
+              <div>
+                <h2 id="category-price-filter-heading" className="font-bold">
+                  Check prices for your vehicle
+                </h2>
+                <p className="mt-1 text-sm leading-5 text-white/65">
+                  Choose your city, brand and model to filter this category.
+                </p>
+              </div>
+            </div>
+
+            {guestFiltersActive && (
+              <button
+                type="button"
+                onClick={() =>
+                  updateGuestFilters({ city: "", brand: "", model: "" })
+                }
+                className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-lg border border-white/20 px-3.5 text-xs font-bold text-white transition hover:bg-white/10 sm:self-auto"
+              >
+                <FiX aria-hidden="true" /> Clear filters
+              </button>
+            )}
+          </div>
+
+          <div className="grid gap-4 p-5 sm:grid-cols-3 sm:p-6">
+            <label className="block min-w-0">
+              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-500">
+                <FiMapPin className="text-[#8fbd00]" aria-hidden="true" /> City
+              </span>
+              <select
+                value={guestCity}
+                onChange={(event) =>
+                  updateGuestFilters({ city: event.target.value })
+                }
+                disabled={filterOptionsLoading}
+                className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-[#9dcf00] focus:bg-white focus:ring-4 focus:ring-[#b9f000]/15 disabled:opacity-60"
+              >
+                <option value="">Select city</option>
+                {cities.map((city) => (
+                  <option key={city.id} value={city.name}>
+                    {city.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block min-w-0">
+              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-500">
+                <FiTruck className="text-[#8fbd00]" aria-hidden="true" /> Brand
+              </span>
+              <select
+                value={guestBrandId}
+                onChange={(event) =>
+                  updateGuestFilters({
+                    brand: event.target.value,
+                    model: "",
+                  })
+                }
+                disabled={filterOptionsLoading}
+                className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-[#9dcf00] focus:bg-white focus:ring-4 focus:ring-[#b9f000]/15 disabled:opacity-60"
+              >
+                <option value="">Select brand</option>
+                {brands.map((brand) => (
+                  <option key={brand.id} value={brand.id}>
+                    {brand.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block min-w-0">
+              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-500">
+                <FiSettings className="text-[#8fbd00]" aria-hidden="true" /> Model
+              </span>
+              <select
+                value={guestModelId}
+                onChange={(event) =>
+                  updateGuestFilters({ model: event.target.value })
+                }
+                disabled={filterOptionsLoading || !guestBrandId}
+                className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-[#9dcf00] focus:bg-white focus:ring-4 focus:ring-[#b9f000]/15 disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                <option value="">
+                  {guestBrandId ? "Select model" : "Choose a brand first"}
+                </option>
+                {guestBrandId && (
+                  <option value="ALL">All models (generic prices only)</option>
+                )}
+                {availableModels.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="border-t border-gray-100 px-5 py-3 text-sm sm:px-6">
+            {filterOptionsError || pricingError ? (
+              <p className="font-semibold text-red-600">
+                {filterOptionsError || pricingError}
+              </p>
+            ) : guestPricingReady ? (
+              <p className="font-semibold text-emerald-700">
+                Showing prices for {selectedBrand?.name}{" "}
+                {allModelsSelected
+                  ? "all models with generic pricing"
+                  : selectedModel?.name} in {guestCity}.
+              </p>
+            ) : (
+              <p className="text-muted">
+                Complete all three fields to view prices for this category.
+              </p>
+            )}
+          </div>
+        </section>
       )}
 
       <div className="grid gap-4">

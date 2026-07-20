@@ -383,7 +383,7 @@ Confirmed flow:
 1. Checkout verifies customer ownership of the vehicle, active city, available services, contextual price ranges, and the one-active-booking rule.
 2. A transaction inserts `Booking` in `PENDING_PAYMENT` plus `BookingService` snapshots.
 3. Cashfree/customer-wallet payment covers the platform fee; the final service amount is paid to the garage outside the platform flow.
-4. Verified payment writes `Payment=PAID`, updates wallet entries when used, changes the booking to `SEARCHING_GARAGE`, and starts a two-minute 5 km search round.
+4. Verified payment writes `Payment=PAID`, updates wallet entries when used, changes the booking to `SEARCHING_GARAGE`, and starts a 2-minute-30-second 5 km search round.
 5. Search expands to 10 km and then 20 km. Every newly eligible verified garage in the current radius receives a `GarageBroadcastRequest`; garages already contacted in the same three-round cycle are not spammed again. After the 20 km round, an unaccepted booking restarts automatically from 5 km.
 6. Acceptance conditionally claims both the request and booking, deducts the garage acceptance fee, expires competitors, and creates the handover OTP.
 7. The garage verifies the OTP with exactly five pickup images, moving the booking to `IN_PROGRESS`.
