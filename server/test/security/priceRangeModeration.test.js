@@ -25,6 +25,10 @@ test("price range moderation routes keep review admin-only", () => {
   );
   assert.match(
     routes,
+    /router\.post\([\s\S]*?"\/submissions\/approve-all"[\s\S]*?authorizeRoles\("ADMIN"\)/,
+  );
+  assert.match(
+    routes,
     /router\.delete\([\s\S]*?"\/submissions\/:id"[\s\S]*?authorizeRoles\("ADMIN"\)/,
   );
   assert.match(
@@ -42,7 +46,10 @@ test("price range moderation routes keep review admin-only", () => {
   assert.match(revenue, /Delete submission history/);
   assert.match(revenue, /Save as edited/);
   assert.match(revenue, /setSubmissionFilter\("EDITED"\)/);
+  assert.match(revenue, /Approve all \(\$\{submissionCounts\.PENDING \+ submissionCounts\.EDITED\}\)/);
+  assert.match(revenue, /approveAllPriceRangeSubmissions/);
   assert.match(api, /editPriceRangeSubmission/);
+  assert.match(api, /async approveAllPriceRangeSubmissions\(\)/);
   assert.match(schema, /enum PriceRangeSubmissionStatus \{[\s\S]*EDITED/);
 
   const service = read(
@@ -50,6 +57,8 @@ test("price range moderation routes keep review admin-only", () => {
   );
   assert.match(service, /priceRangeSubmission\.deleteMany/);
   assert.match(service, /approvedPriceRangeId/);
+  assert.match(service, /const approveAllPriceRangeSubmissions/);
+  assert.match(service, /processed: approved \+ superseded/);
 });
 
 test("intern submissions stay outside live customer price ranges until approval", async () => {
@@ -100,6 +109,20 @@ test("intern submissions stay outside live customer price ranges until approval"
       submission.submittedById !== where.submittedById
     ) {
       return false;
+    }
+    for (const field of [
+      "city",
+      "serviceId",
+      "vehicleBrand",
+      "vehicleModel",
+      "fuelType",
+    ]) {
+      if (
+        Object.prototype.hasOwnProperty.call(where, field) &&
+        submission[field] !== where[field]
+      ) {
+        return false;
+      }
     }
     return true;
   };
@@ -326,6 +349,34 @@ test("intern submissions stay outside live customer price ranges until approval"
         (submission) => submission.id === rejected.id,
       ),
       false,
+    );
+
+    await service.createPriceRangeSubmission(
+      { ...payload, vehicleModel: "Civic" },
+      { id: "intern-1", role: "INTERN" },
+    );
+    await service.createPriceRangeSubmission(
+      { ...payload, vehicleModel: "Accord" },
+      { id: "intern-1", role: "INTERN" },
+    );
+
+    const bulkResult = await service.approveAllPriceRangeSubmissions({
+      id: "admin-1",
+      role: "ADMIN",
+    });
+    assert.deepEqual(bulkResult, {
+      approved: 2,
+      superseded: 0,
+      processed: 2,
+    });
+    assert.equal(liveRanges.length, 2);
+
+    await assert.rejects(
+      service.approveAllPriceRangeSubmissions({
+        id: "intern-1",
+        role: "INTERN",
+      }),
+      /Only admins can approve/,
     );
   } finally {
     if (previousPrisma) require.cache[prismaPath] = previousPrisma;

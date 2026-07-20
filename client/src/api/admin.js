@@ -293,6 +293,14 @@ export const adminApi = {
     );
   },
 
+  async approveAllPriceRangeSubmissions() {
+    return unwrap(
+      await api.post(
+        "/admin/city-service-price-ranges/submissions/approve-all",
+      ),
+    );
+  },
+
   async editPriceRangeSubmission(id, payload) {
     return unwrap(
       await api.patch(

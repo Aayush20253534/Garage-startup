@@ -36,6 +36,18 @@ router.get(
   validate,
   controller.listPriceRangeSubmissions,
 );
+router.post(
+  "/",
+  authorizeRoles("ADMIN", "INTERN"),
+  createPriceRangeSchema,
+  validate,
+  controller.createPriceRange,
+);
+router.post(
+  "/submissions/approve-all",
+  authorizeRoles("ADMIN"),
+  controller.approveAllPriceRangeSubmissions,
+);
 router.patch(
   "/submissions/:id/review",
   authorizeRoles("ADMIN"),
@@ -58,13 +70,6 @@ router.delete(
   controller.deletePriceRangeSubmission,
 );
 router.get("/:id", priceRangeIdSchema, validate, controller.getPriceRange);
-router.post(
-  "/",
-  authorizeRoles("ADMIN", "INTERN"),
-  createPriceRangeSchema,
-  validate,
-  controller.createPriceRange,
-);
 router.patch(
   "/:id",
   authorizeRoles("ADMIN"),

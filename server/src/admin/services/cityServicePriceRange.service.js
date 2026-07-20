@@ -416,6 +416,71 @@ const reviewPriceRangeSubmission = async (
   return result;
 };
 
+const approveAllPriceRangeSubmissions = async (reviewedBy) => {
+  if (!reviewedBy?.id || reviewedBy.role !== "ADMIN") {
+    throw new ApiError(403, "Only admins can approve price range submissions");
+  }
+
+  const reviewedAt = new Date();
+  const result = await prisma.$transaction(async (tx) => {
+    const reviewable = await tx.priceRangeSubmission.findMany({
+      where: { status: { in: ["PENDING", "EDITED"] } },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+    let approved = 0;
+    let superseded = 0;
+
+    for (const submission of reviewable) {
+      const claimed = await tx.priceRangeSubmission.updateMany({
+        where: {
+          id: submission.id,
+          status: { in: ["PENDING", "EDITED"] },
+        },
+        data: {
+          status: "APPROVED",
+          reviewedById: reviewedBy.id,
+          reviewedAt,
+          rejectionReason: null,
+        },
+      });
+      if (claimed.count !== 1) continue;
+
+      await validatePriceRangePayload(submission, tx);
+      const approvedPriceRange = await upsertLivePriceRange(submission, tx);
+      const rejectedDuplicates = await tx.priceRangeSubmission.updateMany({
+        where: {
+          id: { not: submission.id },
+          status: { in: ["PENDING", "EDITED"] },
+          ...scopeWhere(submission),
+        },
+        data: {
+          status: "REJECTED",
+          reviewedById: reviewedBy.id,
+          reviewedAt,
+          rejectionReason:
+            "Superseded by a newer approved submission for the same price scope",
+        },
+      });
+
+      await tx.priceRangeSubmission.update({
+        where: { id: submission.id },
+        data: { approvedPriceRangeId: approvedPriceRange.id },
+      });
+      approved += 1;
+      superseded += rejectedDuplicates.count;
+    }
+
+    return {
+      approved,
+      superseded,
+      processed: approved + superseded,
+    };
+  });
+
+  if (result.approved > 0) await invalidatePriceRangeCaches();
+  return result;
+};
+
 const deletePriceRangeSubmission = async (id, deletedBy) => {
   if (!deletedBy?.id || deletedBy.role !== "ADMIN") {
     throw new ApiError(403, "Only admins can delete price range submission history");
@@ -610,6 +675,7 @@ const findBestPriceRangesForBooking = async ({ city, services, vehicle }) => {
 };
 
 module.exports = {
+  approveAllPriceRangeSubmissions,
   createPriceRange,
   createPriceRangeSubmission,
   deletePriceRange,

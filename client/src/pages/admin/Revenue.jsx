@@ -133,6 +133,7 @@ export default function Revenue() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reviewingId, setReviewingId] = useState("");
+  const [approvingAll, setApprovingAll] = useState(false);
   const [editSubmissionTarget, setEditSubmissionTarget] = useState(null);
   const [submissionEditForm, setSubmissionEditForm] = useState(
     emptySubmissionEditForm,
@@ -353,6 +354,7 @@ export default function Revenue() {
   ) => {
     if (
       isIntern ||
+      approvingAll ||
       !["PENDING", "EDITED"].includes(submission.status)
     ) {
       return;
@@ -390,8 +392,55 @@ export default function Revenue() {
     await reviewSubmission(rejectTarget, "REJECTED", rejectionReason);
   };
 
+  const approveAllSubmissions = async () => {
+    if (
+      isIntern ||
+      approvingAll ||
+      reviewingId ||
+      editingSubmissionId ||
+      deletingSubmissionId
+    ) {
+      return;
+    }
+
+    const reviewableCount =
+      submissionCounts.PENDING + submissionCounts.EDITED;
+    if (!reviewableCount) return;
+
+    const confirmed = window.confirm(
+      `Approve and publish all ${reviewableCount} pending or edited price range submissions?`,
+    );
+    if (!confirmed) return;
+
+    setApprovingAll(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await adminApi.approveAllPriceRangeSubmissions();
+      const approvedCount = result.approved || 0;
+      const supersededCount = result.superseded || 0;
+      setSuccess(
+        `${approvedCount} price range submission${approvedCount === 1 ? "" : "s"} approved and published.${
+          supersededCount
+            ? ` ${supersededCount} older duplicate${supersededCount === 1 ? " was" : "s were"} marked as superseded.`
+            : ""
+        }`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to approve all submissions");
+    } finally {
+      setApprovingAll(false);
+    }
+  };
+
   const openSubmissionEditor = (submission) => {
-    if (isIntern || !["PENDING", "EDITED"].includes(submission.status)) {
+    if (
+      isIntern ||
+      approvingAll ||
+      !["PENDING", "EDITED"].includes(submission.status)
+    ) {
       return;
     }
 
@@ -763,6 +812,26 @@ export default function Revenue() {
                 </button>
               );
             })}
+
+            {!isIntern &&
+              submissionCounts.PENDING + submissionCounts.EDITED > 0 && (
+                <button
+                  type="button"
+                  onClick={approveAllSubmissions}
+                  disabled={
+                    approvingAll ||
+                    Boolean(reviewingId) ||
+                    Boolean(editingSubmissionId) ||
+                    Boolean(deletingSubmissionId)
+                  }
+                  className="ml-auto inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-green-700 px-3 text-xs font-bold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <FiCheckCircle className={approvingAll ? "animate-pulse" : ""} />
+                  {approvingAll
+                    ? "Approving all..."
+                    : `Approve all (${submissionCounts.PENDING + submissionCounts.EDITED})`}
+                </button>
+              )}
           </div>
         </div>
 
@@ -803,6 +872,7 @@ export default function Revenue() {
                           type="button"
                           onClick={() => deleteSubmissionHistory(submission)}
                           disabled={
+                            approvingAll ||
                             deletingSubmissionId === submission.id ||
                             reviewingId === submission.id ||
                             editingSubmissionId === submission.id
@@ -888,6 +958,7 @@ export default function Revenue() {
                         type="button"
                         onClick={() => openSubmissionEditor(submission)}
                         disabled={
+                          approvingAll ||
                           reviewingId === submission.id ||
                           editingSubmissionId === submission.id
                         }
@@ -902,6 +973,7 @@ export default function Revenue() {
                           reviewSubmission(submission, "APPROVED")
                         }
                         disabled={
+                          approvingAll ||
                           reviewingId === submission.id ||
                           editingSubmissionId === submission.id
                         }
@@ -919,6 +991,7 @@ export default function Revenue() {
                           setRejectionReason("");
                         }}
                         disabled={
+                          approvingAll ||
                           reviewingId === submission.id ||
                           editingSubmissionId === submission.id
                         }

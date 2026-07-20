@@ -55,6 +55,19 @@ const reviewPriceRangeSubmission = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, `Price range submission ${verb}`, submission));
 });
 
+const approveAllPriceRangeSubmissions = asyncHandler(async (req, res) => {
+  const result = await service.approveAllPriceRangeSubmissions(req.user);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "All reviewable price range submissions processed",
+        result,
+      ),
+    );
+});
+
 const editPriceRangeSubmission = asyncHandler(async (req, res) => {
   const submission = await service.editPriceRangeSubmission(
     req.params.id,
@@ -100,6 +113,7 @@ const deletePriceRanges = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  approveAllPriceRangeSubmissions,
   createPriceRange,
   deletePriceRange,
   deletePriceRanges,
