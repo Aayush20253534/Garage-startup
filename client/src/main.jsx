@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 
 import App from "./App.jsx";
+import MobilePortraitGuard from "./components/common/MobilePortraitGuard.jsx";
 import { store } from "./store";
 import { registerImageCacheWorker } from "./utils/imageCache";
 import { installGlobalErrorReporting } from "./utils/errorReporter";
@@ -62,9 +63,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HelmetProvider>
       <Provider store={store}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+        <BrowserRouter>
+          <App />
+          <MobilePortraitGuard />
+        </BrowserRouter>
       </Provider>
     </HelmetProvider>
   </React.StrictMode>,

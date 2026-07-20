@@ -33,6 +33,91 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.mobile-portrait-guard {
+  display: none;
+}
+
+/* Installed PWAs use their manifest orientation lock. This guard covers
+   mobile browser tabs, where websites cannot reliably force orientation. */
+@media (orientation: landscape) and (max-height: 540px) and (pointer: coarse) {
+  .mobile-portrait-guard {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    min-height: 100dvh;
+    place-items: center;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 50% 35%, rgba(185, 240, 0, 0.2), transparent 42%),
+      #f8fafc;
+    padding: max(18px, env(safe-area-inset-top))
+      max(24px, env(safe-area-inset-right))
+      max(18px, env(safe-area-inset-bottom))
+      max(24px, env(safe-area-inset-left));
+  }
+
+  .mobile-portrait-guard__card {
+    width: min(100%, 430px);
+    text-align: center;
+  }
+
+  .mobile-portrait-guard__visual {
+    position: relative;
+    display: inline-grid;
+    height: 72px;
+    width: 96px;
+    place-items: center;
+    color: var(--color-ink);
+  }
+
+  .mobile-portrait-guard__phone {
+    display: grid;
+    height: 58px;
+    width: 58px;
+    place-items: center;
+    border: 1px solid rgba(17, 17, 17, 0.12);
+    border-radius: 18px;
+    background: var(--color-brand);
+    font-size: 30px;
+    box-shadow: 0 12px 30px rgba(17, 17, 17, 0.12);
+  }
+
+  .mobile-portrait-guard__rotate {
+    position: absolute;
+    right: 1px;
+    bottom: 1px;
+    height: 24px;
+    width: 24px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--color-ink);
+    color: #ffffff;
+  }
+
+  .mobile-portrait-guard__eyebrow {
+    margin: 8px 0 4px;
+    color: #668500;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+  }
+
+  .mobile-portrait-guard h1 {
+    margin: 0;
+    font-size: clamp(1.3rem, 5vw, 1.7rem);
+    font-weight: 800;
+  }
+
+  .mobile-portrait-guard p:last-child {
+    max-width: 360px;
+    margin: 7px auto 0;
+    color: var(--color-muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+}
+
 h1,
 h2,
 h3,
