@@ -5,6 +5,8 @@ process.env.DATABASE_URL ||=
   "postgresql://test:test@127.0.0.1:5432/rovauto_test";
 
 const prismaPath = require.resolve("../../src/config/prisma");
+const fs = require("node:fs");
+const path = require("node:path");
 
 require.cache[prismaPath] = {
   id: prismaPath,
@@ -58,4 +60,17 @@ test("restricted city IDs are trimmed, deduplicated, and empty values removed", 
     normalizeRestrictedCityIds([" city-1 ", "city-2", "city-1", null, ""]),
     ["city-1", "city-2"],
   );
+});
+
+test("admin services provide a focused coverage editor", () => {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, "../../../client/src/pages/admin/Services.jsx"),
+    "utf8",
+  );
+
+  assert.match(source, /Edit coverage/);
+  assert.match(source, /openCoverageEditor\(service, category\)/);
+  assert.match(source, /restrictedCityIds: coverageRestrictedCityIds/);
+  assert.match(source, /Save coverage/);
+  assert.match(source, /Category restrictions also hide this service in:/);
 });

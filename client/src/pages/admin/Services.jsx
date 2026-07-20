@@ -197,6 +197,10 @@ export default function AdminServices() {
   const [success, setSuccess] = useState("");
   const [togglingServiceId, setTogglingServiceId] = useState(null);
   const [togglingCategoryId, setTogglingCategoryId] = useState(null);
+  const [coverageService, setCoverageService] = useState(null);
+  const [coverageRestrictedCityIds, setCoverageRestrictedCityIds] = useState([]);
+  const [coverageCitySearch, setCoverageCitySearch] = useState("");
+  const [savingCoverage, setSavingCoverage] = useState(false);
 
   const activeCategoryCount = useMemo(
     () => categories.filter((category) => category.isActive).length,
@@ -505,6 +509,56 @@ export default function AdminServices() {
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openCoverageEditor = (service, category) => {
+    setCoverageService({
+      id: service.id,
+      name: service.name,
+      categoryRestrictedCityNames: getRestrictedCityNames(category),
+    });
+    setCoverageRestrictedCityIds(getRestrictedCityIds(service));
+    setCoverageCitySearch("");
+  };
+
+  const closeCoverageEditor = () => {
+    if (savingCoverage) return;
+    setCoverageService(null);
+    setCoverageRestrictedCityIds([]);
+    setCoverageCitySearch("");
+  };
+
+  const toggleCoverageRestrictedCity = (cityId) => {
+    setCoverageRestrictedCityIds((current) =>
+      current.includes(cityId)
+        ? current.filter((id) => id !== cityId)
+        : [...current, cityId],
+    );
+  };
+
+  const saveCoverage = async (event) => {
+    event.preventDefault();
+    if (!coverageService || savingCoverage) return;
+
+    setSavingCoverage(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await adminApi.updateService(coverageService.id, {
+        restrictedCityIds: coverageRestrictedCityIds,
+      });
+      const serviceName = coverageService.name;
+      setCoverageService(null);
+      setCoverageRestrictedCityIds([]);
+      setCoverageCitySearch("");
+      setSuccess(`${serviceName} coverage updated.`);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update service coverage");
+    } finally {
+      setSavingCoverage(false);
+    }
   };
 
   const toggleComingSoon = async (service) => {
@@ -1167,6 +1221,16 @@ export default function AdminServices() {
 
                           <button
                             type="button"
+                            onClick={() => openCoverageEditor(service, category)}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-bold text-sky-800 transition hover:border-sky-300 hover:bg-sky-100"
+                            aria-label={`Edit coverage for ${service.name}`}
+                          >
+                            <FiMapPin />
+                            Edit coverage
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => editService(service)}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink transition hover:border-ink hover:bg-bg-soft"
                             aria-label="Edit service"
@@ -1221,6 +1285,80 @@ export default function AdminServices() {
           </div>
         )}
       </div>
+
+      {coverageService && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="service-coverage-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeCoverageEditor();
+          }}
+        >
+          <form
+            onSubmit={saveCoverage}
+            className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-2xl sm:max-w-2xl sm:rounded-2xl sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 id="service-coverage-title" className="text-lg font-bold text-ink">
+                  Edit service coverage
+                </h3>
+                <p className="mt-1 text-sm text-muted">
+                  {coverageService.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCoverageEditor}
+                disabled={savingCoverage}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-ink transition hover:bg-bg-soft disabled:opacity-50"
+                aria-label="Close coverage editor"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            {coverageService.categoryRestrictedCityNames.length > 0 && (
+              <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800">
+                Category restrictions also hide this service in: {coverageService.categoryRestrictedCityNames.join(", ")}.
+              </div>
+            )}
+
+            <div className="mt-4">
+              <RestrictedCityPicker
+                description="Select cities where this service must be hidden. Leave every city unselected to make it available wherever its category is available."
+                cities={cities}
+                selectedCityIds={coverageRestrictedCityIds}
+                search={coverageCitySearch}
+                onSearchChange={setCoverageCitySearch}
+                onToggle={toggleCoverageRestrictedCity}
+                onClear={() => setCoverageRestrictedCityIds([])}
+              />
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeCoverageEditor}
+                disabled={savingCoverage}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-bold text-ink transition hover:bg-bg-soft disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingCoverage}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FiMapPin />
+                {savingCoverage ? "Saving coverage..." : "Save coverage"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
