@@ -140,6 +140,7 @@ model StaffAccount {
   createdAt              DateTime               @default(now())
   updatedAt              DateTime               @updatedAt
   sessions               StaffSession[]
+  passwordResetChallenge StaffPasswordResetChallenge?
   assignedSupportTickets SupportTicket[]        @relation("AssignedSupportTickets")
   supportTicketMessages  SupportTicketMessage[] @relation("SupportTicketStaffMessages")
 
@@ -222,6 +223,21 @@ model StaffLoginChallenge {
   @@unique([accountId, accountType])
   @@index([expiresAt])
   @@map("staff_login_challenges")
+}
+
+model StaffPasswordResetChallenge {
+  id             String       @id @default(uuid())
+  staffAccountId String       @unique
+  otpHash        String
+  attempts       Int          @default(0)
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  staffAccount   StaffAccount @relation(fields: [staffAccountId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("staff_password_reset_challenges")
 }
 
 model CustomerActivity {

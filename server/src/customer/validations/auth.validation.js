@@ -8,6 +8,7 @@ const PASSWORD_REGEX =
 const PUBLIC_SIGNUP_ROLES = ["CUSTOMER"];
 const USER_ROLES = ["CUSTOMER", "GARAGE_OWNER"];
 const AUTH_ROLES = [...USER_ROLES, "ADMIN", "INTERN", "CUSTOMER_SUPPORT"];
+const PASSWORD_RECOVERY_ROLES = [...USER_ROLES, "INTERN"];
 
 const signupValidation = [
   body("acceptedTerms").custom((value) => value === true).withMessage("You must accept the Terms and Conditions"),
@@ -223,9 +224,9 @@ const forgotPasswordValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(USER_ROLES)
+    .isIn(PASSWORD_RECOVERY_ROLES)
     .withMessage(
-      "Password recovery is available only for CUSTOMER or GARAGE_OWNER accounts",
+      "Password recovery is available only for CUSTOMER, GARAGE_OWNER or INTERN accounts",
     ),
 ];
 
@@ -254,9 +255,9 @@ const resetPasswordValidation = [
   body("role")
     .optional({ checkFalsy: true })
     .trim()
-    .isIn(USER_ROLES)
+    .isIn(PASSWORD_RECOVERY_ROLES)
     .withMessage(
-      "Password recovery is available only for CUSTOMER or GARAGE_OWNER accounts",
+      "Password recovery is available only for CUSTOMER, GARAGE_OWNER or INTERN accounts",
     ),
 ];
 

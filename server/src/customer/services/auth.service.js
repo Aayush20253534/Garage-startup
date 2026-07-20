@@ -35,6 +35,7 @@ const {
 const {
   getPasswordChangeSessionRevocation,
 } = require("../security/passwordSessionRevocation");
+const staffPasswordResetService = require("./staffPasswordReset.service");
 
 const PENDING_SIGNUP_EXPIRY_MS = 15 * 60 * 1000;
 const PASSWORD_REGEX =
@@ -910,9 +911,31 @@ const forgotPassword = async ({
   const cleanEmail = normalizeEmail(email);
   const userRole = normalizeAuthRole(
     role,
-    [...USER_ROLES, GARAGE_OWNER_ROLE],
+    [...USER_ROLES, GARAGE_OWNER_ROLE, "INTERN"],
     "CUSTOMER",
   );
+
+  if (userRole === "INTERN") {
+    const staff = await prisma.staffAccount.findFirst({
+      where: {
+        email: cleanEmail,
+        role: "INTERN",
+      },
+    });
+
+    if (staff?.isActive && staff.email) {
+      await staffPasswordResetService.createChallenge({
+        staffAccountId: staff.id,
+        role: staff.role,
+        email: staff.email,
+      });
+    }
+
+    return {
+      email: cleanEmail,
+      message: PASSWORD_RESET_REQUEST_MESSAGE,
+    };
+  }
 
   if (userRole === GARAGE_OWNER_ROLE) {
     const owner = await prisma.garageOwner.findUnique({
@@ -960,12 +983,53 @@ const resetPassword = async ({
   const cleanEmail = normalizeEmail(email);
   const userRole = normalizeAuthRole(
     role,
-    [...USER_ROLES, GARAGE_OWNER_ROLE],
+    [...USER_ROLES, GARAGE_OWNER_ROLE, "INTERN"],
     "CUSTOMER",
   );
 
   if (!PASSWORD_REGEX.test(newPassword)) {
     throw new ApiError(400, PASSWORD_MESSAGE);
+  }
+
+  if (userRole === "INTERN") {
+    const staff = await prisma.staffAccount.findFirst({
+      where: {
+        email: cleanEmail,
+        role: "INTERN",
+      },
+    });
+
+    if (!staff?.isActive) {
+      throw new ApiError(400, "Invalid or expired OTP");
+    }
+
+    const hashedPassword = await argon2.hash(newPassword);
+    const changedAt = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      await staffPasswordResetService.consumeChallenge({
+        client: tx,
+        staffAccountId: staff.id,
+        otp,
+      });
+
+      await tx.staffAccount.update({
+        where: { id: staff.id },
+        data: {
+          password: hashedPassword,
+          passwordChangedAt: changedAt,
+        },
+      });
+      await tx.staffSession.updateMany({
+        where: {
+          staffAccountId: staff.id,
+          revokedAt: null,
+        },
+        data: { revokedAt: changedAt },
+      });
+    });
+
+    return { message: "Password reset successful" };
   }
 
   if (userRole === GARAGE_OWNER_ROLE) {

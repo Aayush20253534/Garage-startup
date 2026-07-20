@@ -21,7 +21,7 @@ router.get("/", priceRangeQuerySchema, validate, controller.listPriceRanges);
 router.get("/:id", priceRangeIdSchema, validate, controller.getPriceRange);
 router.post(
   "/",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "INTERN"),
   createPriceRangeSchema,
   validate,
   controller.createPriceRange,
