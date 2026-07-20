@@ -48,6 +48,15 @@ test("price range moderation routes keep review admin-only", () => {
   assert.match(revenue, /setSubmissionFilter\("EDITED"\)/);
   assert.match(revenue, /Approve all \(\$\{submissionCounts\.PENDING \+ submissionCounts\.EDITED\}\)/);
   assert.match(revenue, /approveAllPriceRangeSubmissions/);
+  assert.match(revenue, /filterVehicleBrand/);
+  assert.match(revenue, /filterVehicleModel/);
+  assert.match(revenue, /filterFuelType/);
+  assert.match(revenue, /vehicleBrand: filterVehicleBrand/);
+  assert.match(revenue, /vehicleModel: filterVehicleModel/);
+  assert.match(revenue, /fuelType: filterFuelType/);
+  assert.match(revenue, /All brands/);
+  assert.match(revenue, /All models/);
+  assert.match(revenue, /All fuel types/);
   assert.match(api, /editPriceRangeSubmission/);
   assert.match(api, /async approveAllPriceRangeSubmissions\(\)/);
   assert.match(schema, /enum PriceRangeSubmissionStatus \{[\s\S]*EDITED/);

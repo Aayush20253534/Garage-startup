@@ -127,6 +127,9 @@ export default function Revenue() {
   const [form, setForm] = useState(emptyForm);
   const [cityForm, setCityForm] = useState({ name: "", state: "" });
   const [filterCity, setFilterCity] = useState("");
+  const [filterVehicleBrand, setFilterVehicleBrand] = useState("");
+  const [filterVehicleModel, setFilterVehicleModel] = useState("");
+  const [filterFuelType, setFilterFuelType] = useState("");
   const [submissionFilter, setSubmissionFilter] = useState(
     isIntern ? "ALL" : "PENDING",
   );
@@ -168,8 +171,14 @@ export default function Revenue() {
     setError("");
 
     try {
+      const priceRangeFilters = {
+        ...(filterCity.trim() && { city: filterCity.trim() }),
+        ...(filterVehicleBrand && { vehicleBrand: filterVehicleBrand }),
+        ...(filterVehicleModel && { vehicleModel: filterVehicleModel }),
+        ...(filterFuelType && { fuelType: filterFuelType }),
+      };
       const [rangeList, serviceList, submissionList] = await Promise.all([
-        adminApi.getPriceRanges(filterCity ? { city: filterCity.trim() } : {}),
+        adminApi.getPriceRanges(priceRangeFilters),
         adminApi.getAssignableServices(),
         adminApi.getPriceRangeSubmissions(),
       ]);
@@ -656,6 +665,10 @@ export default function Revenue() {
   );
 
   const vehicleModels = selectedVehicleBrand?.models || [];
+  const selectedFilterVehicleBrand = vehicleBrands.find(
+    (brand) => brand.name === filterVehicleBrand,
+  );
+  const filterVehicleModels = selectedFilterVehicleBrand?.models || [];
   const submissionEditBrand = vehicleBrands.find(
     (brand) => brand.name === submissionEditForm.vehicleBrand,
   );
@@ -1219,7 +1232,13 @@ export default function Revenue() {
       </section>
 
       <section className="card-soft rounded-2xl p-4 shadow-sm">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            load();
+          }}
+          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto]"
+        >
           <CitySelect
             key={`filter-city-${citySelectKey}`}
             value={filterCity}
@@ -1229,16 +1248,61 @@ export default function Revenue() {
             className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
           />
 
+          <select
+            value={filterVehicleBrand}
+            onChange={(event) => {
+              setFilterVehicleBrand(event.target.value);
+              setFilterVehicleModel("");
+            }}
+            className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+            aria-label="Filter price ranges by vehicle brand"
+          >
+            <option value="">All brands</option>
+            {vehicleBrands.map((brand) => (
+              <option key={brand.id || brand.name} value={brand.name}>
+                {brand.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filterVehicleModel}
+            onChange={(event) => setFilterVehicleModel(event.target.value)}
+            disabled={!filterVehicleBrand}
+            className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink disabled:cursor-not-allowed disabled:bg-bg-soft disabled:text-muted"
+            aria-label="Filter price ranges by vehicle model"
+          >
+            <option value="">All models</option>
+            {filterVehicleModels.map((model) => (
+              <option key={model.id || model.name} value={model.name}>
+                {model.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filterFuelType}
+            onChange={(event) => setFilterFuelType(event.target.value)}
+            className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+            aria-label="Filter price ranges by fuel type"
+          >
+            <option value="">All fuel types</option>
+            {fuelTypes.filter(Boolean).map((fuelType) => (
+              <option key={fuelType} value={fuelType}>
+                {fuelType}
+              </option>
+            ))}
+          </select>
+
           <button
-            type="button"
-            onClick={load}
+            type="submit"
             disabled={loading}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FiRefreshCw className={loading ? "animate-spin" : ""} />
             Search
           </button>
-        </div>
+        </form>
       </section>
 
       <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
