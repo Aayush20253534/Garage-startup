@@ -4,6 +4,10 @@ const fuelTypes = ["PETROL", "DIESEL", "HYBRID", "CNG", "OTHER"];
 
 const priceRangeIdSchema = [param("id").isUUID().withMessage("Invalid price range ID")];
 
+const priceRangeSubmissionIdSchema = [
+  param("id").isUUID().withMessage("Invalid price range submission ID"),
+];
+
 const submissionQuerySchema = [
   query("status")
     .optional({ nullable: true, checkFalsy: true })
@@ -86,6 +90,7 @@ module.exports = {
   createPriceRangeSchema,
   deletePriceRangesSchema,
   priceRangeIdSchema,
+  priceRangeSubmissionIdSchema,
   priceRangeQuerySchema,
   reviewSubmissionSchema,
   submissionQuerySchema,

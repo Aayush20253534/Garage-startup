@@ -8,6 +8,7 @@ const {
   createPriceRangeSchema,
   deletePriceRangesSchema,
   priceRangeIdSchema,
+  priceRangeSubmissionIdSchema,
   priceRangeQuerySchema,
   reviewSubmissionSchema,
   submissionQuerySchema,
@@ -32,6 +33,13 @@ router.patch(
   reviewSubmissionSchema,
   validate,
   controller.reviewPriceRangeSubmission,
+);
+router.delete(
+  "/submissions/:id",
+  authorizeRoles("ADMIN"),
+  priceRangeSubmissionIdSchema,
+  validate,
+  controller.deletePriceRangeSubmission,
 );
 router.get("/:id", priceRangeIdSchema, validate, controller.getPriceRange);
 router.post(

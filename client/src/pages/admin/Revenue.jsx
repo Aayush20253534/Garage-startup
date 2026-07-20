@@ -112,6 +112,7 @@ export default function Revenue() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reviewingId, setReviewingId] = useState("");
+  const [deletingSubmissionId, setDeletingSubmissionId] = useState("");
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [citySaving, setCitySaving] = useState(false);
@@ -351,6 +352,36 @@ export default function Revenue() {
     event.preventDefault();
     if (!rejectTarget) return;
     await reviewSubmission(rejectTarget, "REJECTED", rejectionReason);
+  };
+
+  const deleteSubmissionHistory = async (submission) => {
+    if (isIntern) return;
+
+    const message =
+      submission.status === "APPROVED"
+        ? "Delete this submission history? Its approved live price range will remain available."
+        : submission.status === "PENDING"
+          ? "Delete this pending submission? It will no longer be available for review."
+          : "Delete this rejected submission history?";
+    if (!window.confirm(message)) return;
+
+    setDeletingSubmissionId(submission.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await adminApi.deletePriceRangeSubmission(submission.id);
+      setSubmissions((current) =>
+        current.filter((item) => item.id !== submission.id),
+      );
+      setSuccess("Submission history deleted.");
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Unable to delete submission history",
+      );
+    } finally {
+      setDeletingSubmissionId("");
+    }
   };
 
   const visibleRangeIds = ranges.map((range) => range.id);
@@ -600,7 +631,29 @@ export default function Revenue() {
                         Submitted {formatSubmittedAt(submission.createdAt)}
                       </p>
                     </div>
-                    <SubmissionStatusBadge status={submission.status} />
+                    <div className="flex shrink-0 items-center gap-2">
+                      <SubmissionStatusBadge status={submission.status} />
+                      {!isIntern && (
+                        <button
+                          type="button"
+                          onClick={() => deleteSubmissionHistory(submission)}
+                          disabled={
+                            deletingSubmissionId === submission.id ||
+                            reviewingId === submission.id
+                          }
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 text-xs font-bold text-red-700 transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label="Delete submission history"
+                          title="Delete submission history"
+                        >
+                          <FiTrash2 />
+                          <span className="hidden sm:inline">
+                            {deletingSubmissionId === submission.id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">

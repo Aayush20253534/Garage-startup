@@ -361,6 +361,21 @@ const reviewPriceRangeSubmission = async (
   return result;
 };
 
+const deletePriceRangeSubmission = async (id, deletedBy) => {
+  if (!deletedBy?.id || deletedBy.role !== "ADMIN") {
+    throw new ApiError(403, "Only admins can delete price range submission history");
+  }
+
+  const existing = await prisma.priceRangeSubmission.findUnique({
+    where: { id },
+    include: submissionInclude,
+  });
+  if (!existing) throw new ApiError(404, "Price range submission not found");
+
+  await prisma.priceRangeSubmission.delete({ where: { id } });
+  return existing;
+};
+
 const deletePriceRange = async (id) => {
   const deleted = await prisma.$transaction(async (tx) => {
     const existing = await tx.cityServicePriceRange.findUnique({
@@ -489,6 +504,7 @@ module.exports = {
   createPriceRangeSubmission,
   deletePriceRange,
   deletePriceRanges,
+  deletePriceRangeSubmission,
   findBestPriceRangesForBooking,
   getPriceRange,
   invalidatePriceRangeCaches,

@@ -21,6 +21,10 @@ test("price range moderation routes keep review admin-only", () => {
     routes,
     /router\.patch\([\s\S]*?"\/submissions\/:id\/review"[\s\S]*?authorizeRoles\("ADMIN"\)/,
   );
+  assert.match(
+    routes,
+    /router\.delete\([\s\S]*?"\/submissions\/:id"[\s\S]*?authorizeRoles\("ADMIN"\)/,
+  );
   assert.match(controller, /req\.user\.role === "INTERN"/);
   assert.match(controller, /createPriceRangeSubmission\(req\.body, req\.user\)/);
   assert.match(revenue, /Intern Price Range Review/);
@@ -28,6 +32,8 @@ test("price range moderation routes keep review admin-only", () => {
   assert.match(revenue, /SubmissionStatusBadge/);
   assert.match(revenue, /visibleSubmissions\.length > 2/);
   assert.match(revenue, /overflow-y-auto/);
+  assert.match(revenue, /deleteSubmissionHistory/);
+  assert.match(revenue, /Delete submission history/);
 
   const service = read(
     "server/src/admin/services/cityServicePriceRange.service.js",
@@ -131,6 +137,11 @@ test("intern submissions stay outside live customer price ranges until approval"
       }
 
       return { count };
+    },
+    async delete({ where }) {
+      const submission = submissions.get(where.id);
+      submissions.delete(where.id);
+      return submission;
     },
   };
 
@@ -256,6 +267,29 @@ test("intern submissions stay outside live customer price ranges until approval"
     assert.equal(rejected.status, "REJECTED");
     assert.equal(rejected.rejectionReason, "Incorrect estimate");
     assert.equal(liveRanges.length, 0);
+
+    await assert.rejects(
+      service.deletePriceRangeSubmission(rejected.id, {
+        id: "intern-1",
+        role: "INTERN",
+      }),
+      /Only admins can delete/,
+    );
+    await service.deletePriceRangeSubmission(rejected.id, {
+      id: "admin-1",
+      role: "ADMIN",
+    });
+
+    const historyAfterAdminDelete = await service.listPriceRangeSubmissions(
+      {},
+      { id: "intern-1", role: "INTERN" },
+    );
+    assert.equal(
+      historyAfterAdminDelete.some(
+        (submission) => submission.id === rejected.id,
+      ),
+      false,
+    );
   } finally {
     if (previousPrisma) require.cache[prismaPath] = previousPrisma;
     else delete require.cache[prismaPath];

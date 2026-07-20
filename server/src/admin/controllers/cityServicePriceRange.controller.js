@@ -55,6 +55,22 @@ const reviewPriceRangeSubmission = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, `Price range submission ${verb}`, submission));
 });
 
+const deletePriceRangeSubmission = asyncHandler(async (req, res) => {
+  const submission = await service.deletePriceRangeSubmission(
+    req.params.id,
+    req.user,
+  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Price range submission history deleted successfully",
+        submission,
+      ),
+    );
+});
+
 const updatePriceRange = asyncHandler(async (req, res) => {
   const range = await service.updatePriceRange(req.params.id, req.body);
   return res.status(200).json(new ApiResponse(200, "Price range updated successfully", range));
@@ -76,6 +92,7 @@ module.exports = {
   createPriceRange,
   deletePriceRange,
   deletePriceRanges,
+  deletePriceRangeSubmission,
   getPriceRange,
   listPriceRangeSubmissions,
   listPriceRanges,

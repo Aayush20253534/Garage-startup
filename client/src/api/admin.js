@@ -293,6 +293,12 @@ export const adminApi = {
     );
   },
 
+  async deletePriceRangeSubmission(id) {
+    return unwrap(
+      await api.delete(`/admin/city-service-price-ranges/submissions/${id}`),
+    );
+  },
+
   async updatePriceRange(id, payload) {
     return unwrap(
       await api.patch(`/admin/city-service-price-ranges/${id}`, payload),
