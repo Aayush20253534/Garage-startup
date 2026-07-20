@@ -864,15 +864,27 @@ export default function Navbar() {
               </nav>
 
               <div className="grid gap-2">
-                <Link
-                  to="/booking/vehicle"
-                  onClick={(event) =>
-                    handleMobileNavigate(event, "/booking/vehicle")
-                  }
-                  className="inline-flex h-11 items-center justify-center rounded-xl bg-brand px-4 text-sm font-bold text-black transition hover:bg-brand-dark"
-                >
-                  Book Service
-                </Link>
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    to="/booking/vehicle"
+                    onClick={(event) =>
+                      handleMobileNavigate(event, "/booking/vehicle")
+                    }
+                    className="inline-flex h-11 min-w-0 items-center justify-center rounded-xl bg-brand px-3 text-center text-sm font-bold text-black transition hover:bg-brand-dark"
+                  >
+                    Book Service
+                  </Link>
+
+                  <Link
+                    to="/partner"
+                    onClick={(event) =>
+                      handleMobileNavigate(event, "/partner")
+                    }
+                    className="inline-flex h-11 min-w-0 items-center justify-center rounded-xl border border-line bg-white px-3 text-center text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
+                  >
+                    Become a Partner
+                  </Link>
+                </div>
 
                 {!user ? (
                   <>
