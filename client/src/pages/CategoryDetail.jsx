@@ -338,22 +338,24 @@ export default function CategoryDetail() {
       {!user && (
         <section
           aria-labelledby="category-price-filter-heading"
-          className="mb-6 overflow-hidden rounded-[24px] border border-gray-950 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.07)]"
+          className="mb-6 overflow-hidden rounded-2xl border border-gray-950 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]"
         >
-          <div className="flex flex-col gap-3 border-b border-gray-950 bg-[#f5f8ec] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-gray-950 bg-[#b9f000] text-lg text-gray-950 shadow-sm">
-                <FiSliders aria-hidden="true" />
-              </span>
+          <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="min-w-0 border-l-[3px] border-[#9fce00] pl-4">
+              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#668500]">
+                <FiSliders className="text-sm" aria-hidden="true" />
+                Price preview
+              </div>
               <div>
                 <h2
                   id="category-price-filter-heading"
-                  className="font-bold text-gray-950"
+                  className="text-lg font-semibold tracking-[-0.01em] text-gray-950"
                 >
-                  Check prices for your vehicle
+                  Service pricing for your vehicle
                 </h2>
-                <p className="mt-1 text-sm leading-5 text-gray-600">
-                  Choose your city, brand and model to filter this category.
+                <p className="mt-1 max-w-2xl text-sm leading-5 text-gray-600">
+                  Select your location and vehicle to see relevant prices in
+                  this category.
                 </p>
               </div>
             </div>
@@ -364,17 +366,17 @@ export default function CategoryDetail() {
                 onClick={() =>
                   updateGuestFilters({ city: "", brand: "", model: "" })
                 }
-                className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-lg border border-gray-950 bg-white px-3.5 text-xs font-bold text-gray-950 transition hover:bg-gray-950 hover:text-white sm:self-auto"
+                className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-lg border border-gray-300 bg-white px-3.5 text-xs font-semibold text-gray-700 transition hover:border-gray-950 hover:text-gray-950 sm:self-auto"
               >
                 <FiX aria-hidden="true" /> Clear filters
               </button>
             )}
           </div>
 
-          <div className="grid gap-4 p-5 sm:grid-cols-3 sm:p-6">
+          <div className="grid gap-4 border-y border-gray-200 bg-gray-50/80 px-5 py-5 sm:grid-cols-3 sm:px-6">
             <label className="block min-w-0">
-              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-700">
-                <FiMapPin className="text-[#6f9300]" aria-hidden="true" /> City
+              <span className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                <FiMapPin className="text-gray-950" aria-hidden="true" /> City
               </span>
               <select
                 value={guestCity}
@@ -382,7 +384,7 @@ export default function CategoryDetail() {
                   updateGuestFilters({ city: event.target.value })
                 }
                 disabled={filterOptionsLoading}
-                className="h-12 w-full rounded-xl border border-gray-950 bg-white px-4 text-sm font-semibold text-gray-950 shadow-sm outline-none transition hover:bg-gray-50 focus:border-gray-950 focus:ring-4 focus:ring-[#b9f000]/25 disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70"
+                className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
               >
                 <option value="">Select city</option>
                 {cities.map((city) => (
@@ -394,8 +396,8 @@ export default function CategoryDetail() {
             </label>
 
             <label className="block min-w-0">
-              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-700">
-                <FiTruck className="text-[#6f9300]" aria-hidden="true" /> Brand
+              <span className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                <FiTruck className="text-gray-950" aria-hidden="true" /> Brand
               </span>
               <select
                 value={guestBrandId}
@@ -406,7 +408,7 @@ export default function CategoryDetail() {
                   })
                 }
                 disabled={filterOptionsLoading}
-                className="h-12 w-full rounded-xl border border-gray-950 bg-white px-4 text-sm font-semibold text-gray-950 shadow-sm outline-none transition hover:bg-gray-50 focus:border-gray-950 focus:ring-4 focus:ring-[#b9f000]/25 disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70"
+                className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
               >
                 <option value="">Select brand</option>
                 {brands.map((brand) => (
@@ -418,8 +420,8 @@ export default function CategoryDetail() {
             </label>
 
             <label className="block min-w-0">
-              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-700">
-                <FiSettings className="text-[#6f9300]" aria-hidden="true" /> Model
+              <span className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                <FiSettings className="text-gray-950" aria-hidden="true" /> Model
               </span>
               <select
                 value={guestModelId}
@@ -427,7 +429,7 @@ export default function CategoryDetail() {
                   updateGuestFilters({ model: event.target.value })
                 }
                 disabled={filterOptionsLoading || !guestBrandId}
-                className="h-12 w-full rounded-xl border border-gray-950 bg-white px-4 text-sm font-semibold text-gray-950 shadow-sm outline-none transition hover:bg-gray-50 focus:border-gray-950 focus:ring-4 focus:ring-[#b9f000]/25 disabled:cursor-not-allowed disabled:border-gray-400 disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70"
+                className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
               >
                 <option value="">
                   {guestBrandId ? "Select model" : "Choose a brand first"}
@@ -444,22 +446,41 @@ export default function CategoryDetail() {
             </label>
           </div>
 
-          <div className="border-t border-gray-950 bg-[#fbfcf8] px-5 py-3 text-sm sm:px-6">
+          <div
+            className="flex min-h-12 items-center gap-3 bg-white px-5 py-3 text-sm sm:px-6"
+            aria-live="polite"
+          >
             {filterOptionsError || pricingError ? (
-              <p className="font-semibold text-red-600">
-                {filterOptionsError || pricingError}
-              </p>
-            ) : guestPricingReady ? (
-              <p className="font-semibold text-emerald-700">
-                Showing prices for {selectedBrand?.name}{" "}
-                {allModelsSelected
-                  ? "all models with generic pricing"
-                  : selectedModel?.name} in {guestCity}.
-              </p>
+              <>
+                <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                <p className="font-medium text-red-700">
+                  {filterOptionsError || pricingError}
+                </p>
+              </>
             ) : (
-              <p className="text-muted">
-                Complete all three fields to view prices for this category.
-              </p>
+              <>
+                <span
+                  className={`h-2 w-2 shrink-0 rounded-full ${
+                    guestPricingReady ? "bg-[#86ad00]" : "bg-gray-400"
+                  }`}
+                />
+                {guestPricingReady ? (
+                  <p className="font-medium text-gray-700">
+                    <span className="font-semibold text-gray-950">
+                      Price context:
+                    </span>{" "}
+                    {selectedBrand?.name}{" "}
+                    {allModelsSelected
+                      ? "all models with generic pricing"
+                      : selectedModel?.name} in {guestCity}
+                  </p>
+                ) : (
+                  <p className="text-gray-600">
+                    Complete all three fields to view prices tailored to your
+                    vehicle.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </section>
