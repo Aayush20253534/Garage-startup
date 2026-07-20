@@ -36,6 +36,20 @@ const servicePricingQuerySchema = [
 
       return true;
     }),
+  query("fuelType")
+    .optional({ nullable: true, checkFalsy: true })
+    .isString()
+    .trim()
+    .customSanitizer((value) => String(value).toUpperCase())
+    .isIn(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"])
+    .withMessage("Invalid fuel type")
+    .custom((value, { req }) => {
+      if (value && (!req.query.vehicleBrandId || !req.query.vehicleModelId)) {
+        throw new Error("Select a vehicle brand and model before fuel type");
+      }
+
+      return true;
+    }),
 ];
 
 const createServiceSchema = [

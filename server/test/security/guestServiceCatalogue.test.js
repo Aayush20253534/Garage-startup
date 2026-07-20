@@ -11,6 +11,14 @@ const categoryDetailPage = fs.readFileSync(
   path.join(__dirname, "../../../client/src/pages/CategoryDetail.jsx"),
   "utf8",
 );
+const serviceController = fs.readFileSync(
+  path.join(__dirname, "../../src/customer/controllers/service.controller.js"),
+  "utf8",
+);
+const serviceValidation = fs.readFileSync(
+  path.join(__dirname, "../../src/customer/validations/service.validation.js"),
+  "utf8",
+);
 
 test("the services catalogue is category-first for guests and customers", () => {
   assert.doesNotMatch(servicesPage, /GuestServiceCard|filteredGuestServices/);
@@ -26,7 +34,12 @@ test("price and vehicle filters live inside a selected category", () => {
   assert.match(categoryDetailPage, /api\.get\("\/vehicle-meta\/brands"\)/);
   assert.match(categoryDetailPage, /vehicleBrandId: guestBrandId/);
   assert.match(categoryDetailPage, /vehicleModelId: guestModelId/);
-  assert.match(categoryDetailPage, /Complete all three fields to view prices/);
+  assert.match(categoryDetailPage, /fuelType: guestFuelType/);
+  assert.match(categoryDetailPage, /Search prices/);
+  assert.match(categoryDetailPage, /guestFilterDraft/);
+  assert.match(categoryDetailPage, /Complete all four fields/);
+  assert.match(serviceValidation, /query\("fuelType"\)/);
+  assert.match(serviceController, /fuelType: req\.query\.fuelType/);
 });
 
 test("category cards keep routing to their service details", () => {

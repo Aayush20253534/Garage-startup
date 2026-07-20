@@ -68,11 +68,17 @@ const getCustomerServiceContext = async (options = {}) => {
   if (!options.userId) {
     const vehicleBrandId = String(options.vehicleBrandId || "").trim();
     const vehicleModelId = String(options.vehicleModelId || "").trim();
+    const fuelType = String(options.fuelType || "").trim().toUpperCase();
     const useAllModels = vehicleModelId.toUpperCase() === "ALL";
 
-    if (!explicitCity && !vehicleBrandId && !vehicleModelId) return null;
+    if (!explicitCity && !vehicleBrandId && !vehicleModelId && !fuelType) {
+      return null;
+    }
     if (vehicleModelId && !vehicleBrandId) {
       throw new ApiError(400, "Select a vehicle brand before choosing a model");
+    }
+    if (fuelType && (!vehicleBrandId || !vehicleModelId)) {
+      throw new ApiError(400, "Select a vehicle brand and model before fuel type");
     }
 
     const [city, brand, model] = await Promise.all([
@@ -118,13 +124,13 @@ const getCustomerServiceContext = async (options = {}) => {
             // The matcher normalizes model-less allocations as generic and
             // excludes model-specific rows when the requested model is ALL.
             model: "ALL",
-            fuelType: null,
+            fuelType: fuelType || null,
           }
         : model
           ? {
               brand: model.brand.name,
               model: model.name,
-              fuelType: null,
+              fuelType: fuelType || null,
             }
           : null,
     };

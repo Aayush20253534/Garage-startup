@@ -12,8 +12,10 @@ import api from "@/api/axios";
 import {
   FiArrowLeft,
   FiCheckCircle,
+  FiDroplet,
   FiLayers,
   FiMapPin,
+  FiSearch,
   FiSettings,
   FiShield,
   FiSliders,
@@ -56,6 +58,14 @@ const getIncludes = (service) => {
     .filter(Boolean);
 };
 
+const GUEST_FUEL_TYPES = [
+  { label: "Petrol", value: "PETROL" },
+  { label: "Diesel", value: "DIESEL" },
+  { label: "CNG", value: "CNG" },
+  { label: "Hybrid", value: "HYBRID" },
+  { label: "Other", value: "OTHER" },
+];
+
 export default function CategoryDetail() {
   const { categoryId } = useParams();
   const { user, vehicle, location, addToCart } = useApp();
@@ -65,14 +75,16 @@ export default function CategoryDetail() {
   const guestCity = !user ? searchParams.get("city") || "" : "";
   const guestBrandId = !user ? searchParams.get("brand") || "" : "";
   const guestModelId = !user ? searchParams.get("model") || "" : "";
+  const guestFuelType = !user ? searchParams.get("fuel") || "" : "";
   const guestPricingReady = Boolean(
-    !user && guestCity && guestBrandId && guestModelId,
+    !user && guestCity && guestBrandId && guestModelId && guestFuelType,
   );
   const guestFilterSearch = (() => {
     const params = new URLSearchParams();
     if (guestCity) params.set("city", guestCity);
     if (guestBrandId) params.set("brand", guestBrandId);
     if (guestModelId) params.set("model", guestModelId);
+    if (guestFuelType) params.set("fuel", guestFuelType);
     const value = params.toString();
     return value ? `?${value}` : "";
   })();
@@ -86,29 +98,68 @@ export default function CategoryDetail() {
   const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
   const [filterOptionsError, setFilterOptionsError] = useState("");
   const [pricingError, setPricingError] = useState("");
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [guestFilterDraft, setGuestFilterDraft] = useState({
+    city: guestCity,
+    brand: guestBrandId,
+    model: guestModelId,
+    fuelType: guestFuelType,
+  });
 
   const selectedBrand = brands.find((brand) => brand.id === guestBrandId);
   const selectedModel = selectedBrand?.models?.find(
     (model) => model.id === guestModelId,
   );
-  const availableModels = Array.isArray(selectedBrand?.models)
-    ? selectedBrand.models
+  const selectedFuelType = GUEST_FUEL_TYPES.find(
+    (fuelType) => fuelType.value === guestFuelType,
+  );
+  const draftBrand = brands.find(
+    (brand) => brand.id === guestFilterDraft.brand,
+  );
+  const availableModels = Array.isArray(draftBrand?.models)
+    ? draftBrand.models
     : [];
   const allModelsSelected = guestModelId.toUpperCase() === "ALL";
   const guestFiltersActive = Boolean(
-    !user && (guestCity || guestBrandId || guestModelId),
+    !user && (guestCity || guestBrandId || guestModelId || guestFuelType),
   );
+  const draftFiltersActive = Object.values(guestFilterDraft).some(Boolean);
+  const draftFiltersComplete = Object.values(guestFilterDraft).every(Boolean);
+  const draftFiltersChanged =
+    guestFilterDraft.city !== guestCity ||
+    guestFilterDraft.brand !== guestBrandId ||
+    guestFilterDraft.model !== guestModelId ||
+    guestFilterDraft.fuelType !== guestFuelType;
 
-  const updateGuestFilters = (nextValues) => {
+  const applyGuestFilters = () => {
+    if (!draftFiltersComplete) return;
+
     const next = new URLSearchParams(searchParams);
 
-    Object.entries(nextValues).forEach(([key, value]) => {
-      if (value) next.set(key, value);
-      else next.delete(key);
-    });
+    next.set("city", guestFilterDraft.city);
+    next.set("brand", guestFilterDraft.brand);
+    next.set("model", guestFilterDraft.model);
+    next.set("fuel", guestFilterDraft.fuelType);
 
     setSearchParams(next, { replace: true });
   };
+
+  const clearGuestFilters = () => {
+    setGuestFilterDraft({ city: "", brand: "", model: "", fuelType: "" });
+
+    const next = new URLSearchParams(searchParams);
+    ["city", "brand", "model", "fuel"].forEach((key) => next.delete(key));
+    setSearchParams(next, { replace: true });
+  };
+
+  useEffect(() => {
+    setGuestFilterDraft({
+      city: guestCity,
+      brand: guestBrandId,
+      model: guestModelId,
+      fuelType: guestFuelType,
+    });
+  }, [guestBrandId, guestCity, guestFuelType, guestModelId]);
 
   useEffect(() => {
     if (user) return undefined;
@@ -154,8 +205,11 @@ export default function CategoryDetail() {
 
   useEffect(() => {
     const loadCategory = async () => {
+      const isPriceRefresh = Boolean(category);
+
       try {
-        setLoading(true);
+        if (isPriceRefresh) setPricingLoading(true);
+        else setLoading(true);
         setPricingError("");
 
         const res = await api.get("/services/categories", {
@@ -168,6 +222,7 @@ export default function CategoryDetail() {
                 ...(guestCity && { city: guestCity }),
                 ...(guestBrandId && { vehicleBrandId: guestBrandId }),
                 ...(guestModelId && { vehicleModelId: guestModelId }),
+                ...(guestFuelType && { fuelType: guestFuelType }),
               },
         });
         const categories = res.data.data || [];
@@ -190,7 +245,10 @@ export default function CategoryDetail() {
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setPricingLoading(false);
+        }
       }
     };
 
@@ -208,6 +266,7 @@ export default function CategoryDetail() {
     guestCity,
     guestBrandId,
     guestModelId,
+    guestFuelType,
   ]);
 
   if (loading) {
@@ -360,12 +419,10 @@ export default function CategoryDetail() {
               </div>
             </div>
 
-            {guestFiltersActive && (
+            {(guestFiltersActive || draftFiltersActive) && (
               <button
                 type="button"
-                onClick={() =>
-                  updateGuestFilters({ city: "", brand: "", model: "" })
-                }
+                onClick={clearGuestFilters}
                 className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-lg border border-gray-300 bg-white px-3.5 text-xs font-semibold text-gray-700 transition hover:border-gray-950 hover:text-gray-950 sm:self-auto"
               >
                 <FiX aria-hidden="true" /> Clear filters
@@ -373,15 +430,18 @@ export default function CategoryDetail() {
             )}
           </div>
 
-          <div className="grid gap-4 border-y border-gray-200 bg-gray-50/80 px-5 py-5 sm:grid-cols-3 sm:px-6">
+          <div className="grid gap-4 border-y border-gray-200 bg-gray-50/80 px-5 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
             <label className="block min-w-0">
               <span className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-600">
                 <FiMapPin className="text-gray-950" aria-hidden="true" /> City
               </span>
               <select
-                value={guestCity}
+                value={guestFilterDraft.city}
                 onChange={(event) =>
-                  updateGuestFilters({ city: event.target.value })
+                  setGuestFilterDraft((current) => ({
+                    ...current,
+                    city: event.target.value,
+                  }))
                 }
                 disabled={filterOptionsLoading}
                 className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
@@ -400,12 +460,13 @@ export default function CategoryDetail() {
                 <FiTruck className="text-gray-950" aria-hidden="true" /> Brand
               </span>
               <select
-                value={guestBrandId}
+                value={guestFilterDraft.brand}
                 onChange={(event) =>
-                  updateGuestFilters({
+                  setGuestFilterDraft((current) => ({
+                    ...current,
                     brand: event.target.value,
                     model: "",
-                  })
+                  }))
                 }
                 disabled={filterOptionsLoading}
                 className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
@@ -424,17 +485,22 @@ export default function CategoryDetail() {
                 <FiSettings className="text-gray-950" aria-hidden="true" /> Model
               </span>
               <select
-                value={guestModelId}
+                value={guestFilterDraft.model}
                 onChange={(event) =>
-                  updateGuestFilters({ model: event.target.value })
+                  setGuestFilterDraft((current) => ({
+                    ...current,
+                    model: event.target.value,
+                  }))
                 }
-                disabled={filterOptionsLoading || !guestBrandId}
+                disabled={filterOptionsLoading || !guestFilterDraft.brand}
                 className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
               >
                 <option value="">
-                  {guestBrandId ? "Select model" : "Choose a brand first"}
+                  {guestFilterDraft.brand
+                    ? "Select model"
+                    : "Choose a brand first"}
                 </option>
-                {guestBrandId && (
+                {guestFilterDraft.brand && (
                   <option value="ALL">All models (generic prices only)</option>
                 )}
                 {availableModels.map((model) => (
@@ -444,44 +510,97 @@ export default function CategoryDetail() {
                 ))}
               </select>
             </label>
+
+            <label className="block min-w-0">
+              <span className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                <FiDroplet className="text-gray-950" aria-hidden="true" /> Fuel
+                type
+              </span>
+              <select
+                value={guestFilterDraft.fuelType}
+                onChange={(event) =>
+                  setGuestFilterDraft((current) => ({
+                    ...current,
+                    fuelType: event.target.value,
+                  }))
+                }
+                disabled={filterOptionsLoading}
+                className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
+              >
+                <option value="">Select fuel type</option>
+                {GUEST_FUEL_TYPES.map((fuelType) => (
+                  <option key={fuelType.value} value={fuelType.value}>
+                    {fuelType.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          <div
-            className="flex min-h-12 items-center gap-3 bg-white px-5 py-3 text-sm sm:px-6"
-            aria-live="polite"
-          >
-            {filterOptionsError || pricingError ? (
-              <>
-                <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
-                <p className="font-medium text-red-700">
-                  {filterOptionsError || pricingError}
-                </p>
-              </>
-            ) : (
-              <>
-                <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${
-                    guestPricingReady ? "bg-[#86ad00]" : "bg-gray-400"
-                  }`}
-                />
-                {guestPricingReady ? (
-                  <p className="font-medium text-gray-700">
-                    <span className="font-semibold text-gray-950">
-                      Price context:
-                    </span>{" "}
-                    {selectedBrand?.name}{" "}
-                    {allModelsSelected
-                      ? "all models with generic pricing"
-                      : selectedModel?.name} in {guestCity}
+          <div className="flex flex-col gap-3 bg-white px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div
+              className="flex min-h-9 min-w-0 items-center gap-3 text-sm"
+              aria-live="polite"
+            >
+              {filterOptionsError || pricingError ? (
+                <>
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                  <p className="font-medium text-red-700">
+                    {filterOptionsError || pricingError}
                   </p>
-                ) : (
-                  <p className="text-gray-600">
-                    Complete all three fields to view prices tailored to your
-                    vehicle.
-                  </p>
-                )}
-              </>
-            )}
+                </>
+              ) : (
+                <>
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      guestPricingReady && !draftFiltersChanged
+                        ? "bg-[#86ad00]"
+                        : "bg-gray-400"
+                    }`}
+                  />
+                  {pricingLoading ? (
+                    <p className="text-gray-600">Updating service prices...</p>
+                  ) : draftFiltersChanged && draftFiltersComplete ? (
+                    <p className="text-gray-600">
+                      Filters are ready. Select Search prices to apply them.
+                    </p>
+                  ) : guestPricingReady && !draftFiltersChanged ? (
+                    <p className="font-medium text-gray-700">
+                      <span className="font-semibold text-gray-950">
+                        Price context:
+                      </span>{" "}
+                      {selectedBrand?.name}{" "}
+                      {allModelsSelected
+                        ? "all models with generic pricing"
+                        : selectedModel?.name}{" "}
+                      · {selectedFuelType?.label} · {guestCity}
+                    </p>
+                  ) : (
+                    <p className="text-gray-600">
+                      Complete all four fields, then search for tailored prices.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={applyGuestFilters}
+              disabled={
+                !draftFiltersComplete ||
+                !draftFiltersChanged ||
+                pricingLoading ||
+                filterOptionsLoading
+              }
+              className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-950 px-5 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 sm:w-auto"
+            >
+              <FiSearch
+                className={pricingLoading ? "animate-pulse" : "text-[#b9f000]"}
+                aria-hidden="true"
+              />
+              {pricingLoading ? "Searching..." : "Search prices"}
+            </button>
           </div>
         </section>
       )}

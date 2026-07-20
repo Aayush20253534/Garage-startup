@@ -26,6 +26,7 @@ const serviceRecord = {
 
 const calls = {
   creates: [],
+  pricingVehicles: [],
   updates: [],
 };
 
@@ -121,6 +122,8 @@ require.cache[priceRangeServicePath] = {
   loaded: true,
   exports: {
     findBestPriceRangesForBooking: async ({ city, vehicle }) => {
+      calls.pricingVehicles.push(vehicle);
+
       if (city !== "Prayagraj" || vehicle?.brand !== "Tata") {
         return new Map();
       }
@@ -200,6 +203,19 @@ test("logged-out customers can preview contextual prices after selecting city an
   assert.equal(service.hasPrice, true);
   assert.equal(service.pricingStatus, "AVAILABLE");
   assert.equal("basePrice" in service, false);
+});
+
+test("logged-out fuel filters reach the contextual price matcher", async () => {
+  calls.pricingVehicles.length = 0;
+
+  await publicService.getServiceCategories({
+    city: "Prayagraj",
+    vehicleBrandId: "brand-1",
+    vehicleModelId: "model-1",
+    fuelType: "DIESEL",
+  });
+
+  assert.equal(calls.pricingVehicles.at(-1)?.fuelType, "DIESEL");
 });
 
 test("the All model preview requests only model-generic pricing", async () => {

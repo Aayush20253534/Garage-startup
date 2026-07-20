@@ -9,6 +9,7 @@ const getServiceCategories = asyncHandler(async (req, res) => {
     city: req.query.city,
     vehicleBrandId: req.query.vehicleBrandId,
     vehicleModelId: req.query.vehicleModelId,
+    fuelType: req.query.fuelType,
   });
 
   return res
@@ -23,6 +24,7 @@ const getServices = asyncHandler(async (req, res) => {
     city: req.query.city,
     vehicleBrandId: req.query.vehicleBrandId,
     vehicleModelId: req.query.vehicleModelId,
+    fuelType: req.query.fuelType,
   });
 
   return res
@@ -37,6 +39,7 @@ const getServiceById = asyncHandler(async (req, res) => {
     city: req.query.city,
     vehicleBrandId: req.query.vehicleBrandId,
     vehicleModelId: req.query.vehicleModelId,
+    fuelType: req.query.fuelType,
   });
 
   return res
