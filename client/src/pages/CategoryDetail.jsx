@@ -338,18 +338,21 @@ export default function CategoryDetail() {
       {!user && (
         <section
           aria-labelledby="category-price-filter-heading"
-          className="mb-6 overflow-hidden rounded-[24px] border border-gray-200 bg-white shadow-[0_12px_36px_rgba(15,23,42,0.06)]"
+          className="mb-6 overflow-hidden rounded-[24px] border border-gray-950 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.07)]"
         >
-          <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-950 px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-col gap-3 border-b border-gray-950 bg-[#f5f8ec] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#b9f000] text-lg text-gray-950">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-gray-950 bg-[#b9f000] text-lg text-gray-950 shadow-sm">
                 <FiSliders aria-hidden="true" />
               </span>
               <div>
-                <h2 id="category-price-filter-heading" className="font-bold">
+                <h2
+                  id="category-price-filter-heading"
+                  className="font-bold text-gray-950"
+                >
                   Check prices for your vehicle
                 </h2>
-                <p className="mt-1 text-sm leading-5 text-white/65">
+                <p className="mt-1 text-sm leading-5 text-gray-600">
                   Choose your city, brand and model to filter this category.
                 </p>
               </div>
@@ -361,7 +364,7 @@ export default function CategoryDetail() {
                 onClick={() =>
                   updateGuestFilters({ city: "", brand: "", model: "" })
                 }
-                className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-lg border border-white/20 px-3.5 text-xs font-bold text-white transition hover:bg-white/10 sm:self-auto"
+                className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-lg border border-gray-950 bg-white px-3.5 text-xs font-bold text-gray-950 transition hover:bg-gray-950 hover:text-white sm:self-auto"
               >
                 <FiX aria-hidden="true" /> Clear filters
               </button>
@@ -370,8 +373,8 @@ export default function CategoryDetail() {
 
           <div className="grid gap-4 p-5 sm:grid-cols-3 sm:p-6">
             <label className="block min-w-0">
-              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-500">
-                <FiMapPin className="text-[#8fbd00]" aria-hidden="true" /> City
+              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-700">
+                <FiMapPin className="text-[#6f9300]" aria-hidden="true" /> City
               </span>
               <select
                 value={guestCity}
@@ -379,7 +382,7 @@ export default function CategoryDetail() {
                   updateGuestFilters({ city: event.target.value })
                 }
                 disabled={filterOptionsLoading}
-                className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-[#9dcf00] focus:bg-white focus:ring-4 focus:ring-[#b9f000]/15 disabled:opacity-60"
+                className="h-12 w-full rounded-xl border border-gray-950 bg-white px-4 text-sm font-semibold text-gray-950 shadow-sm outline-none transition hover:bg-gray-50 focus:border-gray-950 focus:ring-4 focus:ring-[#b9f000]/25 disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70"
               >
                 <option value="">Select city</option>
                 {cities.map((city) => (
@@ -391,8 +394,8 @@ export default function CategoryDetail() {
             </label>
 
             <label className="block min-w-0">
-              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-500">
-                <FiTruck className="text-[#8fbd00]" aria-hidden="true" /> Brand
+              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-700">
+                <FiTruck className="text-[#6f9300]" aria-hidden="true" /> Brand
               </span>
               <select
                 value={guestBrandId}
@@ -403,7 +406,7 @@ export default function CategoryDetail() {
                   })
                 }
                 disabled={filterOptionsLoading}
-                className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-[#9dcf00] focus:bg-white focus:ring-4 focus:ring-[#b9f000]/15 disabled:opacity-60"
+                className="h-12 w-full rounded-xl border border-gray-950 bg-white px-4 text-sm font-semibold text-gray-950 shadow-sm outline-none transition hover:bg-gray-50 focus:border-gray-950 focus:ring-4 focus:ring-[#b9f000]/25 disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70"
               >
                 <option value="">Select brand</option>
                 {brands.map((brand) => (
@@ -415,8 +418,8 @@ export default function CategoryDetail() {
             </label>
 
             <label className="block min-w-0">
-              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-500">
-                <FiSettings className="text-[#8fbd00]" aria-hidden="true" /> Model
+              <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-gray-700">
+                <FiSettings className="text-[#6f9300]" aria-hidden="true" /> Model
               </span>
               <select
                 value={guestModelId}
@@ -424,7 +427,7 @@ export default function CategoryDetail() {
                   updateGuestFilters({ model: event.target.value })
                 }
                 disabled={filterOptionsLoading || !guestBrandId}
-                className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-[#9dcf00] focus:bg-white focus:ring-4 focus:ring-[#b9f000]/15 disabled:cursor-not-allowed disabled:opacity-55"
+                className="h-12 w-full rounded-xl border border-gray-950 bg-white px-4 text-sm font-semibold text-gray-950 shadow-sm outline-none transition hover:bg-gray-50 focus:border-gray-950 focus:ring-4 focus:ring-[#b9f000]/25 disabled:cursor-not-allowed disabled:border-gray-400 disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70"
               >
                 <option value="">
                   {guestBrandId ? "Select model" : "Choose a brand first"}
@@ -441,7 +444,7 @@ export default function CategoryDetail() {
             </label>
           </div>
 
-          <div className="border-t border-gray-100 px-5 py-3 text-sm sm:px-6">
+          <div className="border-t border-gray-950 bg-[#fbfcf8] px-5 py-3 text-sm sm:px-6">
             {filterOptionsError || pricingError ? (
               <p className="font-semibold text-red-600">
                 {filterOptionsError || pricingError}
