@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { adminApi } from "@/api/admin";
 import { useApp } from "@/hooks/useApp";
 import CitySelect from "@/components/common/CitySelect";
@@ -196,6 +196,8 @@ export default function Garages() {
   const [editingGarage, setEditingGarage] = useState(false);
   const [garageEditForm, setGarageEditForm] = useState(null);
   const [savingGarage, setSavingGarage] = useState(false);
+  const [savingGarageService, setSavingGarageService] = useState(false);
+  const garageServiceSaveInFlight = useRef(false);
   const [photoBusyId, setPhotoBusyId] = useState("");
   const [selectedPhotoIds, setSelectedPhotoIds] = useState([]);
   const [garageWideExcludedBrands, setGarageWideExcludedBrands] = useState([]);
@@ -350,6 +352,8 @@ export default function Garages() {
   const saveGarageService = async (event) => {
     event.preventDefault();
 
+    if (garageServiceSaveInFlight.current) return;
+
     if (!selectedGarageId) {
       setError("Select a garage before assigning a service.");
       return;
@@ -381,6 +385,8 @@ export default function Garages() {
       return;
     }
 
+    garageServiceSaveInFlight.current = true;
+    setSavingGarageService(true);
     setError("");
     setSuccess("");
 
@@ -407,6 +413,9 @@ export default function Garages() {
       await loadGaragesAndServices();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save garage service");
+    } finally {
+      garageServiceSaveInFlight.current = false;
+      setSavingGarageService(false);
     }
   };
 
@@ -2004,6 +2013,7 @@ export default function Garages() {
               <button
                 type="submit"
                 disabled={
+                  savingGarageService ||
                   !selectedGarageId ||
                   !serviceForm.serviceId ||
                   (serviceForm.isExcluded &&
@@ -2013,7 +2023,7 @@ export default function Garages() {
                 }
                 className="inline-flex h-10 items-center justify-center rounded-lg bg-ink px-5 text-sm font-bold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 2xl:col-span-5"
               >
-                Save
+                {savingGarageService ? "Saving..." : "Save"}
               </button>
             </form>
             )}

@@ -218,6 +218,10 @@ test("garage assignment UI and queries preserve exclusion precedence", () => {
   assert.match(adminPage, /Entire brands/);
   assert.match(adminPage, /Specific models/);
   assert.match(adminPage, /vehicleScopes: exclusionScopes/);
+  assert.match(adminPage, /garageServiceSaveInFlight\.current/);
+  assert.match(adminPage, /if \(garageServiceSaveInFlight\.current\) return/);
+  assert.match(adminPage, /savingGarageService \|\|/);
+  assert.match(adminPage, /savingGarageService \? "Saving\.\.\." : "Save"/);
   assert.match(adminService, /const normalizeVehicleScope/);
   assert.match(adminService, /prisma\.\$transaction/);
   assert.match(adminService, /Choose specific vehicle brands to exclude/);
