@@ -82,7 +82,7 @@ const deletePriceRange = asyncHandler(async (req, res) => {
 });
 
 const deletePriceRanges = asyncHandler(async (req, res) => {
-  const result = await service.deletePriceRanges(req.body);
+  const result = await service.deletePriceRanges(req.body, req.user);
   return res
     .status(200)
     .json(new ApiResponse(200, "Price ranges deleted successfully", result));

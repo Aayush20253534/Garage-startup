@@ -41,6 +41,14 @@ const deletePriceRangesSchema = [
     .isUUID()
     .withMessage("Invalid price range ID"),
   body("deleteAll").optional().isBoolean(),
+  body("confirmation")
+    .isString()
+    .isLength({ min: 1, max: 64 })
+    .withMessage("Deletion confirmation is required"),
+  body("password")
+    .isString()
+    .isLength({ min: 1, max: 256 })
+    .withMessage("Admin password confirmation is required"),
   body().custom((payload = {}) => {
     if (payload.deleteAll === true) return true;
     if (Array.isArray(payload.priceRangeIds) && payload.priceRangeIds.length > 0) {

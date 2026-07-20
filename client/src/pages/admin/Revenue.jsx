@@ -10,6 +10,7 @@ import {
   FiCheckCircle,
   FiClock,
   FiEdit3,
+  FiLock,
   FiPlus,
   FiRefreshCw,
   FiTrash2,
@@ -119,6 +120,10 @@ export default function Revenue() {
   const [citySelectKey, setCitySelectKey] = useState(0);
   const [selectedRangeIds, setSelectedRangeIds] = useState([]);
   const [deletingRanges, setDeletingRanges] = useState(false);
+  const [bulkDeleteTarget, setBulkDeleteTarget] = useState(null);
+  const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState("");
+  const [bulkDeletePassword, setBulkDeletePassword] = useState("");
+  const [bulkDeleteError, setBulkDeleteError] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -401,54 +406,79 @@ export default function Revenue() {
     setSelectedRangeIds(allVisibleRangesSelected ? [] : visibleRangeIds);
   };
 
-  const deleteSelectedRanges = async () => {
+  const deleteSelectedRanges = () => {
     const rangeIds = selectedRangeIds.filter((rangeId) =>
       visibleRangeIds.includes(rangeId),
     );
     if (!rangeIds.length) return;
 
-    const confirmed = window.confirm(
-      `Delete ${rangeIds.length} selected price range${rangeIds.length === 1 ? "" : "s"}? This cannot be undone.`,
-    );
-    if (!confirmed) return;
-
-    setDeletingRanges(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const result = await adminApi.deletePriceRanges(rangeIds, false);
-      if (rangeIds.includes(form.id)) setForm(emptyForm);
-      setSuccess(
-        `${result.deleted || rangeIds.length} price range${(result.deleted || rangeIds.length) === 1 ? "" : "s"} deleted.`,
-      );
-      await load();
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to delete selected price ranges");
-    } finally {
-      setDeletingRanges(false);
-    }
+    setBulkDeleteTarget({ mode: "selected", rangeIds });
+    setBulkDeleteConfirmation("");
+    setBulkDeletePassword("");
+    setBulkDeleteError("");
   };
 
-  const deleteAllRanges = async () => {
-    const confirmation = window.prompt(
-      "This deletes every price range across all cities. Type DELETE ALL PRICE RANGES to continue.",
-    );
-    if (confirmation !== "DELETE ALL PRICE RANGES") return;
+  const deleteAllRanges = () => {
+    if (!ranges.length) return;
+
+    setBulkDeleteTarget({ mode: "all", rangeIds: [] });
+    setBulkDeleteConfirmation("");
+    setBulkDeletePassword("");
+    setBulkDeleteError("");
+  };
+
+  const closeBulkDeleteDialog = () => {
+    if (deletingRanges) return;
+    setBulkDeleteTarget(null);
+    setBulkDeleteConfirmation("");
+    setBulkDeletePassword("");
+    setBulkDeleteError("");
+  };
+
+  const confirmBulkDelete = async (event) => {
+    event.preventDefault();
+    if (!bulkDeleteTarget) return;
+
+    const deleteAll = bulkDeleteTarget.mode === "all";
+    const rangeIds = deleteAll ? [] : bulkDeleteTarget.rangeIds;
+    const expectedConfirmation = deleteAll
+      ? "DELETE ALL PRICE RANGES"
+      : "DELETE SELECTED";
+    if (
+      bulkDeleteConfirmation !== expectedConfirmation ||
+      !bulkDeletePassword
+    ) {
+      return;
+    }
 
     setDeletingRanges(true);
     setError("");
     setSuccess("");
+    setBulkDeleteError("");
 
     try {
-      const result = await adminApi.deletePriceRanges([], true);
-      setForm(emptyForm);
-      setSuccess(
-        `${result.deleted || 0} price range${result.deleted === 1 ? "" : "s"} deleted across all cities.`,
+      const result = await adminApi.deletePriceRanges(
+        rangeIds,
+        deleteAll,
+        bulkDeleteConfirmation,
+        bulkDeletePassword,
       );
+      if (deleteAll || rangeIds.includes(form.id)) setForm(emptyForm);
+      const deletedCount = result.deleted || 0;
+      setSuccess(
+        deleteAll
+          ? `${deletedCount} price range${deletedCount === 1 ? "" : "s"} deleted across all cities.`
+          : `${deletedCount || rangeIds.length} price range${(deletedCount || rangeIds.length) === 1 ? "" : "s"} deleted.`,
+      );
+      setBulkDeleteTarget(null);
+      setBulkDeleteConfirmation("");
+      setBulkDeletePassword("");
       await load();
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to delete all price ranges");
+      setBulkDeletePassword("");
+      setBulkDeleteError(
+        err.response?.data?.message || "Unable to verify the admin password",
+      );
     } finally {
       setDeletingRanges(false);
     }
@@ -478,6 +508,18 @@ export default function Revenue() {
     (submission) =>
       submissionFilter === "ALL" || submission.status === submissionFilter,
   );
+  const bulkDeleteExpectedText =
+    bulkDeleteTarget?.mode === "all"
+      ? "DELETE ALL PRICE RANGES"
+      : "DELETE SELECTED";
+  const bulkDeleteCount =
+    bulkDeleteTarget?.mode === "all"
+      ? ranges.length
+      : bulkDeleteTarget?.rangeIds?.length || 0;
+  const canConfirmBulkDelete =
+    bulkDeleteConfirmation === bulkDeleteExpectedText &&
+    bulkDeletePassword.length > 0 &&
+    !deletingRanges;
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 overflow-x-hidden">
@@ -1019,7 +1061,7 @@ export default function Revenue() {
               <button
                 type="button"
                 onClick={deleteAllRanges}
-                disabled={loading || deletingRanges}
+                disabled={!ranges.length || loading || deletingRanges}
                 className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-red-700 px-3 text-xs font-semibold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FiTrash2 />
@@ -1181,6 +1223,129 @@ export default function Revenue() {
           </table>
         </div>
       </section>
+
+      {bulkDeleteTarget && (
+        <div
+          className="fixed inset-0 z-[110] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeBulkDeleteDialog();
+          }}
+        >
+          <form
+            onSubmit={confirmBulkDelete}
+            className="w-full rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-md sm:rounded-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-price-range-delete-title"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-50 text-red-700">
+                  <FiLock />
+                </span>
+                <div>
+                  <h3
+                    id="bulk-price-range-delete-title"
+                    className="text-lg font-bold text-ink"
+                  >
+                    Confirm permanent deletion
+                  </h3>
+                  <p className="mt-1 text-sm leading-5 text-muted">
+                    {bulkDeleteTarget.mode === "all"
+                      ? `This will delete all ${bulkDeleteCount} live price ranges across every city.`
+                      : `This will delete ${bulkDeleteCount} selected price range${bulkDeleteCount === 1 ? "" : "s"}.`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeBulkDeleteDialog}
+                disabled={deletingRanges}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-muted transition hover:border-ink hover:text-ink disabled:opacity-50"
+                aria-label="Close deletion confirmation"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              This action cannot be undone. Confirmation and the signed-in
+              administrator&apos;s password are both required.
+            </div>
+
+            <label className="mt-4 block">
+              <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                Confirmation text
+              </span>
+              <input
+                value={bulkDeleteConfirmation}
+                onChange={(event) => {
+                  setBulkDeleteConfirmation(event.target.value);
+                  setBulkDeleteError("");
+                }}
+                className="mt-2 h-11 w-full rounded-xl border border-line px-3 font-mono text-sm text-ink outline-none transition focus:border-ink"
+                placeholder={bulkDeleteExpectedText}
+                autoComplete="off"
+                autoFocus
+              />
+              <span className="mt-1.5 block text-xs text-muted">
+                Type{" "}
+                <strong className="font-mono text-ink">
+                  {bulkDeleteExpectedText}
+                </strong>{" "}
+                exactly.
+              </span>
+            </label>
+
+            <label className="mt-4 block">
+              <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                Admin password
+              </span>
+              <input
+                type="password"
+                value={bulkDeletePassword}
+                onChange={(event) => {
+                  setBulkDeletePassword(event.target.value);
+                  setBulkDeleteError("");
+                }}
+                className="mt-2 h-11 w-full rounded-xl border border-line px-3 text-sm text-ink outline-none transition focus:border-ink"
+                placeholder="Re-enter your admin password"
+                autoComplete="current-password"
+              />
+            </label>
+
+            {bulkDeleteError && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                {bulkDeleteError}
+              </div>
+            )}
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={closeBulkDeleteDialog}
+                disabled={deletingRanges}
+                className="h-11 rounded-xl border border-line text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!canConfirmBulkDelete}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-700 px-3 text-sm font-bold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+              >
+                {deletingRanges ? (
+                  <FiRefreshCw className="animate-spin" />
+                ) : (
+                  <FiTrash2 />
+                )}
+                {deletingRanges ? "Verifying..." : "Verify and delete"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {rejectTarget && (
         <div

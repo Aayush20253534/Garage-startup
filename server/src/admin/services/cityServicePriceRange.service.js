@@ -1,3 +1,5 @@
+const argon2 = require("argon2");
+
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { getCache, setCache, deletePattern } = require("../../utils/cache");
@@ -395,7 +397,55 @@ const deletePriceRange = async (id) => {
   return deleted;
 };
 
-const deletePriceRanges = async ({ priceRangeIds = [], deleteAll = false } = {}) => {
+const assertBulkDeleteStepUp = async ({
+  confirmation,
+  deleteAll,
+  password,
+  requestedBy,
+}) => {
+  const expectedConfirmation = deleteAll
+    ? "DELETE ALL PRICE RANGES"
+    : "DELETE SELECTED";
+
+  if (normalizeText(confirmation) !== expectedConfirmation) {
+    throw new ApiError(400, `Type ${expectedConfirmation} to continue`);
+  }
+  if (!requestedBy?.id || requestedBy.role !== "ADMIN" || !password) {
+    throw new ApiError(403, "Admin password confirmation is required");
+  }
+
+  const admin = await prisma.staffAccount.findFirst({
+    where: {
+      id: requestedBy.id,
+      role: "ADMIN",
+      isActive: true,
+    },
+    select: { password: true },
+  });
+
+  let validPassword = false;
+  try {
+    validPassword = Boolean(
+      admin?.password && (await argon2.verify(admin.password, password)),
+    );
+  } catch {
+    validPassword = false;
+  }
+
+  if (!validPassword) {
+    throw new ApiError(403, "Admin password confirmation failed");
+  }
+};
+
+const deletePriceRanges = async (
+  {
+    priceRangeIds = [],
+    deleteAll = false,
+    confirmation = "",
+    password = "",
+  } = {},
+  requestedBy,
+) => {
   const uniqueIds = [
     ...new Set(
       (Array.isArray(priceRangeIds) ? priceRangeIds : [])
@@ -407,6 +457,13 @@ const deletePriceRanges = async ({ priceRangeIds = [], deleteAll = false } = {})
   if (deleteAll !== true && uniqueIds.length === 0) {
     throw new ApiError(400, "Select at least one price range to delete");
   }
+
+  await assertBulkDeleteStepUp({
+    confirmation,
+    deleteAll,
+    password,
+    requestedBy,
+  });
 
   const rangeWhere = deleteAll === true ? {} : { id: { in: uniqueIds } };
   const result = await prisma.$transaction(async (tx) => {

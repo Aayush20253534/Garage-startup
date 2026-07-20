@@ -3,6 +3,7 @@ const express = require("express");
 const controller = require("../controllers/cityServicePriceRange.controller");
 const { protect } = require("../../middlewares/auth.middleware");
 const { authorizeRoles } = require("../../middlewares/role.middleware");
+const rateLimit = require("../../middlewares/rateLimit.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const {
   createPriceRangeSchema,
@@ -16,6 +17,13 @@ const {
 } = require("../validations/cityServicePriceRange.validation");
 
 const router = express.Router();
+
+const bulkDeleteStepUpRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  fallbackMax: 2,
+  keyGenerator: (req) => `admin-price-range-delete:${req.user?.id || req.ip}`,
+});
 
 router.use(protect);
 router.use(authorizeRoles("ADMIN", "INTERN"));
@@ -59,6 +67,7 @@ router.patch(
 router.delete(
   "/",
   authorizeRoles("ADMIN"),
+  bulkDeleteStepUpRateLimit,
   deletePriceRangesSchema,
   validate,
   controller.deletePriceRanges,

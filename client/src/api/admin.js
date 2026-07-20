@@ -309,10 +309,15 @@ export const adminApi = {
     return unwrap(await api.delete(`/admin/city-service-price-ranges/${id}`));
   },
 
-  async deletePriceRanges(priceRangeIds = [], deleteAll = false) {
+  async deletePriceRanges(
+    priceRangeIds = [],
+    deleteAll = false,
+    confirmation = "",
+    password = "",
+  ) {
     return unwrap(
       await api.delete("/admin/city-service-price-ranges", {
-        data: { priceRangeIds, deleteAll },
+        data: { priceRangeIds, deleteAll, confirmation, password },
       }),
     );
   },
