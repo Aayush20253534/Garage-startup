@@ -95,6 +95,19 @@ const deletePriceRangeSubmission = asyncHandler(async (req, res) => {
     );
 });
 
+const deletePriceRangeSubmissions = asyncHandler(async (req, res) => {
+  const result = await service.deletePriceRangeSubmissions(req.body, req.user);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Price range submission records deleted successfully",
+        result,
+      ),
+    );
+});
+
 const updatePriceRange = asyncHandler(async (req, res) => {
   const range = await service.updatePriceRange(req.params.id, req.body);
   return res.status(200).json(new ApiResponse(200, "Price range updated successfully", range));
@@ -118,6 +131,7 @@ module.exports = {
   deletePriceRange,
   deletePriceRanges,
   deletePriceRangeSubmission,
+  deletePriceRangeSubmissions,
   editPriceRangeSubmission,
   getPriceRange,
   listPriceRangeSubmissions,

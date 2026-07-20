@@ -496,6 +496,26 @@ const deletePriceRangeSubmission = async (id, deletedBy) => {
   return existing;
 };
 
+const deletePriceRangeSubmissions = async ({ status } = {}, deletedBy) => {
+  if (!deletedBy?.id || deletedBy.role !== "ADMIN") {
+    throw new ApiError(403, "Only admins can delete price range submission history");
+  }
+
+  const normalizedStatus = normalizeText(status).toUpperCase();
+  if (normalizedStatus && !SUBMISSION_STATUSES.has(normalizedStatus)) {
+    throw new ApiError(400, "Invalid price range submission status");
+  }
+
+  const result = await prisma.priceRangeSubmission.deleteMany({
+    where: normalizedStatus ? { status: normalizedStatus } : {},
+  });
+
+  return {
+    deleted: result.count,
+    status: normalizedStatus || "ALL",
+  };
+};
+
 const deletePriceRange = async (id) => {
   const deleted = await prisma.$transaction(async (tx) => {
     const existing = await tx.cityServicePriceRange.findUnique({
@@ -681,6 +701,7 @@ module.exports = {
   deletePriceRange,
   deletePriceRanges,
   deletePriceRangeSubmission,
+  deletePriceRangeSubmissions,
   editPriceRangeSubmission,
   findBestPriceRangesForBooking,
   getPriceRange,

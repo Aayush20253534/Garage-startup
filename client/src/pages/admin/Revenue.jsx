@@ -144,6 +144,7 @@ export default function Revenue() {
   const [editingSubmissionId, setEditingSubmissionId] = useState("");
   const [submissionEditError, setSubmissionEditError] = useState("");
   const [deletingSubmissionId, setDeletingSubmissionId] = useState("");
+  const [deletingAllSubmissions, setDeletingAllSubmissions] = useState(false);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [citySaving, setCitySaving] = useState(false);
@@ -565,6 +566,57 @@ export default function Revenue() {
     }
   };
 
+  const deleteAllSubmissionHistory = async () => {
+    if (
+      isIntern ||
+      deletingAllSubmissions ||
+      reviewingId ||
+      approvingAll ||
+      editingSubmissionId ||
+      deletingSubmissionId ||
+      visibleSubmissions.length === 0
+    ) {
+      return;
+    }
+
+    const filterLabel =
+      submissionFilter === "ALL"
+        ? "all"
+        : submissionFilter.toLowerCase();
+    const approvedNote = ["ALL", "APPROVED"].includes(submissionFilter)
+      ? " Approved live customer price ranges will remain available."
+      : "";
+    const confirmed = window.confirm(
+      `Delete all ${filterLabel} price range submission records? This cannot be undone.${approvedNote}`,
+    );
+    if (!confirmed) return;
+
+    setDeletingAllSubmissions(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await adminApi.deletePriceRangeSubmissions(
+        submissionFilter === "ALL" ? null : submissionFilter,
+      );
+      const deletedCount = result.deleted || 0;
+      setSuccess(
+        `${deletedCount} ${filterLabel} submission record${deletedCount === 1 ? "" : "s"} deleted.${
+          ["ALL", "APPROVED"].includes(submissionFilter)
+            ? " Approved live price ranges were not deleted."
+            : ""
+        }`,
+      );
+      await load();
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Unable to delete submission records",
+      );
+    } finally {
+      setDeletingAllSubmissions(false);
+    }
+  };
+
   const visibleRangeIds = ranges.map((range) => range.id);
   const allVisibleRangesSelected =
     visibleRangeIds.length > 0 &&
@@ -806,6 +858,7 @@ export default function Revenue() {
                   key={filter}
                   type="button"
                   onClick={() => setSubmissionFilter(filter)}
+                  disabled={deletingAllSubmissions}
                   className={[
                     "inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition",
                     active
@@ -827,24 +880,49 @@ export default function Revenue() {
             })}
 
             {!isIntern &&
-              submissionCounts.PENDING + submissionCounts.EDITED > 0 && (
-                <button
-                  type="button"
-                  onClick={approveAllSubmissions}
-                  disabled={
-                    approvingAll ||
-                    Boolean(reviewingId) ||
-                    Boolean(editingSubmissionId) ||
-                    Boolean(deletingSubmissionId)
-                  }
-                  className="ml-auto inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-green-700 px-3 text-xs font-bold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <FiCheckCircle className={approvingAll ? "animate-pulse" : ""} />
-                  {approvingAll
-                    ? "Approving all..."
-                    : `Approve all (${submissionCounts.PENDING + submissionCounts.EDITED})`}
-                </button>
-              )}
+              (visibleSubmissions.length > 0 ||
+                submissionCounts.PENDING + submissionCounts.EDITED > 0) && (
+              <div className="ml-auto flex shrink-0 gap-2">
+                {submissionCounts.PENDING + submissionCounts.EDITED > 0 && (
+                  <button
+                    type="button"
+                    onClick={approveAllSubmissions}
+                    disabled={
+                      approvingAll ||
+                      Boolean(reviewingId) ||
+                      Boolean(editingSubmissionId) ||
+                      Boolean(deletingSubmissionId) ||
+                      deletingAllSubmissions
+                    }
+                    className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-green-700 px-3 text-xs font-bold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <FiCheckCircle className={approvingAll ? "animate-pulse" : ""} />
+                    {approvingAll
+                      ? "Approving all..."
+                      : `Approve all (${submissionCounts.PENDING + submissionCounts.EDITED})`}
+                  </button>
+                )}
+                {visibleSubmissions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={deleteAllSubmissionHistory}
+                    disabled={
+                      deletingAllSubmissions ||
+                      approvingAll ||
+                      Boolean(reviewingId) ||
+                      Boolean(editingSubmissionId) ||
+                      Boolean(deletingSubmissionId)
+                    }
+                    className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-red-200 bg-white px-3 text-xs font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <FiTrash2 />
+                    {deletingAllSubmissions
+                      ? "Deleting..."
+                      : `Delete all (${visibleSubmissions.length})`}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -885,6 +963,7 @@ export default function Revenue() {
                           type="button"
                           onClick={() => deleteSubmissionHistory(submission)}
                           disabled={
+                            deletingAllSubmissions ||
                             approvingAll ||
                             deletingSubmissionId === submission.id ||
                             reviewingId === submission.id ||
@@ -971,6 +1050,7 @@ export default function Revenue() {
                         type="button"
                         onClick={() => openSubmissionEditor(submission)}
                         disabled={
+                          deletingAllSubmissions ||
                           approvingAll ||
                           reviewingId === submission.id ||
                           editingSubmissionId === submission.id
@@ -986,6 +1066,7 @@ export default function Revenue() {
                           reviewSubmission(submission, "APPROVED")
                         }
                         disabled={
+                          deletingAllSubmissions ||
                           approvingAll ||
                           reviewingId === submission.id ||
                           editingSubmissionId === submission.id
@@ -1004,6 +1085,7 @@ export default function Revenue() {
                           setRejectionReason("");
                         }}
                         disabled={
+                          deletingAllSubmissions ||
                           approvingAll ||
                           reviewingId === submission.id ||
                           editingSubmissionId === submission.id

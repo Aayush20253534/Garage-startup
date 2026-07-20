@@ -33,6 +33,10 @@ test("price range moderation routes keep review admin-only", () => {
   );
   assert.match(
     routes,
+    /router\.delete\([\s\S]*?"\/submissions"[\s\S]*?authorizeRoles\("ADMIN"\)[\s\S]*?deletePriceRangeSubmissions/,
+  );
+  assert.match(
+    routes,
     /router\.patch\([\s\S]*?"\/submissions\/:id"[\s\S]*?authorizeRoles\("ADMIN"\)[\s\S]*?editPriceRangeSubmission/,
   );
   assert.match(controller, /req\.user\.role === "INTERN"/);
@@ -57,6 +61,9 @@ test("price range moderation routes keep review admin-only", () => {
   assert.match(revenue, /All brands/);
   assert.match(revenue, /All models/);
   assert.match(revenue, /All fuel types/);
+  assert.match(revenue, /deleteAllSubmissionHistory/);
+  assert.match(revenue, /Delete all \(\$\{visibleSubmissions\.length\}\)/);
+  assert.match(api, /async deletePriceRangeSubmissions\(status = null\)/);
   assert.match(api, /editPriceRangeSubmission/);
   assert.match(api, /async approveAllPriceRangeSubmissions\(\)/);
   assert.match(schema, /enum PriceRangeSubmissionStatus \{[\s\S]*EDITED/);
@@ -68,6 +75,8 @@ test("price range moderation routes keep review admin-only", () => {
   assert.match(service, /approvedPriceRangeId/);
   assert.match(service, /const approveAllPriceRangeSubmissions/);
   assert.match(service, /processed: approved \+ superseded/);
+  assert.match(service, /const deletePriceRangeSubmissions/);
+  assert.match(service, /where: normalizedStatus \? \{ status: normalizedStatus \} : \{\}/);
 });
 
 test("intern submissions stay outside live customer price ranges until approval", async () => {
@@ -175,6 +184,16 @@ test("intern submissions stay outside live customer price ranges until approval"
       return submissionInclude(submission);
     },
     async deleteMany({ where }) {
+      if (where.status) {
+        let count = 0;
+        for (const [id, submission] of submissions) {
+          if (submission.status !== where.status) continue;
+          submissions.delete(id);
+          count += 1;
+        }
+        return { count };
+      }
+
       const approvedIds = Array.isArray(where.approvedPriceRangeId?.in)
         ? where.approvedPriceRangeId.in
         : [where.approvedPriceRangeId].filter(Boolean);
@@ -377,6 +396,16 @@ test("intern submissions stay outside live customer price ranges until approval"
       approved: 2,
       superseded: 0,
       processed: 2,
+    });
+    assert.equal(liveRanges.length, 2);
+
+    const deletedApproved = await service.deletePriceRangeSubmissions(
+      { status: "APPROVED" },
+      { id: "admin-1", role: "ADMIN" },
+    );
+    assert.deepEqual(deletedApproved, {
+      deleted: 2,
+      status: "APPROVED",
     });
     assert.equal(liveRanges.length, 2);
 

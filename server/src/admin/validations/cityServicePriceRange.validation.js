@@ -48,6 +48,15 @@ const editPriceRangeSubmissionSchema = [
   body("isActive").optional({ nullable: true }).isBoolean(),
 ];
 
+const deletePriceRangeSubmissionsSchema = [
+  body("status")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .toUpperCase()
+    .isIn(["PENDING", "EDITED", "APPROVED", "REJECTED"])
+    .withMessage("Invalid price range submission status"),
+];
+
 const deletePriceRangesSchema = [
   body("priceRangeIds")
     .optional()
@@ -113,6 +122,7 @@ const updatePriceRangeSchema = [
 
 module.exports = {
   createPriceRangeSchema,
+  deletePriceRangeSubmissionsSchema,
   deletePriceRangesSchema,
   editPriceRangeSubmissionSchema,
   priceRangeIdSchema,

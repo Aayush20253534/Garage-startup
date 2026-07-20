@@ -7,6 +7,7 @@ const rateLimit = require("../../middlewares/rateLimit.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const {
   createPriceRangeSchema,
+  deletePriceRangeSubmissionsSchema,
   deletePriceRangesSchema,
   editPriceRangeSubmissionSchema,
   priceRangeIdSchema,
@@ -61,6 +62,13 @@ router.patch(
   editPriceRangeSubmissionSchema,
   validate,
   controller.editPriceRangeSubmission,
+);
+router.delete(
+  "/submissions",
+  authorizeRoles("ADMIN"),
+  deletePriceRangeSubmissionsSchema,
+  validate,
+  controller.deletePriceRangeSubmissions,
 );
 router.delete(
   "/submissions/:id",
