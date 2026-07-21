@@ -14,6 +14,7 @@ const {
 const {
   complaintIdValidation,
   createComplaintValidation,
+  listComplaintsValidation,
 } = require("../validations/complaint.validation");
 
 const router = express.Router();
@@ -50,7 +51,6 @@ router.post(
   complaintImageUpload.array("images", COMPLAINT_MAX_FILES),
   upload.validateUploadedFiles,
   createComplaintValidation,
-  listComplaintsValidation,
   validate,
   complaintController.createComplaint
 );
