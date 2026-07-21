@@ -69,8 +69,8 @@ test("admin services provide a focused coverage editor", () => {
   );
 
   assert.match(source, /Edit coverage/);
-  assert.match(source, /openCoverageEditor\(service, category\)/);
-  assert.match(source, /restrictedCityIds: coverageRestrictedCityIds/);
+  assert.match(source, /openCoverageEditor\(service\)/);
+  assert.match(source, /description: coverageItems\.join\(", "\) \|\| null/);
   assert.match(source, /Save coverage/);
-  assert.match(source, /Category restrictions also hide this service in:/);
+  assert.match(source, /Enter one coverage item per line/);
 });

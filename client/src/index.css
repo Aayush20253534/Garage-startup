@@ -1,5 +1,72 @@
 @import "tailwindcss";
 
+@keyframes rov-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rov-header-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rov-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes rov-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.rov-fade-up {
+  animation: rov-fade-up 550ms ease-out both;
+}
+
+.rov-header-enter {
+  animation: rov-header-enter 300ms ease-out both;
+}
+
+.rov-pop-in {
+  animation: rov-pop-in 160ms ease-out both;
+}
+
+.rov-slide-in {
+  animation: rov-slide-in 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rov-fade-up,
+  .rov-header-enter,
+  .rov-pop-in,
+  .rov-slide-in {
+    animation: none;
+  }
+}
+
 @theme {
   --color-brand: #b9f000;
   --color-brand-dark: #9bd000;

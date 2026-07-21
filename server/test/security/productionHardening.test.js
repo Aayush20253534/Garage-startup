@@ -172,3 +172,18 @@ test("session retention, cursor lists, and readiness checks are production bound
   assert.match(app, /\/health\/ready/);
   assert.match(app, /\/health\/live/);
 });
+
+test("production client excludes the legacy hero PNG and splits large shared dependencies", () => {
+  const home = read("../client/src/pages/Home.jsx");
+  const partner = read("../client/src/pages/Partner.jsx");
+  const vite = read("../client/vite.config.js");
+
+  for (const source of [home, partner]) {
+    assert.doesNotMatch(source, /assets\/Rovauto_home\.png/);
+    assert.match(source, /Rovauto_home-desktop\.webp/);
+  }
+
+  assert.match(vite, /"vendor-react"/);
+  assert.match(vite, /"vendor-state"/);
+  assert.doesNotMatch(home, /from "framer-motion"/);
+});

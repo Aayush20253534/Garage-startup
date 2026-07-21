@@ -1,6 +1,5 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import Logo from "@/components/common/Logo";
 import CustomerAvatar from "@/components/customer/CustomerAvatar";
 import SupportBrand from "@/components/support/SupportBrand";
@@ -324,11 +323,8 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           </div>
         </header>
 
-        <motion.main
+        <main
           key={pathname}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
           className={[
             "w-full min-w-0 max-w-full overflow-x-hidden",
             usesFixedPortalShell
@@ -337,7 +333,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           ].join(" ")}
         >
           <Outlet />
-        </motion.main>
+        </main>
       </div>
 
 

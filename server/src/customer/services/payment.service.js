@@ -4,8 +4,8 @@ const systemIssueReporter = require("../../services/systemIssueReporter.service"
 const axios = require("axios");
 const {
   getCashfreeBaseUrl,
-  getCashfreeHeaders,
   getCashfreeMode,
+  getCashfreeRequestConfig,
   isCashfreeConfigured,
 } = require("../../config/cashfree");
 const ApiError = require("../../utils/apiError");
@@ -86,7 +86,7 @@ const fetchCashfreeOrder = async (cashfreeOrderId, fallback) => {
   try {
     const cashfreeRes = await axios.get(
       `${getCashfreeBaseUrl()}/orders/${cashfreeOrderId}`,
-      { headers: getCashfreeHeaders() },
+      getCashfreeRequestConfig(),
     );
 
     return cashfreeRes.data;
@@ -103,7 +103,7 @@ const terminateCashfreeOrder = async (cashfreeOrderId) => {
     const cashfreeRes = await axios.patch(
       `${getCashfreeBaseUrl()}/orders/${cashfreeOrderId}`,
       { order_status: "TERMINATED" },
-      { headers: getCashfreeHeaders() },
+      getCashfreeRequestConfig(),
     );
 
     return cashfreeRes.data;
@@ -1649,15 +1649,14 @@ const createPaymentOrder = async (
           upiAmountPaid: String(reservation.upiAmountPaid),
         },
       },
-      {
+      getCashfreeRequestConfig({
         headers: {
-          ...getCashfreeHeaders(),
           "x-idempotency-key": getCashfreeIdempotencyKey(
             reservation.cashfreeOrderId,
           ),
           "x-request-id": randomUUID(),
         },
-      },
+      }),
     );
 
     cashfreeOrder = cashfreeRes.data;

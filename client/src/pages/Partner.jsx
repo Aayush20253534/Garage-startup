@@ -17,7 +17,6 @@ import {
 
 import Seo, { SITE_URL } from "@/components/seo/Seo";
 import GaragePwaInstall from "@/components/garage/GaragePwaInstall";
-import homepageHero from "@/assets/Rovauto_home.png";
 
 const SUPPORT_PHONE_DISPLAY = "+91 86199 55850";
 const SUPPORT_PHONE_HREF = "tel:+918619955850";
@@ -140,7 +139,7 @@ export default function Partner() {
             />
             <source srcSet={HERO_DESKTOP} type="image/webp" />
             <img
-              src={homepageHero}
+              src={HERO_DESKTOP}
               alt="Rovauto vehicle service workshop"
               width="1280"
               height="640"

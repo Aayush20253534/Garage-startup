@@ -31,6 +31,17 @@ export default defineConfig({
         intern: path.resolve(__dirname, "intern.html"),
         garage: path.resolve(__dirname, "garage.html"),
       },
+      output: {
+        manualChunks: {
+          "vendor-react": [
+            "react",
+            "react-dom",
+            "react-router-dom",
+            "react-helmet-async",
+          ],
+          "vendor-state": ["@reduxjs/toolkit", "react-redux"],
+        },
+      },
     },
   },
 

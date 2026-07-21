@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   FiBell,
   FiChevronDown,
@@ -216,11 +215,9 @@ export default function Navbar() {
 
   return (
     <>
-      <motion.header
-      initial={{ y: -32, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
+      <header
       className={[
-        "fixed inset-x-0 top-0 z-50 transition-all duration-300",
+        "rov-header-enter fixed inset-x-0 top-0 z-50 transition-all duration-300",
         scrolled
           ? "border-b border-line bg-white/90 shadow-sm backdrop-blur-xl"
           : "bg-transparent",
@@ -312,13 +309,9 @@ export default function Navbar() {
                     <FiChevronDown className="shrink-0 text-muted" />
                   </button>
 
-                  <AnimatePresence>
-                    {vehOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 8 }}
-                        className="card-soft absolute right-0 mt-2 w-56 rounded-2xl p-2 shadow-lg"
+                  {vehOpen && (
+                      <div
+                        className="rov-pop-in card-soft absolute right-0 mt-2 w-56 rounded-2xl p-2 shadow-lg"
                       >
                         <Link
                           to="/booking/vehicle"
@@ -343,9 +336,8 @@ export default function Navbar() {
                           <FiTruck />
                           My Vehicles
                         </Link>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                      </div>
+                  )}
                 </div>
               ) : (
                 <Link
@@ -394,14 +386,9 @@ export default function Navbar() {
                   )}
                 </button>
 
-                <AnimatePresence>
-                  {notificationsOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                      transition={{ duration: 0.16 }}
-                      className="absolute right-0 mt-3 w-[360px] overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-ink/10"
+                {notificationsOpen && (
+                    <div
+                      className="rov-pop-in absolute right-0 mt-3 w-[360px] overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-ink/10"
                       role="dialog"
                       aria-label="Latest notifications"
                     >
@@ -517,9 +504,8 @@ export default function Navbar() {
                           View all notifications
                         </Link>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    </div>
+                )}
               </div>
 
               <div className="relative">
@@ -545,13 +531,9 @@ export default function Navbar() {
                   <FiChevronDown className="shrink-0 text-muted" />
                 </button>
 
-                <AnimatePresence>
-                  {profileOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      className="card-soft absolute right-0 mt-2 w-56 rounded-2xl p-2 shadow-lg"
+                {profileOpen && (
+                    <div
+                      className="rov-pop-in card-soft absolute right-0 mt-2 w-56 rounded-2xl p-2 shadow-lg"
                     >
                       {[
                         ["Dashboard", "/dashboard"],
@@ -578,9 +560,8 @@ export default function Navbar() {
                         <FiLogOut />
                         Logout
                       </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    </div>
+                )}
               </div>
             </>
           )}
@@ -611,14 +592,9 @@ export default function Navbar() {
                 )}
               </button>
 
-              <AnimatePresence>
-                {notificationsOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                    transition={{ duration: 0.16 }}
-                    className="fixed left-4 right-4 top-[72px] z-[60] max-h-[calc(100dvh-96px)] overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-ink/10 sm:left-auto sm:right-6 sm:w-[360px]"
+              {notificationsOpen && (
+                  <div
+                    className="rov-pop-in fixed left-4 right-4 top-[72px] z-[60] max-h-[calc(100dvh-96px)] overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-ink/10 sm:left-auto sm:right-6 sm:w-[360px]"
                     role="dialog"
                     aria-label="Latest notifications"
                   >
@@ -736,9 +712,8 @@ export default function Navbar() {
                         View all notifications
                       </Link>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
+              )}
             </div>
           )}
 
@@ -757,16 +732,11 @@ export default function Navbar() {
         </div>
       </div>
 
-      </motion.header>
+      </header>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "tween", duration: 0.18 }}
-            className="fixed inset-0 z-50 h-dvh w-screen overflow-y-auto bg-white lg:hidden"
+      {open && (
+          <div
+            className="fixed inset-0 z-50 h-dvh w-screen overflow-y-auto bg-white lg:hidden rov-slide-in"
           >
             <div className="container-x flex h-16 items-center justify-between">
               <Link
@@ -919,9 +889,8 @@ export default function Navbar() {
                 )}
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+      )}
     </>
   );
 }

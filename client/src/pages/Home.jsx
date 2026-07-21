@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import {
   FiArrowRight,
@@ -18,7 +17,6 @@ import { useApp } from "@/hooks/useApp";
 import Seo, { SITE_ICON, SITE_URL } from "@/components/seo/Seo";
 import { getServiceCategoryPath } from "@/utils/serviceSlug";
 import { formatRupees } from "@/utils/priceRange";
-import homepageHero from "@/assets/Rovauto_home.png";
 import {
   getCategoryThumbnailUrl,
   getServiceThumbnailUrl,
@@ -189,7 +187,7 @@ export default function Home() {
               <source srcSet={HOMEPAGE_HERO_DESKTOP} type="image/webp" />
               <img
                 alt="Rovauto verified vehicle service workshop"
-                src={homepageHero}
+                src={HOMEPAGE_HERO_DESKTOP}
                 width="1280"
                 height="640"
                 fetchPriority="high"
@@ -204,11 +202,8 @@ export default function Home() {
           </div>
 
           <div className="container-x relative z-10 py-10 sm:py-14 lg:py-12">
-            <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55 }}
-              className="max-w-3xl text-white"
+            <div
+              className="rov-fade-up max-w-3xl text-white"
             >
               <div className="flex flex-col items-start gap-2 lg:flex-row lg:items-center">
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur">
@@ -286,7 +281,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
           </div>
         </section>
 
@@ -322,7 +317,7 @@ export default function Home() {
             </div>
           ) : categories.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-              {categories.slice(0, 8).map((category, index) => {
+              {categories.slice(0, 8).map((category) => {
                 const ui = CATEGORY_UI[category.name] || {};
                 const image = getCategoryThumbnailUrl(category);
                 const isSos = ui.isSos;
@@ -336,12 +331,8 @@ export default function Home() {
                     ));
 
                 return (
-                  <motion.div
+                  <div
                     key={category.id}
-                    initial={{ opacity: 0, y: 18 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.2 }}
-                    transition={{ duration: 0.35, delay: index * 0.04 }}
                   >
                     <Link
                       to={
@@ -434,7 +425,7 @@ export default function Home() {
                         </>
                       )}
                     </Link>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
@@ -476,12 +467,8 @@ export default function Home() {
                   "Track status, talk to mechanic, get warranty.",
                 ],
               ].map(([title, desc], index) => (
-                <motion.div
+                <div
                   key={title}
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.05 }}
                   className="card-soft rounded-2xl p-4 shadow-sm"
                 >
                   <div className="grid h-10 w-10 place-items-center rounded-full bg-ink text-sm font-bold text-brand">
@@ -490,7 +477,7 @@ export default function Home() {
 
                   <h3 className="mt-4 text-lg font-bold text-ink">{title}</h3>
                   <p className="mt-1 text-sm text-muted">{desc}</p>
-                </motion.div>
+                </div>
               ))}
             </div>
           </div>

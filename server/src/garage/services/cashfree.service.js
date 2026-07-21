@@ -2,8 +2,8 @@ const axios = require("axios");
 
 const {
   getCashfreeBaseUrl,
-  getCashfreeHeaders,
   getCashfreeMode,
+  getCashfreeRequestConfig,
   isCashfreeConfigured,
 } = require("../../config/cashfree");
 const ApiError = require("../../utils/apiError");
@@ -101,7 +101,7 @@ const createCashfreeOrder = async ({ orderId, amount, user, returnPath, note, ta
         order_note: note,
         order_tags: tags,
       },
-      { headers: getCashfreeHeaders() }
+      getCashfreeRequestConfig(),
     );
 
     return response.data;
@@ -116,7 +116,10 @@ const fetchCashfreeOrder = async (cashfreeOrderId) => {
   }
 
   try {
-    const response = await axios.get(`${getCashfreeBaseUrl()}/orders/${cashfreeOrderId}`, { headers: getCashfreeHeaders() });
+    const response = await axios.get(
+      `${getCashfreeBaseUrl()}/orders/${cashfreeOrderId}`,
+      getCashfreeRequestConfig(),
+    );
     return response.data;
   } catch (error) {
     throw getCashfreeApiError(error, "Unable to verify Cashfree payment");
