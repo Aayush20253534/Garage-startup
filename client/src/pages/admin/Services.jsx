@@ -90,6 +90,12 @@ const getRestrictedCityNames = (record) =>
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
 
+const getCoverageItems = (description) =>
+  String(description || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 function RestrictedCityPicker({
   description,
   cities,
@@ -198,8 +204,6 @@ export default function AdminServices() {
   const [togglingServiceId, setTogglingServiceId] = useState(null);
   const [togglingCategoryId, setTogglingCategoryId] = useState(null);
   const [coverageService, setCoverageService] = useState(null);
-  const [coverageRestrictedCityIds, setCoverageRestrictedCityIds] = useState([]);
-  const [coverageCitySearch, setCoverageCitySearch] = useState("");
   const [savingCoverage, setSavingCoverage] = useState(false);
 
   const activeCategoryCount = useMemo(
@@ -511,34 +515,27 @@ export default function AdminServices() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const openCoverageEditor = (service, category) => {
+  const openCoverageEditor = (service) => {
     setCoverageService({
       id: service.id,
       name: service.name,
-      categoryRestrictedCityNames: getRestrictedCityNames(category),
+      coverage: getCoverageItems(service.description).join("\n"),
     });
-    setCoverageRestrictedCityIds(getRestrictedCityIds(service));
-    setCoverageCitySearch("");
   };
 
   const closeCoverageEditor = () => {
     if (savingCoverage) return;
     setCoverageService(null);
-    setCoverageRestrictedCityIds([]);
-    setCoverageCitySearch("");
-  };
-
-  const toggleCoverageRestrictedCity = (cityId) => {
-    setCoverageRestrictedCityIds((current) =>
-      current.includes(cityId)
-        ? current.filter((id) => id !== cityId)
-        : [...current, cityId],
-    );
   };
 
   const saveCoverage = async (event) => {
     event.preventDefault();
     if (!coverageService || savingCoverage) return;
+
+    const coverageItems = coverageService.coverage
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
 
     setSavingCoverage(true);
     setError("");
@@ -546,12 +543,10 @@ export default function AdminServices() {
 
     try {
       await adminApi.updateService(coverageService.id, {
-        restrictedCityIds: coverageRestrictedCityIds,
+        description: coverageItems.join(", ") || null,
       });
       const serviceName = coverageService.name;
       setCoverageService(null);
-      setCoverageRestrictedCityIds([]);
-      setCoverageCitySearch("");
       setSuccess(`${serviceName} coverage updated.`);
       await load();
     } catch (err) {
@@ -1221,11 +1216,11 @@ export default function AdminServices() {
 
                           <button
                             type="button"
-                            onClick={() => openCoverageEditor(service, category)}
+                            onClick={() => openCoverageEditor(service)}
                             className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-bold text-sky-800 transition hover:border-sky-300 hover:bg-sky-100"
                             aria-label={`Edit coverage for ${service.name}`}
                           >
-                            <FiMapPin />
+                            <FiEdit3 />
                             Edit coverage
                           </button>
 
@@ -1320,23 +1315,26 @@ export default function AdminServices() {
               </button>
             </div>
 
-            {coverageService.categoryRestrictedCityNames.length > 0 && (
-              <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800">
-                Category restrictions also hide this service in: {coverageService.categoryRestrictedCityNames.join(", ")}.
-              </div>
-            )}
-
-            <div className="mt-4">
-              <RestrictedCityPicker
-                description="Select cities where this service must be hidden. Leave every city unselected to make it available wherever its category is available."
-                cities={cities}
-                selectedCityIds={coverageRestrictedCityIds}
-                search={coverageCitySearch}
-                onSearchChange={setCoverageCitySearch}
-                onToggle={toggleCoverageRestrictedCity}
-                onClear={() => setCoverageRestrictedCityIds([])}
+            <label className="mt-5 block text-sm font-bold text-ink">
+              Coverage items
+              <textarea
+                autoFocus
+                value={coverageService.coverage}
+                onChange={(event) =>
+                  setCoverageService((current) => ({
+                    ...current,
+                    coverage: event.target.value,
+                  }))
+                }
+                rows={8}
+                placeholder={"Service inspection\nBasic checks\nOil replacement"}
+                className={`${textareaClass} mt-2 w-full`}
               />
-            </div>
+            </label>
+            <p className="mt-2 text-xs leading-5 text-muted">
+              Enter one coverage item per line. These items appear under “Coverage” and
+              “Services Coverage” on the customer service page.
+            </p>
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
@@ -1352,7 +1350,7 @@ export default function AdminServices() {
                 disabled={savingCoverage}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <FiMapPin />
+                <FiEdit3 />
                 {savingCoverage ? "Saving coverage..." : "Save coverage"}
               </button>
             </div>
