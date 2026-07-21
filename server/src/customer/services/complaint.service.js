@@ -10,6 +10,7 @@ const {
   COMPLAINT_MAX_FILES,
   COMPLAINT_MAX_FILE_SIZE_BYTES,
 } = require("../constants/complaintUpload");
+const { decodeCursor, encodeCursor, parsePageLimit } = require("../../utils/cursorPagination");
 
 const invalidateComplaintBookingCaches = async (userId, bookingId) => {
   if (!userId) return;
@@ -122,9 +123,19 @@ const createComplaint = async (userId, data, files = []) => {
   return complaint;
 };
 
-const getMyComplaints = async (userId) => {
-  return prisma.complaint.findMany({
-    where: { userId },
+const getMyComplaints = async (userId, query = {}) => {
+  const limit = parsePageLimit(query.limit);
+  const cursor = decodeCursor(query.cursor, "createdAt");
+  const rows = await prisma.complaint.findMany({
+    where: {
+      userId,
+      ...(cursor && {
+        OR: [
+          { createdAt: { lt: cursor.createdAt } },
+          { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+        ],
+      }),
+    },
     include: {
       booking: {
         include: {
@@ -134,8 +145,18 @@ const getMyComplaints = async (userId) => {
         },
       },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit + 1,
   });
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
+  const last = items.at(-1);
+  return {
+    items,
+    nextCursor: hasMore
+      ? encodeCursor({ id: last.id, createdAt: last.createdAt })
+      : null,
+  };
 };
 
 const getComplaintById = async (userId, complaintId) => {

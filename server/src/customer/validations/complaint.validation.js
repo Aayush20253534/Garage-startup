@@ -1,4 +1,9 @@
-const { body, param } = require("express-validator");
+const { body, param, query } = require("express-validator");
+
+const listComplaintsValidation = [
+  query("limit").optional({ checkFalsy: true }).isInt({ min: 1, max: 100 }),
+  query("cursor").optional({ checkFalsy: true }).isString().isLength({ max: 512 }),
+];
 
 const complaintIdValidation = [
   param("id").isUUID().withMessage("Invalid complaint ID"),
@@ -21,4 +26,5 @@ const createComplaintValidation = [
 module.exports = {
   complaintIdValidation,
   createComplaintValidation,
+  listComplaintsValidation,
 };

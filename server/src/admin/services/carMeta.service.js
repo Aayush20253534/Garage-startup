@@ -1,7 +1,10 @@
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const { deletePattern } = require("../../utils/cache");
-const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
+const {
+  deleteFromCloudinary,
+  uploadToCloudinary,
+} = require("../../utils/cloudinaryUpload");
 
 const LOGO_MAX_SIZE = 2 * 1024 * 1024;
 const LOGO_FOLDER = "rovauto/vehicle-brands";
@@ -30,7 +33,15 @@ const uploadLogo = async (file) => {
   }
 
   const result = await uploadToCloudinary(file.buffer, LOGO_FOLDER, "image");
-  return result.secure_url;
+  return {
+    logoUrl: result.secure_url,
+    logoPublicId: result.public_id,
+  };
+};
+
+const deleteUploadedLogo = async (logo) => {
+  if (!logo?.logoPublicId) return;
+  await deleteFromCloudinary(logo.logoPublicId, "image").catch(() => null);
 };
 
 const getBrand = async (brandId) => {
@@ -92,7 +103,7 @@ const createBrand = async (payload, file) => {
   const name = normalizeName(payload.name);
   if (!name) throw new ApiError(400, "Car brand name is required");
 
-  const logoUrl = await uploadLogo(file);
+  const logo = await uploadLogo(file);
   const models = Array.isArray(payload.models) ? payload.models : [];
   const cleanModels = [...new Set(models.map(normalizeName).filter(Boolean))];
 
@@ -100,7 +111,8 @@ const createBrand = async (payload, file) => {
     const brand = await prisma.vehicleBrand.create({
       data: {
         name,
-        logoUrl,
+        logoUrl: logo?.logoUrl || null,
+        logoPublicId: logo?.logoPublicId || null,
         isActive:
           payload.isActive === undefined ||
           payload.isActive === true ||
@@ -118,6 +130,7 @@ const createBrand = async (payload, file) => {
     await invalidateVehicleMetaCache();
     return brand;
   } catch (error) {
+    await deleteUploadedLogo(logo);
     if (error.code === "P2002") {
       throw new ApiError(409, "A car brand with this name already exists");
     }
@@ -126,10 +139,10 @@ const createBrand = async (payload, file) => {
 };
 
 const updateBrand = async (brandId, payload, file) => {
-  await getBrand(brandId);
+  const existingBrand = await getBrand(brandId);
 
   const data = {};
-  const logoUrl = await uploadLogo(file);
+  const logo = await uploadLogo(file);
 
   if (payload.name !== undefined) {
     const name = normalizeName(payload.name);
@@ -141,7 +154,10 @@ const updateBrand = async (brandId, payload, file) => {
     data.isActive = payload.isActive === true || payload.isActive === "true";
   }
 
-  if (logoUrl) data.logoUrl = logoUrl;
+  if (logo) {
+    data.logoUrl = logo.logoUrl;
+    data.logoPublicId = logo.logoPublicId;
+  }
 
   try {
     const brand = await prisma.vehicleBrand.update({
@@ -150,9 +166,20 @@ const updateBrand = async (brandId, payload, file) => {
       include: includeModels,
     });
 
+    if (
+      logo?.logoPublicId &&
+      existingBrand.logoPublicId &&
+      existingBrand.logoPublicId !== logo.logoPublicId
+    ) {
+      await deleteFromCloudinary(existingBrand.logoPublicId, "image").catch(
+        () => null,
+      );
+    }
+
     await invalidateVehicleMetaCache();
     return brand;
   } catch (error) {
+    await deleteUploadedLogo(logo);
     if (error.code === "P2002") {
       throw new ApiError(409, "A car brand with this name already exists");
     }

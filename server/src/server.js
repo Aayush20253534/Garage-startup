@@ -20,6 +20,10 @@ const {
   startGarageApplicationEmailOutboxWorker,
   stopGarageApplicationEmailOutboxWorker,
 } = require("./garage/services/applicationEmailOutbox.service");
+const {
+  startSessionRetentionCleanup,
+  stopSessionRetentionCleanup,
+} = require("./services/sessionRetention.service");
 
 const PORT = process.env.PORT || 5000;
 const SHUTDOWN_TIMEOUT_MS = Math.max(
@@ -102,6 +106,7 @@ const shutdown = async ({ signal, exitCode = 0, error = null }) => {
   stopGarageSearchWorker();
   stopSystemIssueAutoResolver();
   stopGarageApplicationEmailOutboxWorker();
+  stopSessionRetentionCleanup();
 
   const forceExitTimer = setTimeout(() => {
     console.error(`Forced shutdown after ${SHUTDOWN_TIMEOUT_MS}ms`);
@@ -152,6 +157,7 @@ const startServer = async () => {
     startGarageSearchWorker();
     const systemIssueAutoResolver = startSystemIssueAutoResolver();
     startGarageApplicationEmailOutboxWorker();
+    startSessionRetentionCleanup();
 
     server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

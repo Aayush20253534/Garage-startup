@@ -50,11 +50,12 @@ router.post(
   complaintImageUpload.array("images", COMPLAINT_MAX_FILES),
   upload.validateUploadedFiles,
   createComplaintValidation,
+  listComplaintsValidation,
   validate,
   complaintController.createComplaint
 );
 
-router.get("/my", complaintController.getMyComplaints);
+router.get("/my", listComplaintsValidation, validate, complaintController.getMyComplaints);
 
 router.get(
   "/:id",

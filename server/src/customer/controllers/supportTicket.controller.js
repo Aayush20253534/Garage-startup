@@ -15,7 +15,7 @@ const createTicket = asyncHandler(async (req, res) => {
 });
 
 const listMyTickets = asyncHandler(async (req, res) => {
-  const tickets = await service.listMyTickets(req.user.id);
+  const tickets = await service.listMyTickets(req.user.id, req.query);
   return res
     .status(200)
     .json(new ApiResponse(200, "Support tickets fetched successfully", tickets));

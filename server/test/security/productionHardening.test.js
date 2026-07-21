@@ -124,3 +124,51 @@ test("diagnostic reports omit query values and redact credentials", () => {
   assert.match(serverReporter, /queryKeys: Object\.keys/);
   assert.match(serverReporter, /REDACTED_JWT/);
 });
+
+test("price ranges enforce one valid row per normalized scope", () => {
+  const schema = read("prisma/schema.prisma");
+  const service = read("src/admin/services/cityServicePriceRange.service.js");
+  const migration = read("prisma/migrations/20260721120000_harden_price_range_scope_integrity/migration.sql");
+  assert.match(schema, /scopeKey\s+String\s+@unique/);
+  assert.match(service, /cityServicePriceRange\.upsert/);
+  assert.match(migration, /CHECK \("minPrice" >= 0 AND "maxPrice" >= "minPrice"\)/);
+});
+
+test("ticket uploads alone are capped at 5 MB and clean failed uploads", () => {
+  const route = read("src/customer/routes/supportTicket.routes.js");
+  const service = read("src/customer/services/supportTicket.service.js");
+  assert.match(route, /fileSize: 5 \* 1024 \* 1024/);
+  assert.match(route, /support-ticket-create/);
+  assert.match(route, /registerUploadCleanup/);
+  assert.match(service, /MAX_ATTACHMENT_SIZE = 5 \* 1024 \* 1024/);
+  assert.match(service, /deleteFromCloudinary/);
+});
+
+test("replacement media is tracked and rolled back when persistence fails", () => {
+  const schema = read("prisma/schema.prisma");
+  const carMeta = read("src/admin/services/carMeta.service.js");
+  const services = read("src/admin/services/serviceAdmin.service.js");
+  assert.match(schema, /logoPublicId\s+String\?/);
+  assert.match(carMeta, /existingBrand\.logoPublicId/);
+  assert.match(carMeta, /deleteUploadedLogo\(logo\)/);
+  assert.match(services, /deleteFromCloudinary\(result\.public_id/);
+});
+
+test("session retention, cursor lists, and readiness checks are production bounded", () => {
+  const retention = read("src/services/sessionRetention.service.js");
+  const priceRanges = read("src/admin/services/cityServicePriceRange.service.js");
+  const tickets = read("src/customer/services/supportTicket.service.js");
+  const complaints = read("src/customer/services/complaint.service.js");
+  const app = read("src/app.js");
+  for (const model of ["userSession", "staffSession", "garageOwnerSession", "customerSupportSession"]) {
+    assert.match(retention, new RegExp(`"${model}"`));
+  }
+  for (const source of [priceRanges, tickets, complaints]) {
+    assert.match(source, /take: limit \+ 1/);
+    assert.match(source, /nextCursor/);
+  }
+  assert.match(app, /prisma\.\$queryRaw`SELECT 1`/);
+  assert.match(app, /redis\.ping\(\)/);
+  assert.match(app, /\/health\/ready/);
+  assert.match(app, /\/health\/live/);
+});

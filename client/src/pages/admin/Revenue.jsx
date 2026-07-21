@@ -120,6 +120,8 @@ export default function Revenue() {
   const { user } = useApp();
   const isIntern = user?.role === "INTERN";
   const [ranges, setRanges] = useState([]);
+  const [nextRangeCursor, setNextRangeCursor] = useState(null);
+  const [loadingMoreRanges, setLoadingMoreRanges] = useState(false);
   const [submissions, setSubmissions] = useState([]);
   const [services, setServices] = useState([]);
   const [cities, setCities] = useState([]);
@@ -179,12 +181,13 @@ export default function Revenue() {
         ...(filterFuelType && { fuelType: filterFuelType }),
       };
       const [rangeList, serviceList, submissionList] = await Promise.all([
-        adminApi.getPriceRanges(priceRangeFilters),
+        adminApi.getPriceRanges({ ...priceRangeFilters, limit: 100 }),
         adminApi.getAssignableServices(),
         adminApi.getPriceRangeSubmissions(),
       ]);
 
-      setRanges(rangeList || []);
+      setRanges(Array.isArray(rangeList?.items) ? rangeList.items : []);
+      setNextRangeCursor(rangeList?.nextCursor || null);
       setServices(serviceList || []);
       setSubmissions(submissionList || []);
       setSelectedRangeIds([]);
@@ -192,6 +195,27 @@ export default function Revenue() {
       setError(err.response?.data?.message || "Unable to load price ranges");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreRanges = async () => {
+    if (!nextRangeCursor || loadingMoreRanges) return;
+    try {
+      setLoadingMoreRanges(true);
+      const result = await adminApi.getPriceRanges({
+        ...(filterCity.trim() && { city: filterCity.trim() }),
+        ...(filterVehicleBrand && { vehicleBrand: filterVehicleBrand }),
+        ...(filterVehicleModel && { vehicleModel: filterVehicleModel }),
+        ...(filterFuelType && { fuelType: filterFuelType }),
+        limit: 100,
+        cursor: nextRangeCursor,
+      });
+      setRanges((current) => [...current, ...(result?.items || [])]);
+      setNextRangeCursor(result?.nextCursor || null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load more price ranges");
+    } finally {
+      setLoadingMoreRanges(false);
     }
   };
 
@@ -1584,6 +1608,18 @@ export default function Revenue() {
             </tbody>
           </table>
         </div>
+        {nextRangeCursor && (
+          <div className="border-t border-line bg-white p-4 text-center">
+            <button
+              type="button"
+              onClick={() => void loadMoreRanges()}
+              disabled={loadingMoreRanges}
+              className="rounded-lg border border-line px-4 py-2 text-sm font-bold text-ink disabled:opacity-50"
+            >
+              {loadingMoreRanges ? "Loading..." : "Load more price ranges"}
+            </button>
+          </div>
+        )}
       </section>
 
       {editSubmissionTarget && (

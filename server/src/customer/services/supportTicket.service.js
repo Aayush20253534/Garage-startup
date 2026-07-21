@@ -2,12 +2,16 @@ const crypto = require("crypto");
 
 const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
-const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
+const {
+  deleteFromCloudinary,
+  uploadToCloudinary,
+} = require("../../utils/cloudinaryUpload");
 const { createActivity } = require("./activity.service");
 const supportNotificationService = require("../../customerSupport/services/supportNotification.service");
+const { decodeCursor, encodeCursor, parsePageLimit } = require("../../utils/cursorPagination");
 
 const MAX_ATTACHMENTS = 5;
-const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 
 const TICKET_INCLUDE = {
   booking: {
@@ -87,7 +91,7 @@ const validateAttachments = (files = []) => {
     }
 
     if (Number(file.size || 0) > MAX_ATTACHMENT_SIZE) {
-      throw new ApiError(400, "Each evidence image must be under 10 MB");
+      throw new ApiError(400, "Each evidence image must be 5 MB or smaller");
     }
   });
 };
@@ -96,17 +100,29 @@ const uploadAttachments = async (files = []) => {
   validateAttachments(files);
 
   const uploaded = [];
-  for (const file of files) {
-    const result = await uploadToCloudinary(
-      file.buffer,
-      "project-x/support-tickets",
-      "image",
-    );
+  try {
+    for (const file of files) {
+      const fileSource = file.path || file.buffer;
+      if (!fileSource) {
+        throw new ApiError(400, "Support ticket image data is missing");
+      }
 
-    uploaded.push({
-      imageUrl: result.secure_url,
-      publicId: result.public_id,
-    });
+      const result = await uploadToCloudinary(
+        fileSource,
+        "project-x/support-tickets",
+        "image",
+      );
+
+      uploaded.push({
+        imageUrl: result.secure_url,
+        publicId: result.public_id,
+      });
+    }
+  } catch (error) {
+    await Promise.allSettled(
+      uploaded.map((item) => deleteFromCloudinary(item.publicId, "image")),
+    );
+    throw error;
   }
 
   return uploaded;
@@ -156,41 +172,50 @@ const createTicket = async ({ user, data, files = [] }) => {
 
   await assertOwnedBooking(user.id, bookingId);
   const uploaded = await uploadAttachments(files);
-  const ticketCode = await generateTicketCode();
-  const subject = sanitizeText(data.subject, 160);
-  const description = sanitizeText(data.description, 5000);
+  let ticket;
 
-  const ticket = await prisma.supportTicket.create({
-    data: {
-      ticketCode,
-      userId: user.id,
-      bookingId,
-      type,
-      category,
-      priority,
-      subject,
-      description,
-      status: "OPEN",
-      lastMessageAt: new Date(),
-      messages: {
-        create: {
-          authorType: "CUSTOMER",
-          authorUserId: user.id,
-          authorName: user.name,
-          body: description,
+  try {
+    const ticketCode = await generateTicketCode();
+    const subject = sanitizeText(data.subject, 160);
+    const description = sanitizeText(data.description, 5000);
+
+    ticket = await prisma.supportTicket.create({
+      data: {
+        ticketCode,
+        userId: user.id,
+        bookingId,
+        type,
+        category,
+        priority,
+        subject,
+        description,
+        status: "OPEN",
+        lastMessageAt: new Date(),
+        messages: {
+          create: {
+            authorType: "CUSTOMER",
+            authorUserId: user.id,
+            authorName: user.name,
+            body: description,
+          },
         },
+        attachments: uploaded.length
+          ? {
+              create: uploaded.map((item, index) => ({
+                ...item,
+                order: index,
+              })),
+            }
+          : undefined,
       },
-      attachments: uploaded.length
-        ? {
-            create: uploaded.map((item, index) => ({
-              ...item,
-              order: index,
-            })),
-          }
-        : undefined,
-    },
-    include: TICKET_INCLUDE,
-  });
+      include: TICKET_INCLUDE,
+    });
+  } catch (error) {
+    await Promise.allSettled(
+      uploaded.map((item) => deleteFromCloudinary(item.publicId, "image")),
+    );
+    throw error;
+  }
 
   await createActivity(user.id, {
     type: "SUPPORT",
@@ -211,9 +236,19 @@ const createTicket = async ({ user, data, files = [] }) => {
   return ticket;
 };
 
-const listMyTickets = async (userId) => {
-  return prisma.supportTicket.findMany({
-    where: { userId },
+const listMyTickets = async (userId, query = {}) => {
+  const limit = parsePageLimit(query.limit);
+  const cursor = decodeCursor(query.cursor, "lastMessageAt");
+  const rows = await prisma.supportTicket.findMany({
+    where: {
+      userId,
+      ...(cursor && {
+        OR: [
+          { lastMessageAt: { lt: cursor.lastMessageAt } },
+          { lastMessageAt: cursor.lastMessageAt, id: { lt: cursor.id } },
+        ],
+      }),
+    },
     include: {
       booking: {
         select: {
@@ -245,8 +280,18 @@ const listMyTickets = async (userId) => {
         },
       },
     },
-    orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }],
+    take: limit + 1,
   });
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
+  const last = items.at(-1);
+  return {
+    items,
+    nextCursor: hasMore
+      ? encodeCursor({ id: last.id, lastMessageAt: last.lastMessageAt })
+      : null,
+  };
 };
 
 const getMyTicket = async (userId, ticketId) => {

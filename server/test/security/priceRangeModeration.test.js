@@ -222,6 +222,16 @@ test("intern submissions stay outside live customer price ranges until approval"
     },
     priceRangeSubmission,
     cityServicePriceRange: {
+      async upsert({ where, create, update }) {
+        const index = liveRanges.findIndex((range) => range.scopeKey === where.scopeKey);
+        if (index >= 0) {
+          liveRanges[index] = { ...liveRanges[index], ...update };
+          return liveRanges[index];
+        }
+        const range = { id: `range-${liveRanges.length + 1}`, ...create };
+        liveRanges.push(range);
+        return range;
+      },
       async findMany({ where = {} } = {}) {
         if (where.id?.in) {
           return liveRanges.filter((range) => where.id.in.includes(range.id));

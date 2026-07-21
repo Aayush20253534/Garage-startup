@@ -5,6 +5,8 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const compression = require("compression");
 const cookieParser = require("cookie-parser");
+const prisma = require("./config/prisma");
+const redis = require("./config/redis");
 
 const routes = require("./routes/index.routes");
 const ApiError = require("./utils/apiError");
@@ -195,11 +197,36 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/health", (req, res) => {
-  return res.status(200).json({
-    status: "ok",
+const readinessHandler = async (req, res) => {
+  const timeout = (promise) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        const timer = setTimeout(() => reject(new Error("timeout")), 2_000);
+        timer.unref?.();
+      }),
+    ]);
+  const checks = await Promise.allSettled([
+    timeout(prisma.$queryRaw`SELECT 1`),
+    timeout(
+      redis
+        ? redis.ping()
+        : Promise.reject(new Error("Redis is not configured")),
+    ),
+  ]);
+  const ready = checks.every((check) => check.status === "fulfilled");
+  return res.status(ready ? 200 : 503).json({
+    status: ready ? "ready" : "unavailable",
+    checks: {
+      database: checks[0].status === "fulfilled" ? "ok" : "error",
+      redis: checks[1].status === "fulfilled" ? "ok" : "error",
+    },
   });
-});
+};
+
+app.get("/health/live", (req, res) => res.status(200).json({ status: "ok" }));
+app.get("/health", readinessHandler);
+app.get("/health/ready", readinessHandler);
 
 app.get("/api/v1/csrf-token", getCsrfToken);
 

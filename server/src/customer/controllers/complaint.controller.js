@@ -15,7 +15,7 @@ const createComplaint = asyncHandler(async (req, res) => {
 });
 
 const getMyComplaints = asyncHandler(async (req, res) => {
-  const complaints = await complaintService.getMyComplaints(req.user.id);
+  const complaints = await complaintService.getMyComplaints(req.user.id, req.query);
 
   return res
     .status(200)

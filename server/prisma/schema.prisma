@@ -89,6 +89,8 @@ model GarageOwnerSession {
   @@index([garageOwnerId, expiresAt])
   @@index([garageOwnerId, deviceId])
   @@index([lastSeenAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
   @@map("garage_owner_sessions")
 }
 
@@ -123,6 +125,8 @@ model UserSession {
   @@index([userId, expiresAt])
   @@index([userId, deviceId])
   @@index([lastSeenAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
   @@map("user_sessions")
 }
 
@@ -188,6 +192,8 @@ model StaffSession {
   @@index([staffAccountId, expiresAt])
   @@index([staffAccountId, deviceId])
   @@index([lastSeenAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
   @@map("staff_sessions")
 }
 
@@ -206,6 +212,8 @@ model CustomerSupportSession {
   @@index([supportAccountId, expiresAt])
   @@index([supportAccountId, deviceId])
   @@index([lastSeenAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
   @@map("customer_support_sessions")
 }
 
@@ -306,17 +314,17 @@ model Otp {
 }
 
 model PendingSignup {
-  id              String   @id @default(uuid())
-  name            String
-  email           String
-  phone           String
-  passwordHash    String
-  role            Role     @default(CUSTOMER)
-  isEmailVerified Boolean  @default(false)
-  isPhoneVerified Boolean  @default(false)
-  expiresAt       DateTime
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(uuid())
+  name              String
+  email             String
+  phone             String
+  passwordHash      String
+  role              Role     @default(CUSTOMER)
+  isEmailVerified   Boolean  @default(false)
+  isPhoneVerified   Boolean  @default(false)
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   termsAcceptedAt   DateTime
   privacyAcceptedAt DateTime
 
@@ -404,43 +412,43 @@ model CustomerLocation {
 }
 
 model Garage {
-  id                 String                    @id @default(uuid())
-  name               String
-  description        String?
-  phone              String
-  whatsappNo         String?
-  email              String?
-  address            String
-  city               String
-  area               String
-  latitude           Float
-  longitude          Float
-  placeId            String?
-  workingRadiusKm    Int                       @default(15)
-  garageType         String?                   @default("MULTI_BRAND")
-  supportedBrands    Json?
-  excludedServiceBrands Json                    @default("[]")
-  isVerified         Boolean                   @default(false)
-  isActive           Boolean                   @default(true)
-  ratingAvg          Float                     @default(0)
-  ratingCount        Int                       @default(0)
-  openingTime        String?
-  closingTime        String?
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
-  ownerId            String?
-  applicationId      String?                   @unique
-  bookings           Booking[]
-  inspectionImages   BookingInspectionImage[]
-  owner              GarageOwner?              @relation(fields: [ownerId], references: [id])
-  broadcasts         GarageBroadcastRequest[]
-  images             GarageImage[]
-  services           GarageService[]
-  videos             GarageVideo[]
-  wallet             GarageWallet?
-  walletTransactions GarageWalletTransaction[]
-  reviews            Review[]
-  trackingPoints     BookingTrackingPoint[]
+  id                    String                    @id @default(uuid())
+  name                  String
+  description           String?
+  phone                 String
+  whatsappNo            String?
+  email                 String?
+  address               String
+  city                  String
+  area                  String
+  latitude              Float
+  longitude             Float
+  placeId               String?
+  workingRadiusKm       Int                       @default(15)
+  garageType            String?                   @default("MULTI_BRAND")
+  supportedBrands       Json?
+  excludedServiceBrands Json                      @default("[]")
+  isVerified            Boolean                   @default(false)
+  isActive              Boolean                   @default(true)
+  ratingAvg             Float                     @default(0)
+  ratingCount           Int                       @default(0)
+  openingTime           String?
+  closingTime           String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  ownerId               String?
+  applicationId         String?                   @unique
+  bookings              Booking[]
+  inspectionImages      BookingInspectionImage[]
+  owner                 GarageOwner?              @relation(fields: [ownerId], references: [id])
+  broadcasts            GarageBroadcastRequest[]
+  images                GarageImage[]
+  services              GarageService[]
+  videos                GarageVideo[]
+  wallet                GarageWallet?
+  walletTransactions    GarageWalletTransaction[]
+  reviews               Review[]
+  trackingPoints        BookingTrackingPoint[]
 
   @@index([ownerId])
   @@index([city])
@@ -562,6 +570,7 @@ model GarageService {
 
 model CityServicePriceRange {
   id           String                 @id @default(uuid())
+  scopeKey     String                 @unique
   city         String
   serviceId    String
   vehicleBrand String?
@@ -937,13 +946,14 @@ model Review {
 }
 
 model VehicleBrand {
-  id        String         @id @default(uuid())
-  name      String         @unique
-  logoUrl   String?
-  isActive  Boolean        @default(true)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  models    VehicleModel[]
+  id           String         @id @default(uuid())
+  name         String         @unique
+  logoUrl      String?
+  logoPublicId String?
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  models       VehicleModel[]
 }
 
 model VehicleModel {

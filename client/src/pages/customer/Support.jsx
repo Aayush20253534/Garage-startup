@@ -17,6 +17,8 @@ import {
 
 import supportApi from "@/api/support";
 
+const TICKET_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
 const STATUS_LABELS = {
   OPEN: "Open",
   IN_REVIEW: "In review",
@@ -94,6 +96,8 @@ function Modal({ children, onClose, maxWidth = "max-w-3xl" }) {
 export default function Support() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tickets, setTickets] = useState([]);
+  const [nextTicketCursor, setNextTicketCursor] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -109,15 +113,30 @@ export default function Support() {
       setLoading(true);
       setError("");
       const [ticketResult, bookingResult] = await Promise.all([
-        supportApi.listTickets(),
+        supportApi.listTickets({ limit: 50 }),
         supportApi.getBookings(),
       ]);
-      setTickets(Array.isArray(ticketResult) ? ticketResult : []);
+      setTickets(Array.isArray(ticketResult?.items) ? ticketResult.items : []);
+      setNextTicketCursor(ticketResult?.nextCursor || null);
       setBookings(Array.isArray(bookingResult) ? bookingResult : []);
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Unable to load support tickets.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreTickets = async () => {
+    if (!nextTicketCursor || loadingMore) return;
+    try {
+      setLoadingMore(true);
+      const result = await supportApi.listTickets({ limit: 50, cursor: nextTicketCursor });
+      setTickets((current) => [...current, ...(result?.items || [])]);
+      setNextTicketCursor(result?.nextCursor || null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load more tickets.");
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -195,6 +214,22 @@ export default function Support() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const selectEvidenceImages = (event) => {
+    const selected = Array.from(event.target.files || []).slice(0, 5);
+    event.target.value = "";
+    const oversized = selected.find(
+      (file) => file.size > TICKET_IMAGE_MAX_BYTES,
+    );
+
+    if (oversized) {
+      setError(`${oversized.name} is larger than the 5 MB ticket-image limit.`);
+      return;
+    }
+
+    setError("");
+    setForm((current) => ({ ...current, images: selected }));
   };
 
   const handleReply = async (event) => {
@@ -338,6 +373,18 @@ export default function Support() {
                 <FiChevronRight className="mt-3 shrink-0 text-muted" />
               </button>
             ))}
+            {nextTicketCursor && (
+              <div className="p-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => void loadMoreTickets()}
+                  disabled={loadingMore}
+                  className="rounded-lg border border-line px-4 py-2 text-sm font-bold text-ink disabled:opacity-50"
+                >
+                  {loadingMore ? "Loading..." : "Load more tickets"}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -446,7 +493,7 @@ export default function Support() {
               </label>
 
               <label className="text-sm font-semibold text-ink sm:col-span-2">
-                Evidence images (optional, up to 5)
+                Evidence images (optional, up to 5 · maximum 5 MB each)
                 <span className="mt-2 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-line bg-bg-soft p-4 text-center text-muted transition hover:border-ink">
                   <FiImage className="text-2xl" />
                   <span className="mt-2 text-xs font-semibold">
@@ -457,12 +504,7 @@ export default function Support() {
                     accept="image/jpeg,image/png,image/webp"
                     multiple
                     className="hidden"
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        images: Array.from(event.target.files || []).slice(0, 5),
-                      }))
-                    }
+                    onChange={selectEvidenceImages}
                   />
                 </span>
               </label>

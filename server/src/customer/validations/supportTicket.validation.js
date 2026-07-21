@@ -1,4 +1,9 @@
-const { body, param } = require("express-validator");
+const { body, param, query } = require("express-validator");
+
+const listTicketsValidation = [
+  query("limit").optional({ checkFalsy: true }).isInt({ min: 1, max: 100 }),
+  query("cursor").optional({ checkFalsy: true }).isString().isLength({ max: 512 }),
+];
 
 const TICKET_TYPES = ["SUPPORT", "DISPUTE"];
 const CATEGORIES = [
@@ -55,6 +60,7 @@ const replyTicketValidation = [
 
 module.exports = {
   createTicketValidation,
+  listTicketsValidation,
   replyTicketValidation,
   ticketIdValidation,
 };

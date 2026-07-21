@@ -303,38 +303,44 @@ const uploadThumbnail = async (serviceId, file) => {
 
   const result = await uploadToCloudinary(file.buffer, THUMBNAIL_FOLDER, "image");
 
-  const media = await prisma.$transaction(async (tx) => {
-    const existingThumbnails = await tx.serviceMedia.findMany({
-      where: {
-        serviceId,
-        mediaType: "IMAGE",
-        isThumbnail: true,
-      },
-    });
+  let media;
+  try {
+    media = await prisma.$transaction(async (tx) => {
+      const existingThumbnails = await tx.serviceMedia.findMany({
+        where: {
+          serviceId,
+          mediaType: "IMAGE",
+          isThumbnail: true,
+        },
+      });
 
-    await tx.serviceMedia.updateMany({
-      where: {
-        serviceId,
-        mediaType: "IMAGE",
-        isThumbnail: true,
-      },
-      data: { isThumbnail: false },
-    });
+      await tx.serviceMedia.updateMany({
+        where: {
+          serviceId,
+          mediaType: "IMAGE",
+          isThumbnail: true,
+        },
+        data: { isThumbnail: false },
+      });
 
-    const created = await tx.serviceMedia.create({
-      data: {
-        serviceId,
-        mediaType: "IMAGE",
-        url: result.secure_url,
-        publicId: result.public_id,
-        order: 0,
-        isThumbnail: true,
-        sizeBytes: file.size,
-      },
-    });
+      const created = await tx.serviceMedia.create({
+        data: {
+          serviceId,
+          mediaType: "IMAGE",
+          url: result.secure_url,
+          publicId: result.public_id,
+          order: 0,
+          isThumbnail: true,
+          sizeBytes: file.size,
+        },
+      });
 
-    return { created, existingThumbnails };
-  });
+      return { created, existingThumbnails };
+    });
+  } catch (error) {
+    await deleteFromCloudinary(result.public_id, "image").catch(() => null);
+    throw error;
+  }
 
   for (const item of media.existingThumbnails) {
     deleteFromCloudinary(item.publicId, "image").catch(() => {});
@@ -361,14 +367,20 @@ const uploadCategoryThumbnail = async (categoryId, file) => {
     "image"
   );
 
-  const updated = await prisma.serviceCategory.update({
-    where: { id: categoryId },
-    data: {
-      thumbnailUrl: result.secure_url,
-      thumbnailPublicId: result.public_id,
-    },
-    include: categoryInclude,
-  });
+  let updated;
+  try {
+    updated = await prisma.serviceCategory.update({
+      where: { id: categoryId },
+      data: {
+        thumbnailUrl: result.secure_url,
+        thumbnailPublicId: result.public_id,
+      },
+      include: categoryInclude,
+    });
+  } catch (error) {
+    await deleteFromCloudinary(result.public_id, "image").catch(() => null);
+    throw error;
+  }
 
   if (category.thumbnailPublicId) {
     deleteFromCloudinary(category.thumbnailPublicId, "image").catch(() => {});

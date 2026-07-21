@@ -3,8 +3,8 @@ import api from "@/api/axios";
 const unwrap = (response) => response.data?.data ?? response.data;
 
 export const supportApi = {
-  async listTickets() {
-    return unwrap(await api.get("/support-tickets/my"));
+  async listTickets(params = {}) {
+    return unwrap(await api.get("/support-tickets/my", { params }));
   },
 
   async getTicket(ticketId) {

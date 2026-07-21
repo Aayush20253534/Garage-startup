@@ -91,6 +91,8 @@ const priceRangeQuerySchema = [
   query("vehicleModel").optional({ nullable: true, checkFalsy: true }).trim(),
   query("fuelType").optional({ nullable: true, checkFalsy: true }).isIn(fuelTypes),
   query("isActive").optional({ nullable: true, checkFalsy: true }).isBoolean(),
+  query("limit").optional({ checkFalsy: true }).isInt({ min: 1, max: 100 }),
+  query("cursor").optional({ checkFalsy: true }).isString().isLength({ max: 512 }),
 ];
 
 const createPriceRangeSchema = [

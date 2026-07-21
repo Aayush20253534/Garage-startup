@@ -1,6 +1,7 @@
 const argon2 = require("argon2");
 
 const prisma = require("../../config/prisma");
+const { decodeCursor, encodeCursor, parsePageLimit } = require("../../utils/cursorPagination");
 const ApiError = require("../../utils/apiError");
 const { getCache, setCache, deletePattern } = require("../../utils/cache");
 
@@ -38,6 +39,20 @@ const normalizeScopeValue = (value) => {
   return !text || ["ALL", "ANY"].includes(text.toUpperCase()) ? null : text;
 };
 const normalizeComparable = (value) => normalizeText(value).toLowerCase();
+const encodeScopePart = (value) => {
+  const normalized = normalizeComparable(value);
+  return `${Buffer.byteLength(normalized, "utf8")}:${normalized}`;
+};
+const getScopeKey = (payload = {}) =>
+  [
+    normalizeCity(payload.city),
+    payload.serviceId,
+    normalizeScopeValue(payload.vehicleBrand),
+    normalizeScopeValue(payload.vehicleModel),
+    payload.fuelType,
+  ]
+    .map(encodeScopePart)
+    .join("|");
 const getTimestamp = (value) => {
   const timestamp = new Date(value || 0).getTime();
   return Number.isFinite(timestamp) ? timestamp : 0;
@@ -82,24 +97,15 @@ const scopeWhere = (payload = {}) => ({
   fuelType: payload.fuelType || null,
 });
 
-const findDuplicateScopes = async (payload = {}, db = prisma) => {
-  const scope = scopeWhere(payload);
-  return db.cityServicePriceRange.findMany({
-    where: scope,
-    orderBy: { createdAt: "desc" },
-  });
-};
-
-const removeOlderDuplicates = async (duplicates = [], db = prisma) => {
-  const olderIds = duplicates.slice(1).map((item) => item.id);
-  if (olderIds.length === 0) return;
-  await db.cityServicePriceRange.deleteMany({
-    where: { id: { in: olderIds } },
-  });
-};
-
 const validatePriceRangePayload = async (payload = {}, db = prisma) => {
-  if (Number(payload.maxPrice) < Number(payload.minPrice)) {
+  const minPrice = Number(payload.minPrice);
+  const maxPrice = Number(payload.maxPrice);
+  if (
+    !Number.isInteger(minPrice) ||
+    !Number.isInteger(maxPrice) ||
+    minPrice < 0 ||
+    maxPrice < minPrice
+  ) {
     throw new ApiError(400, "maxPrice must be greater than or equal to minPrice");
   }
 
@@ -112,7 +118,8 @@ const validatePriceRangePayload = async (payload = {}, db = prisma) => {
 };
 
 const upsertLivePriceRange = async (payload = {}, db = prisma) => {
-  const duplicates = await findDuplicateScopes(payload, db);
+  const scope = scopeWhere(payload);
+  const scopeKey = getScopeKey(payload);
   const data = {
     minPrice: Number(payload.minPrice),
     maxPrice: Number(payload.maxPrice),
@@ -122,25 +129,17 @@ const upsertLivePriceRange = async (payload = {}, db = prisma) => {
         : payload.isActive === true || payload.isActive === "true",
   };
 
-  if (duplicates.length > 0) {
-    await removeOlderDuplicates(duplicates, db);
-    return db.cityServicePriceRange.update({
-      where: { id: duplicates[0].id },
-      data,
-      include: priceRangeInclude,
-    });
-  }
-
-  return db.cityServicePriceRange.create({
-    data: {
-      ...scopeWhere(payload),
-      ...data,
-    },
+  return db.cityServicePriceRange.upsert({
+    where: { scopeKey },
+    create: { ...scope, scopeKey, ...data },
+    update: data,
     include: priceRangeInclude,
   });
 };
 
 const listPriceRanges = async (query = {}) => {
+  const limit = parsePageLimit(query.limit);
+  const cursor = decodeCursor(query.cursor, "createdAt");
   const where = {
     ...(query.city && { city: normalizeCity(query.city) }),
     ...(query.serviceId && { serviceId: query.serviceId }),
@@ -148,13 +147,29 @@ const listPriceRanges = async (query = {}) => {
     ...(query.vehicleModel && { vehicleModel: normalizeScopeValue(query.vehicleModel) }),
     ...(query.fuelType && { fuelType: query.fuelType }),
     ...(query.isActive !== undefined && { isActive: query.isActive === "true" }),
+    ...(cursor && {
+      OR: [
+        { createdAt: { lt: cursor.createdAt } },
+        { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+      ],
+    }),
   };
 
-  return prisma.cityServicePriceRange.findMany({
+  const rows = await prisma.cityServicePriceRange.findMany({
     where,
     include: priceRangeInclude,
-    orderBy: [{ city: "asc" }, { createdAt: "desc" }],
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit + 1,
   });
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
+  const last = items.at(-1);
+  return {
+    items,
+    nextCursor: hasMore
+      ? encodeCursor({ id: last.id, createdAt: last.createdAt })
+      : null,
+  };
 };
 
 const getPriceRange = async (id) => {
@@ -222,10 +237,6 @@ const listPriceRangeSubmissions = async (query = {}, staff) => {
 const updatePriceRange = async (id, payload) => {
   const existing = await getPriceRange(id);
 
-  if (payload.minPrice !== undefined && payload.maxPrice !== undefined && Number(payload.maxPrice) < Number(payload.minPrice)) {
-    throw new ApiError(400, "maxPrice must be greater than or equal to minPrice");
-  }
-
   const nextScope = {
     city: payload.city !== undefined ? payload.city : existing.city,
     serviceId: payload.serviceId !== undefined ? payload.serviceId : existing.serviceId,
@@ -235,53 +246,50 @@ const updatePriceRange = async (id, payload) => {
       payload.vehicleModel !== undefined ? payload.vehicleModel : existing.vehicleModel,
     fuelType: payload.fuelType !== undefined ? payload.fuelType : existing.fuelType,
   };
+  const finalData = {
+    ...scopeWhere(nextScope),
+    scopeKey: getScopeKey(nextScope),
+    minPrice:
+      payload.minPrice !== undefined
+        ? Number(payload.minPrice)
+        : existing.minPrice,
+    maxPrice:
+      payload.maxPrice !== undefined
+        ? Number(payload.maxPrice)
+        : existing.maxPrice,
+    isActive:
+      payload.isActive !== undefined
+        ? payload.isActive === true || payload.isActive === "true"
+        : existing.isActive,
+  };
 
-  if (!normalizeScopeValue(nextScope.vehicleBrand)) {
-    throw new ApiError(400, "Vehicle brand is required for a price range");
-  }
+  await validatePriceRangePayload(finalData);
 
-  const duplicates = await findDuplicateScopes(nextScope);
-  const conflictingDuplicate = duplicates.find((item) => item.id !== id);
-  let priceRange;
-
-  if (conflictingDuplicate) {
-    await prisma.cityServicePriceRange.deleteMany({
-      where: {
-        id: {
-          in: duplicates
-            .filter((item) => item.id !== id && item.id !== conflictingDuplicate.id)
-            .map((item) => item.id),
-        },
-      },
+  const priceRange = await prisma.$transaction(async (tx) => {
+    const conflictingRange = await tx.cityServicePriceRange.findUnique({
+      where: { scopeKey: finalData.scopeKey },
+      select: { id: true },
     });
 
-    await prisma.cityServicePriceRange.delete({ where: { id } });
-    priceRange = await prisma.cityServicePriceRange.update({
-      where: { id: conflictingDuplicate.id },
-      data: {
-        ...scopeWhere(nextScope),
-        ...(payload.minPrice !== undefined && { minPrice: Number(payload.minPrice) }),
-        ...(payload.maxPrice !== undefined && { maxPrice: Number(payload.maxPrice) }),
-        ...(payload.isActive !== undefined && { isActive: payload.isActive === true || payload.isActive === "true" }),
-      },
-      include: { service: { include: { category: true } } },
-    });
-  } else {
-    priceRange = await prisma.cityServicePriceRange.update({
+    if (conflictingRange && conflictingRange.id !== id) {
+      await tx.priceRangeSubmission.updateMany({
+        where: { approvedPriceRangeId: id },
+        data: { approvedPriceRangeId: conflictingRange.id },
+      });
+      await tx.cityServicePriceRange.delete({ where: { id } });
+      return tx.cityServicePriceRange.update({
+        where: { id: conflictingRange.id },
+        data: finalData,
+        include: priceRangeInclude,
+      });
+    }
+
+    return tx.cityServicePriceRange.update({
       where: { id },
-      data: {
-        ...(payload.city !== undefined && { city: normalizeCity(payload.city) }),
-        ...(payload.serviceId !== undefined && { serviceId: payload.serviceId }),
-        ...(payload.vehicleBrand !== undefined && { vehicleBrand: normalizeScopeValue(payload.vehicleBrand) }),
-        ...(payload.vehicleModel !== undefined && { vehicleModel: normalizeScopeValue(payload.vehicleModel) }),
-        ...(payload.fuelType !== undefined && { fuelType: payload.fuelType || null }),
-        ...(payload.minPrice !== undefined && { minPrice: Number(payload.minPrice) }),
-        ...(payload.maxPrice !== undefined && { maxPrice: Number(payload.maxPrice) }),
-        ...(payload.isActive !== undefined && { isActive: payload.isActive === true || payload.isActive === "true" }),
-      },
-      include: { service: { include: { category: true } } },
+      data: finalData,
+      include: priceRangeInclude,
     });
-  }
+  });
 
   await invalidatePriceRangeCaches();
   return priceRange;
