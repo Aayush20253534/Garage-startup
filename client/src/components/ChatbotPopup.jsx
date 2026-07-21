@@ -181,9 +181,9 @@ export default function ChatbotPopup({ onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label="Rovauto Assistant"
-      className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 flex h-[min(72dvh,620px)] min-h-0 flex-col overflow-hidden rounded-[20px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[min(680px,calc(100dvh-3rem))] sm:w-[420px] sm:rounded-[24px]"
+      className="fixed inset-0 z-50 flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-white sm:inset-x-auto sm:bottom-6 sm:left-auto sm:right-6 sm:top-auto sm:h-[min(680px,calc(100dvh-3rem))] sm:w-[420px] sm:rounded-[24px] sm:border sm:border-slate-200 sm:shadow-[0_24px_80px_rgba(15,23,42,0.24)]"
     >
-      <header className="relative shrink-0 overflow-hidden bg-ink px-3.5 py-3 text-white sm:px-5 sm:py-4">
+      <header className="relative shrink-0 overflow-hidden bg-ink px-3.5 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] text-white sm:px-5 sm:py-4">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-80" />
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -268,13 +268,13 @@ export default function ChatbotPopup({ onClose }) {
             <p className="mb-2 hidden text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 sm:block">
               Common questions
             </p>
-            <div className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:overflow-visible sm:pb-0">
+            <div className="grid w-full grid-cols-1 gap-2">
               {quickPrompts.map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
                   onClick={() => sendMessage(prompt)}
-                  className="flex shrink-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:rounded-xl sm:px-3.5 sm:py-2.5 sm:text-xs"
+                  className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:rounded-xl sm:px-3.5"
                 >
                   <span>{prompt}</span>
                   <FiChevronRight className="shrink-0 text-slate-400" />
@@ -298,7 +298,7 @@ export default function ChatbotPopup({ onClose }) {
         )}
       </div>
 
-      <footer className="shrink-0 border-t border-slate-200 bg-white p-2.5 sm:p-4">
+      <footer className="shrink-0 border-t border-slate-200 bg-white px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] pt-2.5 sm:p-4">
         <div className="flex items-end gap-2 rounded-2xl border border-slate-300 bg-slate-50 p-1.5 transition focus-within:border-ink focus-within:bg-white focus-within:ring-4 focus-within:ring-slate-100">
           <textarea
             ref={inputRef}
