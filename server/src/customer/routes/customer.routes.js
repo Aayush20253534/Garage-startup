@@ -15,7 +15,7 @@ const {
 
 const router = express.Router();
 const avatarUpload = upload.createUpload({
-  fileSize: 2 * 1024 * 1024,
+  fileSize: 7 * 1024 * 1024,
   files: 1,
   allowedMimeTypes: upload.IMAGE_MIME_TYPES,
 }).single("avatar");

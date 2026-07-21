@@ -7,20 +7,23 @@ const repoRoot = path.resolve(__dirname, "../../..");
 const read = (relativePath) =>
   fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 
-test("customer profile pictures are image-only and capped at 2 MB", () => {
+test("customer profile pictures are image-only and capped at 7 MB", () => {
   const routes = read("server/src/customer/routes/customer.routes.js");
   const uploadMiddleware = read("server/src/middlewares/upload.middleware.js");
   const service = read("server/src/customer/services/customer.service.js");
   const profile = read("client/src/pages/customer/Profile.jsx");
 
-  assert.match(routes, /fileSize: 2 \* 1024 \* 1024/);
+  assert.match(routes, /fileSize: 7 \* 1024 \* 1024/);
   assert.match(routes, /allowedMimeTypes: upload\.IMAGE_MIME_TYPES/);
   assert.match(routes, /upload\.validateUploadedFiles/);
   assert.match(routes, /\.single\("avatar"\)/);
   assert.match(uploadMiddleware, /isValidImageSignature/);
   assert.match(service, /file\.size > AVATAR_MAX_BYTES/);
   assert.match(profile, /file\.size > AVATAR_MAX_BYTES/);
-  assert.match(profile, /Profile picture must be 2 MB or smaller/);
+  assert.match(service, /AVATAR_MAX_BYTES = 7 \* 1024 \* 1024/);
+  assert.match(profile, /AVATAR_MAX_BYTES = 7 \* 1024 \* 1024/);
+  assert.match(profile, /Profile picture must be 7 MB or smaller/);
+  assert.match(profile, /maximum 7 MB/);
   assert.match(profile, /body\.append\("avatar", file\)/);
 });
 

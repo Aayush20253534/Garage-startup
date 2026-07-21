@@ -11,7 +11,7 @@ const {
 const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
 
 const PROFILE_CACHE_TTL = 5 * 60;
-const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const AVATAR_MAX_BYTES = 7 * 1024 * 1024;
 const AVATAR_FOLDER = "rovauto/customer-avatars";
 
 const withUserAccountType = (user) =>
@@ -274,7 +274,7 @@ const uploadProfileAvatar = async (userId, file) => {
   }
 
   if (file.size > AVATAR_MAX_BYTES) {
-    throw new ApiError(400, "Profile picture must be 2 MB or smaller");
+    throw new ApiError(400, "Profile picture must be 7 MB or smaller");
   }
 
   const user = await prisma.user.findUnique({

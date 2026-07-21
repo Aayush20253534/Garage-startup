@@ -27,7 +27,7 @@ import {
 } from "react-icons/fi";
 
 const INDIA_PHONE_REGEX = /^\+91[6-9]\d{9}$/;
-const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const AVATAR_MAX_BYTES = 7 * 1024 * 1024;
 const AVATAR_TYPES = new Set([
   "image/jpeg",
   "image/jpg",
@@ -221,7 +221,7 @@ export default function Profile() {
     }
 
     if (file.size > AVATAR_MAX_BYTES) {
-      setError("Profile picture must be 2 MB or smaller.");
+      setError("Profile picture must be 7 MB or smaller.");
       return;
     }
 
@@ -658,7 +658,7 @@ export default function Profile() {
               {avatarUploading ? "Uploading..." : "Change photo"}
             </button>
             <p className="mt-1.5 text-xs text-muted">
-              JPG, PNG, or WebP · maximum 2 MB
+              JPG, PNG, or WebP · maximum 7 MB
             </p>
           </div>
         </div>
