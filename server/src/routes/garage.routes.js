@@ -1,7 +1,7 @@
 const express = require("express");
 
 const garageController = require("../controllers/garage.controller");
-const { protect } = require("../middlewares/auth.middleware");
+const { protect, protectUser } = require("../middlewares/auth.middleware");
 const { authorizeRoles } = require("../middlewares/role.middleware");
 const validate = require("../middlewares/validate.middleware");
 const {
