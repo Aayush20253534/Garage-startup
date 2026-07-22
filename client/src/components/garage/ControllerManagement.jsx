@@ -21,7 +21,7 @@ export default function ControllerManagement({ admin = false }) {
   const selectedGarageId = admin ? garageId : null;
   const api = useMemo(() => ({
     list: () => admin ? adminApi.getGarageControllers(selectedGarageId) : garageApi.getControllers(),
-    create: (payload) => admin ? adminApi.createGarageController({ ...payload, garageId: selectedGarageId }) : garageApi.createController(payload),
+    create: (payload) => admin ? adminApi.createGarageController(selectedGarageId, payload) : garageApi.createController(payload),
     update: (id, payload) => admin ? adminApi.updateGarageController(id, selectedGarageId, payload) : garageApi.updateController(id, payload),
     password: (id, password) => admin ? adminApi.resetGarageControllerPassword(id, selectedGarageId, password) : garageApi.resetControllerPassword(id, password),
     revoke: (id) => admin ? adminApi.revokeGarageControllerSessions(id, selectedGarageId) : garageApi.revokeControllerSessions(id),
@@ -54,14 +54,17 @@ export default function ControllerManagement({ admin = false }) {
 
   const perform = async (action, success) => {
     setLoading(true); setError(""); setNotice("");
-    try { await action(); setNotice(success); await load(); }
-    catch (err) { setError(message(err, "Controller action failed")); }
+    try { await action(); setNotice(success); await load(); return true; }
+    catch (err) { setError(message(err, "Controller action failed")); return false; }
     finally { setLoading(false); }
   };
 
   const create = (event) => {
     event.preventDefault();
-    void (async () => { await perform(() => api.create(form), "Controller created."); setForm(emptyForm); })();
+    void (async () => {
+      const created = await perform(() => api.create(form), `Controller created for ${data.garage?.name || "this garage"}.`);
+      if (created) setForm(emptyForm);
+    })();
   };
 
   const saveGarageLimit = async (garage) => {
@@ -99,6 +102,7 @@ export default function ControllerManagement({ admin = false }) {
     </section>}
     {(!admin || selectedGarageId) && <section className="rounded-2xl border border-line bg-white p-5 shadow-soft">
       <h2 className="flex items-center gap-2 font-bold text-ink"><FiPlus /> Create controller</h2>
+      {admin && <p className="mt-1 text-xs font-semibold text-muted">New account will belong only to: <span className="text-ink">{data.garage?.name || "Loading selected garage…"}</span></p>}
       <form onSubmit={create} className="mt-4 grid gap-3 lg:grid-cols-5"><input required placeholder="Name" value={form.name} onChange={(e) => setForm({...form,name:e.target.value})} className="h-11 rounded-lg border border-line px-3 text-sm"/><input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({...form,email:e.target.value})} className="h-11 rounded-lg border border-line px-3 text-sm"/><input required placeholder="+919876543210" value={form.phone} onChange={(e) => setForm({...form,phone:e.target.value})} className="h-11 rounded-lg border border-line px-3 text-sm"/><input required type="password" placeholder="Strong password" value={form.password} onChange={(e) => setForm({...form,password:e.target.value})} className="h-11 rounded-lg border border-line px-3 text-sm"/><button disabled={loading} className="rounded-lg bg-ink px-4 text-sm font-bold text-white">Create</button></form>
       <p className="mt-2 text-xs text-muted">{data.controllers?.length || 0} of {data.garage?.controllerLimit ?? "—"} configured.</p>
     </section>}

@@ -246,8 +246,8 @@ export const adminApi = {
     return unwrap(await api.get(`/admin/garage-controllers/${controllerId}/activity`, { params: { garageId } }));
   },
 
-  async createGarageController(payload) {
-    return unwrap(await api.post("/admin/garage-controllers", payload));
+  async createGarageController(garageId, payload) {
+    return unwrap(await api.post(`/admin/garage-controllers/garage/${garageId}`, payload));
   },
 
   async updateGarageController(controllerId, garageId, payload) {

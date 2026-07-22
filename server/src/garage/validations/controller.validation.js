@@ -14,12 +14,17 @@ const controllerId = [
   param("controllerId").isUUID().withMessage("Invalid controller ID"),
 ];
 
-const create = [
-  body("garageId").optional().isUUID(),
+const createFields = [
   body("name").trim().isLength({ min: 2, max: 120 }),
   body("email").trim().isEmail().normalizeEmail(),
   phoneRule,
   body("password").matches(PASSWORD_REGEX).withMessage("Use at least 8 characters with uppercase, lowercase, number and symbol"),
+];
+
+const create = [...createFields];
+const adminCreate = [
+  param("garageId").isUUID().withMessage("A valid garage ID is required"),
+  ...createFields,
 ];
 
 const update = [
@@ -50,6 +55,7 @@ const transfer = [
 const availability = [body("availability").isIn(["AVAILABLE", "BUSY"])];
 
 module.exports = {
+  adminCreate,
   availability,
   controllerId,
   create,

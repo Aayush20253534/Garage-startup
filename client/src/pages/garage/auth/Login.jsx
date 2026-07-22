@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   FiAlertCircle,
   FiArrowRight,
@@ -21,12 +21,17 @@ import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import { useApp } from "@/hooks/useApp";
 
 export default function GarageLogin() {
+  const [searchParams] = useSearchParams();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [accountRole, setAccountRole] = useState("GARAGE_OWNER");
+  const [accountRole, setAccountRole] = useState(() =>
+    searchParams.get("role") === "GARAGE_CONTROLLER"
+      ? "GARAGE_CONTROLLER"
+      : "GARAGE_OWNER",
+  );
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,6 +49,17 @@ export default function GarageLogin() {
       returnTo.startsWith("/garage/requests/"),
     [returnTo],
   );
+
+  const controllerReturnTo = useMemo(() => {
+    const allowed =
+      returnTo === "/garage" ||
+      returnTo === "/garage/bookings" ||
+      returnTo.startsWith("/garage/bookings/") ||
+      returnTo === "/garage/wallet" ||
+      returnTo.startsWith("/garage/magic/") ||
+      returnTo.startsWith("/garage/requests/");
+    return allowed ? returnTo : "/garage";
+  }, [returnTo]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -68,7 +84,7 @@ export default function GarageLogin() {
         return;
       }
 
-      navigate(returnTo, { replace: true });
+      navigate(accountRole === "GARAGE_CONTROLLER" ? controllerReturnTo : returnTo, { replace: true });
     } catch (err) {
       setError(
         err.response?.data?.message || err.message || "Unable to sign in",
@@ -90,8 +106,8 @@ export default function GarageLogin() {
         }
         message={
           isReturningToRequest
-            ? "Verifying the owner account before returning to the customer request."
-            : "Verifying your approved workspace and loading garage operations."
+            ? `Verifying the ${accountRole === "GARAGE_CONTROLLER" ? "controller" : "owner"} account before returning to the customer request.`
+            : `Verifying your ${accountRole === "GARAGE_CONTROLLER" ? "controller workspace" : "approved garage workspace"}.`
         }
       />
       <main className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-4 sm:px-6 sm:py-8 lg:py-10">
@@ -118,7 +134,9 @@ export default function GarageLogin() {
                 <p className="mt-2 text-sm leading-6 text-muted">
                   {isReturningToRequest
                     ? "After login, you will return directly to the booking received on WhatsApp."
-                    : "Use the owner account approved for your garage workspace."}
+                    : accountRole === "GARAGE_CONTROLLER"
+                      ? "Use the phone or email and password created for you by the garage owner or Rovauto admin."
+                      : "Use the owner account approved for your garage workspace."}
                 </p>
               </div>
             </div>
@@ -158,7 +176,7 @@ export default function GarageLogin() {
 
             <form onSubmit={handleSubmit} className="grid gap-4">
               <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1" role="group" aria-label="Garage account type">
-                {[['GARAGE_OWNER','Central owner'],['GARAGE_CONTROLLER','Sub-controller']].map(([value,label]) => <button key={value} type="button" onClick={() => setAccountRole(value)} className={`rounded-lg px-3 py-2 text-xs font-bold ${accountRole === value ? 'bg-white text-ink shadow-sm' : 'text-muted'}`}>{label}</button>)}
+                {[["GARAGE_OWNER", "Garage owner"], ["GARAGE_CONTROLLER", "Controller / staff"]].map(([value, label]) => <button key={value} type="button" onClick={() => { setAccountRole(value); setError(""); }} className={`rounded-lg px-3 py-2 text-xs font-bold ${accountRole === value ? "bg-white text-ink shadow-sm" : "text-muted"}`}>{label}</button>)}
               </div>
               <label className="grid gap-2 text-sm font-bold text-ink">
                 Email or phone
@@ -240,8 +258,9 @@ export default function GarageLogin() {
             </form>
 
             <div className="rounded-xl border border-line bg-slate-50 px-4 py-3 text-xs leading-5 text-muted">
-              Garage access is available only after Rovauto approves the partner
-              application. Use the email or phone linked with the owner account.
+              {accountRole === "GARAGE_CONTROLLER"
+                ? "Controller accounts are created garage-wise by the garage owner or Rovauto admin. They cannot access another garage."
+                : "Garage owner access is available after Rovauto approves the partner application."}
             </div>
           </div>
         </section>

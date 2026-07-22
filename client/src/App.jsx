@@ -259,6 +259,20 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+function GaragePortalRoute({ children, ownerOnly = false }) {
+  const { garage } = useApp();
+
+  return (
+    <ProtectedRoute>
+      {ownerOnly && garage?.isControllerSession ? (
+        <Navigate to="/garage" replace />
+      ) : (
+        children
+      )}
+    </ProtectedRoute>
+  );
+}
+
 function AddressCheck({ children }) {
   const { user, location, fetchProfile } = useApp();
   const routeLocation = useLocation();
@@ -1277,60 +1291,60 @@ function AppRoutes() {
           <Route
             path="/garage"
             element={
-              <ProtectedRoute>
+              <GaragePortalRoute>
                 <GaragePortalHome />
-              </ProtectedRoute>
+              </GaragePortalRoute>
             }
           />
           <Route
             path="/garage/bookings"
             element={
-              <ProtectedRoute>
+              <GaragePortalRoute>
                 <GarageBookings />
-              </ProtectedRoute>
+              </GaragePortalRoute>
             }
           />
           <Route
             path="/garage/bookings/:id"
             element={
-              <ProtectedRoute>
+              <GaragePortalRoute>
                 <GarageBookingDetail />
-              </ProtectedRoute>
+              </GaragePortalRoute>
             }
           />
           <Route
             path="/garage/services"
             element={
-              <ProtectedRoute>
+              <GaragePortalRoute ownerOnly>
                 <GarageServices />
-              </ProtectedRoute>
+              </GaragePortalRoute>
             }
           />
           <Route
             path="/garage/wallet"
             element={
-              <ProtectedRoute>
+              <GaragePortalRoute>
                 <GarageWallet />
-              </ProtectedRoute>
+              </GaragePortalRoute>
             }
           />
           <Route
             path="/garage/profile"
             element={
-              <ProtectedRoute>
+              <GaragePortalRoute ownerOnly>
                 <GarageProfile />
-              </ProtectedRoute>
+              </GaragePortalRoute>
             }
           />
           <Route
             path="/garage/settings"
             element={
-              <ProtectedRoute>
+              <GaragePortalRoute ownerOnly>
                 <GarageSettings />
-              </ProtectedRoute>
+              </GaragePortalRoute>
             }
           />
-          <Route path="/garage/controllers" element={<ProtectedRoute><GarageControllers /></ProtectedRoute>} />
+          <Route path="/garage/controllers" element={<GaragePortalRoute ownerOnly><GarageControllers /></GaragePortalRoute>} />
         </Route>
 
         <Route

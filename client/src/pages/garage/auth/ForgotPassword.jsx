@@ -126,7 +126,7 @@ export default function GarageForgotPassword() {
     <div className="min-h-screen bg-bg-soft">
       <div className="container-x pt-5 pb-3 sm:pt-6">
         <Link
-          to="/garage/login"
+          to={`/garage/login?role=${role}`}
           className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"
         >
           <FiArrowLeft className="h-4 w-4" />
@@ -151,7 +151,7 @@ export default function GarageForgotPassword() {
                 login.
               </p>
 
-              <Link to="/garage/login" className="btn-primary w-full">
+              <Link to={`/garage/login?role=${role}`} className="btn-primary w-full">
                 Back to Login
               </Link>
             </>
