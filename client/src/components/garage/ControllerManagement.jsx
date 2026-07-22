@@ -11,7 +11,7 @@ export default function ControllerManagement({ admin = false }) {
   const [garageId, setGarageId] = useState("");
   const [data, setData] = useState({ garage: null, controllers: [] });
   const [form, setForm] = useState(emptyForm);
-  const [limit, setLimit] = useState(3);
+  const [limitDrafts, setLimitDrafts] = useState({});
   const [transfer, setTransfer] = useState({ bookingId: "", controllerId: "" });
   const [activity, setActivity] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -36,7 +36,6 @@ export default function ControllerManagement({ admin = false }) {
     try {
       const result = await api.list();
       setData(result || { garage: null, controllers: [] });
-      setLimit(Number(result?.garage?.controllerLimit ?? 3));
     } catch (err) { setError(message(err, "Unable to load controllers")); }
     finally { setLoading(false); }
   };
@@ -48,6 +47,7 @@ export default function ControllerManagement({ admin = false }) {
     adminApi.getGarages({ limit: 100 }).then((result) => {
       const list = Array.isArray(result) ? result : result?.items || result?.garages || result?.data || [];
       setGarages(list);
+      setLimitDrafts(Object.fromEntries(list.map((garage) => [garage.id, Number(garage.controllerLimit ?? 3)])));
       if (list[0]?.id) setGarageId((current) => current || list[0].id);
     }).catch((err) => setError(message(err, "Unable to load garages")));
   }, [admin]);
@@ -64,19 +64,38 @@ export default function ControllerManagement({ admin = false }) {
     void (async () => { await perform(() => api.create(form), "Controller created."); setForm(emptyForm); })();
   };
 
+  const saveGarageLimit = async (garage) => {
+    const value = Number(limitDrafts[garage.id]);
+    setLoading(true); setError(""); setNotice("");
+    try {
+      const updated = await adminApi.setGarageControllerLimit(garage.id, value);
+      setGarages((current) => current.map((item) => item.id === garage.id ? { ...item, controllerLimit: updated.controllerLimit } : item));
+      setLimitDrafts((current) => ({ ...current, [garage.id]: updated.controllerLimit }));
+      if (selectedGarageId === garage.id) {
+        setData((current) => ({ ...current, garage: { ...current.garage, controllerLimit: updated.controllerLimit } }));
+      }
+      setNotice(`Controller limit updated for ${garage.name} only.`);
+    } catch (err) { setError(message(err, "Unable to update this garage's controller limit")); }
+    finally { setLoading(false); }
+  };
+
   return <div className="space-y-5">
     <section className="rounded-2xl border border-line bg-white p-5 shadow-soft">
       <p className="text-xs font-bold uppercase tracking-widest text-muted">Garage operations</p>
       <h1 className="mt-1 flex items-center gap-2 text-2xl font-extrabold text-ink"><FiUsers /> Sub-controllers</h1>
       <p className="mt-2 text-sm text-muted">Controllers receive booking alerts only while available. The first acceptance wins atomically; active bookings remain private to their assigned controller.</p>
-      {admin && <select value={garageId} onChange={(event) => setGarageId(event.target.value)} className="mt-4 h-11 w-full max-w-xl rounded-lg border border-line px-3 text-sm">
+      {admin && <select value={garageId} onChange={(event) => { setGarageId(event.target.value); setData({ garage: null, controllers: [] }); setActivity(null); }} className="mt-4 h-11 w-full max-w-xl rounded-lg border border-line px-3 text-sm">
         <option value="">Select garage</option>{garages.map((garage) => <option key={garage.id} value={garage.id}>{garage.name} — {garage.city}</option>)}
       </select>}
     </section>
     {error && <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><FiAlertCircle />{error}</div>}
     {notice && <div className="flex gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700"><FiCheckCircle />{notice}</div>}
-    {admin && data.garage && <section className="rounded-2xl border border-line bg-white p-5 shadow-soft">
-      <h2 className="font-bold text-ink">Admin-set account limit</h2><div className="mt-3 flex gap-2"><input type="number" min="0" max="100" value={limit} onChange={(e) => setLimit(e.target.value)} className="h-11 w-28 rounded-lg border border-line px-3"/><button disabled={loading} onClick={() => void perform(() => adminApi.setGarageControllerLimit(selectedGarageId, Number(limit)), "Controller limit updated.")} className="rounded-lg bg-ink px-4 text-sm font-bold text-white">Save limit</button></div>
+    {admin && garages.length > 0 && <section className="rounded-2xl border border-line bg-white p-5 shadow-soft">
+      <h2 className="font-bold text-ink">Garage-wise controller limits</h2>
+      <p className="mt-1 text-xs text-muted">Each value applies only to the garage shown on that row.</p>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {garages.map((garage) => <div key={garage.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${garage.id === selectedGarageId ? "border-brand bg-brand/5" : "border-line"}`}><div className="min-w-0"><p className="truncate text-sm font-bold text-ink">{garage.name}</p><p className="text-xs text-muted">{garage.city || "City unavailable"}</p></div><div className="flex items-center gap-2"><input aria-label={`Controller limit for ${garage.name}`} type="number" min="0" max="100" value={limitDrafts[garage.id] ?? 3} onChange={(event) => setLimitDrafts((current) => ({ ...current, [garage.id]: event.target.value }))} className="h-10 w-20 rounded-lg border border-line px-3"/><button disabled={loading} onClick={() => void saveGarageLimit(garage)} className="h-10 rounded-lg bg-ink px-3 text-xs font-bold text-white">Save</button></div></div>)}
+      </div>
     </section>}
     {(!admin || selectedGarageId) && <section className="rounded-2xl border border-line bg-white p-5 shadow-soft">
       <h2 className="flex items-center gap-2 font-bold text-ink"><FiPlus /> Create controller</h2>
