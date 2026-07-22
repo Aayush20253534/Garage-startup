@@ -72,9 +72,8 @@ const brandMatches = (rangeBrand, vehicleBrand) => {
   const rangeText = normalizeScopeValue(rangeBrand);
   const vehicleText = normalizeScopeValue(vehicleBrand);
 
-  if (!rangeText || !vehicleText) {
-    return false;
-  }
+  if (!vehicleText) return false;
+  if (!rangeText) return true;
 
   return normalizeComparable(rangeText) === normalizeComparable(vehicleText);
 };
@@ -112,7 +111,7 @@ const validatePriceRangePayload = async (payload = {}, db = prisma) => {
   const service = await db.service.findUnique({ where: { id: payload.serviceId } });
   if (!service) throw new ApiError(404, "Service not found");
 
-  if (!normalizeScopeValue(payload.vehicleBrand)) {
+  if (!normalizeText(payload.vehicleBrand)) {
     throw new ApiError(400, "Vehicle brand is required for a price range");
   }
 };
@@ -650,7 +649,7 @@ const scoreMatch = (range, vehicle) => {
   if (!modelMatches(range.vehicleModel, vehicle?.model)) return -1;
   if (range.fuelType && range.fuelType !== vehicle?.fuelType) return -1;
 
-  score += 2;
+  if (normalizeScopeValue(range.vehicleBrand)) score += 2;
   if (normalizeScopeValue(range.vehicleModel)) score += 3;
   if (range.fuelType) score += 1;
 

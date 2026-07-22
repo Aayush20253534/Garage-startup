@@ -354,7 +354,7 @@ export default function Revenue() {
       id: range.id,
       city: range.city || "",
       serviceId: range.serviceId || "",
-      vehicleBrand: range.vehicleBrand || "",
+      vehicleBrand: range.vehicleBrand || "ALL",
       vehicleModel: range.vehicleModel || "",
       fuelType: range.fuelType || "",
       minPrice: range.minPrice ?? "",
@@ -482,7 +482,7 @@ export default function Revenue() {
     setSubmissionEditForm({
       city: submission.city || "",
       serviceId: submission.serviceId || submission.service?.id || "",
-      vehicleBrand: submission.vehicleBrand || "",
+      vehicleBrand: submission.vehicleBrand || "ALL",
       vehicleModel: submission.vehicleModel || "",
       fuelType: submission.fuelType || "",
       minPrice: submission.minPrice ?? "",
@@ -1033,7 +1033,7 @@ export default function Revenue() {
                         Vehicle
                       </div>
                       <div className="mt-1 text-ink">
-                        {submission.vehicleBrand} /{" "}
+                        {submission.vehicleBrand || "All brands"} /{" "}
                         {submission.vehicleModel || "All models"}
                       </div>
                     </div>
@@ -1187,6 +1187,7 @@ export default function Revenue() {
             className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
           >
             <option value="">Select brand</option>
+            <option value="ALL">All brands</option>
             {vehicleBrands.map((brand) => (
               <option key={brand.id || brand.name} value={brand.name}>
                 {brand.name}
@@ -1197,7 +1198,7 @@ export default function Revenue() {
           <select
             value={form.vehicleModel}
             onChange={(e) => updateForm("vehicleModel", e.target.value)}
-            disabled={!form.vehicleBrand}
+            disabled={!form.vehicleBrand || form.vehicleBrand === "ALL"}
             className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink disabled:bg-bg-soft"
           >
             <option value="">All models</option>
@@ -1542,7 +1543,7 @@ export default function Revenue() {
                       <td className="px-4 py-3 text-muted">
                         {range.vehicleBrand
                           ? `${range.vehicleBrand} / ${range.vehicleModel || "All models"}`
-                          : "Missing brand"}
+                          : "All brands / All models"}
                       </td>
 
                       <td className="whitespace-nowrap px-4 py-3 text-muted">
@@ -1719,6 +1720,7 @@ export default function Revenue() {
                   className="mt-2 h-11 w-full min-w-0 rounded-xl border border-line px-3 text-sm outline-none transition focus:border-ink"
                 >
                   <option value="">Select brand</option>
+                  <option value="ALL">All brands</option>
                   {vehicleBrands.map((brand) => (
                     <option key={brand.id || brand.name} value={brand.name}>
                       {brand.name}
@@ -1736,7 +1738,7 @@ export default function Revenue() {
                   onChange={(event) =>
                     updateSubmissionEditForm("vehicleModel", event.target.value)
                   }
-                  disabled={!submissionEditForm.vehicleBrand}
+                  disabled={!submissionEditForm.vehicleBrand || submissionEditForm.vehicleBrand === "ALL"}
                   className="mt-2 h-11 w-full min-w-0 rounded-xl border border-line px-3 text-sm outline-none transition focus:border-ink disabled:bg-bg-soft"
                 >
                   <option value="">All models</option>
@@ -2027,7 +2029,7 @@ export default function Revenue() {
                 {formatServiceLabel(rejectTarget.service)}
               </div>
               <div className="mt-1 text-xs text-muted">
-                {rejectTarget.city} · {rejectTarget.vehicleBrand} ·{" "}
+                {rejectTarget.city} · {rejectTarget.vehicleBrand || "All brands"} ·{" "}
                 {formatRupeeRange(
                   rejectTarget.minPrice,
                   rejectTarget.maxPrice,
