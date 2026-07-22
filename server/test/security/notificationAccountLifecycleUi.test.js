@@ -34,7 +34,7 @@ test("customer notifications are strictly scoped to their account owner", () => 
   assert.doesNotMatch(notificationService, /sourceNotificationId/);
   assert.match(
     notificationService,
-    /hasUserTarget === hasGarageOwnerTarget/,
+    /\[hasUserTarget, hasGarageOwnerTarget, hasGarageControllerTarget\]\.filter\(Boolean\)/,
   );
   assert.match(allAudienceBlock, /prisma\.notification\.createMany/);
   assert.match(allAudienceBlock, /userId: recipientUserId/);

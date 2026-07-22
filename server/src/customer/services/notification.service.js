@@ -53,6 +53,7 @@ const sendPushToUsers = async (userIds, notification) => {
 const createNotification = async ({
   userId = null,
   garageOwnerId = null,
+  garageControllerId = null,
   title,
   message,
   type = "SYSTEM",
@@ -67,7 +68,11 @@ const createNotification = async ({
 
   const hasUserTarget = Boolean(userId);
   const hasGarageOwnerTarget = Boolean(garageOwnerId);
-  if (hasUserTarget === hasGarageOwnerTarget) {
+  const hasGarageControllerTarget = Boolean(garageControllerId);
+  if (
+    [hasUserTarget, hasGarageOwnerTarget, hasGarageControllerTarget].filter(Boolean)
+      .length !== 1
+  ) {
     throw new ApiError(
       400,
       "Notification must have exactly one account owner",
@@ -78,6 +83,7 @@ const createNotification = async ({
     data: {
       userId,
       garageOwnerId,
+      garageControllerId,
       title,
       message,
       type,

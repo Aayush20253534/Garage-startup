@@ -238,6 +238,42 @@ export const adminApi = {
     );
   },
 
+  async getGarageControllers(garageId) {
+    return unwrap(await api.get("/admin/garage-controllers", { params: { garageId } }));
+  },
+
+  async getGarageControllerActivity(controllerId, garageId) {
+    return unwrap(await api.get(`/admin/garage-controllers/${controllerId}/activity`, { params: { garageId } }));
+  },
+
+  async createGarageController(payload) {
+    return unwrap(await api.post("/admin/garage-controllers", payload));
+  },
+
+  async updateGarageController(controllerId, garageId, payload) {
+    return unwrap(await api.patch(`/admin/garage-controllers/${controllerId}`, { ...payload, garageId }));
+  },
+
+  async resetGarageControllerPassword(controllerId, garageId, password) {
+    return unwrap(await api.patch(`/admin/garage-controllers/${controllerId}/password`, { garageId, password }));
+  },
+
+  async revokeGarageControllerSessions(controllerId, garageId) {
+    return unwrap(await api.post(`/admin/garage-controllers/${controllerId}/revoke-sessions`, { garageId }));
+  },
+
+  async deleteGarageController(controllerId, garageId) {
+    return unwrap(await api.delete(`/admin/garage-controllers/${controllerId}`, { data: { garageId } }));
+  },
+
+  async setGarageControllerLimit(garageId, limit) {
+    return unwrap(await api.patch(`/admin/garage-controllers/garage/${garageId}/limit`, { limit }));
+  },
+
+  async transferGarageControllerBooking(bookingId, garageId, controllerId) {
+    return unwrap(await api.post(`/admin/garage-controllers/bookings/${bookingId}/transfer`, { garageId, controllerId }));
+  },
+
   async getInternAccounts() {
     return unwrap(await api.get("/admin/intern-accounts"));
   },

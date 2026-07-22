@@ -31,8 +31,20 @@ const getOrCreateGarageWallet = async (garageId) => {
   return wallet;
 };
 
-const getGarageWalletForOwner = async (userId) => {
-  const garage = await getGarageForOwner(userId, { include: { wallet: true, images: true } });
+const getGarageForWalletActor = async (actor, options = {}) => {
+  if (actor?.accountType === "GARAGE_CONTROLLER") {
+    const garage = await prisma.garage.findUnique({
+      where: { id: actor.garageId },
+      ...options,
+    });
+    if (!garage) throw new ApiError(404, "Garage not found");
+    return garage;
+  }
+  return getGarageForOwner(actor.id, options);
+};
+
+const getGarageWalletForOwner = async (actor) => {
+  const garage = await getGarageForWalletActor(actor, { include: { wallet: true, images: true } });
   const wallet = garage.wallet || (await getOrCreateGarageWallet(garage.id));
 
   return {
@@ -54,8 +66,8 @@ const getGarageWalletForOwner = async (userId) => {
   };
 };
 
-const getGarageWalletTransactionsForOwner = async (userId, query = {}) => {
-  const garage = await getGarageForOwner(userId);
+const getGarageWalletTransactionsForOwner = async (actor, query = {}) => {
+  const garage = await getGarageForWalletActor(actor);
   const wallet = await getOrCreateGarageWallet(garage.id);
   const page = Number(query.page || 1);
   const limit = Number(query.limit || 20);
@@ -75,7 +87,7 @@ const createGarageWalletRechargeOrder = async (user, amount) => {
     throw new ApiError(400, `Garage wallet recharge must be at least Rs. ${GARAGE_MINIMUM_ACTIVATION_RECHARGE}`);
   }
 
-  const garage = await getGarageForOwner(user.id);
+  const garage = await getGarageForWalletActor(user);
   const wallet = await getOrCreateGarageWallet(garage.id);
   const cashfreeOrderId = `garage_${garage.id.slice(0, 8)}_${Date.now()}`;
 
@@ -254,8 +266,8 @@ const verifyGarageWalletRechargeByCashfreeOrderId = async (cashfreeOrderId) => {
   return completePaidGarageWalletRecharge(transaction, cashfreeOrder);
 };
 
-const verifyGarageWalletRechargeOrder = async (userId, cashfreeOrderId) => {
-  const garage = await getGarageForOwner(userId);
+const verifyGarageWalletRechargeOrder = async (user, cashfreeOrderId) => {
+  const garage = await getGarageForWalletActor(user);
   const wallet = await getOrCreateGarageWallet(garage.id);
   const transaction = await findRechargeTransactionByCashfreeOrderId(
     cashfreeOrderId,

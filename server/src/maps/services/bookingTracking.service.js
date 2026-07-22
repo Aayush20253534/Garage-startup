@@ -86,6 +86,13 @@ const assertCanView = async (account, booking) => {
     return;
   }
 
+  if (
+    account.role === "GARAGE_CONTROLLER" &&
+    booking.garageControllerId === account.id
+  ) {
+    return;
+  }
+
   throw new ApiError(403, "You cannot view tracking for this booking");
 };
 
@@ -99,20 +106,31 @@ const resolveTrackingActor = async (account, booking) => {
     };
   }
 
-  if (account.role !== "GARAGE_OWNER") {
+  if (!["GARAGE_OWNER", "GARAGE_CONTROLLER"].includes(account.role)) {
     throw new ApiError(403, "Only the assigned garage can share live location");
   }
 
-  const garage = await getGarageForOwner(account.id);
+  const garage =
+    account.role === "GARAGE_CONTROLLER"
+      ? await prisma.garage.findUnique({ where: { id: account.garageId } })
+      : await getGarageForOwner(account.id);
   if (!booking.garageId || booking.garageId !== garage.id) {
     throw new ApiError(403, "This booking is not assigned to your garage");
+  }
+  if (
+    account.role === "GARAGE_CONTROLLER" &&
+    booking.garageControllerId !== account.id
+  ) {
+    throw new ApiError(403, "This active booking belongs to another controller");
   }
 
   return {
     source: "GARAGE",
     garageId: garage.id,
     userId: null,
-    garageOwnerId: account.id,
+    garageControllerId:
+      account.role === "GARAGE_CONTROLLER" ? account.id : null,
+    garageOwnerId: account.role === "GARAGE_OWNER" ? account.id : null,
   };
 };
 
@@ -261,6 +279,7 @@ const addTrackingPoint = async ({ bookingId, account, data }) => {
         garageId: actor.garageId,
         userId: actor.userId,
         garageOwnerId: actor.garageOwnerId,
+        garageControllerId: actor.garageControllerId,
         source: actor.source,
         latitude: rawLocation.latitude,
         longitude: rawLocation.longitude,

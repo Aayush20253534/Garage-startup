@@ -1,7 +1,7 @@
 const express = require("express");
 
 const garageController = require("../controllers/garage.controller");
-const { protectUser } = require("../middlewares/auth.middleware");
+const { protect } = require("../middlewares/auth.middleware");
 const { authorizeRoles } = require("../middlewares/role.middleware");
 const validate = require("../middlewares/validate.middleware");
 const {
@@ -30,15 +30,15 @@ const deletionVerifyRateLimit = rateLimit({
 
 router.get(
   "/me",
-  protectUser,
-  authorizeRoles("GARAGE_OWNER"),
+  protect,
+  authorizeRoles("GARAGE_OWNER", "GARAGE_CONTROLLER"),
   garageController.getMyGarage,
 );
 
 router.get(
   "/me/services",
-  protectUser,
-  authorizeRoles("GARAGE_OWNER"),
+  protect,
+  authorizeRoles("GARAGE_OWNER", "GARAGE_CONTROLLER"),
   garageController.getMyGarageServices,
 );
 

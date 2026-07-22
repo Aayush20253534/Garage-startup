@@ -88,6 +88,8 @@ const getEffectiveAccountType = (user) => {
     return "USER";
   }
 
+  if (user?.role === "GARAGE_CONTROLLER") return "GARAGE_CONTROLLER";
+
   return null;
 };
 
@@ -108,6 +110,10 @@ const getAccountPortal = (user) => {
   }
 
   if (hasPortalRole(user, "GARAGE_OWNER", "USER")) {
+    return "/garage";
+  }
+
+  if (hasPortalRole(user, "GARAGE_CONTROLLER", "GARAGE_CONTROLLER")) {
     return "/garage";
   }
 
@@ -670,6 +676,14 @@ const GarageDashboard = lazyPage(
   () => import("@/pages/garage/Dashboard"),
   "GarageDashboard",
 );
+const GarageControllerDashboard = lazyPage(
+  () => import("@/pages/garage/ControllerDashboard"),
+  "GarageControllerDashboard",
+);
+const GarageControllers = lazyPage(
+  () => import("@/pages/garage/Controllers"),
+  "GarageControllers",
+);
 const GarageLogin = lazyPage(
   () => import("@/pages/garage/auth/Login"),
   "GarageLogin",
@@ -765,6 +779,10 @@ const AdminSupportTickets = lazyPage(
 const AdminCustomerSupportAccounts = lazyPage(
   () => import("@/pages/admin/CustomerSupportAccounts"),
   "AdminCustomerSupportAccounts",
+);
+const AdminGarageControllers = lazyPage(
+  () => import("@/pages/admin/GarageControllers"),
+  "AdminGarageControllers",
 );
 const AdminInternAccounts = lazyPage(
   () => import("@/pages/admin/InternAccounts"),
@@ -956,6 +974,13 @@ const garageItems = [
   { to: "/garage/wallet", label: "Wallet", icon: FiCreditCard },
   { to: "/garage/profile", label: "Profile", icon: FiUser },
   { to: "/garage/settings", label: "Settings", icon: FiSettings },
+  { to: "/garage/controllers", label: "Sub-controllers", icon: FiUsers },
+];
+
+const controllerItems = [
+  { to: "/garage", label: "My Dashboard", icon: FiGrid },
+  { to: "/garage/bookings", label: "My Bookings", icon: FiCalendar },
+  { to: "/garage/wallet", label: "Shared Wallet", icon: FiCreditCard },
 ];
 
 const adminItems = [
@@ -971,6 +996,7 @@ const adminItems = [
   { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
   { to: "/admin/support-tickets", label: "Support & Disputes", icon: FiHelpCircle },
   { to: "/admin/customer-support-accounts", label: "Support Accounts", icon: FiHeadphones },
+  { to: "/admin/garage-controllers", label: "Garage Controllers", icon: FiUserCheck },
   { to: "/admin/intern-accounts", label: "Intern Accounts", icon: FiUserCheck },
   { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon },
 ];
@@ -993,6 +1019,16 @@ const internItems = [
   { to: "/intern/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/intern/system-issues", label: "System Issues", icon: FiAlertTriangle },
 ];
+
+function GaragePortalLayout() {
+  const { garage } = useApp();
+  return <DashboardLayout items={garage?.isControllerSession ? controllerItems : garageItems} title={garage?.isControllerSession ? "Controller Portal" : "Garage Portal"} />;
+}
+
+function GaragePortalHome() {
+  const { garage } = useApp();
+  return garage?.isControllerSession ? <GarageControllerDashboard /> : <GarageDashboard />;
+}
 
 function AppRoutes() {
   return (
@@ -1235,14 +1271,14 @@ function AppRoutes() {
 
         <Route
           element={
-            <DashboardLayout items={garageItems} title="Garage Portal" />
+            <GaragePortalLayout />
           }
         >
           <Route
             path="/garage"
             element={
               <ProtectedRoute>
-                <GarageDashboard />
+                <GaragePortalHome />
               </ProtectedRoute>
             }
           />
@@ -1294,6 +1330,7 @@ function AppRoutes() {
               </ProtectedRoute>
             }
           />
+          <Route path="/garage/controllers" element={<ProtectedRoute><GarageControllers /></ProtectedRoute>} />
         </Route>
 
         <Route
@@ -1400,6 +1437,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminInternAccounts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/garage-controllers"
+            element={
+              <ProtectedRoute>
+                <AdminGarageControllers />
               </ProtectedRoute>
             }
           />

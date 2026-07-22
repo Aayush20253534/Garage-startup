@@ -40,7 +40,7 @@ test("intern forgot-password uses a dedicated bounded OTP challenge", () => {
   const appState = read("client/src/hooks/useApp.jsx");
 
   assert.match(schema, /model StaffPasswordResetChallenge/);
-  assert.match(validation, /PASSWORD_RECOVERY_ROLES = \[\.\.\.USER_ROLES, "INTERN"\]/);
+  assert.match(validation, /PASSWORD_RECOVERY_ROLES = \[\.\.\.USER_ROLES, "GARAGE_CONTROLLER", "INTERN"\]/);
   assert.match(authService, /staffPasswordResetService\.createChallenge/);
   assert.match(authService, /staffPasswordResetService\.consumeChallenge/);
   assert.match(authService, /prisma\.\$transaction\(async \(tx\)/);

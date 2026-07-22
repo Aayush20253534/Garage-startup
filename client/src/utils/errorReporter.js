@@ -64,7 +64,7 @@ const getPortal = () => {
   ) {
     return "ADMIN";
   }
-  if (path.startsWith("/garage") || sessionRole === "GARAGE_OWNER") {
+  if (path.startsWith("/garage") || ["GARAGE_OWNER", "GARAGE_CONTROLLER"].includes(sessionRole)) {
     return "GARAGE";
   }
   if (

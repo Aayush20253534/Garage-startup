@@ -74,6 +74,73 @@ model GarageOwner {
   @@map("garage_owners")
 }
 
+model GarageController {
+  id                String                       @id @default(uuid())
+  garageId          String
+  name              String
+  email             String                       @unique
+  phone             String                       @unique
+  password          String
+  role              Role                         @default(GARAGE_CONTROLLER)
+  isActive          Boolean                      @default(true)
+  availability      GarageControllerAvailability @default(AVAILABLE)
+  passwordChangedAt DateTime?
+  lastLoginAt       DateTime?
+  lastActiveAt      DateTime?
+  createdByType     String
+  createdById       String
+  deletedAt         DateTime?
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+  garage            Garage                       @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  sessions          GarageControllerSession[]
+  otps              GarageControllerOtp[]
+  bookings          Booking[]
+  notifications     Notification[]
+  dispatches        GarageControllerDispatch[]
+  trackingPoints    BookingTrackingPoint[]
+
+  @@index([garageId, deletedAt, isActive, availability])
+  @@index([garageId, lastActiveAt])
+  @@map("garage_controllers")
+}
+
+model GarageControllerSession {
+  id                 String           @id @default(uuid())
+  garageControllerId String
+  userAgent          String?
+  deviceId           String?
+  lastSeenAt         DateTime         @default(now())
+  expiresAt          DateTime
+  revokedAt          DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  garageController   GarageController @relation(fields: [garageControllerId], references: [id], onDelete: Cascade)
+
+  @@index([garageControllerId, expiresAt])
+  @@index([garageControllerId, deviceId])
+  @@index([lastSeenAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("garage_controller_sessions")
+}
+
+model GarageControllerOtp {
+  id                 String           @id @default(uuid())
+  garageControllerId String
+  otpHash            String
+  purpose            OtpPurpose       @default(RESET_PASSWORD)
+  expiresAt          DateTime
+  usedAt             DateTime?
+  attempts           Int              @default(0)
+  createdAt          DateTime         @default(now())
+  garageController   GarageController @relation(fields: [garageControllerId], references: [id], onDelete: Cascade)
+
+  @@unique([garageControllerId, purpose])
+  @@index([garageControllerId])
+  @@map("garage_controller_otps")
+}
+
 model GarageOwnerSession {
   id            String      @id @default(uuid())
   garageOwnerId String
@@ -437,10 +504,12 @@ model Garage {
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
   ownerId               String?
+  controllerLimit       Int                       @default(3)
   applicationId         String?                   @unique
   bookings              Booking[]
   inspectionImages      BookingInspectionImage[]
   owner                 GarageOwner?              @relation(fields: [ownerId], references: [id])
+  controllers           GarageController[]
   broadcasts            GarageBroadcastRequest[]
   images                GarageImage[]
   services              GarageService[]
@@ -672,6 +741,7 @@ model Booking {
   userId                String
   vehicleId             String
   garageId              String?
+  garageControllerId    String?
   bookingCode           String                   @unique
   scheduledDate         DateTime?
   startTime             String?
@@ -717,6 +787,7 @@ model Booking {
   lastGarageAccuracyM   Float?
   lastGarageLocationAt  DateTime?
   garage                Garage?                  @relation(fields: [garageId], references: [id])
+  garageController      GarageController?        @relation(fields: [garageControllerId], references: [id], onDelete: SetNull)
   user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   vehicle               Vehicle                  @relation(fields: [vehicleId], references: [id])
   inspectionImages      BookingInspectionImage[]
@@ -732,6 +803,7 @@ model Booking {
 
   @@index([userId])
   @@index([garageId])
+  @@index([garageControllerId, status])
   @@index([vehicleId])
   @@index([status])
   @@index([requestType])
@@ -792,22 +864,23 @@ model BookingService {
 }
 
 model GarageBroadcastRequest {
-  id                 String          @id @default(uuid())
-  bookingId          String
-  garageId           String
-  status             BroadcastStatus @default(SENT)
-  sentAt             DateTime        @default(now())
-  acceptedAt         DateTime?
-  rejectedAt         DateTime?
-  expiredAt          DateTime?
-  garageResponseNote String?
-  searchCycle        Int             @default(1)
-  searchRound        Int             @default(1)
-  searchRadiusKm     Int             @default(5)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  booking            Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  garage             Garage          @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  id                   String                     @id @default(uuid())
+  bookingId            String
+  garageId             String
+  status               BroadcastStatus            @default(SENT)
+  sentAt               DateTime                   @default(now())
+  acceptedAt           DateTime?
+  rejectedAt           DateTime?
+  expiredAt            DateTime?
+  garageResponseNote   String?
+  searchCycle          Int                        @default(1)
+  searchRound          Int                        @default(1)
+  searchRadiusKm       Int                        @default(5)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  booking              Booking                    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  garage               Garage                     @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  controllerDispatches GarageControllerDispatch[]
 
   @@unique([bookingId, garageId])
   @@index([bookingId])
@@ -815,32 +888,56 @@ model GarageBroadcastRequest {
   @@index([status])
 }
 
+model GarageControllerDispatch {
+  id                 String                 @id @default(uuid())
+  requestId          String
+  garageControllerId String
+  channel            String
+  status             String                 @default("SENT")
+  sentAt             DateTime               @default(now())
+  acceptedAt         DateTime?
+  failedAt           DateTime?
+  failureReason      String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  request            GarageBroadcastRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  garageController   GarageController       @relation(fields: [garageControllerId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, garageControllerId, channel])
+  @@index([garageControllerId, sentAt])
+  @@index([requestId, status])
+  @@map("garage_controller_dispatches")
+}
+
 model BookingTrackingPoint {
-  id               String         @id @default(uuid())
-  bookingId        String
-  garageId         String?
-  userId           String?
-  garageOwnerId    String?
-  source           TrackingSource @default(GARAGE)
-  latitude         Float
-  longitude        Float
-  snappedLatitude  Float?
-  snappedLongitude Float?
-  roadPlaceId      String?
-  heading          Float?
-  speedKph         Float?
-  accuracyM        Float?
-  recordedAt       DateTime       @default(now())
-  createdAt        DateTime       @default(now())
-  booking          Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  garage           Garage?        @relation(fields: [garageId], references: [id], onDelete: SetNull)
-  user             User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
-  garageOwner      GarageOwner?   @relation(fields: [garageOwnerId], references: [id], onDelete: SetNull)
+  id                 String            @id @default(uuid())
+  bookingId          String
+  garageId           String?
+  userId             String?
+  garageOwnerId      String?
+  garageControllerId String?
+  source             TrackingSource    @default(GARAGE)
+  latitude           Float
+  longitude          Float
+  snappedLatitude    Float?
+  snappedLongitude   Float?
+  roadPlaceId        String?
+  heading            Float?
+  speedKph           Float?
+  accuracyM          Float?
+  recordedAt         DateTime          @default(now())
+  createdAt          DateTime          @default(now())
+  booking            Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  garage             Garage?           @relation(fields: [garageId], references: [id], onDelete: SetNull)
+  user               User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  garageOwner        GarageOwner?      @relation(fields: [garageOwnerId], references: [id], onDelete: SetNull)
+  garageController   GarageController? @relation(fields: [garageControllerId], references: [id], onDelete: SetNull)
 
   @@index([bookingId, recordedAt])
   @@index([garageId, recordedAt])
   @@index([userId, recordedAt])
   @@index([garageOwnerId, recordedAt])
+  @@index([garageControllerId, recordedAt])
   @@map("booking_tracking_points")
 }
 
@@ -1133,22 +1230,25 @@ model ComplaintImage {
 }
 
 model Notification {
-  id            String           @id @default(uuid())
-  userId        String?
-  garageOwnerId String?
-  title         String
-  message       String
-  type          NotificationType @default(SYSTEM)
-  isRead        Boolean          @default(false)
-  link          String?
-  metadata      Json?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  user          User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  garageOwner   GarageOwner?     @relation(fields: [garageOwnerId], references: [id], onDelete: Cascade)
+  id                 String            @id @default(uuid())
+  userId             String?
+  garageOwnerId      String?
+  garageControllerId String?
+  title              String
+  message            String
+  type               NotificationType  @default(SYSTEM)
+  isRead             Boolean           @default(false)
+  link               String?
+  metadata           Json?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  user               User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  garageOwner        GarageOwner?      @relation(fields: [garageOwnerId], references: [id], onDelete: Cascade)
+  garageController   GarageController? @relation(fields: [garageControllerId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([garageOwnerId])
+  @@index([garageControllerId])
   @@index([isRead])
   @@index([createdAt])
 }
@@ -1333,6 +1433,12 @@ enum GarageApplicationStatus {
 enum Role {
   CUSTOMER
   GARAGE_OWNER
+  GARAGE_CONTROLLER
+}
+
+enum GarageControllerAvailability {
+  AVAILABLE
+  BUSY
 }
 
 enum StaffRole {

@@ -20,13 +20,16 @@ const { createAuthToken } = require("./token.service");
 const {
   createCustomerSupportSession,
   createGarageOwnerSession,
+  createGarageControllerSession,
   createStaffSession,
   createUserSession,
   revokeCustomerSupportSession,
   revokeGarageOwnerSession,
+  revokeGarageControllerSession,
   revokeStaffSession,
   revokeUserSession,
 } = require("./userSession.service");
+const garageControllerService = require("../../garage/services/controller.service");
 const {
   createChallenge: createStaffLoginChallenge,
   verifyChallenge: verifyStaffLoginChallenge,
@@ -71,11 +74,13 @@ const verifyLoginPassword = async (passwordHash, password) => {
 
 const USER_ROLES = ["CUSTOMER"];
 const GARAGE_OWNER_ROLE = "GARAGE_OWNER";
+const GARAGE_CONTROLLER_ROLE = "GARAGE_CONTROLLER";
 const STAFF_ROLES = ["ADMIN", "INTERN"];
 const CUSTOMER_SUPPORT_ROLE = "CUSTOMER_SUPPORT";
 const ALL_AUTH_ROLES = [
   ...USER_ROLES,
   GARAGE_OWNER_ROLE,
+  GARAGE_CONTROLLER_ROLE,
   ...STAFF_ROLES,
   CUSTOMER_SUPPORT_ROLE,
 ];
@@ -115,6 +120,21 @@ const toSafeGarageOwner = (owner) => ({
   isPhoneVerified: owner.isPhoneVerified,
   isOnboarded: owner.isOnboarded,
   mustChangePassword: !owner.passwordChangedAt,
+});
+
+const toSafeGarageController = (controller) => ({
+  id: controller.id,
+  garageId: controller.garageId,
+  name: controller.name,
+  email: controller.email,
+  phone: controller.phone,
+  role: GARAGE_CONTROLLER_ROLE,
+  accountType: "GARAGE_CONTROLLER",
+  isActive: controller.isActive,
+  availability: controller.availability,
+  lastLoginAt: controller.lastLoginAt,
+  lastActiveAt: controller.lastActiveAt,
+  mustChangePassword: false,
 });
 
 const toSafeStaff = (staff) => ({
@@ -207,6 +227,27 @@ const getAuthGarageOwnerById = async (garageOwnerId) => {
   return toSafeGarageOwner(owner);
 };
 
+const getAuthGarageControllerById = async (controllerId) => {
+  const controller = await prisma.garageController.findFirst({
+    where: { id: controllerId, deletedAt: null },
+    select: {
+      id: true,
+      garageId: true,
+      name: true,
+      email: true,
+      phone: true,
+      isActive: true,
+      availability: true,
+      lastLoginAt: true,
+      lastActiveAt: true,
+      passwordChangedAt: true,
+      createdAt: true,
+    },
+  });
+  if (!controller) throw new ApiError(404, "Garage controller account not found");
+  return toSafeGarageController(controller);
+};
+
 const getAuthStaffById = async (staffId) => {
   const staff = await prisma.staffAccount.findUnique({
     where: { id: staffId },
@@ -284,6 +325,17 @@ const createGarageOwnerAuthResult = async (owner, sessionMetadata = {}) => {
     token,
     deviceId: session.deviceId,
   };
+};
+
+const createGarageControllerAuthResult = async (controller, sessionMetadata = {}) => {
+  const updated = await prisma.garageController.update({
+    where: { id: controller.id },
+    data: { lastLoginAt: new Date(), lastActiveAt: new Date() },
+  });
+  const safeController = toSafeGarageController(updated);
+  const session = await createGarageControllerSession(updated.id, sessionMetadata);
+  const token = createAuthToken(safeController, { sessionId: session.id });
+  return { user: safeController, token, deviceId: session.deviceId };
 };
 
 const findCustomerIdentity = async ({ email = null, phone = null } = {}) => {
@@ -661,6 +713,27 @@ const login = async (
     });
   }
 
+  if (requestedRole === GARAGE_CONTROLLER_ROLE) {
+    const cleanEmail = normalizeEmail(rawIdentifier);
+    let cleanPhone = null;
+    try {
+      cleanPhone = normalizePhone(rawIdentifier);
+    } catch {
+      // Email remains a valid controller identifier.
+    }
+    const controller = await prisma.garageController.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [{ email: cleanEmail }, ...(cleanPhone ? [{ phone: cleanPhone }] : [])],
+      },
+    });
+    const isPasswordValid = await verifyLoginPassword(controller?.password, password);
+    if (!controller || !controller.isActive || !isPasswordValid) {
+      throw new ApiError(401, INVALID_LOGIN_MESSAGE, "INVALID_CREDENTIALS");
+    }
+    return createGarageControllerAuthResult(controller, sessionMetadata);
+  }
+
   if (requestedRole === GARAGE_OWNER_ROLE) {
     const cleanEmail = normalizeEmail(rawIdentifier);
     let cleanPhone = null;
@@ -789,6 +862,9 @@ const resendStaffLoginOtp = async ({ challengeId }) =>
   resendStaffLoginChallenge(challengeId);
 
 const getMe = async (accountId, accountType, role = null) => {
+  if (accountType === "GARAGE_CONTROLLER") {
+    return getAuthGarageControllerById(accountId);
+  }
   if (accountType === "CUSTOMER_SUPPORT") {
     return getAuthCustomerSupportById(accountId);
   }
@@ -911,9 +987,13 @@ const forgotPassword = async ({
   const cleanEmail = normalizeEmail(email);
   const userRole = normalizeAuthRole(
     role,
-    [...USER_ROLES, GARAGE_OWNER_ROLE, "INTERN"],
+    [...USER_ROLES, GARAGE_OWNER_ROLE, GARAGE_CONTROLLER_ROLE, "INTERN"],
     "CUSTOMER",
   );
+
+  if (userRole === GARAGE_CONTROLLER_ROLE) {
+    return garageControllerService.requestPasswordReset(cleanEmail);
+  }
 
   if (userRole === "INTERN") {
     const staff = await prisma.staffAccount.findFirst({
@@ -983,12 +1063,20 @@ const resetPassword = async ({
   const cleanEmail = normalizeEmail(email);
   const userRole = normalizeAuthRole(
     role,
-    [...USER_ROLES, GARAGE_OWNER_ROLE, "INTERN"],
+    [...USER_ROLES, GARAGE_OWNER_ROLE, GARAGE_CONTROLLER_ROLE, "INTERN"],
     "CUSTOMER",
   );
 
   if (!PASSWORD_REGEX.test(newPassword)) {
     throw new ApiError(400, PASSWORD_MESSAGE);
+  }
+
+  if (userRole === GARAGE_CONTROLLER_ROLE) {
+    return garageControllerService.resetPasswordWithOtp({
+      email: cleanEmail,
+      otp,
+      newPassword,
+    });
   }
 
   if (userRole === "INTERN") {
@@ -1144,10 +1232,14 @@ const changePassword = async (
     throw new ApiError(403, "Customer support passwords are managed by an admin");
   }
 
+  const isGarageController = accountType === "GARAGE_CONTROLLER";
+
   const isGarageOwner =
     accountType === "USER" && role === GARAGE_OWNER_ROLE;
   const account =
-    isGarageOwner
+    isGarageController
+      ? await prisma.garageController.findFirst({ where: { id: accountId, deletedAt: null } })
+      : isGarageOwner
       ? await prisma.garageOwner.findUnique({
           where: { id: accountId },
         })
@@ -1188,7 +1280,22 @@ const changePassword = async (
         currentSessionId,
       });
 
-  if (isGarageOwner) {
+  if (isGarageController) {
+    await prisma.$transaction([
+      prisma.garageController.update({
+        where: { id: accountId },
+        data: { password: hashedPassword, passwordChangedAt: new Date() },
+      }),
+      prisma.garageControllerSession.updateMany({
+        where: {
+          garageControllerId: accountId,
+          revokedAt: null,
+          ...(currentSessionId ? { id: { not: String(currentSessionId) } } : {}),
+        },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+  } else if (isGarageOwner) {
     await prisma.$transaction([
       prisma.garageOwner.update({
         where: { id: accountId },
@@ -1248,6 +1355,9 @@ const changePassword = async (
 };
 
 const logout = async (accountId, accountType, sessionId, role = null) => {
+  if (accountType === "GARAGE_CONTROLLER" && accountId && sessionId) {
+    await revokeGarageControllerSession(sessionId, accountId);
+  }
   if (accountType === "USER" && accountId && sessionId) {
     if (role === GARAGE_OWNER_ROLE) {
       await revokeGarageOwnerSession(sessionId, accountId);

@@ -6,6 +6,7 @@ const { Resend } = require("resend");
 const notificationService = require("../../customer/services/notification.service");
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const dangerousService = require("./dangerous.service");
+const garageControllerService = require("../../garage/services/controller.service");
 
 let resend;
 if (process.env.RESEND_API_KEY) {
@@ -539,6 +540,7 @@ const updateBookingStatus = async ({ bookingId, status, note, staff }) => {
       bookingCode: true,
       status: true,
       garageId: true,
+      garageControllerId: true,
       trackingStartedAt: true,
       trackingEndedAt: true,
       deliveredAt: true,
@@ -564,6 +566,12 @@ const updateBookingStatus = async ({ bookingId, status, note, staff }) => {
 
   await prisma.$transaction(async (tx) => {
     await tx.booking.update({ where: { id: bookingId }, data });
+    if (["COMPLETED", "CANCELLED", "EXPIRED"].includes(status)) {
+      await garageControllerService.releaseController(
+        tx,
+        booking.garageControllerId,
+      );
+    }
     await createAdminBookingEvent(tx, {
       bookingId,
       staff,
@@ -600,6 +608,7 @@ const reassignBookingGarage = async ({ bookingId, garageId, note, staff }) => {
         userId: true,
         bookingCode: true,
         garageId: true,
+        garageControllerId: true,
         garage: { select: { name: true } },
       },
     }),
@@ -643,12 +652,18 @@ const reassignBookingGarage = async ({ bookingId, garageId, note, staff }) => {
       where: { id: bookingId },
       data: {
         garageId,
+        garageControllerId: null,
         status: "GARAGE_ASSIGNED",
         acceptedAt: now,
         searchExpiresAt: null,
         expiredAt: null,
       },
     });
+
+    await garageControllerService.releaseController(
+      tx,
+      booking.garageControllerId,
+    );
 
     await createAdminBookingEvent(tx, {
       bookingId,

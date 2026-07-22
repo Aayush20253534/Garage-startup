@@ -72,6 +72,7 @@ const isSupportPortalPath = (pathname = window.location.pathname) =>
 const VALID_SESSION_ROLES = new Set([
   "CUSTOMER",
   "GARAGE_OWNER",
+  "GARAGE_CONTROLLER",
   "ADMIN",
   "INTERN",
   "CUSTOMER_SUPPORT",
@@ -80,6 +81,7 @@ const VALID_SESSION_ROLES = new Set([
 const ROLE_ACCOUNT_TYPES = {
   CUSTOMER: "USER",
   GARAGE_OWNER: "USER",
+  GARAGE_CONTROLLER: "GARAGE_CONTROLLER",
   ADMIN: "STAFF",
   INTERN: "STAFF",
   CUSTOMER_SUPPORT: "CUSTOMER_SUPPORT",
@@ -275,8 +277,10 @@ const getStoredSessionRole = () => {
   const cachedGarage = readJson("garage", null);
 
   if (pathname.startsWith("/garage") && cachedGarage) {
-    setSessionRole("GARAGE_OWNER", "USER");
-    return "GARAGE_OWNER";
+    const role = cachedGarage.role || cachedGarage.sessionUser?.role || "GARAGE_OWNER";
+    const accountType = cachedGarage.accountType || cachedGarage.sessionUser?.accountType || (role === "GARAGE_CONTROLLER" ? "GARAGE_CONTROLLER" : "USER");
+    setSessionRole(role, accountType);
+    return role;
   }
 
   if (
@@ -306,8 +310,9 @@ const getStoredSessionRole = () => {
   }
 
   if (cachedGarage) {
-    setSessionRole("GARAGE_OWNER", "USER");
-    return "GARAGE_OWNER";
+    const role = cachedGarage.role || "GARAGE_OWNER";
+    setSessionRole(role, role === "GARAGE_CONTROLLER" ? "GARAGE_CONTROLLER" : "USER");
+    return role;
   }
 
   return null;
@@ -724,7 +729,10 @@ export function AppProvider({ children }) {
     clearCustomerSession({ clearRole: false });
     localStorage.removeItem("garage_token");
     localStorage.setItem("garage", JSON.stringify(garageData));
-    setSessionRole("GARAGE_OWNER", "USER");
+    const role = garageData.role || garageData.sessionUser?.role || "GARAGE_OWNER";
+    const accountType = garageData.accountType || garageData.sessionUser?.accountType || (role === "GARAGE_CONTROLLER" ? "GARAGE_CONTROLLER" : "USER");
+    setSessionRole(role, accountType);
+    if (garageData.sessionUser) syncAuthenticatedUser(garageData.sessionUser);
     dispatch(setGarage(garageData));
     setAuthLoading(false);
   };
@@ -813,7 +821,9 @@ export function AppProvider({ children }) {
         }
 
         localStorage.setItem("garage", JSON.stringify(garageData));
-        setSessionRole("GARAGE_OWNER", "USER");
+        const role = garageData.role || garageData.controller?.role || options.sessionUser?.role || "GARAGE_OWNER";
+        const accountType = role === "GARAGE_CONTROLLER" ? "GARAGE_CONTROLLER" : "USER";
+        setSessionRole(role, accountType);
         dispatch(setGarage(garageData));
 
         return garageData;
@@ -1266,7 +1276,10 @@ export function AppProvider({ children }) {
       if (supportPortal) {
         clearSupportSession({ clearRole: false });
         syncAuthenticatedUser(me);
-      } else if (me.accountType === "USER" && me.role === "GARAGE_OWNER") {
+      } else if (
+        (me.accountType === "USER" && me.role === "GARAGE_OWNER") ||
+        (me.accountType === "GARAGE_CONTROLLER" && me.role === "GARAGE_CONTROLLER")
+      ) {
         clearCustomerSession({ clearRole: false });
 
         if (me.mustChangePassword) {
@@ -1284,7 +1297,7 @@ export function AppProvider({ children }) {
           setSessionRole("GARAGE_OWNER", "USER");
           dispatch(setGarage(pendingGarage));
         } else {
-          await refreshGarage();
+          await refreshGarage({ sessionUser: me });
         }
       } else {
         clearCustomerSession({ clearRole: false });
@@ -1316,7 +1329,7 @@ export function AppProvider({ children }) {
     const isCustomerSupport = user?.role === "CUSTOMER_SUPPORT";
     const hasPushEligibleSession =
       user?.role === "CUSTOMER" ||
-      Boolean(garageUser && !garageUser.mustChangePassword) ||
+      Boolean(garageUser && !garageUser.mustChangePassword && !garageUser.isControllerSession) ||
       isCustomerSupport;
 
     if (!hasPushEligibleSession) return;

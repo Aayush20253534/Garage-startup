@@ -26,6 +26,7 @@ export default function GarageLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [accountRole, setAccountRole] = useState("GARAGE_OWNER");
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -50,7 +51,7 @@ export default function GarageLogin() {
     setError("");
 
     try {
-      const result = await garageApi.login(identifier.trim(), password);
+      const result = await garageApi.login(identifier.trim(), password, accountRole);
       const garage = result?.garage;
 
       if (!garage) {
@@ -112,7 +113,7 @@ export default function GarageLogin() {
                 <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
                   {isReturningToRequest
                     ? "Sign in to open the request"
-                    : "Garage owner login"}
+                    : accountRole === "GARAGE_CONTROLLER" ? "Garage controller login" : "Garage owner login"}
                 </h1>
                 <p className="mt-2 text-sm leading-6 text-muted">
                   {isReturningToRequest
@@ -156,6 +157,9 @@ export default function GarageLogin() {
             )}
 
             <form onSubmit={handleSubmit} className="grid gap-4">
+              <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1" role="group" aria-label="Garage account type">
+                {[['GARAGE_OWNER','Central owner'],['GARAGE_CONTROLLER','Sub-controller']].map(([value,label]) => <button key={value} type="button" onClick={() => setAccountRole(value)} className={`rounded-lg px-3 py-2 text-xs font-bold ${accountRole === value ? 'bg-white text-ink shadow-sm' : 'text-muted'}`}>{label}</button>)}
+              </div>
               <label className="grid gap-2 text-sm font-bold text-ink">
                 Email or phone
                 <div className="relative">
@@ -203,7 +207,7 @@ export default function GarageLogin() {
 
               <div className="flex items-center justify-between gap-3 text-sm">
                 <Link
-                  to="/garage/forgot-password"
+                  to={`/garage/forgot-password?role=${accountRole}`}
                   state={location.state}
                   className="font-semibold text-muted transition hover:text-ink"
                 >

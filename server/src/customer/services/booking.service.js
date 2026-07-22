@@ -11,6 +11,7 @@ const {
 const bookingLifecycleService = require("../../services/bookingLifecycle.service");
 const garageRequestService = require("../../services/garageRequest.service");
 const activityService = require("./activity.service");
+const garageControllerService = require("../../garage/services/controller.service");
 const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
 const cityService = require("../../services/city.service");
 const { calculatePlatformFee } = require("../../utils/platformFee");
@@ -660,6 +661,11 @@ const cancelBooking = async (userId, bookingId) => {
         expiredAt: new Date(),
       },
     });
+
+    await garageControllerService.releaseController(
+      tx,
+      booking.garageControllerId,
+    );
 
     const refundAmount = getRefundAmountForCancelledBooking(booking);
 

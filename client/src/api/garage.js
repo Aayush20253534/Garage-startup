@@ -157,17 +157,17 @@ const getStatusArgument = (args) => {
 };
 
 export const garageApi = {
-  async login(identifier, password) {
+  async login(identifier, password, role = "GARAGE_OWNER") {
     const result = unwrap(
       await api.post("/auth/login", {
         identifier,
         password,
-        role: "GARAGE_OWNER",
+        role,
       }),
     );
 
     const sessionUser = await verifyCurrentSession({
-      expectedRole: "GARAGE_OWNER",
+      expectedRole: role,
     });
 
     const user = sessionUser || result?.user;
@@ -176,7 +176,7 @@ export const garageApi = {
       throw new Error("Invalid garage login response");
     }
 
-    if (!["GARAGE_OWNER", "ADMIN"].includes(user.role)) {
+    if (!["GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN"].includes(user.role)) {
       throw new Error("This account is not a garage owner account");
     }
 
@@ -203,8 +203,48 @@ export const garageApi = {
 
     return {
       user,
-      garage,
+      garage: { ...garage, role: user.role, accountType: user.accountType, sessionUser: user },
     };
+  },
+
+  async getControllers() {
+    return unwrap(await api.get("/garage/controllers"));
+  },
+
+  async getControllerActivity(controllerId) {
+    return unwrap(await api.get(`/garage/controllers/${controllerId}/activity`));
+  },
+
+  async createController(payload) {
+    return unwrap(await api.post("/garage/controllers", payload));
+  },
+
+  async updateController(controllerId, payload) {
+    return unwrap(await api.patch(`/garage/controllers/${controllerId}`, payload));
+  },
+
+  async resetControllerPassword(controllerId, password) {
+    return unwrap(await api.patch(`/garage/controllers/${controllerId}/password`, { password }));
+  },
+
+  async revokeControllerSessions(controllerId) {
+    return unwrap(await api.post(`/garage/controllers/${controllerId}/revoke-sessions`));
+  },
+
+  async deleteController(controllerId) {
+    return unwrap(await api.delete(`/garage/controllers/${controllerId}`));
+  },
+
+  async getControllerDashboard() {
+    return unwrap(await api.get("/garage/controller/dashboard"));
+  },
+
+  async setControllerAvailability(availability) {
+    return unwrap(await api.patch("/garage/controller/availability", { availability }));
+  },
+
+  async transferControllerBooking(bookingId, controllerId) {
+    return unwrap(await api.post(`/garage/controllers/bookings/${bookingId}/transfer`, { controllerId }));
   },
 
   async logout() {

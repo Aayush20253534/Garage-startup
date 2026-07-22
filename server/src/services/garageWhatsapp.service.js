@@ -447,6 +447,7 @@ const disabledGarageWhatsappResult = () => ({
 
 const sendGarageBookingRequestWhatsapp = async ({
   garage,
+  to = null,
   request,
   booking,
   acceptFee = 0,
@@ -469,7 +470,7 @@ const sendGarageBookingRequestWhatsapp = async ({
   ].filter(Boolean).join("\n");
 
   return sendWhatsappTemplateMessage({
-    to: garage.whatsappNo || garage.phone,
+    to: to || garage.whatsappNo || garage.phone,
     templateName: GARAGE_REQUEST_TEMPLATE,
     languageCode: DEFAULT_TEMPLATE_LANGUAGE,
     parameters: [brand, model, services],
@@ -494,7 +495,7 @@ const sendGarageBookingRequestWhatsapp = async ({
   });
 };
 
-const sendGarageCustomerLocationWhatsapp = async ({ garage, booking }) => {
+const sendGarageCustomerLocationWhatsapp = async ({ garage, booking, to = null }) => {
   if (!(await canSendWhatsappToGarage(garage))) {
     return disabledGarageWhatsappResult();
   }
@@ -513,7 +514,7 @@ const sendGarageCustomerLocationWhatsapp = async ({ garage, booking }) => {
   ].filter(Boolean).join("\n");
 
   return sendWhatsappTemplateMessage({
-    to: garage.whatsappNo || garage.phone,
+    to: to || garage.whatsappNo || garage.phone,
     templateName: GARAGE_ACCEPTED_DETAILS_TEMPLATE,
     languageCode: DEFAULT_TEMPLATE_LANGUAGE,
     parameters: [customerName, customerPhone, location, mapsLink],

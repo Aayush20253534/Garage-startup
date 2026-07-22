@@ -1,13 +1,28 @@
 const asyncHandler = require("../utils/asyncHandler");
 const ApiResponse = require("../utils/apiResponse");
 const garageOwnerService = require("../garage/services/garageOwner.service");
+const prisma = require("../config/prisma");
+const ApiError = require("../utils/apiError");
 const {
   ACCESS_TOKEN_COOKIE_NAME,
   accessTokenClearCookieOptions,
 } = require("../config/authCookie");
 
 const getMyGarage = asyncHandler(async (req, res) => {
-  const garage = await garageOwnerService.getGarageOwnerProfile(req.user.id);
+  let garage;
+  if (req.user.accountType === "GARAGE_CONTROLLER") {
+    const record = await prisma.garage.findUnique({
+      where: { id: req.user.garageId },
+      select: { ownerId: true },
+    });
+    if (!record?.ownerId) {
+      throw new ApiError(404, "Garage owner not found");
+    }
+    garage = await garageOwnerService.getGarageOwnerProfile(record.ownerId);
+    garage = { ...garage, controller: req.user, isControllerSession: true };
+  } else {
+    garage = await garageOwnerService.getGarageOwnerProfile(req.user.id);
+  }
 
   return res
     .status(200)
@@ -15,7 +30,16 @@ const getMyGarage = asyncHandler(async (req, res) => {
 });
 
 const getMyGarageServices = asyncHandler(async (req, res) => {
-  const services = await garageOwnerService.getGarageOwnerServices(req.user.id);
+  let ownerId = req.user.id;
+  if (req.user.accountType === "GARAGE_CONTROLLER") {
+    const record = await prisma.garage.findUnique({
+      where: { id: req.user.garageId },
+      select: { ownerId: true },
+    });
+    ownerId = record?.ownerId;
+    if (!ownerId) throw new ApiError(404, "Garage owner not found");
+  }
+  const services = await garageOwnerService.getGarageOwnerServices(ownerId);
 
   return res
     .status(200)

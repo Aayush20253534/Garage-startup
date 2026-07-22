@@ -156,6 +156,21 @@ const consumeGarageOwnerOtp = ({
     otp,
   });
 
+const consumeGarageControllerOtp = ({
+  client,
+  garageControllerId,
+  purpose,
+  otp,
+}) =>
+  consumeAccountOtp({
+    client,
+    model: "garageControllerOtp",
+    identityField: "garageControllerId",
+    identityId: garageControllerId,
+    purpose,
+    otp,
+  });
+
 module.exports = {
   OTP_MAX_ATTEMPTS,
   OTP_CONCURRENCY_RETRIES,
@@ -163,5 +178,6 @@ module.exports = {
   invalidOtpResult,
   throwOtpResult,
   consumeGarageOwnerOtp,
+  consumeGarageControllerOtp,
   consumeUserOtp,
 };

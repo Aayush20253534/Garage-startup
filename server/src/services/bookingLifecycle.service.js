@@ -9,6 +9,7 @@ const BOOKING_STATUS = require("../constants/bookingStatus");
 const BROADCAST_STATUS = require("../constants/broadcastStatus");
 const notificationService = require("../customer/services/notification.service");
 const activityService = require("../customer/services/activity.service");
+const garageControllerService = require("../garage/services/controller.service");
 const {
   sendCustomerVehicleDeliveredWhatsapp,
 } = require("./garageWhatsapp.service");
@@ -536,6 +537,11 @@ const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
     },
     include: bookingDetailInclude,
   });
+
+  await garageControllerService.releaseController(
+    prisma,
+    booking.garageControllerId,
+  );
 
   await Promise.allSettled([
     notifyVehicleHandoverOtp({

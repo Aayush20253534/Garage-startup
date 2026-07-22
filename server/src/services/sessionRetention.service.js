@@ -6,6 +6,7 @@ const SESSION_MODELS = [
   "userSession",
   "staffSession",
   "garageOwnerSession",
+  "garageControllerSession",
   "customerSupportSession",
 ];
 

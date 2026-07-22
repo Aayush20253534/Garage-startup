@@ -95,6 +95,14 @@ const createGarageOwnerSession = (garageOwnerId, metadata = {}) =>
     metadata,
   });
 
+const createGarageControllerSession = (garageControllerId, metadata = {}) =>
+  createAccountSession({
+    model: "garageControllerSession",
+    accountField: "garageControllerId",
+    accountId: garageControllerId,
+    metadata,
+  });
+
 const createCustomerSupportSession = (supportAccountId, metadata = {}) =>
   createAccountSession({
     model: "customerSupportSession",
@@ -147,6 +155,14 @@ const getActiveGarageOwnerSession = (sessionId, garageOwnerId) =>
     "garageOwnerId",
     sessionId,
     garageOwnerId,
+  );
+
+const getActiveGarageControllerSession = (sessionId, garageControllerId) =>
+  getActiveAccountSession(
+    "garageControllerSession",
+    "garageControllerId",
+    sessionId,
+    garageControllerId,
   );
 
 const getActiveCustomerSupportSession = (sessionId, supportAccountId) =>
@@ -205,6 +221,14 @@ const touchGarageOwnerSession = (sessionId, garageOwnerId) =>
     garageOwnerId,
   );
 
+const touchGarageControllerSession = (sessionId, garageControllerId) =>
+  touchAccountSession(
+    "garageControllerSession",
+    "garageControllerId",
+    sessionId,
+    garageControllerId,
+  );
+
 const touchCustomerSupportSession = (sessionId, supportAccountId) =>
   touchAccountSession(
     "customerSupportSession",
@@ -259,6 +283,14 @@ const revokeGarageOwnerSession = (sessionId, garageOwnerId) =>
     garageOwnerId,
   );
 
+const revokeGarageControllerSession = (sessionId, garageControllerId) =>
+  revokeAccountSession(
+    "garageControllerSession",
+    "garageControllerId",
+    sessionId,
+    garageControllerId,
+  );
+
 const revokeCustomerSupportSession = (sessionId, supportAccountId) =>
   revokeAccountSession(
     "customerSupportSession",
@@ -310,11 +342,13 @@ const revokeAllCustomerSupportSessions = async (supportAccountId) => {
 };
 
 module.exports = {
+  createGarageControllerSession,
   createCustomerSupportSession,
   createGarageOwnerSession,
   createStaffSession,
   createUserSession,
   getActiveCustomerSupportSession,
+  getActiveGarageControllerSession,
   getActiveGarageOwnerSession,
   getActiveStaffSession,
   getActiveUserSession,
@@ -322,10 +356,12 @@ module.exports = {
   revokeAllStaffSessions,
   revokeAllUserSessions,
   revokeCustomerSupportSession,
+  revokeGarageControllerSession,
   revokeGarageOwnerSession,
   revokeStaffSession,
   revokeUserSession,
   touchCustomerSupportSession,
+  touchGarageControllerSession,
   touchGarageOwnerSession,
   touchStaffSession,
   touchUserSession,

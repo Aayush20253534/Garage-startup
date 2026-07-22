@@ -4,10 +4,12 @@ const { verifyToken } = require("../utils/jwt");
 const {
   getActiveCustomerSupportSession,
   getActiveGarageOwnerSession,
+  getActiveGarageControllerSession,
   getActiveStaffSession,
   getActiveUserSession,
   touchCustomerSupportSession,
   touchGarageOwnerSession,
+  touchGarageControllerSession,
   touchStaffSession,
   touchUserSession,
 } = require("../customer/services/userSession.service");
@@ -18,7 +20,7 @@ const {
   supportAccessTokenClearCookieOptions,
 } = require("../config/authCookie");
 
-const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF", "CUSTOMER_SUPPORT"]);
+const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF", "CUSTOMER_SUPPORT", "GARAGE_CONTROLLER"]);
 const STAFF_ROLES = new Set(["ADMIN", "INTERN"]);
 const USER_ROLES = new Set(["CUSTOMER", "GARAGE_OWNER"]);
 const CUSTOMER_SUPPORT_ROLE = "CUSTOMER_SUPPORT";
@@ -56,10 +58,38 @@ const resolveAccountType = (decoded) => {
     return "CUSTOMER_SUPPORT";
   }
 
+  if (decoded?.role === "GARAGE_CONTROLLER") {
+    return "GARAGE_CONTROLLER";
+  }
+
   return null;
 };
 
 const getActiveAccount = async (accountId, accountType, role = null) => {
+  if (accountType === "GARAGE_CONTROLLER") {
+    const controller = await prisma.garageController.findUnique({
+      where: { id: accountId },
+      select: {
+        id: true,
+        garageId: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isActive: true,
+        availability: true,
+        passwordChangedAt: true,
+        lastLoginAt: true,
+        lastActiveAt: true,
+        deletedAt: true,
+        createdAt: true,
+      },
+    });
+    return controller && !controller.deletedAt
+      ? { ...controller, accountType: "GARAGE_CONTROLLER" }
+      : null;
+  }
+
   if (accountType === "STAFF") {
     const staff = await prisma.staffAccount.findUnique({
       where: { id: accountId },
@@ -273,6 +303,31 @@ const authenticateRequest = async (
           new ApiError(401, "Legacy session expired. Please log in again"),
         );
       }
+    } else if (accountType === "GARAGE_CONTROLLER") {
+      if (!decoded.sessionId) {
+        clearAccessTokenCookie(res, tokenCookieName);
+        return next(new ApiError(401, "Invalid or expired session"));
+      }
+      const session = await getActiveGarageControllerSession(
+        decoded.sessionId,
+        account.id,
+      );
+      if (!session) {
+        clearAccessTokenCookie(res, tokenCookieName);
+        return next(new ApiError(401, "Invalid or expired session"));
+      }
+      authSessionId = session.id;
+      const activeCutoff = new Date(Date.now() - 60_000);
+      await Promise.all([
+        touchGarageControllerSession(session.id, account.id),
+        prisma.garageController.updateMany({
+          where: {
+            id: account.id,
+            OR: [{ lastActiveAt: null }, { lastActiveAt: { lte: activeCutoff } }],
+          },
+          data: { lastActiveAt: new Date() },
+        }),
+      ]);
     } else if (accountType === "STAFF") {
       if (!decoded.sessionId) {
         clearAccessTokenCookie(res, tokenCookieName);

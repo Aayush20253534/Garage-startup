@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { FiMail, FiArrowLeft, FiCheckCircle } from "react-icons/fi";
 import api from "@/api/axios";
 
 export default function GarageForgotPassword() {
+  const [searchParams] = useSearchParams();
+  const role = searchParams.get("role") === "GARAGE_CONTROLLER" ? "GARAGE_CONTROLLER" : "GARAGE_OWNER";
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,7 +25,7 @@ export default function GarageForgotPassword() {
     try {
       const res = await api.post("/auth/forgot-password", {
         email,
-        role: "GARAGE_OWNER",
+        role,
       });
       const data = res.data.data || {};
 
@@ -71,7 +73,7 @@ export default function GarageForgotPassword() {
         email,
         otp: finalOtp,
         newPassword,
-        role: "GARAGE_OWNER",
+        role,
       });
 
       setStep("success");

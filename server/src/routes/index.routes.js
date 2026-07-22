@@ -43,6 +43,9 @@ const adminDangerousRoutes = require("../admin/routes/dangerous.routes");
 const adminSupportRoutes = require("../admin/routes/adminSupport.routes");
 const customerSupportAccountRoutes = require("../admin/routes/customerSupportAccount.routes");
 const internAccountRoutes = require("../admin/routes/internAccount.routes");
+const garageControllerAdminRoutes = require("../admin/routes/garageController.routes");
+const garageControllerManagementRoutes = require("../garage/routes/controllerManagement.routes");
+const garageControllerSelfRoutes = require("../garage/routes/controllerSelf.routes");
 const customerSupportRoutes = require("../customerSupport/routes/customerSupport.routes");
 const authController = require("../customer/controllers/auth.controller");
 const validate = require("../middlewares/validate.middleware");
@@ -134,6 +137,8 @@ router.use("/reviews", reviewRoutes);
 router.use("/garage/wallet", newGarageWalletRoutes);
 router.use("/garage/wallet-legacy", garageWalletRoutes);
 router.use("/garage/requests", garageRequestRoutes);
+router.use("/garage/controllers", garageControllerManagementRoutes);
+router.use("/garage/controller", garageControllerSelfRoutes);
 
 /*
  * Admin and intern route modules already use protect plus role authorization.
@@ -153,6 +158,7 @@ router.use("/admin/system-issues", adminSystemIssueRoutes);
 router.use("/admin/dangerous", adminDangerousRoutes);
 router.use("/admin/customer-support-accounts", customerSupportAccountRoutes);
 router.use("/admin/intern-accounts", internAccountRoutes);
+router.use("/admin/garage-controllers", garageControllerAdminRoutes);
 router.use("/admin/support-tickets", adminSupportRoutes);
 router.use("/admin/garages", adminGarageRoutes);
 router.use("/admin", adminOperationsRoutes);

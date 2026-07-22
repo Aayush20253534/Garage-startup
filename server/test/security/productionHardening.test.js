@@ -75,13 +75,21 @@ test("approval queues email transactionally and fatal errors trigger shutdown", 
 test("owner-only garage routes reject staff identities", () => {
   for (const file of [
     "src/routes/garage.routes.js",
-    "src/routes/garageRequest.routes.js",
     "src/routes/garageWallet.routes.js",
-    "src/garage/routes/wallet.routes.js",
   ]) {
     const source = read(file);
     assert.match(source, /protectUser/);
     assert.doesNotMatch(source, /authorizeRoles\("GARAGE_OWNER", "ADMIN"\)/);
+  }
+
+  for (const file of [
+    "src/routes/garageRequest.routes.js",
+    "src/garage/routes/wallet.routes.js",
+  ]) {
+    const source = read(file);
+    assert.match(source, /router\.use\(protect\)/);
+    assert.match(source, /authorizeRoles\("GARAGE_OWNER", "GARAGE_CONTROLLER"\)/);
+    assert.doesNotMatch(source, /"ADMIN"/);
   }
 });
 

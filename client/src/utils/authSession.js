@@ -1,9 +1,10 @@
 import api from "@/api/axios";
 
-const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF", "CUSTOMER_SUPPORT"]);
+const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF", "CUSTOMER_SUPPORT", "GARAGE_CONTROLLER"]);
 const VALID_ROLES = new Set([
   "CUSTOMER",
   "GARAGE_OWNER",
+  "GARAGE_CONTROLLER",
   "ADMIN",
   "INTERN",
   "CUSTOMER_SUPPORT",

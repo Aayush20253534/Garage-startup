@@ -23,6 +23,7 @@ const {
 } = require("./garageWhatsapp.service");
 const bookingLifecycleService = require("./bookingLifecycle.service");
 const activityService = require("../customer/services/activity.service");
+const garageControllerService = require("../garage/services/controller.service");
 const {
   getNextGarageSearchStage,
   selectGaragesForSearchStage,
@@ -180,7 +181,7 @@ const GARAGE_REQUEST_STATUS_FILTERS = {
   },
 };
 
-const getGarageRequestWhere = (garageId, query = {}) => {
+const getGarageRequestWhere = (garageId, query = {}, controllerId = null) => {
   const status = String(query.status || "").trim().toUpperCase();
   const statusFilter = status
     ? GARAGE_REQUEST_STATUS_FILTERS[status]
@@ -192,6 +193,17 @@ const getGarageRequestWhere = (garageId, query = {}) => {
 
   return {
     garageId,
+    ...(controllerId && {
+      OR: [
+        { booking: { garageControllerId: controllerId } },
+        {
+          status: BROADCAST_STATUS.SENT,
+          controllerDispatches: {
+            some: { garageControllerId: controllerId, status: "SENT" },
+          },
+        },
+      ],
+    }),
     ...statusFilter,
   };
 };
@@ -214,6 +226,9 @@ const bookingForWhatsappInclude = {
         },
       },
     },
+  },
+  garageController: {
+    select: { id: true, name: true, phone: true, email: true },
   },
 };
 
@@ -254,11 +269,26 @@ const getCurrentRoundRequests = async (bookingId) => {
   });
 };
 
-const getGarageRequestById = async (garageId, requestId) => {
+const getGarageRequestById = async (garageId, requestId, controllerId = null) => {
   const request = await prisma.garageBroadcastRequest.findFirst({
     where: {
       garageId,
-      OR: [{ id: requestId }, { bookingId: requestId }],
+      AND: [
+        { OR: [{ id: requestId }, { bookingId: requestId }] },
+        ...(controllerId
+          ? [{
+              OR: [
+                { booking: { garageControllerId: controllerId } },
+                {
+                  status: BROADCAST_STATUS.SENT,
+                  controllerDispatches: {
+                    some: { garageControllerId: controllerId, status: "SENT" },
+                  },
+                },
+              ],
+            }]
+          : []),
+      ],
     },
     include: requestInclude,
   });
@@ -335,20 +365,81 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
   );
 
   for (const request of activeRequests) {
-    alertJobs.push({
-      channel: "whatsapp",
-      garageId: request.garage.id,
-      requestId: request.id,
-      bookingId: booking.id,
-      promise: sendGarageBookingRequestWhatsapp({
-        garage: request.garage,
-        request,
-        booking,
-        acceptFee,
-      }),
-    });
+    const availableControllers = await garageControllerService.getAvailableControllers(
+      request.garage.id,
+    );
+    const controllerMessage = `${booking.vehicle?.brand || "Vehicle"} ${
+      booking.vehicle?.model || ""
+    } needs ${booking.services
+      .map((item) => item.service?.name)
+      .filter(Boolean)
+      .join(", ") || "garage service"}. First available controller to accept receives the booking.${feeMessage}`;
 
-    if (request.garage?.ownerId) {
+    if (availableControllers.length) {
+      for (const controller of availableControllers) {
+        await Promise.all([
+          garageControllerService.recordDispatch({
+            requestId: request.id,
+            controllerId: controller.id,
+            channel: "whatsapp",
+            result: { sent: true },
+          }),
+          garageControllerService.recordDispatch({
+            requestId: request.id,
+            controllerId: controller.id,
+            channel: "in_app_notification",
+            result: { sent: true },
+          }),
+        ]);
+        alertJobs.push({
+          channel: "whatsapp",
+          controllerId: controller.id,
+          garageId: request.garage.id,
+          requestId: request.id,
+          bookingId: booking.id,
+          promise: sendGarageBookingRequestWhatsapp({
+            garage: request.garage,
+            to: controller.phone,
+            request,
+            booking,
+            acceptFee,
+          }),
+        });
+        alertJobs.push({
+          channel: "in_app_notification",
+          controllerId: controller.id,
+          garageId: request.garage.id,
+          requestId: request.id,
+          bookingId: booking.id,
+          promise: notificationService.createNotification({
+            garageControllerId: controller.id,
+            type: "BOOKING",
+            title: "New nearby booking request",
+            message: controllerMessage,
+            link: `/garage/magic/${request.id}`,
+            metadata: {
+              bookingId: booking.id,
+              requestId: request.id,
+              garageId: request.garage.id,
+              action: "ACCEPT_GARAGE_REQUEST",
+              acceptFee,
+            },
+          }),
+        });
+      }
+    } else if (request.garage?.ownerId) {
+      alertJobs.push({
+        channel: "whatsapp_fallback",
+        garageId: request.garage.id,
+        requestId: request.id,
+        bookingId: booking.id,
+        promise: sendGarageBookingRequestWhatsapp({
+          garage: request.garage,
+          request,
+          booking,
+          acceptFee,
+        }),
+      });
       alertJobs.push({
         channel: "in_app_notification",
         garageId: request.garage.id,
@@ -379,6 +470,22 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
 
   const results = await Promise.allSettled(
     alertJobs.map((job) => job.promise),
+  );
+
+  await Promise.allSettled(
+    results.map((result, index) => {
+      const job = alertJobs[index];
+      if (!job.controllerId) return Promise.resolve();
+      return garageControllerService.recordDispatch({
+        requestId: job.requestId,
+        controllerId: job.controllerId,
+        channel: job.channel,
+        result:
+          result.status === "fulfilled"
+            ? result.value || { sent: true }
+            : { sent: false, reason: result.reason?.message || "Dispatch failed" },
+      });
+    }),
   );
 
   if (process.env.NODE_ENV !== "test") {
@@ -642,9 +749,9 @@ const ensureBookingSearchActive = async (bookingId) => {
 const broadcastBookingToNearbyGarages = async (bookingId) =>
   startNextGarageSearchCycle(bookingId);
 
-const getGarageRequests = async (garageId, query = {}) => {
+const getGarageRequests = async (garageId, query = {}, controllerId = null) => {
   const requests = await prisma.garageBroadcastRequest.findMany({
-    where: getGarageRequestWhere(garageId, query),
+    where: getGarageRequestWhere(garageId, query, controllerId),
     include: requestInclude,
     orderBy: { updatedAt: "desc" },
   });
@@ -652,7 +759,28 @@ const getGarageRequests = async (garageId, query = {}) => {
   return serializeGarageRequests(requests);
 };
 
-const acceptGarageRequest = async (garageId, requestId, note) => {
+const declineControllerRequest = async (
+  garageId,
+  requestId,
+  controllerId,
+  note = null,
+) => {
+  const result = await prisma.garageControllerDispatch.updateMany({
+    where: {
+      requestId,
+      garageControllerId: controllerId,
+      status: "SENT",
+      request: { garageId, status: BROADCAST_STATUS.SENT },
+    },
+    data: { status: "DECLINED", failureReason: note || null },
+  });
+  if (!result.count) {
+    throw new ApiError(404, "Available controller request not found");
+  }
+  return { id: requestId, status: "DECLINED" };
+};
+
+const acceptGarageRequest = async (garageId, requestId, note, controllerId = null) => {
   const request = await prisma.garageBroadcastRequest.findFirst({
     where: { id: requestId, garageId },
     include: {
@@ -693,6 +821,33 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
 
     if (operationalGarage.count === 0) {
       throw new ApiError(403, "This garage is disabled and cannot accept bookings");
+    }
+
+    if (controllerId) {
+      const dispatched = await tx.garageControllerDispatch.findFirst({
+        where: {
+          requestId,
+          garageControllerId: controllerId,
+          status: "SENT",
+        },
+        select: { id: true },
+      });
+      if (!dispatched) {
+        throw new ApiError(403, "This booking request was not assigned to this controller");
+      }
+      const controllerClaim = await tx.garageController.updateMany({
+        where: {
+          id: controllerId,
+          garageId,
+          deletedAt: null,
+          isActive: true,
+          availability: "AVAILABLE",
+        },
+        data: { availability: "BUSY", lastActiveAt: new Date() },
+      });
+      if (controllerClaim.count === 0) {
+        throw new ApiError(409, "Controller is no longer available");
+      }
     }
 
     const freshRequest = await tx.garageBroadcastRequest.findFirst({
@@ -774,6 +929,7 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
       },
       data: {
         garageId,
+        garageControllerId: controllerId,
         status: BOOKING_STATUS.CONFIRMED,
         garageNote: note || null,
         acceptedAt,
@@ -805,6 +961,17 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
         expiredAt: acceptedAt,
       },
     });
+
+    if (controllerId) {
+      await tx.garageControllerDispatch.updateMany({
+        where: { requestId, garageControllerId: controllerId },
+        data: { status: "ACCEPTED", acceptedAt },
+      });
+      await tx.garageControllerDispatch.updateMany({
+        where: { requestId, garageControllerId: { not: controllerId }, status: "SENT" },
+        data: { status: "EXPIRED" },
+      });
+    }
 
     if (freshBooking.requestType === REQUEST_TYPE.SOS) {
       const wallet = await tx.wallet.findUnique({
@@ -930,6 +1097,7 @@ const acceptGarageRequest = async (garageId, requestId, note) => {
     sendGarageCustomerLocationWhatsapp({
       garage: result.request.garage,
       booking: result.request.booking,
+      to: result.request.booking.garageController?.phone || null,
     }),
   ]);
 
@@ -1042,5 +1210,6 @@ module.exports = {
   getGarageRequestById,
   getGarageRequests,
   acceptGarageRequest,
+  declineControllerRequest,
   rejectGarageRequest,
 };
