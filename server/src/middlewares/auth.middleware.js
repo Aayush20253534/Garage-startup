@@ -24,6 +24,9 @@ const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF", "CUSTOMER_SUPPORT", "GARAG
 const STAFF_ROLES = new Set(["ADMIN", "INTERN"]);
 const USER_ROLES = new Set(["CUSTOMER", "GARAGE_OWNER"]);
 const CUSTOMER_SUPPORT_ROLE = "CUSTOMER_SUPPORT";
+const CUSTOMER_BLOCKED_MESSAGE =
+  "You are blocked from using Rovauto. Please contact customer support.";
+const CUSTOMER_BLOCKED_CODE = "CUSTOMER_BLOCKED";
 
 const readAccessToken = (req, cookieName = ACCESS_TOKEN_COOKIE_NAME) =>
   req.cookies?.[cookieName] || null;
@@ -250,7 +253,18 @@ const authenticateRequest = async (
         return next();
       }
 
-      return next(new ApiError(403, "Account is disabled"));
+      const isBlockedCustomer =
+        accountType === "USER" && account.role === "CUSTOMER";
+
+      return next(
+        new ApiError(
+          403,
+          isBlockedCustomer
+            ? CUSTOMER_BLOCKED_MESSAGE
+            : "Account is disabled",
+          isBlockedCustomer ? CUSTOMER_BLOCKED_CODE : null,
+        ),
+      );
     }
 
     if (

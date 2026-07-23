@@ -12,6 +12,7 @@ import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import { preloadCustomerPortal } from "@/utils/customerPreload";
 
 const MOBILE_LOGIN_LOADER_MINIMUM_MS = 1100;
+const AUTH_NOTICE_KEY = "rov_auth_notice";
 
 const buildReturnPath = (fromLocation) => {
   if (!fromLocation?.pathname) return null;
@@ -25,7 +26,11 @@ export default function Login() {
   const { state } = useLocation();
   const fromLocation = state?.from || null;
   const from = buildReturnPath(fromLocation);
-  const notice = state?.message || "";
+  const storedNotice =
+    typeof window !== "undefined"
+      ? sessionStorage.getItem(AUTH_NOTICE_KEY) || ""
+      : "";
+  const notice = state?.message || storedNotice;
 
   const nav = useNavigate();
   const { login, fetchProfile, preloadCustomerData } = useApp();
@@ -112,6 +117,12 @@ export default function Login() {
 
     nav(targetPath, { replace: true });
   };
+
+  useEffect(() => {
+    if (storedNotice) {
+      sessionStorage.removeItem(AUTH_NOTICE_KEY);
+    }
+  }, [storedNotice]);
 
   useEffect(() => {
     let active = true;

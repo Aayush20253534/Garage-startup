@@ -13,6 +13,7 @@ const {
   customerIdParamSchema,
   customerQuerySchema,
   deleteCustomersSchema,
+  updateCustomerStatusSchema,
   paymentQuerySchema,
   reassignBookingGarageSchema,
   updateBookingStatusSchema,
@@ -39,6 +40,13 @@ router.delete(
   deleteCustomersSchema,
   validate,
   controller.deleteCustomers,
+);
+router.patch(
+  "/customers/:userId/status",
+  authorizeRoles("ADMIN"),
+  updateCustomerStatusSchema,
+  validate,
+  controller.setCustomerActiveStatus,
 );
 router.get(
   "/customers/:userId/profile",

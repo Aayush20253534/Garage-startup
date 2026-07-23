@@ -8,11 +8,13 @@ import { resetCityAvailabilityCache } from "@/utils/cityAvailability";
 import {
   FiCheckCircle,
   FiEye,
+  FiLock,
   FiMapPin,
   FiPlus,
   FiRefreshCw,
   FiSearch,
   FiTrash2,
+  FiUnlock,
   FiXCircle,
 } from "react-icons/fi";
 
@@ -150,6 +152,7 @@ export default function Customers() {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
   const [deletingCustomers, setDeletingCustomers] = useState(false);
+  const [updatingCustomerId, setUpdatingCustomerId] = useState("");
 
   const customerRows = useMemo(
     () =>
@@ -262,6 +265,50 @@ export default function Customers() {
       setError(err.response?.data?.message || "Unable to delete customers");
     } finally {
       setDeletingCustomers(false);
+    }
+  };
+
+
+  const toggleCustomerAccess = async (customer) => {
+    if (!customer?.id || updatingCustomerId || isIntern) return;
+
+    const nextIsActive = !customer.isActive;
+    const customerLabel = customer.name || customer.email || "this customer";
+    const confirmationMessage = nextIsActive
+      ? `Unblock ${customerLabel}? They will be able to sign in again.`
+      : `Block ${customerLabel}? They will be logged out on every device and will not be able to sign in with email or Google.`;
+
+    if (!window.confirm(confirmationMessage)) return;
+
+    setUpdatingCustomerId(customer.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      const updatedCustomer = await adminApi.setCustomerActiveStatus(
+        customer.id,
+        nextIsActive,
+      );
+
+      setCustomers((current) =>
+        current.map((item) =>
+          item.id === customer.id
+            ? { ...item, ...updatedCustomer }
+            : item,
+        ),
+      );
+      setSuccess(
+        nextIsActive
+          ? `${customerLabel} has been unblocked.`
+          : `${customerLabel} has been blocked and logged out from all devices.`,
+      );
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          `Unable to ${nextIsActive ? "unblock" : "block"} customer`,
+      );
+    } finally {
+      setUpdatingCustomerId("");
     }
   };
 
@@ -450,7 +497,7 @@ export default function Customers() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1020px] text-sm">
+          <table className="w-full min-w-[1140px] text-sm">
             <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 {!isIntern && (
@@ -466,6 +513,7 @@ export default function Customers() {
                   "Login",
                   "Devices",
                   "Status",
+                  "Access",
                   "Profile",
                 ].map((heading) => (
                   <th
@@ -481,7 +529,7 @@ export default function Customers() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={isIntern ? 10 : 11} className="px-4 py-6 text-sm text-muted">
+                  <td colSpan={isIntern ? 11 : 12} className="px-4 py-6 text-sm text-muted">
                     Loading customers...
                   </td>
                 </tr>
@@ -600,10 +648,35 @@ export default function Customers() {
                             : "bg-bg-soft text-muted",
                         ].join(" ")}
                       >
-                        {customer.isActive ? "Active" : "Disabled"}
+                        {customer.isActive ? "Active" : "Blocked"}
                       </span>
                     </td>
 
+
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {isIntern ? (
+                        <span className="text-xs text-muted">Admin only</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => toggleCustomerAccess(customer)}
+                          disabled={updatingCustomerId === customer.id}
+                          className={[
+                            "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60",
+                            customer.isActive
+                              ? "border-red-200 bg-white text-red-700 hover:bg-red-50"
+                              : "border-green-200 bg-white text-green-700 hover:bg-green-50",
+                          ].join(" ")}
+                        >
+                          {customer.isActive ? <FiLock /> : <FiUnlock />}
+                          {updatingCustomerId === customer.id
+                            ? "Updating..."
+                            : customer.isActive
+                              ? "Block"
+                              : "Unblock"}
+                        </button>
+                      )}
+                    </td>
 
                     <td className="whitespace-nowrap px-4 py-3">
                       <button
@@ -619,7 +692,7 @@ export default function Customers() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={isIntern ? 10 : 11} className="px-4 py-6 text-sm text-muted">
+                  <td colSpan={isIntern ? 11 : 12} className="px-4 py-6 text-sm text-muted">
                     No customers found.
                   </td>
                 </tr>

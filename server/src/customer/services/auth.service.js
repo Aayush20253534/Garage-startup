@@ -49,6 +49,9 @@ const PASSWORD_RESET_REQUEST_MESSAGE =
   "If an active account exists for this email, a password reset OTP has been sent.";
 const INVALID_LOGIN_MESSAGE =
   "Invalid email, phone, login ID, or password";
+const CUSTOMER_BLOCKED_MESSAGE =
+  "You are blocked from using Rovauto. Please contact customer support.";
+const CUSTOMER_BLOCKED_CODE = "CUSTOMER_BLOCKED";
 
 let dummyPasswordHashPromise = null;
 
@@ -785,13 +788,16 @@ const login = async (
     password,
   );
 
-  if (
-    !user ||
-    !user.isActive ||
-    !user.isEmailVerified ||
-    !isPasswordValid
-  ) {
+  if (!user || !user.isEmailVerified || !isPasswordValid) {
     throw new ApiError(401, INVALID_LOGIN_MESSAGE, "INVALID_CREDENTIALS");
+  }
+
+  if (!user.isActive) {
+    throw new ApiError(
+      403,
+      CUSTOMER_BLOCKED_MESSAGE,
+      CUSTOMER_BLOCKED_CODE,
+    );
   }
 
   return createUserAuthResult(user, sessionMetadata);
@@ -932,7 +938,11 @@ const googleAuth = async (
       throw new ApiError(409, "This email is linked to a different Google identity");
     }
     if (!user.isActive) {
-      throw new ApiError(403, "Account is disabled");
+      throw new ApiError(
+        403,
+        CUSTOMER_BLOCKED_MESSAGE,
+        CUSTOMER_BLOCKED_CODE,
+      );
     }
 
     if (!user.isEmailVerified) {

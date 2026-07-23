@@ -61,6 +61,14 @@ const deleteCustomersSchema = [
     .withMessage("Every customer ID must be valid"),
 ];
 
+const updateCustomerStatusSchema = [
+  ...customerIdParamSchema,
+  body("isActive")
+    .isBoolean()
+    .withMessage("Customer status must be true or false")
+    .toBoolean(),
+];
+
 const updateBookingStatusSchema = [
   ...bookingIdParamSchema,
   body("status")
@@ -273,6 +281,7 @@ module.exports = {
   customerIdParamSchema,
   customerQuerySchema,
   deleteCustomersSchema,
+  updateCustomerStatusSchema,
   reassignBookingGarageSchema,
   sendUserEmailSchema,
   sendNotificationSchema,

@@ -19,6 +19,24 @@ const deleteCustomers = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Customers deleted successfully", result));
 });
 
+const setCustomerActiveStatus = asyncHandler(async (req, res) => {
+  const customer = await service.setCustomerActiveStatus({
+    userId: req.params.userId,
+    isActive: req.body.isActive,
+    requestedById: req.user.id,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      customer.isActive
+        ? "Customer unblocked successfully"
+        : "Customer blocked successfully",
+      customer,
+    ),
+  );
+});
+
 const listBookings = asyncHandler(async (req, res) => {
   const bookings = await service.listBookings(req.query);
   return res
@@ -169,6 +187,7 @@ module.exports = {
   addBookingAdminNote,
   clearAllBookings,
   deleteCustomers,
+  setCustomerActiveStatus,
   getBookingDetails,
   getCustomerProfile,
   getDashboardStats,

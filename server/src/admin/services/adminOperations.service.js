@@ -169,6 +169,66 @@ const deleteCustomers = async ({ customerIds = [], requestedById = null } = {}) 
     requestedById,
   });
 
+const setCustomerActiveStatus = async ({
+  userId,
+  isActive,
+  requestedById = null,
+}) => {
+  const nextIsActive = isActive === true;
+  const changedAt = new Date();
+
+  const result = await prisma.$transaction(async (tx) => {
+    const existingCustomer = await tx.user.findFirst({
+      where: { id: userId, role: "CUSTOMER" },
+      select: { id: true, isActive: true },
+    });
+
+    if (!existingCustomer) {
+      throw new ApiError(404, "Customer not found");
+    }
+
+    const customer = await tx.user.update({
+      where: { id: existingCustomer.id },
+      data: { isActive: nextIsActive },
+      select: userSelect,
+    });
+
+    let revokedSessionCount = 0;
+
+    if (!nextIsActive) {
+      const revokedSessions = await tx.userSession.updateMany({
+        where: {
+          userId: existingCustomer.id,
+          revokedAt: null,
+        },
+        data: { revokedAt: changedAt },
+      });
+
+      revokedSessionCount = revokedSessions.count;
+    }
+
+    return { customer, revokedSessionCount };
+  });
+
+  await invalidateCustomerCache(userId);
+
+  const [customerWithSessionStatus] = await attachCustomerSessionStatus([
+    result.customer,
+  ]);
+
+  console.info("[admin] Customer access status updated", {
+    requestedById,
+    userId,
+    isActive: nextIsActive,
+    revokedSessionCount: result.revokedSessionCount,
+  });
+
+  return {
+    ...customerWithSessionStatus,
+    revokedSessionCount: result.revokedSessionCount,
+  };
+};
+
 const bookingInclude = {
   user: {
     select: {
@@ -2066,6 +2126,7 @@ module.exports = {
   addBookingAdminNote,
   clearAllBookings,
   deleteCustomers,
+  setCustomerActiveStatus,
   getBookingDetails,
   getCustomerProfile,
   getDashboardStats,

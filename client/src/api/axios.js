@@ -70,6 +70,8 @@ const SUPPORT_SESSION_ROLE_KEY = "rov_support_session_role";
 const SUPPORT_SESSION_ACCOUNT_TYPE_KEY = "rov_support_session_account_type";
 const SUPPORT_USER_KEY = "rov_support_user";
 const SESSION_EXPIRED_EVENT = "rovauto:session-expired";
+const AUTH_NOTICE_KEY = "rov_auth_notice";
+const CUSTOMER_BLOCKED_CODE = "CUSTOMER_BLOCKED";
 const CSRF_COOKIE_NAME = "rovautoCsrf";
 const CSRF_HEADER_NAME = "X-CSRF-Token";
 let csrfTokenCache = "";
@@ -212,8 +214,33 @@ api.interceptors.response.use(
       return api(retryConfig);
     }
 
+    const isBlockedCustomer =
+      status === 403 &&
+      error.response?.data?.code === CUSTOMER_BLOCKED_CODE;
     const isExpiredSession =
       status === 401 && SESSION_ERROR_PATTERN.test(message);
+
+    if (isBlockedCustomer) {
+      localStorage.removeItem(SESSION_ROLE_KEY);
+      localStorage.removeItem(SESSION_ACCOUNT_TYPE_KEY);
+      sessionStorage.setItem(
+        AUTH_NOTICE_KEY,
+        message || "You are blocked from using Rovauto.",
+      );
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(SESSION_EXPIRED_EVENT, {
+            detail: {
+              url: String(error.config?.url || ""),
+              scope: "main",
+              reason: "blocked",
+              message,
+            },
+          }),
+        );
+      }
+    }
 
     if (isExpiredSession) {
       const requestUrl = String(error.config?.url || "");

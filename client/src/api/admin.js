@@ -170,6 +170,12 @@ export const adminApi = {
     );
   },
 
+  async setCustomerActiveStatus(userId, isActive) {
+    return unwrap(
+      await api.patch(`/admin/customers/${userId}/status`, { isActive }),
+    );
+  },
+
   async getCustomerProfile(userId) {
     return unwrap(await api.get(`/admin/customers/${userId}/profile`));
   },
