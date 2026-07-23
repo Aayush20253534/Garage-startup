@@ -1,5 +1,7 @@
 # Understanding Booking Status
 
+> Customer-assistant knowledge verified on 23 July 2026.
+
 ## Pending Payment
 
 The booking has been saved but garage search has not started. Complete the platform-fee payment from Pending Bookings. If the customer wallet covers the full amount, the booking can proceed without opening Cashfree.
@@ -10,7 +12,7 @@ Payment is confirmed and Rovauto is matching eligible garages. The tracker shows
 
 ## Confirmed Or Garage Assigned
 
-A garage has accepted the request. Open the booking tracker for garage details, directions, communication options, and the secure handover OTP. Do not share the OTP until the vehicle is physically handed to the assigned garage.
+A garage has accepted the request. The current acceptance flow normally writes `Confirmed`; `Garage Assigned` may still appear for compatible older records. Open the booking tracker for garage details, directions, communication options, and the secure handover OTP. Do not share the OTP until the vehicle is physically handed to the assigned garage owner or assigned controller.
 
 ## In Progress
 

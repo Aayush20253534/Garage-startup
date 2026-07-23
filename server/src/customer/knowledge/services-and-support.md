@@ -1,10 +1,12 @@
 # Services, Warranty And Customer Support
 
+> Customer-assistant knowledge verified on 23 July 2026.
+
 ## Available Services
 
 Rovauto lists active vehicle-care services configured for supported cities. Categories may include periodic maintenance, repair, inspection, cleaning, roadside assistance, and other services shown in the app. A service may be unavailable or coming soon in a particular city. The app's current service listing is the source of truth.
 
-Displayed service prices are estimates or ranges. They are not a guaranteed final repair quotation. The final service amount depends on the completed work and is confirmed with the garage before customer delivery acceptance.
+Displayed service prices are approved estimates or ranges for the selected city, service, and vehicle scope. They are not a guaranteed final repair quotation. If no approved range exists for the selected combination, the app must not invent a price or allow that service to proceed through checkout. The final service amount depends on the completed work and is confirmed before customer delivery acceptance.
 
 ## Roadside Assistance And SOS
 

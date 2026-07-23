@@ -1,176 +1,143 @@
-﻿# Garage Partner And Booking Flow
+# Garage Partner, Controller, And Booking Flow
 
-## 1. Garage Partner Application Flow
+> Verified against the implementation on 23 July 2026.
 
-```mermaid
-flowchart TD
-    A["Garage owner visits Rovauto"] --> B["Clicks Apply / Become a Partner"]
-    B --> C["Fills garage inquiry form"]
-    C --> D["Submits application"]
-    D --> E["Application saved in DB as Pending Garage Application"]
-
-    E --> F["Admin reviews application"]
-    F --> G{"Admin decision"}
-
-    G -->|Denied| H["Application marked Denied"]
-    H --> I["Rejection email sent to garage owner"]
-
-    G -->|Changes requested| J["Application marked Changes Requested"]
-    J --> K["Email sent with required corrections"]
-    K --> L["Garage owner updates/resubmits form"]
-    L --> E
-
-    G -->|Accepted| M["Application marked Approved"]
-    M --> N["Garage owner account created/verified"]
-    N --> O["Garage profile created in Garage List"]
-    O --> P["Approval email sent with login/access instructions"]
-    P --> Q["Garage owner logs in"]
-```
-
-## 2. Garage Setup And Listing Flow
+## 1. Partner application and approval
 
 ```mermaid
 flowchart TD
-    A["Garage owner logs in"] --> B["Garage setup dashboard"]
-    B --> C["Add garage details"]
-    C --> D["Add owner details"]
-    D --> E["Add phone number"]
-    E --> F["Add working radius / location"]
-    F --> G["Add garage type"]
-    G --> H["Add services offered"]
-    H --> I["Add service prices"]
-    I --> J["Upload mandatory garage photos"]
-    J --> K["Submit for final verification"]
-
-    K --> L["Admin verifies details/photos"]
-    L --> M{"Approved?"}
-
-    M -->|Needs changes| N["Admin requests changes by email/dashboard note"]
-    N --> C
-
-    M -->|Approved| O["Garage marked Verified and Active"]
-    O --> P["Garage appears in Garage List"]
-    P --> Q["Garage can receive booking leads"]
+    Apply["Public partner application"] --> Pending["GarageApplication: PENDING"]
+    Pending --> Decision{"Admin decision"}
+    Decision -->|"Request changes"| Changes["CHANGES_REQUESTED + email outbox"]
+    Changes --> Apply
+    Decision -->|"Deny"| Denied["DENIED + email outbox"]
+    Decision -->|"Approve"| Approved["APPROVED"]
+    Approved --> Owner["Separate GarageOwner account"]
+    Approved --> Garage["Garage profile + wallet"]
+    Owner --> Login["Garage owner login"]
 ```
 
-## 3. Customer Booking To Garage Lead Flow
+The application accepts garage identity, owner/contact details, address/coordinates, service radius, capabilities, terms acceptance, and optional media/email fields. Approval creates or links the separate `GarageOwner`, creates the `Garage`, and establishes the operational wallet/profile. Application emails are delivered asynchronously through `GarageApplicationEmailOutbox`.
+
+## 2. Garage login and controller accounts
+
+The `/garage/login` screen has two explicit account modes:
+
+1. **Garage owner** — signs in with the approved owner phone/email and password.
+2. **Controller / staff** — signs in with the controller phone/email and password.
+
+Both use `POST /api/v1/auth/login` with an explicit requested role, but they receive different account types and database-backed sessions:
+
+- Owner: `role=GARAGE_OWNER`, `accountType=USER`, `GarageOwnerSession`.
+- Controller: `role=GARAGE_CONTROLLER`, `accountType=GARAGE_CONTROLLER`, `GarageControllerSession`.
+
+Garage controllers are always scoped to one garage. Owners manage controllers through `/garage/controllers`; administrators manage them through `/admin/garage-controllers`. The admin-set `Garage.controllerLimit` applies per garage. A controller cannot be created after that garage reaches its limit.
+
+Owners/admins can create, edit, activate/deactivate, reset passwords, revoke sessions, inspect activity, soft-delete controllers, and transfer bookings. Controllers can set `AVAILABLE` or `BUSY`.
+
+## 3. Garage configuration and eligibility
+
+A garage is dispatch-eligible only when the current booking and garage satisfy the checks in the booking/garage services. Important signals include:
+
+- Garage operational and verification state.
+- Location coordinates and distance radius.
+- Requested services and garage service assignments.
+- Vehicle/fuel/brand/model capability and exclusion rules.
+- Booking not already assigned or terminal.
+
+Customers see a ranked nearby-garage preview, but that preview does not reserve a garage.
+
+## 4. Customer checkout and payment
 
 ```mermaid
 flowchart TD
-    A["Customer selects vehicle"] --> B["Customer selects services"]
-    B --> C["Customer enters address or uses current location"]
-    C --> D["Customer checkout"]
-    D --> E["Customer pays booking/platform fee"]
-    E --> F["Booking status becomes Searching Garage"]
-    F --> G["System finds eligible active garages"]
-    G --> H["Booking broadcast sent to matching garages"]
-    H --> I["Garage sees new lead in dashboard / WhatsApp"]
+    Vehicle["Saved vehicle"] --> Services["Available services"]
+    Services --> Location["Confirmed saved service location"]
+    Location --> Checkout["Booking: PENDING_PAYMENT"]
+    Checkout --> Payment{"Platform fee"}
+    Payment -->|"Wallet only"| Paid["Atomic payment finalization"]
+    Payment -->|"Wallet + Cashfree"| Cashfree["Signed Cashfree verification/webhook"]
+    Cashfree --> Paid
+    Paid --> Search["Booking: SEARCHING_GARAGE"]
 ```
 
-## 4. Garage Lead Accept / Reject Flow
+Service estimates are selected from approved city/service/vehicle price ranges. Missing pricing blocks checkout for that service/vehicle combination. The online amount is the platform fee; it can be paid from the customer wallet, Cashfree, or both. Financial operations use idempotency keys and transactional guards.
+
+## 5. Progressive garage search
+
+The search worker processes paid `SEARCHING_GARAGE` bookings:
+
+| Round | Radius | Default duration |
+| --- | ---: | ---: |
+| 1 | 5 km | 150 seconds |
+| 2 | 10 km | 150 seconds |
+| 3 | 20 km | 150 seconds |
+
+After round three, a new cycle starts again at 5 km without another customer payment. A garage is contacted at most once per cycle. Existing requests remain usable while the booking is unassigned.
+
+Eligible garages receive in-app/push/WhatsApp delivery as configured. Available garage controllers can also receive dispatch records. Notification does not guarantee acceptance.
+
+## 6. Acceptance and wallet fee
 
 ```mermaid
 flowchart TD
-    A["Garage receives lead"] --> B{"Garage decision"}
-
-    B -->|Reject| C["Lead marked Rejected"]
-    C --> D["Booking remains available for other garages"]
-
-    B -->|Accept| E["Garage accepts lead"]
-    E --> F["Wallet / lead fee deducted if applicable"]
-    F --> G["Other garage requests expire"]
-    G --> H["Booking assigned to accepted garage"]
-    H --> I["Customer details unlocked for garage"]
-    I --> J["Booking moves to Accepted / Confirmed"]
+    Lead["Garage/request lead"] --> Choice{"Accept or reject"}
+    Choice -->|"Reject"| Rejected["Request REJECTED; search continues"]
+    Choice -->|"Accept"| Guard["Assignment + wallet checks"]
+    Guard -->|"Insufficient garage wallet"| Recharge["Acceptance blocked; recharge required"]
+    Guard -->|"Eligible"| Winner["Atomic first-winner assignment"]
+    Winner --> Fee["GARAGE_ACCEPT_FEE debit"]
+    Fee --> Confirmed["Booking CONFIRMED"]
+    Confirmed --> Dispatch["Controller assignment/transfer if used"]
 ```
 
-## 5. Garage Job Status Flow
+All eligible nearby garages can receive the lead. A garage with insufficient wallet balance can view the lead but cannot accept until it can cover the acceptance fee. Acceptance is protected against concurrent winners; the successful garage is assigned and competing requests expire.
+
+Customer details are revealed only after assignment, and controller views further limit those details to active assignments.
+
+## 7. Handover, service, and delivery
+
+1. Assignment generates a six-digit handover OTP with a two-hour expiry.
+2. The customer shares it only during physical vehicle handover.
+3. Garage/controller submits the OTP plus the required pickup inspection images.
+4. Verification uses hashed OTP storage, bounded attempts, a concurrency claim, and Cloudinary upload.
+5. Successful verification changes the booking from `CONFIRMED` to `IN_PROGRESS`.
+6. Garage/controller uploads delivery inspection images and marks the vehicle delivered.
+7. Customer reviews the delivery, supplies/confirms the final service amount, and accepts delivery.
+8. Booking becomes `COMPLETED`; review, service history, and warranty flows become available.
+
+`deliveredAt` is a delivery checkpoint, not a separate `BookingStatus`.
+
+## 8. Booking status model
 
 ```mermaid
-flowchart TD
-    A["New booking"] --> B["Accepted"]
-    B --> C["Arrived / Mechanic shown"]
-    C --> D["Vehicle received"]
-    D --> E["Inspection"]
-    E --> F["Service in progress"]
-    F --> G["Ready to deliver"]
-    G --> H["Completed"]
+stateDiagram-v2
+    [*] --> PENDING_PAYMENT
+    PENDING_PAYMENT --> SEARCHING_GARAGE: payment confirmed
+    SEARCHING_GARAGE --> CONFIRMED: first garage accepts
+    CONFIRMED --> IN_PROGRESS: OTP + pickup evidence
+    IN_PROGRESS --> COMPLETED: delivery accepted
+    PENDING_PAYMENT --> CANCELLED
+    SEARCHING_GARAGE --> CANCELLED
+    CONFIRMED --> CANCELLED
+    SEARCHING_GARAGE --> EXPIRED: exceptional terminal expiry
 ```
 
-## 6. Customer Service Proof / Notes Flow
+`GARAGE_ASSIGNED` remains in the enum and read compatibility paths, while the active acceptance implementation writes `CONFIRMED`.
 
-```mermaid
-flowchart TD
-    A["Booking accepted by garage"] --> B["Customer can view booking details"]
-    B --> C["Customer uploads before-service photos if needed"]
-    C --> D["Customer adds service notes / issue description"]
-    D --> E["Garage reviews customer photos and notes"]
-    E --> F["Service starts"]
-    F --> G["Customer can upload after-service photos / feedback if needed"]
-    G --> H["Customer confirms completion or raises concern"]
-    H --> I["Review / rating flow"]
-```
+## 9. Cancellation and refunds
 
-## 7. Booking Details Screen Flow
+Customer cancellation is available before service starts for supported pre-service statuses. Broadcast requests are expired and the booking is marked `CANCELLED`. Eligible paid platform-fee value is credited to the customer wallet using idempotent financial records. Late Cashfree success and wallet-balance races are reconciled to wallet credit instead of double charging or losing funds.
 
-```mermaid
-flowchart TD
-    A["Garage opens booking details"] --> B["Show customer details"]
-    B --> C["Show selected service details"]
-    C --> D["Show OTP / verification step"]
-    D --> E["Show estimated bill"]
-    E --> F["Navigation button"]
-    F --> G["Customer call button"]
-    G --> H["WhatsApp button"]
-```
+## 10. Operational ownership
 
-## 8. WhatsApp Lead Link Flow
+| Actor | Authority |
+| --- | --- |
+| Customer | Own vehicles, locations, booking, payment, delivery acceptance, complaints/tickets, and reviews |
+| Garage owner | Own garage profile/services, wallet, requests, controller roster, and garage work |
+| Garage controller | Assigned/allowed garage work and availability; no owner-level account administration |
+| Customer support | Ticket workflow and customer communications, not arbitrary booking/payment mutation |
+| Intern | Read-oriented operations and submission workflows |
+| Admin | Platform operations, moderation, garage/controller limits, transfers, protected maintenance |
 
-```mermaid
-flowchart TD
-    A["Garage receives WhatsApp lead link"] --> B["Opens link"]
-    B --> C["Views limited booking summary"]
-    C --> D{"Accept or decline?"}
-
-    D -->|Decline| E["Lead marked Declined"]
-    D -->|Accept| F["Garage account/wallet check"]
-    F --> G["Lead accepted"]
-    G --> H["Customer details unlocked"]
-```
-
-## 9. Database Sections Needed
-
-```mermaid
-flowchart LR
-    A["Garage Applications"] --> B["Pending"]
-    A --> C["Changes Requested"]
-    A --> D["Denied"]
-    A --> E["Approved"]
-
-    E --> F["Garage List"]
-    F --> G["Verified / Active Garages"]
-    F --> H["Inactive / Suspended Garages"]
-```
-
-## Number-Wise Summary
-
-1. Garage owner submits Apply to Become Partner inquiry form.
-2. Form is saved in DB as Pending Garage Application.
-3. Admin reviews pending applications.
-4. Admin can approve, deny, or request changes.
-5. Denied applications trigger rejection email.
-6. Changes requested trigger correction email and allow resubmission.
-7. Approved application creates/verifies garage owner account.
-8. Approved garage profile moves into Garage List.
-9. Garage owner logs in and completes setup.
-10. Garage adds details, owner info, phone number, working radius, garage type, services, and prices.
-11. Garage uploads mandatory garage photos.
-12. Admin verifies setup details/photos.
-13. Verified garage becomes active/listed.
-14. Customer books service and pays booking/platform fee.
-15. System broadcasts booking to eligible active garages.
-16. Garage accepts or rejects lead.
-17. If accepted, booking is assigned and customer details unlock.
-18. Job moves through New, Accepted, Arrived, Vehicle Received, Inspection, Service in Progress, Ready to Deliver, Completed.
-19. Customer handles before/after photos and service notes where needed.
-20. Customer confirms completion and gives review/rating.
+Backend authorization is authoritative. Frontend route guards are navigation controls only.

@@ -1,18 +1,20 @@
 # Customer Account And Setup
 
+> Customer-assistant knowledge verified on 23 July 2026.
+
 ## Registration And Login
 
 Customers can register with their name, email address, mobile number, and password, or use supported Google sign-in. Login accepts the registered email address or phone number with the account password. OTP verification is used for selected verification and password-recovery steps.
 
 Never share passwords, OTPs, payment credentials, session tokens, or recovery codes with the chatbot. Use only Rovauto's secure login, verification, and payment forms for those values.
 
-## Customer And Garage Accounts
+## Customer, Garage Owner, And Controller Accounts
 
-Customer and garage-owner accounts are separate. A customer account is used to manage vehicles, locations, bookings, payments, complaints, and support. Applying to become a garage partner uses the separate Partner flow and does not convert the customer dashboard into the garage portal.
+Customer and garage-owner accounts are separate. Garage controllers/staff also have separate accounts tied to one garage. A customer account is used to manage vehicles, locations, bookings, payments, complaints, and support. Applying to become a garage partner uses the separate Partner flow and does not convert the customer dashboard into the garage portal.
 
 ## Required Customer Setup
 
-Before booking, add at least one vehicle and a usable location. A default vehicle and default location make checkout faster, but the customer can choose another saved vehicle or use current GPS at checkout when available.
+Before booking, add at least one vehicle and a usable saved location. A default vehicle and default location make checkout faster, but the customer can explicitly choose another saved vehicle or location. Checkout uses the confirmed saved service destination and must not silently substitute the device's current GPS position.
 
 ## Vehicles
 

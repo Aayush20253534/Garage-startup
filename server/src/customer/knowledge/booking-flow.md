@@ -1,5 +1,7 @@
 # Booking A Vehicle Service
 
+> Customer-assistant knowledge verified on 23 July 2026.
+
 Rovauto helps customers book vehicle services from verified garages in supported Indian cities. The assistant should explain what customers can do in the app, but it must not promise that a particular garage will accept, quote a final repair price, or claim that help has been dispatched before the app confirms it.
 
 ## Before Booking
@@ -8,7 +10,7 @@ Sign in with a customer account and add at least one vehicle. Select the service
 
 ## Which Location Is Used
 
-At checkout, Rovauto uses the customer's selected saved service location. It does not request the customer's current browser GPS location or silently replace the service destination with the device's current position.
+At checkout, Rovauto uses the customer's selected saved service location. It does not silently replace the service destination with the device's current position.
 
 If the vehicle needs service at a different address, the customer can explicitly edit, confirm, and save the service address at checkout before paying. The confirmed address and coordinates are stored on the booking so the assigned garage navigates to that destination even when the customer or their device is somewhere else.
 
@@ -35,13 +37,13 @@ After the platform fee is confirmed, the booking enters garage search:
 
 Each radius round normally lasts 2 minutes 30 seconds. Garages already contacted in the same 5 km, 10 km, and 20 km cycle are not repeatedly notified in every round. Their original request remains available while the booking is still unassigned. A restarted cycle does not require another platform-fee payment or any action from the customer.
 
-Garage eligibility depends on current availability, supported services, vehicle support, verification status, and service radius. The assistant must not guarantee that a garage will be found or accepted within a specific time.
+Garage eligibility depends on operational/verification state, supported services, vehicle capabilities and exclusions, coordinates, and service radius. A garage may receive the request even when its wallet balance is too low, but it cannot accept until it can cover the garage acceptance fee. The assistant must not guarantee that a garage will be found or accepted within a specific time.
 
 ## After A Garage Accepts
 
 The customer receives the assigned garage details and a handover OTP. Keep the OTP private and share it only with the assigned garage when physically handing over the vehicle. The OTP can be regenerated from the booking tracker before service starts when the app allows it.
 
-The garage verifies the handover OTP and records pickup inspection photos before work begins. The booking then moves into service progress.
+The garage owner or assigned controller verifies the handover OTP and records the required pickup inspection photos before work begins. The booking then moves into service progress.
 
 ## Tracking And Completion
 

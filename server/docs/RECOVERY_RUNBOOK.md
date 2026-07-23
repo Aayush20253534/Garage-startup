@@ -1,8 +1,16 @@
-# ROVAUTO recovery and rollback runbook
+# Rovauto Recovery, Rollback, And Incident Runbook
 
-## Required environment variables
+> Verified against the operational scripts on 23 July 2026.
 
-Production backup:
+## Objectives and ownership
+
+Use this runbook for failed deployments, data corruption, provider incidents, and database recovery. Assign one incident commander and one operator. Record timestamps, deployment commit, database target, request/reference IDs, Cashfree order IDs, and every mutation made during the incident.
+
+Never run a destructive cleanup or restore command against an unverified target.
+
+## Required configuration
+
+Backup:
 
 ```bash
 DATABASE_URL=postgresql://...
@@ -16,63 +24,134 @@ DATABASE_URL=postgresql://production-read-source
 RECOVERY_TEST_DATABASE_URL=postgresql://isolated-host/rovauto_recovery_test
 ```
 
-The recovery database must be isolated from production. The drill refuses to run when both URLs identify the same database or when the recovery database name does not contain `test`, `recovery`, `restore`, `staging`, or `drill`.
-
-## Create an encrypted/off-site backup
+Smoke test:
 
 ```bash
+SMOKE_API_URL=https://api.rovauto.com
+SMOKE_FRONTEND_URL=https://www.rovauto.com
+SMOKE_TIMEOUT_MS=10000
+```
+
+The recovery script refuses an identical source/target database and requires the recovery database name to contain `test`, `recovery`, `restore`, `staging`, or `drill`.
+
+## Backup procedure
+
+```bash
+cd server
 npm run db:backup
 ```
 
-Copy the generated `.dump` file to protected off-site storage. Do not place database dumps in Git, the public web directory, or a generally accessible cloud bucket.
+The script produces a PostgreSQL custom-format `.dump`. After creation:
 
-## Prove that the backup can be restored
+1. Verify the command completed successfully.
+2. Move/copy the dump to encrypted, access-controlled off-site storage.
+3. Record its timestamp, size, checksum, source database, and application commit.
+4. Keep it out of Git, public web roots, shared chat, and public buckets.
+5. Apply retention appropriate to the production data policy.
+
+An untested backup is not a recovery plan.
+
+## Restore drill
 
 ```bash
+cd server
 npm run db:recovery-drill
 ```
 
-The drill:
+The drill creates a custom-format dump, restores it into `RECOVERY_TEST_DATABASE_URL` with `--clean --if-exists`, verifies core and Prisma migration tables, reads row counts, and deletes the temporary local dump.
 
-1. Creates a PostgreSQL custom-format dump.
-2. Restores it into `RECOVERY_TEST_DATABASE_URL` using `--clean --if-exists`.
-3. Confirms the User, Booking, Payment, and Prisma migration tables exist.
-4. Reads restored row counts.
-5. Deletes the temporary local dump.
+Run it:
 
-Run this before launch, after major schema changes, and at least monthly. Save the successful JSON output in the private operations log.
+- Before production launch.
+- After material schema or backup-script changes.
+- At least monthly.
+- Before relying on a new backup provider/location.
+
+Keep the successful JSON output in a private operations log. The target must be isolated and expendable.
 
 ## Deployment smoke test
 
 ```bash
-SMOKE_API_URL=https://api.rovauto.com \
-SMOKE_FRONTEND_URL=https://www.rovauto.com \
+cd server
 npm run deploy:smoke
 ```
 
-Run once immediately after deployment. It checks API health, CSRF-token issuance, and frontend availability.
+The script checks frontend availability, API readiness, and CSRF-token issuance. It does not prove authenticated booking/payment correctness. After every production release also check:
 
-## Roll back a bad Render deployment
+1. `GET /health/live` returns `200`.
+2. `GET /health/ready` returns `200` with database and Redis `ok`.
+3. Admin/intern two-factor login as applicable.
+4. Customer login and profile retrieval.
+5. Garage owner and garage controller login.
+6. Low-value sandbox/staging booking, payment, dispatch, acceptance, OTP handover, delivery, and completion.
+7. Cashfree/WhatsApp webhook delivery dashboards.
 
-1. Open the backend service in Render.
-2. Open **Deploys** and select the last known-good deploy.
-3. Choose **Rollback** or redeploy that exact commit.
-4. Do not reverse a database migration until compatibility has been reviewed. Prefer rolling back application code to a version that can read the current schema.
-5. Run `npm run deploy:smoke`.
-6. Verify a staff 2FA login, one customer login, booking creation, and a low-value payment in the appropriate environment.
+## Backend rollback
 
-## Roll back a bad frontend deployment
+1. Freeze nonessential deployments and record the bad commit/migration.
+2. Select the last known-good backend build in the hosting platform.
+3. Check whether it can read the **current** database schema.
+4. Redeploy/rollback that exact build.
+5. Do not reverse a migration until data compatibility and restore steps are reviewed.
+6. Run the smoke test and the manual critical flow.
+7. Reconcile bookings, payments, customer wallets, garage wallets, and webhook events created during the incident window.
 
-1. Open the Vercel project deployment history.
-2. Promote the last known-good deployment to production.
-3. Confirm the Cashfree SDK is allowed by CSP in browser developer tools.
-4. Run `npm run deploy:smoke` from the server project.
+Prefer a forward-compatible application rollback over destructive schema rollback.
+
+## Frontend rollback
+
+1. Promote the last known-good Vercel/Firebase deployment.
+2. Confirm all five HTML/PWA route rewrites.
+3. Confirm the client points at the intended API.
+4. Check browser CSP/network behavior for Cashfree, Firebase, Maps, and API requests.
+5. Run server smoke checks and manually exercise affected routes.
 
 ## Emergency database restoration
 
-1. Put booking/payment mutations into maintenance mode at the edge.
-2. Take a final incident snapshot of the current database before overwriting anything.
-3. Restore the verified dump into a new database, not directly over the only production database.
-4. Point a staging backend at the restored database and run smoke/integrity checks.
-5. Switch production only after payment and booking counts are reconciled.
-6. Keep the previous database read-only until reconciliation is complete.
+1. Put booking/payment/admin mutations into maintenance mode at the edge.
+2. Preserve logs and take a final incident snapshot of the current database.
+3. Restore the verified dump into a **new** database, never directly over the only production database.
+4. Point an isolated backend at the restored database.
+5. Run `prisma migrate status`, Prisma client checks, security tests, smoke tests, and integrity queries.
+6. Reconcile at minimum:
+   - `Booking` against `Payment`.
+   - Customer `WalletTransaction` totals/balances.
+   - `GarageWalletTransaction` acceptance fees/recharges.
+   - Cashfree order/payment IDs and webhook outcomes.
+   - Active booking uniqueness per vehicle.
+   - Accepted broadcast winner versus assigned garage/controller.
+7. Switch production only after sign-off.
+8. Keep the former database read-only until reconciliation and rollback windows close.
+
+## Provider outage playbooks
+
+| Provider | Safe degradation |
+| --- | --- |
+| Redis | Readiness fails in production; rate limits may use stricter process-local fallback, but do not treat that as full multi-instance protection |
+| Cashfree | Stop new external payment attempts; preserve pending bookings; reconcile provider state before retry/refund |
+| Google Maps | Preserve saved coordinates/address; disable paid lookup/routing enhancements rather than inventing location |
+| Cloudinary | Block evidence-dependent state transitions if required images cannot be durably stored |
+| Resend/SMS/WhatsApp/Push | Keep authoritative in-app/database state; retry outbox-capable messages; do not roll back successful bookings |
+| Groq | Disable/degrade chatbot only; core booking/support must remain available |
+
+## Destructive scripts
+
+Commands beginning `db:delete-*`, `db:nuke-users`, and cleanup/approval scripts can materially change production data. Before execution:
+
+1. Resolve the exact database host/name without printing credentials.
+2. Take and verify a backup.
+3. Read the target script and scope.
+4. Use a staging rehearsal.
+5. Require a second-person check for production.
+6. Record command, actor, time, reason, and result.
+
+## Incident closure
+
+Do not close the incident until:
+
+- Service and readiness are stable.
+- Financial and booking reconciliation is complete.
+- Background workers are running exactly once as intended.
+- Customer/support communications are issued where necessary.
+- Root cause, timeline, affected records, recovery steps, and follow-up owners are documented.
+- A regression test or monitoring control is added for the failure mode.
