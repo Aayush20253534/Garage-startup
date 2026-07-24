@@ -82,7 +82,7 @@ function CartItems({ cart, serviceById, comingSoonIds, removeFromCart }) {
                 <ServicePriceDisplay
                   service={currentService}
                   className="max-w-52 justify-end text-right"
-                  regularClassName="text-sm font-extrabold text-red-600 line-through decoration-2 sm:text-base"
+                  regularClassName="text-sm font-black text-red-600 line-through decoration-[3px] decoration-red-500/90 sm:text-base"
                   currentClassName="text-xs font-extrabold text-ink sm:text-sm"
                   badgeClassName="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-emerald-800"
                 />
@@ -429,7 +429,7 @@ export default function ServiceSelect() {
                       <ServicePriceDisplay
                         service={service}
                         className="justify-start sm:justify-end"
-                        regularClassName="whitespace-nowrap text-xl font-extrabold text-red-600 line-through decoration-2 sm:text-2xl"
+                        regularClassName="whitespace-nowrap text-xl font-black text-red-600 line-through decoration-[3px] decoration-red-500/90 sm:text-2xl"
                         currentClassName="whitespace-nowrap text-base font-extrabold leading-tight text-ink sm:text-lg"
                       />
                     ) : (

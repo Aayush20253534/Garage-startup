@@ -663,7 +663,7 @@ export default function CategoryDetail() {
                         <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
                           <ServicePriceDisplay
                             service={pkg}
-                            regularClassName="whitespace-nowrap text-[1.55rem] font-extrabold leading-none text-red-600 line-through decoration-2"
+                            regularClassName="whitespace-nowrap text-[1.55rem] font-black leading-none text-red-600 line-through decoration-[3px] decoration-red-500/90"
                             currentClassName="whitespace-nowrap text-[1.2rem] font-extrabold leading-none tracking-tight text-ink"
                           />
 
@@ -762,7 +762,7 @@ export default function CategoryDetail() {
                       <div className="mb-2 flex flex-wrap items-baseline gap-3">
                         <ServicePriceDisplay
                           service={pkg}
-                          regularClassName="text-2xl font-extrabold text-red-600 line-through decoration-2"
+                          regularClassName="text-2xl font-black text-red-600 line-through decoration-[3px] decoration-red-500/90"
                           currentClassName="text-xl font-extrabold text-ink"
                         />
 
@@ -897,7 +897,7 @@ export default function CategoryDetail() {
                 <ServicePriceDisplay
                   service={selectedPackage}
                   className="mb-3"
-                  regularClassName="text-2xl font-extrabold text-red-600 line-through decoration-2"
+                  regularClassName="text-2xl font-black text-red-600 line-through decoration-[3px] decoration-red-500/90"
                   currentClassName="text-xl font-extrabold text-ink"
                 />
               )}
@@ -940,7 +940,7 @@ export default function CategoryDetail() {
                     {selectedPackage.priceRange ? (
                       <ServicePriceDisplay
                         service={selectedPackage}
-                        regularClassName="text-base font-extrabold text-red-600 line-through decoration-2"
+                        regularClassName="text-base font-black text-red-600 line-through decoration-[3px] decoration-red-500/90"
                         currentClassName="text-sm font-extrabold text-ink"
                       />
                     ) : user || guestPricingReady ? (

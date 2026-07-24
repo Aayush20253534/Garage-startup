@@ -100,7 +100,7 @@ const upsertCityPriceDiscountSchema = [
   body("cityId").isUUID().withMessage("Valid city ID is required"),
   body("discountPercent")
     .isInt({ min: 1, max: 90 })
-    .withMessage("Discount percentage must be between 1 and 90"),
+    .withMessage("Reference markup percentage must be between 1 and 90"),
   body("isActive").optional({ nullable: true }).isBoolean(),
 ];
 

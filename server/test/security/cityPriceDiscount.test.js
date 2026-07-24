@@ -7,15 +7,21 @@ const projectRoot = path.resolve(__dirname, "../../..");
 const read = (relativePath) =>
   fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 
-test("city discount is persisted, admin-managed, and applied to booking ranges", () => {
+test("city reference markup is persisted and attached to customer price ranges", () => {
   const schema = read("server/prisma/schema.prisma");
   const migration = read(
     "server/prisma/migrations/20260724133000_add_city_price_discounts/migration.sql",
   );
   const routes = read("server/src/admin/routes/cityServicePriceRange.routes.js");
-  const discountService = read("server/src/admin/services/cityPriceDiscount.service.js");
-  const priceService = read("server/src/admin/services/cityServicePriceRange.service.js");
-  const customerService = read("server/src/customer/services/service.service.js");
+  const displayRuleService = read(
+    "server/src/admin/services/cityPriceDiscount.service.js",
+  );
+  const priceService = read(
+    "server/src/admin/services/cityServicePriceRange.service.js",
+  );
+  const customerService = read(
+    "server/src/customer/services/service.service.js",
+  );
 
   assert.match(schema, /model CityPriceDiscount/);
   assert.match(schema, /discountPercent\s+Int/);
@@ -24,15 +30,16 @@ test("city discount is persisted, admin-managed, and applied to booking ranges",
     routes,
     /"\/city-discounts"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)/,
   );
-  assert.match(discountService, /applyCityDiscountToRange/);
-  assert.match(discountService, /\(100 - percent\) \/ 100/);
+  assert.match(displayRuleService, /\(100 \+ percent\) \/ 100/);
+  assert.match(displayRuleService, /referenceMinPrice/);
+  assert.match(displayRuleService, /referenceMarkupPercent/);
   assert.match(priceService, /getActiveCityPriceDiscount/);
   assert.match(priceService, /applyCityDiscountToRange/);
-  assert.match(customerService, /regularPriceRange/);
-  assert.match(customerService, /discountPercent/);
+  assert.match(customerService, /compareAtPriceRange/);
+  assert.match(customerService, /referenceMarkupPercent/);
 });
 
-test("customer UI shows a larger red crossed-out regular price", () => {
+test("customer UI labels the increased crossed price as a reference value", () => {
   const component = read(
     "client/src/components/services/ServicePriceDisplay.jsx",
   );
@@ -42,18 +49,20 @@ test("customer UI shows a larger red crossed-out regular price", () => {
   const serviceSelect = read("client/src/pages/booking/ServiceSelect.jsx");
   const checkout = read("client/src/pages/booking/Checkout.jsx");
 
-  assert.match(component, /regularPriceRange/);
-  assert.match(component, /text-red-600 line-through decoration-2/);
-  assert.match(component, /discountPercent}% off/);
-  assert.match(revenue, /City discount/);
-  assert.match(revenue, /real stored regular price/);
+  assert.match(component, /compareAtPriceRange/);
+  assert.match(component, /Reference \+\{referenceMarkupPercent\}%/);
+  assert.match(component, /Rovauto price/);
+  assert.match(component, /decoration-\[3px\]/);
+  assert.doesNotMatch(component, /% off/);
+  assert.match(revenue, /City price comparison/);
+  assert.match(revenue, /reference value\s+only/);
   assert.match(home, /ServicePriceDisplay/);
   assert.match(category, /ServicePriceDisplay/);
   assert.match(serviceSelect, /ServicePriceDisplay/);
   assert.match(checkout, /ServicePriceDisplay/);
 });
 
-test("discount math lowers actual prices and preserves regular prices", async () => {
+test("reference markup raises only the display comparison and preserves booking prices", async () => {
   const prismaPath = require.resolve("../../src/config/prisma");
   const cachePath = require.resolve("../../src/utils/cache");
   const servicePath = require.resolve(
@@ -86,18 +95,18 @@ test("discount math lowers actual prices and preserves regular prices", async ()
     const result = applyCityDiscountToRange(
       { id: "range-1", minPrice: 1000, maxPrice: 2000 },
       {
-        id: "discount-1",
+        id: "display-rule-1",
         cityId: "city-1",
         discountPercent: 5,
         isActive: true,
       },
     );
 
-    assert.equal(result.regularMinPrice, 1000);
-    assert.equal(result.regularMaxPrice, 2000);
-    assert.equal(result.minPrice, 950);
-    assert.equal(result.maxPrice, 1900);
-    assert.equal(result.discountPercent, 5);
+    assert.equal(result.minPrice, 1000);
+    assert.equal(result.maxPrice, 2000);
+    assert.equal(result.referenceMinPrice, 1050);
+    assert.equal(result.referenceMaxPrice, 2100);
+    assert.equal(result.referenceMarkupPercent, 5);
   } finally {
     if (previousPrisma) require.cache[prismaPath] = previousPrisma;
     else delete require.cache[prismaPath];

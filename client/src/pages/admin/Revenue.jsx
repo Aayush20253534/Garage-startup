@@ -351,7 +351,7 @@ export default function Revenue() {
 
     const discountPercent = Number(discountForm.discountPercent);
     if (!discountForm.cityId) {
-      setError("Select a city for the discount.");
+      setError("Select a city for the price display rule.");
       return;
     }
     if (
@@ -359,7 +359,7 @@ export default function Revenue() {
       discountPercent < 1 ||
       discountPercent > 90
     ) {
-      setError("Discount percentage must be between 1 and 90.");
+      setError("Reference markup must be between 1 and 90%.");
       return;
     }
 
@@ -381,12 +381,14 @@ export default function Revenue() {
         );
       });
       setSuccess(
-        `${saved.city?.name || "City"} discount ${
+        `${saved.city?.name || "City"} price display rule ${
           saved.isActive ? "activated" : "disabled"
         }.`,
       );
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to save city discount");
+      setError(
+        err.response?.data?.message || "Unable to save city price display rule",
+      );
     } finally {
       setSavingDiscount(false);
     }
@@ -868,10 +870,10 @@ export default function Revenue() {
     Math.max(1, Number(discountForm.discountPercent) || 5),
   );
   const discountPreviewMin = Math.round(
-    1000 * (1 - discountPreviewPercent / 100),
+    1000 * (1 + discountPreviewPercent / 100),
   );
   const discountPreviewMax = Math.round(
-    2000 * (1 - discountPreviewPercent / 100),
+    2000 * (1 + discountPreviewPercent / 100),
   );
 
   return (
@@ -926,11 +928,11 @@ export default function Revenue() {
               <FiPercent />
             </span>
             <div>
-              <h3 className="font-bold text-ink">City discount</h3>
+              <h3 className="font-bold text-ink">City price comparison</h3>
               <p className="mt-1 text-sm text-muted">
-                Apply one genuine discount percentage to every active service
-                price range in a city. The stored range remains the regular
-                price and the reduced range becomes the actual booking price.
+                Add a city-wide reference markup for display. The stored price
+                remains the real booking and checkout price; the increased red
+                value is shown only as a clearly labelled comparison price.
               </p>
             </div>
           </div>
@@ -959,7 +961,7 @@ export default function Revenue() {
           </label>
 
           <label className="grid gap-1.5 text-sm font-semibold text-ink">
-            Discount percentage
+            Reference markup
             <div className="relative">
               <input
                 type="number"
@@ -1002,7 +1004,7 @@ export default function Revenue() {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
           >
             <FiCheck />
-            {savingDiscount ? "Saving..." : "Save discount"}
+            {savingDiscount ? "Saving..." : "Save display rule"}
           </button>
         </form>
 
@@ -1011,22 +1013,32 @@ export default function Revenue() {
             <div className="text-xs font-bold uppercase tracking-wide text-muted">
               Customer preview
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <span className="text-2xl font-extrabold text-red-600 line-through decoration-2">
-                {formatRupeeRange(1000, 2000)}
-              </span>
-              <span className="text-xl font-extrabold text-ink">
-                {formatRupeeRange(discountPreviewMin, discountPreviewMax)}
-              </span>
+            <div className="mt-2 inline-flex flex-wrap items-end gap-3 rounded-xl border border-line bg-white px-3 py-2 shadow-sm">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-red-500">
+                  Reference +{discountPreviewPercent}%
+                </span>
+                <span className="text-3xl font-black text-red-600 line-through decoration-[3px] decoration-red-500/90">
+                  {formatRupeeRange(discountPreviewMin, discountPreviewMax)}
+                </span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+                  Rovauto price
+                </span>
+                <span className="text-xl font-extrabold text-ink">
+                  {formatRupeeRange(1000, 2000)}
+                </span>
+              </div>
               <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-emerald-800">
-                {discountPreviewPercent}% off
+                Actual price
               </span>
             </div>
           </div>
           <div className="text-xs leading-5 text-muted sm:max-w-sm sm:text-right">
-            The red crossed-out amount is the real stored regular price.
-            Checkout, booking estimates and garage matching use the reduced
-            price.
+            The black amount is the stored price used for checkout and
+            bookings. The increased red amount is a labelled reference value
+            only and never changes what the customer pays.
           </div>
         </div>
 
@@ -1055,7 +1067,7 @@ export default function Revenue() {
                         : "font-extrabold text-muted"
                     }
                   >
-                    {discount.discountPercent}%
+                    +{discount.discountPercent}% reference
                   </span>
                 </button>
               ))}

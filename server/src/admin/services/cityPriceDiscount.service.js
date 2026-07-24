@@ -76,7 +76,10 @@ const getActiveCityPriceDiscount = async (cityName) => {
 
 const upsertCityPriceDiscount = async (payload = {}, actor = null) => {
   if (!actor?.id || !["ADMIN", "SUB_ADMIN"].includes(actor.role)) {
-    throw new ApiError(403, "Only admin accounts can manage city discounts");
+    throw new ApiError(
+      403,
+      "Only admin accounts can manage city price display rules",
+    );
   }
 
   const cityId = normalizeText(payload.cityId);
@@ -89,7 +92,10 @@ const upsertCityPriceDiscount = async (payload = {}, actor = null) => {
     discountPercent < 1 ||
     discountPercent > 90
   ) {
-    throw new ApiError(400, "Discount percentage must be between 1 and 90");
+    throw new ApiError(
+      400,
+      "Reference markup percentage must be between 1 and 90",
+    );
   }
 
   const city = await prisma.city.findFirst({
@@ -137,23 +143,28 @@ const applyCityDiscountToRange = (range, discount) => {
     return range;
   }
 
-  const regularMinPrice = Math.max(0, Number(range.minPrice) || 0);
-  const regularMaxPrice = Math.max(
-    regularMinPrice,
-    Number(range.maxPrice) || regularMinPrice,
+  // The stored range remains the only bookable/chargeable price. The configured
+  // percentage creates a clearly labelled comparison value for display only.
+  const minPrice = Math.max(0, Number(range.minPrice) || 0);
+  const maxPrice = Math.max(minPrice, Number(range.maxPrice) || minPrice);
+  const multiplier = (100 + percent) / 100;
+  const referenceMinPrice = Math.max(
+    minPrice,
+    Math.round(minPrice * multiplier),
   );
-  const multiplier = (100 - percent) / 100;
-  const minPrice = Math.max(0, Math.round(regularMinPrice * multiplier));
-  const maxPrice = Math.max(minPrice, Math.round(regularMaxPrice * multiplier));
+  const referenceMaxPrice = Math.max(
+    referenceMinPrice,
+    Math.round(maxPrice * multiplier),
+  );
 
   return {
     ...range,
     minPrice,
     maxPrice,
-    regularMinPrice,
-    regularMaxPrice,
-    discountPercent: percent,
-    discountCityId: discount.cityId,
+    referenceMinPrice,
+    referenceMaxPrice,
+    referenceMarkupPercent: percent,
+    referenceCityId: discount.cityId,
   };
 };
 

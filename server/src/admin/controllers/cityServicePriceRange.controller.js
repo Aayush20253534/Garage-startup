@@ -10,7 +10,7 @@ const listCityPriceDiscounts = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        "City price discounts fetched successfully",
+        "City price display rules fetched successfully",
         discounts,
       ),
     );
@@ -24,7 +24,7 @@ const upsertCityPriceDiscount = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, "City price discount saved successfully", discount),
+      new ApiResponse(200, "City price display rule saved successfully", discount),
     );
 });
 

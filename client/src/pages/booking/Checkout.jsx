@@ -836,7 +836,7 @@ export default function Checkout() {
                 <ServicePriceDisplay
                   service={item}
                   className="max-w-56 justify-end text-right"
-                  regularClassName="text-base font-extrabold text-red-600 line-through decoration-2"
+                  regularClassName="text-base font-black text-red-600 line-through decoration-[3px] decoration-red-500/90"
                   currentClassName="text-sm font-extrabold text-ink"
                   badgeClassName="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-emerald-800"
                 />
