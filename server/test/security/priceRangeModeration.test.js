@@ -7,7 +7,7 @@ const repoRoot = path.resolve(__dirname, "../../..");
 const read = (relativePath) =>
   fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 
-test("price range moderation routes keep review admin-only", () => {
+test("price range moderation supports sub-admin review while deletion stays main-admin-only", () => {
   const routes = read(
     "server/src/admin/routes/cityServicePriceRange.routes.js",
   );
@@ -21,11 +21,11 @@ test("price range moderation routes keep review admin-only", () => {
   assert.match(routes, /router\.get\(\s*"\/submissions"/);
   assert.match(
     routes,
-    /router\.patch\([\s\S]*?"\/submissions\/:id\/review"[\s\S]*?authorizeRoles\("ADMIN"\)/,
+    /router\.patch\([\s\S]*?"\/submissions\/:id\/review"[\s\S]*?authorizeRoles\("ADMIN", "SUB_ADMIN"\)/,
   );
   assert.match(
     routes,
-    /router\.post\([\s\S]*?"\/submissions\/approve-all"[\s\S]*?authorizeRoles\("ADMIN"\)/,
+    /router\.post\([\s\S]*?"\/submissions\/approve-all"[\s\S]*?authorizeRoles\("ADMIN", "SUB_ADMIN"\)/,
   );
   assert.match(
     routes,
@@ -37,7 +37,7 @@ test("price range moderation routes keep review admin-only", () => {
   );
   assert.match(
     routes,
-    /router\.patch\([\s\S]*?"\/submissions\/:id"[\s\S]*?authorizeRoles\("ADMIN"\)[\s\S]*?editPriceRangeSubmission/,
+    /router\.patch\([\s\S]*?"\/submissions\/:id"[\s\S]*?authorizeRoles\("ADMIN", "SUB_ADMIN"\)[\s\S]*?editPriceRangeSubmission/,
   );
   assert.match(controller, /req\.user\.role === "INTERN"/);
   assert.match(controller, /createPriceRangeSubmission\(req\.body, req\.user\)/);

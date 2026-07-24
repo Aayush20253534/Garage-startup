@@ -55,7 +55,7 @@ const resolveOwnerGarage = async (ownerId) => {
 };
 
 const resolveManagedGarage = async (actor, requestedGarageId = null) => {
-  if (actor?.role === "ADMIN" && actor?.accountType === "STAFF") {
+  if (["ADMIN", "SUB_ADMIN"].includes(actor?.role) && actor?.accountType === "STAFF") {
     if (!requestedGarageId) throw new ApiError(400, "Garage ID is required");
     const garage = await prisma.garage.findUnique({
       where: { id: requestedGarageId },
@@ -282,8 +282,8 @@ const deleteController = async (actor, requestedGarageId, controllerId) => {
 };
 
 const setControllerLimit = async (actor, garageId, limit) => {
-  if (actor?.role !== "ADMIN" || actor?.accountType !== "STAFF") {
-    throw new ApiError(403, "Only admins can set controller limits");
+  if (!["ADMIN", "SUB_ADMIN"].includes(actor?.role) || actor?.accountType !== "STAFF") {
+    throw new ApiError(403, "Only admin accounts can set controller limits");
   }
   const value = Number(limit);
   if (!Number.isInteger(value) || value < 0 || value > 100) {

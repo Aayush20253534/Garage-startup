@@ -20,17 +20,17 @@ const {
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN", "INTERN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 
 router.get("/", garageQuerySchema, validate, controller.listGarages);
 router.get("/services", assignableServiceQuerySchema, validate, controller.listAssignableServices);
 router.get("/:garageId", garageIdSchema, validate, controller.getGarage);
-router.patch("/:garageId", authorizeRoles("ADMIN"), updateGarageDetailsSchema, validate, controller.updateGarageDetails);
-router.patch("/:garageId/images/order", authorizeRoles("ADMIN"), reorderGarageImagesSchema, validate, controller.reorderGarageImages);
-router.patch("/:garageId/images/:imageId/thumbnail", authorizeRoles("ADMIN"), garageImageSchema, validate, controller.setGarageThumbnail);
+router.patch("/:garageId", authorizeRoles("ADMIN", "SUB_ADMIN"), updateGarageDetailsSchema, validate, controller.updateGarageDetails);
+router.patch("/:garageId/images/order", authorizeRoles("ADMIN", "SUB_ADMIN"), reorderGarageImagesSchema, validate, controller.reorderGarageImages);
+router.patch("/:garageId/images/:imageId/thumbnail", authorizeRoles("ADMIN", "SUB_ADMIN"), garageImageSchema, validate, controller.setGarageThumbnail);
 router.patch(
   "/:garageId/status",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   updateGarageStatusSchema,
   validate,
   controller.setGarageActiveStatus,
@@ -44,14 +44,14 @@ router.delete(
 );
 router.post(
   "/:garageId/services",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   upsertGarageServiceSchema,
   validate,
   controller.upsertGarageService,
 );
 router.delete(
   "/:garageId/services/:serviceId",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   serviceIdSchema,
   validate,
   controller.removeGarageService,

@@ -6,6 +6,7 @@ const VALID_ROLES = new Set([
   "GARAGE_OWNER",
   "GARAGE_CONTROLLER",
   "ADMIN",
+  "SUB_ADMIN",
   "INTERN",
   "CUSTOMER_SUPPORT",
 ]);

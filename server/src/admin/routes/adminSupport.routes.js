@@ -14,7 +14,7 @@ const {
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN"));
 
 router.get("/staff", controller.listStaff);
 router.get("/", listTicketValidation, validate, controller.listTickets);

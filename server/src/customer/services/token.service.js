@@ -1,6 +1,6 @@
 const { generateToken } = require("../../utils/jwt");
 
-const STAFF_ROLES = new Set(["ADMIN", "INTERN"]);
+const STAFF_ROLES = new Set(["ADMIN", "SUB_ADMIN", "INTERN"]);
 
 const createAuthToken = (account, { sessionId = null } = {}) => {
   if (!account?.id || !account?.role) {

@@ -83,6 +83,18 @@ const reassignBookingGarage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Booking garage updated successfully", booking));
 });
 
+
+const manualOverrideBooking = asyncHandler(async (req, res) => {
+  const booking = await service.manualOverrideBooking({
+    bookingId: req.params.bookingId,
+    payload: req.body,
+    staff: req.user,
+  });
+  return res.status(200).json(
+    new ApiResponse(200, "Booking override saved successfully", booking),
+  );
+});
+
 const addBookingAdminNote = asyncHandler(async (req, res) => {
   const booking = await service.addBookingAdminNote({
     bookingId: req.params.bookingId,
@@ -195,6 +207,7 @@ module.exports = {
   listBookings,
   listCustomers,
   listPayments,
+  manualOverrideBooking,
   searchWalletTransferRecipients,
   reassignBookingGarage,
   searchEmailUsers,

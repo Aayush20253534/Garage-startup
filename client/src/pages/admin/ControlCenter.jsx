@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { useApp } from "@/hooks/useApp";
 import { cityApi } from "@/api/cities";
 import BookingManagementModal from "@/components/admin/BookingManagementModal";
 import { formatRupees } from "@/utils/priceRange";
@@ -123,6 +124,11 @@ const parseCsv = (text) => {
 };
 
 export default function ControlCenter() {
+  const { user } = useApp();
+  const isMainAdmin = user?.accountType === "STAFF" && user?.role === "ADMIN";
+  const availableOperationalStatuses = isMainAdmin
+    ? operationalStatuses
+    : operationalStatuses.filter((status) => status !== "PERMANENTLY_BLOCKED");
   const [tab, setTab] = useState("escalations");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -580,7 +586,7 @@ export default function ControlCenter() {
                           <td className="px-2 py-3 font-bold">{formatRupees(garage.serviceRevenue)}</td>
                           <td className="px-2 py-3">
                             <div className="grid min-w-[240px] gap-2">
-                              <select value={draft.status} onChange={(event) => setGarageStatusDrafts((current) => ({ ...current, [garage.id]: { ...draft, status: event.target.value } }))} className={fieldClass}>{operationalStatuses.map((status) => <option key={status}>{status}</option>)}</select>
+                              <select value={draft.status} onChange={(event) => setGarageStatusDrafts((current) => ({ ...current, [garage.id]: { ...draft, status: event.target.value } }))} className={fieldClass}>{availableOperationalStatuses.map((status) => <option key={status}>{status}</option>)}</select>
                               {draft.status === "TEMPORARILY_SUSPENDED" && <input type="datetime-local" value={draft.suspendedUntil} onChange={(event) => setGarageStatusDrafts((current) => ({ ...current, [garage.id]: { ...draft, suspendedUntil: event.target.value } }))} className={fieldClass} />}
                               {draft.status !== "ACTIVE" && <input value={draft.reason} onChange={(event) => setGarageStatusDrafts((current) => ({ ...current, [garage.id]: { ...draft, reason: event.target.value } }))} placeholder="Reason" className={fieldClass} />}
                               <button disabled={busy === `garage:${garage.id}`} onClick={() => saveGarageStatus(garage)} className={`${buttonClass} bg-ink text-white`}><FiSave />Apply</button>

@@ -81,6 +81,32 @@ const updateBookingStatusSchema = [
     .withMessage("Note cannot exceed 1000 characters"),
 ];
 
+
+const manualBookingOverrideSchema = [
+  ...bookingIdParamSchema,
+  body("reason")
+    .trim()
+    .isLength({ min: 5, max: 1000 })
+    .withMessage("Override reason must be between 5 and 1000 characters"),
+  body("scheduledDate").optional({ nullable: true }).isISO8601().withMessage("Scheduled date must be valid"),
+  body("searchExpiresAt").optional({ nullable: true }).isISO8601().withMessage("Search expiry must be valid"),
+  body("acceptedAt").optional({ nullable: true }).isISO8601().withMessage("Accepted date must be valid"),
+  body("deliveredAt").optional({ nullable: true }).isISO8601().withMessage("Delivered date must be valid"),
+  body("customerAcceptedAt").optional({ nullable: true }).isISO8601().withMessage("Customer acceptance date must be valid"),
+  body("startTime").optional({ nullable: true }).matches(/^([01]\d|2[0-3]):[0-5]\d$/).withMessage("Start time must use HH:mm"),
+  body("endTime").optional({ nullable: true }).matches(/^([01]\d|2[0-3]):[0-5]\d$/).withMessage("End time must use HH:mm"),
+  body("customerAddress").optional({ nullable: true }).trim().isLength({ max: 500 }),
+  body("customerLatitude").optional({ nullable: true }).isFloat({ min: -90, max: 90 }).toFloat(),
+  body("customerLongitude").optional({ nullable: true }).isFloat({ min: -180, max: 180 }).toFloat(),
+  body("handlingFee").optional().isInt({ min: 0, max: 1000000 }).toInt(),
+  body("payableAmount").optional().isInt({ min: 0, max: 10000000 }).toInt(),
+  body("totalServiceAmount").optional().isInt({ min: 0, max: 10000000 }).toInt(),
+  body("totalServiceMaxAmount").optional().isInt({ min: 0, max: 10000000 }).toInt(),
+  body("servicePrices").optional().isArray({ max: 100 }),
+  body("servicePrices.*.bookingServiceId").optional().isUUID(),
+  body("servicePrices.*.finalPrice").optional({ nullable: true }).isInt({ min: 0, max: 10000000 }).toInt(),
+];
+
 const reassignBookingGarageSchema = [
   ...bookingIdParamSchema,
   body("garageId").isUUID().withMessage("Select a valid garage"),
@@ -278,6 +304,7 @@ module.exports = {
   bookingQuerySchema,
   clearBookingsSchema,
   paymentQuerySchema,
+  manualBookingOverrideSchema,
   customerIdParamSchema,
   customerQuerySchema,
   deleteCustomersSchema,

@@ -4,9 +4,9 @@ import { verifyCurrentSession } from "@/utils/authSession";
 const unwrap = (response) => response.data?.data ?? response.data;
 
 export const adminApi = {
-  async login(identifier, password) {
+  async login(identifier, password, role = "ADMIN") {
     const result = unwrap(
-      await api.post("/auth/login", { identifier, password, role: "ADMIN" }),
+      await api.post("/auth/login", { identifier, password, role }),
     );
 
     if (!result?.requiresTwoFactor || !result?.challengeId) {
@@ -16,16 +16,16 @@ export const adminApi = {
     return result;
   },
 
-  async verifyLoginOtp(challengeId, otp) {
+  async verifyLoginOtp(challengeId, otp, expectedRole = "ADMIN") {
     const result = unwrap(
       await api.post("/auth/staff/verify-otp", { challengeId, otp }),
     );
 
-    if (result.user?.role !== "ADMIN") {
-      throw new Error("This account is not an admin account");
+    if (result.user?.role !== expectedRole) {
+      throw new Error("This account does not match the selected admin type");
     }
 
-    const user = await verifyCurrentSession({ expectedRole: "ADMIN" });
+    const user = await verifyCurrentSession({ expectedRole });
     return { ...result, user };
   },
 
@@ -33,6 +33,14 @@ export const adminApi = {
     return unwrap(
       await api.post("/auth/staff/resend-otp", { challengeId }),
     );
+  },
+
+  async requestSubAdminPasswordReset(email) {
+    return unwrap(await api.post("/auth/forgot-password", { email, role: "SUB_ADMIN" }));
+  },
+
+  async resetSubAdminPassword({ email, otp, newPassword }) {
+    return unwrap(await api.post("/auth/reset-password", { email, otp, newPassword, role: "SUB_ADMIN" }));
   },
 
   async getStats() {
@@ -280,6 +288,10 @@ export const adminApi = {
     return unwrap(await api.post(`/admin/bookings/${bookingId}/notes`, { note }));
   },
 
+  async manualOverrideBooking(bookingId, payload) {
+    return unwrap(await api.patch(`/admin/bookings/${bookingId}/manual-override`, payload));
+  },
+
   async getSupportTickets(params = {}) {
     return unwrap(await api.get("/admin/support-tickets", { params }));
   },
@@ -358,6 +370,22 @@ export const adminApi = {
 
   async transferGarageControllerBooking(bookingId, garageId, controllerId) {
     return unwrap(await api.post(`/admin/garage-controllers/bookings/${bookingId}/transfer`, { garageId, controllerId }));
+  },
+
+  async getSubAdminAccounts() {
+    return unwrap(await api.get("/admin/sub-admin-accounts"));
+  },
+
+  async createSubAdminAccount(payload) {
+    return unwrap(await api.post("/admin/sub-admin-accounts", payload));
+  },
+
+  async updateSubAdminAccount(accountId, payload) {
+    return unwrap(await api.patch(`/admin/sub-admin-accounts/${accountId}`, payload));
+  },
+
+  async changeSubAdminPassword(accountId, password) {
+    return unwrap(await api.patch(`/admin/sub-admin-accounts/${accountId}/password`, { password }));
   },
 
   async getInternAccounts() {

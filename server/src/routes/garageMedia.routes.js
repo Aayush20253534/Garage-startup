@@ -18,7 +18,7 @@ router.get("/media/:imageId", garageMediaController.getGarageImageContent);
 router.delete(
   "/:garageId/media/:imageId",
   protect,
-  authorizeRoles("GARAGE_OWNER", "ADMIN"),
+  authorizeRoles("GARAGE_OWNER", "ADMIN", "SUB_ADMIN"),
   garageMediaController.deleteGarageImage,
 );
 
@@ -32,7 +32,7 @@ router.delete(
 router.post(
   "/:garageId/media",
   protect,
-  authorizeRoles("GARAGE_OWNER", "ADMIN"),
+  authorizeRoles("GARAGE_OWNER", "ADMIN", "SUB_ADMIN"),
   garagePhotoUpload.fields([
     { name: "thumbnail", maxCount: 1 },
     { name: "images", maxCount: 15 },

@@ -23,7 +23,7 @@ test("popular home services are persisted and admin-only", () => {
   assert.match(migration, /ranked_services[\s\S]*position <= 6/);
   assert.match(
     routes,
-    /"\/popular"[\s\S]*authorizeRoles\("ADMIN"\)[\s\S]*updatePopularServicesSchema/,
+    /"\/popular"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)[\s\S]*updatePopularServicesSchema/,
   );
   assert.match(validation, /body\("serviceIds"\)[\s\S]*isArray\(\{ max: 6 \}\)/);
   assert.match(service, /const setPopularServices/);

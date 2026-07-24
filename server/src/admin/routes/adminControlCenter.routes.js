@@ -7,7 +7,7 @@ const validate = require("../../middlewares/validate.middleware");
 
 const router = express.Router();
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN"));
 
 const uuidParam = (name = "id") => param(name).isUUID().withMessage(`${name} must be a valid id`);
 

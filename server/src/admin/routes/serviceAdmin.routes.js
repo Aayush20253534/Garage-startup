@@ -24,35 +24,35 @@ const thumbnailUpload = upload.createUpload({
 }).single("thumbnail");
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN", "INTERN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 
 // Interns may inspect the catalogue but only admins can mutate categories,
 // services, or media. Pricing is managed through city service price ranges.
 router.get("/categories", categoryQuerySchema, validate, controller.listCategories);
 router.post(
   "/categories",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   createCategorySchema,
   validate,
   controller.createCategory,
 );
 router.patch(
   "/categories/:categoryId",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   updateCategorySchema,
   validate,
   controller.updateCategory,
 );
 router.delete(
   "/categories/:categoryId",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   categoryIdSchema,
   validate,
   controller.deactivateCategory,
 );
 router.post(
   "/categories/:categoryId/thumbnail",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   thumbnailUpload,
   upload.validateUploadedFiles,
   categoryIdSchema,
@@ -61,35 +61,35 @@ router.post(
 );
 router.put(
   "/popular",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   updatePopularServicesSchema,
   validate,
   controller.updatePopularServices,
 );
 router.post(
   "/",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   createServiceSchema,
   validate,
   controller.createService,
 );
 router.patch(
   "/:serviceId",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   updateServiceSchema,
   validate,
   controller.updateService,
 );
 router.delete(
   "/:serviceId",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   serviceIdSchema,
   validate,
   controller.deactivateService,
 );
 router.post(
   "/:serviceId/thumbnail",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   thumbnailUpload,
   upload.validateUploadedFiles,
   serviceIdSchema,

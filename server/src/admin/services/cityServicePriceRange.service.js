@@ -221,7 +221,7 @@ const createPriceRangeSubmission = async (payload, submittedBy) => {
 };
 
 const listPriceRangeSubmissions = async (query = {}, staff) => {
-  if (!staff?.id || !["ADMIN", "INTERN"].includes(staff.role)) {
+  if (!staff?.id || !["ADMIN", "SUB_ADMIN", "INTERN"].includes(staff.role)) {
     throw new ApiError(403, "Staff access is required");
   }
 
@@ -304,8 +304,8 @@ const updatePriceRange = async (id, payload) => {
 };
 
 const editPriceRangeSubmission = async (id, payload, editedBy) => {
-  if (!editedBy?.id || editedBy.role !== "ADMIN") {
-    throw new ApiError(403, "Only admins can edit price range submissions");
+  if (!editedBy?.id || !["ADMIN", "SUB_ADMIN"].includes(editedBy.role)) {
+    throw new ApiError(403, "Only admin accounts can edit price range submissions");
   }
 
   return prisma.$transaction(async (tx) => {
@@ -356,8 +356,8 @@ const reviewPriceRangeSubmission = async (
   { decision, rejectionReason },
   reviewedBy,
 ) => {
-  if (!reviewedBy?.id || reviewedBy.role !== "ADMIN") {
-    throw new ApiError(403, "Only admins can review price range submissions");
+  if (!reviewedBy?.id || !["ADMIN", "SUB_ADMIN"].includes(reviewedBy.role)) {
+    throw new ApiError(403, "Only admin accounts can review price range submissions");
   }
 
   const nextStatus = normalizeText(decision).toUpperCase();
@@ -433,8 +433,8 @@ const reviewPriceRangeSubmission = async (
 };
 
 const approveAllPriceRangeSubmissions = async (reviewedBy) => {
-  if (!reviewedBy?.id || reviewedBy.role !== "ADMIN") {
-    throw new ApiError(403, "Only admins can approve price range submissions");
+  if (!reviewedBy?.id || !["ADMIN", "SUB_ADMIN"].includes(reviewedBy.role)) {
+    throw new ApiError(403, "Only admin accounts can approve price range submissions");
   }
 
   const reviewedAt = new Date();

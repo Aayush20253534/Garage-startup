@@ -28,7 +28,7 @@ const bulkDeleteStepUpRateLimit = rateLimit({
 });
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN", "INTERN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 
 router.get("/", priceRangeQuerySchema, validate, controller.listPriceRanges);
 router.get(
@@ -39,26 +39,26 @@ router.get(
 );
 router.post(
   "/",
-  authorizeRoles("ADMIN", "INTERN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"),
   createPriceRangeSchema,
   validate,
   controller.createPriceRange,
 );
 router.post(
   "/submissions/approve-all",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   controller.approveAllPriceRangeSubmissions,
 );
 router.patch(
   "/submissions/:id/review",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   reviewSubmissionSchema,
   validate,
   controller.reviewPriceRangeSubmission,
 );
 router.patch(
   "/submissions/:id",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   editPriceRangeSubmissionSchema,
   validate,
   controller.editPriceRangeSubmission,
@@ -80,7 +80,7 @@ router.delete(
 router.get("/:id", priceRangeIdSchema, validate, controller.getPriceRange);
 router.patch(
   "/:id",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   updatePriceRangeSchema,
   validate,
   controller.updatePriceRange,

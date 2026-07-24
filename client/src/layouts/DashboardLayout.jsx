@@ -52,7 +52,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const accountRole = isGaragePortal
     ? "GARAGE OWNER"
     : isAdminPortal
-      ? "ADMIN"
+      ? account?.role === "SUB_ADMIN" ? "SUB ADMIN" : "MAIN ADMIN"
       : isInternPortal
         ? "INTERN"
         : isCustomerSupportPortal
@@ -89,8 +89,8 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     ].includes(to);
 
   const visibleItems = useMemo(
-    () => (Array.isArray(items) ? items : []),
-    [items],
+    () => (Array.isArray(items) ? items.filter((item) => !item.mainAdminOnly || user?.role === "ADMIN") : []),
+    [items, user?.role],
   );
 
   const closeSidebar = () => {

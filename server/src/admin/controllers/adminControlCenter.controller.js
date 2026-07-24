@@ -9,7 +9,7 @@ const getAuditLogs = asyncHandler(async (req, res) => send(res, "Audit logs fetc
 const listSupportBookings = asyncHandler(async (req, res) => send(res, "Support bookings fetched", await service.listSupportBookings(req.query)));
 const resendBookingNotification = asyncHandler(async (req, res) => send(res, "Booking notification sent", await service.resendBookingNotification({ bookingId: req.params.bookingId, ...req.body, staff: req.user })));
 const listGaragePerformance = asyncHandler(async (req, res) => send(res, "Garage performance fetched", await service.listGaragePerformance(req.query)));
-const setGarageOperationalStatus = asyncHandler(async (req, res) => send(res, "Garage operational status updated", await service.setGarageOperationalStatus({ garageId: req.params.garageId, ...req.body })));
+const setGarageOperationalStatus = asyncHandler(async (req, res) => send(res, "Garage operational status updated", await service.setGarageOperationalStatus({ garageId: req.params.garageId, ...req.body, staff: req.user })));
 const listEscalations = asyncHandler(async (req, res) => send(res, "Escalations fetched", await service.listEscalations(req.query)));
 const updateEscalation = asyncHandler(async (req, res) => send(res, "Escalation updated", await service.updateEscalation({ id: req.params.id, ...req.body, staff: req.user })));
 const listEscalationRules = asyncHandler(async (req, res) => send(res, "Escalation rules fetched", await service.listEscalationRules()));

@@ -23,15 +23,15 @@ const logoUpload = upload.createUpload({
 }).single("logo");
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN", "INTERN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 
 router.get("/brands", brandQuerySchema, validate, controller.listBrands);
-router.post("/brands", authorizeRoles("ADMIN"), logoUpload, upload.validateUploadedFiles, createBrandSchema, validate, controller.createBrand);
+router.post("/brands", authorizeRoles("ADMIN", "SUB_ADMIN"), logoUpload, upload.validateUploadedFiles, createBrandSchema, validate, controller.createBrand);
 router.get("/brands/:brandId", brandIdSchema, validate, controller.getBrand);
-router.patch("/brands/:brandId", authorizeRoles("ADMIN"), logoUpload, upload.validateUploadedFiles, updateBrandSchema, validate, controller.updateBrand);
-router.delete("/brands/:brandId", authorizeRoles("ADMIN"), brandIdSchema, validate, controller.deactivateBrand);
-router.post("/brands/:brandId/models", authorizeRoles("ADMIN"), createModelSchema, validate, controller.createModel);
-router.patch("/models/:modelId", authorizeRoles("ADMIN"), updateModelSchema, validate, controller.updateModel);
+router.patch("/brands/:brandId", authorizeRoles("ADMIN", "SUB_ADMIN"), logoUpload, upload.validateUploadedFiles, updateBrandSchema, validate, controller.updateBrand);
+router.delete("/brands/:brandId", authorizeRoles("ADMIN", "SUB_ADMIN"), brandIdSchema, validate, controller.deactivateBrand);
+router.post("/brands/:brandId/models", authorizeRoles("ADMIN", "SUB_ADMIN"), createModelSchema, validate, controller.createModel);
+router.patch("/models/:modelId", authorizeRoles("ADMIN", "SUB_ADMIN"), updateModelSchema, validate, controller.updateModel);
 router.delete("/models/:modelId", authorizeRoles("ADMIN"), modelIdSchema, validate, controller.deleteModel);
 
 module.exports = router;

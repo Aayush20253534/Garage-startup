@@ -7,6 +7,7 @@ const notificationService = require("../../customer/services/notification.servic
 const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const dangerousService = require("./dangerous.service");
 const garageControllerService = require("../../garage/services/controller.service");
+const { setBookingActorContext } = require("./bookingActorContext.service");
 
 let resend;
 if (process.env.RESEND_API_KEY) {
@@ -432,6 +433,29 @@ const getOperationsDashboard = async () => {
 };
 
 const buildBookingTimeline = (booking) => {
+  if (Array.isArray(booking.events) && booking.events.length) {
+    return booking.events
+      .map((event) => ({
+        id: event.id,
+        date: event.createdAt,
+        title: event.title,
+        detail: event.detail || "",
+        type: event.actorType === "STAFF" ? "ADMIN" : event.eventType?.startsWith("PAYMENT") ? "PAYMENT" : event.eventType?.startsWith("GARAGE_REQUEST") ? "GARAGE_REQUEST" : "SYSTEM",
+        eventType: event.eventType,
+        previousValue: event.previousValue,
+        nextValue: event.nextValue,
+        metadata: {
+          ...(event.metadata && typeof event.metadata === "object" ? event.metadata : {}),
+          actorType: event.actorType,
+          actorId: event.actorId,
+          actorName: event.actorName,
+          actorRole: event.actorRole,
+          staffName: event.actorType === "STAFF" ? event.actorName : null,
+        },
+      }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  }
+
   const events = [];
   const add = (date, title, detail = "", type = "SYSTEM", metadata = null) => {
     if (!date) return;
@@ -561,6 +585,13 @@ const getBookingDetails = async (bookingId) => {
       adminEvents: {
         orderBy: { createdAt: "desc" },
       },
+      events: {
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      },
+      reassignments: {
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 
@@ -580,16 +611,50 @@ const createAdminBookingEvent = async (tx, {
   action,
   note = "",
   metadata = undefined,
-}) => tx.adminBookingEvent.create({
-  data: {
-    bookingId,
-    staffId: staff.id,
-    staffName: staff.name || staff.loginId || staff.role || "Staff",
-    action,
-    note: String(note || "").trim().slice(0, 1000) || null,
-    metadata,
-  },
-});
+}) => {
+  const cleanNote = String(note || "").trim().slice(0, 1000) || null;
+  const staffName = staff.name || staff.loginId || staff.role || "Staff";
+  const adminEvent = await tx.adminBookingEvent.create({
+    data: {
+      bookingId,
+      staffId: staff.id,
+      staffName,
+      action,
+      note: cleanNote,
+      metadata,
+    },
+  });
+
+  const timelineEvent = action === "NOTE"
+    ? { eventType: "ADMIN_NOTE", title: "Internal staff note" }
+    : action === "MANUAL_OVERRIDE"
+      ? { eventType: "MANUAL_OVERRIDE", title: "Booking manually overridden" }
+      : cleanNote && action === "STATUS_CHANGED"
+        ? { eventType: "ADMIN_STATUS_NOTE", title: "Admin status-change note" }
+        : cleanNote && action === "GARAGE_REASSIGNED"
+          ? { eventType: "GARAGE_REASSIGNMENT_NOTE", title: "Garage reassignment reason" }
+          : null;
+
+  if (timelineEvent) {
+    await tx.bookingEvent.create({
+      data: {
+        bookingId,
+        actorType: "STAFF",
+        actorId: staff.id,
+        actorName: staffName,
+        actorRole: staff.role,
+        eventType: timelineEvent.eventType,
+        title: timelineEvent.title,
+        detail: cleanNote,
+        metadata: {
+          ...(metadata && typeof metadata === "object" ? metadata : {}),
+          adminEventId: adminEvent.id,
+        },
+      },
+    });
+  }
+  return adminEvent;
+};
 
 const updateBookingStatus = async ({ bookingId, status, note, staff }) => {
   const booking = await prisma.booking.findUnique({
@@ -625,6 +690,7 @@ const updateBookingStatus = async ({ bookingId, status, note, staff }) => {
   if (status === "EXPIRED") data.expiredAt = booking.expiredAt || now;
 
   await prisma.$transaction(async (tx) => {
+    await setBookingActorContext(tx, staff);
     await tx.booking.update({ where: { id: bookingId }, data });
     if (["COMPLETED", "CANCELLED", "EXPIRED"].includes(status)) {
       await garageControllerService.releaseController(
@@ -673,16 +739,19 @@ const reassignBookingGarage = async ({ bookingId, garageId, note, staff }) => {
       },
     }),
     prisma.garage.findFirst({
-      where: { id: garageId, isActive: true },
+      where: { id: garageId, isActive: true, operationalStatus: "ACTIVE" },
       select: { id: true, name: true, city: true },
     }),
   ]);
 
   if (!booking) throw new ApiError(404, "Booking not found");
   if (!garage) throw new ApiError(404, "Active garage not found");
+  if (booking.garageId === garageId) throw new ApiError(400, "This garage is already assigned to the booking");
 
   const now = new Date();
+  let reassignmentId = null;
   await prisma.$transaction(async (tx) => {
+    await setBookingActorContext(tx, staff);
     if (booking.garageId && booking.garageId !== garageId) {
       await tx.garageBroadcastRequest.updateMany({
         where: { bookingId, garageId: booking.garageId, status: "ACCEPTED" },
@@ -725,6 +794,21 @@ const reassignBookingGarage = async ({ bookingId, garageId, note, staff }) => {
       booking.garageControllerId,
     );
 
+    const reassignment = await tx.bookingReassignment.create({
+      data: {
+        bookingId,
+        previousGarageId: booking.garageId || null,
+        previousGarageName: booking.garage?.name || null,
+        newGarageId: garage.id,
+        newGarageName: garage.name,
+        reason: String(note || "").trim().slice(0, 1000) || null,
+        actorId: staff.id,
+        actorName: staff.name || staff.loginId || staff.role || "Staff",
+        actorRole: staff.role,
+      },
+    });
+    reassignmentId = reassignment.id;
+
     await createAdminBookingEvent(tx, {
       bookingId,
       staff,
@@ -747,6 +831,13 @@ const reassignBookingGarage = async ({ bookingId, garageId, note, staff }) => {
     message: `${garage.name} has been assigned to booking ${booking.bookingCode}.`,
     link: "/dashboard/bookings",
     metadata: { bookingId, garageId, updatedByAdmin: true },
+  }).then(async () => {
+    if (reassignmentId) {
+      await prisma.bookingReassignment.update({
+        where: { id: reassignmentId },
+        data: { customerNotified: true },
+      }).catch(() => null);
+    }
   }).catch((error) => {
     console.warn("[admin-booking] garage notification failed", {
       bookingId,
@@ -771,6 +862,77 @@ const addBookingAdminNote = async ({ bookingId, note, staff }) => {
     note,
   });
 
+  return getBookingDetails(bookingId);
+};
+
+
+const normalizeNullableDate = (value) => {
+  if (value === null || value === "") return null;
+  if (value === undefined) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new ApiError(400, "Invalid date value");
+  return date;
+};
+
+const manualOverrideBooking = async ({ bookingId, payload, staff }) => {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { services: true },
+  });
+  if (!booking) throw new ApiError(404, "Booking not found");
+
+  const reason = String(payload.reason || "").trim().slice(0, 1000);
+  if (reason.length < 5) throw new ApiError(400, "A clear override reason is required");
+
+  const data = {};
+  const copyText = (key, max = 500) => {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      data[key] = payload[key] === null ? null : String(payload[key] || "").trim().slice(0, max) || null;
+    }
+  };
+  const copyNumber = (key) => {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      data[key] = payload[key] === null || payload[key] === "" ? null : Number(payload[key]);
+    }
+  };
+  copyText("startTime", 20);
+  copyText("endTime", 20);
+  copyText("customerAddress", 500);
+  copyNumber("customerLatitude");
+  copyNumber("customerLongitude");
+  for (const key of ["handlingFee", "payableAmount", "totalServiceAmount", "totalServiceMaxAmount"]) {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) data[key] = Number(payload[key]);
+  }
+  for (const key of ["scheduledDate", "searchExpiresAt", "acceptedAt", "deliveredAt", "customerAcceptedAt"]) {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) data[key] = normalizeNullableDate(payload[key]);
+  }
+
+  const servicePrices = Array.isArray(payload.servicePrices) ? payload.servicePrices : [];
+  if (!Object.keys(data).length && !servicePrices.length) {
+    throw new ApiError(400, "Provide at least one booking field to override");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await setBookingActorContext(tx, staff);
+    if (Object.keys(data).length) await tx.booking.update({ where: { id: bookingId }, data });
+    for (const item of servicePrices) {
+      const existing = booking.services.find((service) => service.id === item.bookingServiceId);
+      if (!existing) throw new ApiError(400, "A selected booking service does not belong to this booking");
+      await tx.bookingService.update({
+        where: { id: existing.id },
+        data: { finalPrice: item.finalPrice === null || item.finalPrice === "" ? null : Number(item.finalPrice) },
+      });
+    }
+    await createAdminBookingEvent(tx, {
+      bookingId,
+      staff,
+      action: "MANUAL_OVERRIDE",
+      note: reason,
+      metadata: { changedFields: Object.keys(data), servicePriceCount: servicePrices.length },
+    });
+  });
+
+  await invalidateCustomerCache(booking.userId);
   return getBookingDetails(bookingId);
 };
 
@@ -2132,6 +2294,7 @@ module.exports = {
   getDashboardStats,
   getOperationsDashboard,
   listPayments,
+  manualOverrideBooking,
   searchWalletTransferRecipients,
   listBookings,
   listCustomers,

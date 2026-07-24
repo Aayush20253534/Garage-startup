@@ -53,6 +53,27 @@ const CUSTOMER_BLOCKED_MESSAGE =
   "You are blocked from using Rovauto. Please contact customer support.";
 const CUSTOMER_BLOCKED_CODE = "CUSTOMER_BLOCKED";
 
+const recordStaffSecurityAudit = async ({ staff, action, path, sessionMetadata = {}, metadata = {} }) => {
+  if (!staff?.id || !STAFF_ROLES.includes(staff.role)) return;
+  await prisma.adminAuditLog.create({
+    data: {
+      actorId: staff.id,
+      actorName: staff.name || staff.loginId || staff.email || null,
+      actorRole: staff.role,
+      action,
+      resource: "authentication",
+      resourceId: staff.id,
+      method: "POST",
+      path,
+      statusCode: 200,
+      userAgent: sessionMetadata.userAgent || null,
+      metadata,
+    },
+  }).catch((error) => {
+    console.warn("[staff-audit] unable to record security action", error?.message || error);
+  });
+};
+
 let dummyPasswordHashPromise = null;
 
 const getDummyPasswordHash = () => {
@@ -78,7 +99,7 @@ const verifyLoginPassword = async (passwordHash, password) => {
 const USER_ROLES = ["CUSTOMER"];
 const GARAGE_OWNER_ROLE = "GARAGE_OWNER";
 const GARAGE_CONTROLLER_ROLE = "GARAGE_CONTROLLER";
-const STAFF_ROLES = ["ADMIN", "INTERN"];
+const STAFF_ROLES = ["ADMIN", "SUB_ADMIN", "INTERN"];
 const CUSTOMER_SUPPORT_ROLE = "CUSTOMER_SUPPORT";
 const ALL_AUTH_ROLES = [
   ...USER_ROLES,
@@ -853,6 +874,13 @@ const verifyStaffLoginOtp = async (
     const session = await createStaffSession(updatedStaff.id, sessionMetadata);
     const token = createAuthToken(safeStaff, { sessionId: session.id });
     const authStaff = await getAuthStaffById(updatedStaff.id);
+    await recordStaffSecurityAudit({
+      staff: authStaff,
+      action: "LOGIN_SUCCEEDED",
+      path: "/auth/staff/verify-otp",
+      sessionMetadata,
+      metadata: { sessionId: session.id },
+    });
 
     return {
       user: authStaff,
@@ -997,7 +1025,7 @@ const forgotPassword = async ({
   const cleanEmail = normalizeEmail(email);
   const userRole = normalizeAuthRole(
     role,
-    [...USER_ROLES, GARAGE_OWNER_ROLE, GARAGE_CONTROLLER_ROLE, "INTERN"],
+    [...USER_ROLES, GARAGE_OWNER_ROLE, GARAGE_CONTROLLER_ROLE, "SUB_ADMIN", "INTERN"],
     "CUSTOMER",
   );
 
@@ -1005,11 +1033,11 @@ const forgotPassword = async ({
     return garageControllerService.requestPasswordReset(cleanEmail);
   }
 
-  if (userRole === "INTERN") {
+  if (["SUB_ADMIN", "INTERN"].includes(userRole)) {
     const staff = await prisma.staffAccount.findFirst({
       where: {
         email: cleanEmail,
-        role: "INTERN",
+        role: userRole,
       },
     });
 
@@ -1069,11 +1097,11 @@ const resetPassword = async ({
   otp,
   newPassword,
   role = "CUSTOMER",
-}) => {
+}, sessionMetadata = {}) => {
   const cleanEmail = normalizeEmail(email);
   const userRole = normalizeAuthRole(
     role,
-    [...USER_ROLES, GARAGE_OWNER_ROLE, GARAGE_CONTROLLER_ROLE, "INTERN"],
+    [...USER_ROLES, GARAGE_OWNER_ROLE, GARAGE_CONTROLLER_ROLE, "SUB_ADMIN", "INTERN"],
     "CUSTOMER",
   );
 
@@ -1089,11 +1117,11 @@ const resetPassword = async ({
     });
   }
 
-  if (userRole === "INTERN") {
+  if (["SUB_ADMIN", "INTERN"].includes(userRole)) {
     const staff = await prisma.staffAccount.findFirst({
       where: {
         email: cleanEmail,
-        role: "INTERN",
+        role: userRole,
       },
     });
 
@@ -1125,6 +1153,14 @@ const resetPassword = async ({
         },
         data: { revokedAt: changedAt },
       });
+    });
+
+    await recordStaffSecurityAudit({
+      staff,
+      action: "PASSWORD_RESET_SELF",
+      path: "/auth/reset-password",
+      sessionMetadata,
+      metadata: { sessionsRevoked: true },
     });
 
     return { message: "Password reset successful" };

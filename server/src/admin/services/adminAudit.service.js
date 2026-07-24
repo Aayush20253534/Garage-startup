@@ -62,9 +62,12 @@ const inferAction = (method, path) => {
 
 const recordAuditLog = async ({ req, statusCode }) => {
   const requestPath = req.originalUrl || req.path || "";
-  if (!MUTATING_METHODS.has(req.method) || !requestPath.includes("/admin/")) return;
+  if (!MUTATING_METHODS.has(req.method)) return;
+
   const actor = req.user;
-  if (!actor) return;
+  const isTrackedStaff = actor?.accountType === "STAFF"
+    && ["ADMIN", "SUB_ADMIN", "INTERN"].includes(actor.role);
+  if (!isTrackedStaff) return;
 
   const { resource, resourceId } = inferResource(requestPath);
   await prisma.adminAuditLog.create({

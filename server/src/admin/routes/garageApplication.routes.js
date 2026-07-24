@@ -13,7 +13,7 @@ const {
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN", "INTERN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 
 // Interns have read-only access. Approval, denial, deletion, and change requests
 // remain admin decisions because they create accounts and alter marketplace access.
@@ -22,21 +22,21 @@ router.get("/:applicationId", applicationIdSchema, validate, applicationControll
 router.delete("/", authorizeRoles("ADMIN"), applicationController.deleteApplications);
 router.post(
   "/:applicationId/approve",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   reviewApplicationSchema,
   validate,
   applicationController.approveApplication,
 );
 router.post(
   "/:applicationId/request-changes",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   reviewApplicationSchema,
   validate,
   applicationController.requestChanges,
 );
 router.post(
   "/:applicationId/deny",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   reviewApplicationSchema,
   validate,
   applicationController.denyApplication,

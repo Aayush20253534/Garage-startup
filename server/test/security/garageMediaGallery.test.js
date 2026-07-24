@@ -43,7 +43,7 @@ test("garage owners can delete only an image belonging to their garage", () => {
 
   assert.match(
     routeSource,
-    /router\.delete\([\s\S]*\/:garageId\/media\/:imageId[\s\S]*protect[\s\S]*authorizeRoles\("GARAGE_OWNER", "ADMIN"\)/,
+    /router\.delete\([\s\S]*\/:garageId\/media\/:imageId[\s\S]*protect[\s\S]*authorizeRoles\("GARAGE_OWNER", "ADMIN", "SUB_ADMIN"\)/,
   );
   assert.match(
     serviceSource,

@@ -43,6 +43,7 @@ const adminDangerousRoutes = require("../admin/routes/dangerous.routes");
 const adminSupportRoutes = require("../admin/routes/adminSupport.routes");
 const customerSupportAccountRoutes = require("../admin/routes/customerSupportAccount.routes");
 const internAccountRoutes = require("../admin/routes/internAccount.routes");
+const subAdminAccountRoutes = require("../admin/routes/subAdminAccount.routes");
 const garageControllerAdminRoutes = require("../admin/routes/garageController.routes");
 const adminAuditMiddleware = require("../admin/middlewares/adminAudit.middleware");
 const adminControlCenterRoutes = require("../admin/routes/adminControlCenter.routes");
@@ -65,6 +66,9 @@ const {
 } = require("../customer/validations/auth.validation");
 
 const router = express.Router();
+
+// Capture every authenticated staff mutation, including shared /cities and /garages routes.
+router.use(adminAuditMiddleware);
 
 const publicOtpRateLimit = rateLimit({
   windowMs: 60 * 1000,
@@ -146,8 +150,6 @@ router.use("/garage/controller", garageControllerSelfRoutes);
  * Admin and intern route modules already use protect plus role authorization.
  * protect now resolves staff accounts from StaffAccount.
  */
-router.use("/admin", adminAuditMiddleware);
-
 router.use("/admin/control-center", adminControlCenterRoutes);
 router.use(
   "/admin/garage-applications",
@@ -163,6 +165,7 @@ router.use("/admin/system-issues", adminSystemIssueRoutes);
 router.use("/admin/dangerous", adminDangerousRoutes);
 router.use("/admin/customer-support-accounts", customerSupportAccountRoutes);
 router.use("/admin/intern-accounts", internAccountRoutes);
+router.use("/admin/sub-admin-accounts", subAdminAccountRoutes);
 router.use("/admin/garage-controllers", garageControllerAdminRoutes);
 router.use("/admin/support-tickets", adminSupportRoutes);
 router.use("/admin/garages", adminGarageRoutes);

@@ -13,22 +13,22 @@ const {
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN", "INTERN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 
 router.get("/stats", controller.getIssueStats);
 router.get("/", issueQuerySchema, validate, controller.listIssues);
 router.get("/:issueId", issueIdSchema, validate, controller.getIssue);
-router.delete("/resolved", authorizeRoles("ADMIN"), controller.clearResolvedIssues);
+router.delete("/resolved", authorizeRoles("ADMIN", "SUB_ADMIN"), controller.clearResolvedIssues);
 router.patch(
   "/:issueId/status",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   updateIssueStatusSchema,
   validate,
   controller.updateIssueStatus,
 );
 router.delete(
   "/:issueId",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   issueIdSchema,
   validate,
   controller.deleteIssue,

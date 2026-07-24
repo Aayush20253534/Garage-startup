@@ -21,7 +21,7 @@ const {
 } = require("../config/authCookie");
 
 const VALID_ACCOUNT_TYPES = new Set(["USER", "STAFF", "CUSTOMER_SUPPORT", "GARAGE_CONTROLLER"]);
-const STAFF_ROLES = new Set(["ADMIN", "INTERN"]);
+const STAFF_ROLES = new Set(["ADMIN", "SUB_ADMIN", "INTERN"]);
 const USER_ROLES = new Set(["CUSTOMER", "GARAGE_OWNER"]);
 const CUSTOMER_SUPPORT_ROLE = "CUSTOMER_SUPPORT";
 const CUSTOMER_BLOCKED_MESSAGE =

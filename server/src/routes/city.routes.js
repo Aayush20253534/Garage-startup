@@ -17,7 +17,7 @@ router.get("/", controller.listPublicCities);
 router.get(
   "/admin",
   protect,
-  authorizeRoles("ADMIN", "INTERN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"),
   cityQuerySchema,
   validate,
   controller.listAdminCities,
@@ -25,7 +25,7 @@ router.get(
 router.post(
   "/admin",
   protect,
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   createCitySchema,
   validate,
   controller.createCity,
@@ -33,7 +33,7 @@ router.post(
 router.patch(
   "/admin/:cityId",
   protect,
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   updateCitySchema,
   validate,
   controller.updateCity,

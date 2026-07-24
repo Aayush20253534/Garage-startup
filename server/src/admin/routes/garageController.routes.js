@@ -7,7 +7,7 @@ const rules = require("../../garage/validations/controller.validation");
 
 const router = express.Router();
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN"));
 router.get("/", rules.optionalGarageId, validate, controller.list);
 router.post("/garage/:garageId", rules.adminCreate, validate, controller.create);
 router.get("/:controllerId/activity", rules.controllerId, validate, controller.activity);

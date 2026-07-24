@@ -39,6 +39,36 @@ const getStatusClass = (status) => {
 const getErrorMessage = (error, fallback) =>
   error.response?.data?.message || error.message || fallback;
 
+const toLocalDateTimeInput = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+};
+
+const buildOverrideForm = (booking = {}) => ({
+  reason: "",
+  scheduledDate: toLocalDateTimeInput(booking.scheduledDate),
+  acceptedAt: toLocalDateTimeInput(booking.acceptedAt),
+  deliveredAt: toLocalDateTimeInput(booking.deliveredAt),
+  customerAcceptedAt: toLocalDateTimeInput(booking.customerAcceptedAt),
+  startTime: booking.startTime || "",
+  endTime: booking.endTime || "",
+  customerAddress: booking.customerAddress || "",
+  handlingFee: booking.handlingFee ?? "",
+  payableAmount: booking.payableAmount ?? "",
+  totalServiceAmount: booking.totalServiceAmount ?? "",
+  totalServiceMaxAmount: booking.totalServiceMaxAmount ?? "",
+  searchExpiresAt: toLocalDateTimeInput(booking.searchExpiresAt),
+  servicePrices: (booking.services || []).map((item) => ({
+    bookingServiceId: item.id,
+    serviceName: item.service?.name || "Service",
+    finalPrice: item.finalPrice ?? "",
+    estimate: item.estimatedPrice ?? item.estimatedMinPrice ?? null,
+  })),
+});
+
 export default function BookingManagementModal({ bookingId, isAdmin, onClose, onUpdated }) {
   const [booking, setBooking] = useState(null);
   const [garages, setGarages] = useState([]);
@@ -49,6 +79,8 @@ export default function BookingManagementModal({ bookingId, isAdmin, onClose, on
   const [statusForm, setStatusForm] = useState({ status: "", note: "" });
   const [garageForm, setGarageForm] = useState({ garageId: "", note: "" });
   const [internalNote, setInternalNote] = useState("");
+  const [overrideForm, setOverrideForm] = useState(() => buildOverrideForm());
+  const [overrideInitial, setOverrideInitial] = useState(() => buildOverrideForm());
 
   const load = async () => {
     setLoading(true);
@@ -62,6 +94,9 @@ export default function BookingManagementModal({ bookingId, isAdmin, onClose, on
       setGarages(Array.isArray(garageData) ? garageData : []);
       setStatusForm((current) => ({ ...current, status: bookingData.status || "" }));
       setGarageForm((current) => ({ ...current, garageId: bookingData.garageId || "" }));
+      const nextOverrideForm = buildOverrideForm(bookingData);
+      setOverrideForm(nextOverrideForm);
+      setOverrideInitial(nextOverrideForm);
     } catch (err) {
       setError(getErrorMessage(err, "Unable to load booking details"));
     } finally {
@@ -93,6 +128,9 @@ export default function BookingManagementModal({ bookingId, isAdmin, onClose, on
     setStatusForm({ status: updated.status || "", note: "" });
     setGarageForm({ garageId: updated.garageId || "", note: "" });
     setInternalNote("");
+    const nextOverrideForm = buildOverrideForm(updated);
+    setOverrideForm(nextOverrideForm);
+    setOverrideInitial(nextOverrideForm);
     setSuccess(message);
     onUpdated?.(updated);
   };
@@ -125,6 +163,48 @@ export default function BookingManagementModal({ bookingId, isAdmin, onClose, on
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveOverride = async (event) => {
+    event.preventDefault();
+    setSaving(true); setError(""); setSuccess("");
+    try {
+      const payload = { reason: overrideForm.reason.trim() };
+      const dateFields = ["scheduledDate", "searchExpiresAt", "acceptedAt", "deliveredAt", "customerAcceptedAt"];
+      const textFields = ["startTime", "endTime", "customerAddress"];
+      const numberFields = ["handlingFee", "payableAmount", "totalServiceAmount", "totalServiceMaxAmount"];
+
+      dateFields.forEach((key) => {
+        if (overrideForm[key] !== overrideInitial[key]) {
+          payload[key] = overrideForm[key] ? new Date(overrideForm[key]).toISOString() : null;
+        }
+      });
+      textFields.forEach((key) => {
+        if (overrideForm[key] !== overrideInitial[key]) payload[key] = overrideForm[key] || null;
+      });
+      numberFields.forEach((key) => {
+        if (String(overrideForm[key]) !== String(overrideInitial[key])) {
+          payload[key] = Number(overrideForm[key] || 0);
+        }
+      });
+
+      const initialPrices = new Map(
+        (overrideInitial.servicePrices || []).map((item) => [item.bookingServiceId, item.finalPrice]),
+      );
+      const changedServicePrices = (overrideForm.servicePrices || [])
+        .filter((item) => String(item.finalPrice) !== String(initialPrices.get(item.bookingServiceId) ?? ""))
+        .map((item) => ({
+          bookingServiceId: item.bookingServiceId,
+          finalPrice: item.finalPrice === "" ? null : Number(item.finalPrice),
+        }));
+      if (changedServicePrices.length) payload.servicePrices = changedServicePrices;
+
+      if (Object.keys(payload).length === 1) {
+        throw new Error("Change at least one field before saving the override");
+      }
+      const updated = await adminApi.manualOverrideBooking(bookingId, payload);
+      await finishAction(updated, "Manual booking override saved.");
+    } catch (err) { setError(getErrorMessage(err, "Unable to save manual override")); } finally { setSaving(false); }
   };
 
   const addNote = async (event) => {
@@ -240,12 +320,28 @@ export default function BookingManagementModal({ bookingId, isAdmin, onClose, on
                             <time className="text-xs text-muted">{formatDateTime(event.date)}</time>
                           </div>
                           {event.detail && <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{event.detail}</p>}
-                          {event.metadata?.staffName && <p className="mt-1 text-xs font-semibold text-blue-700">By {event.metadata.staffName}</p>}
+                          {event.metadata?.actorName && <p className="mt-1 text-xs font-semibold text-blue-700">By {event.metadata.actorName}{event.metadata.actorRole ? ` · ${formatStatus(event.metadata.actorRole)}` : ""}</p>}
                         </div>
                       </div>
                     ))}
                   </div>
                 </article>
+
+                {(booking.reassignments || []).length > 0 && (
+                  <article className="rounded-2xl border border-line bg-white p-4">
+                    <h4 className="font-bold text-ink">Garage reassignment history</h4>
+                    <div className="mt-3 grid gap-3">
+                      {booking.reassignments.map((item) => (
+                        <div key={item.id} className="rounded-xl bg-bg-soft p-3 text-sm">
+                          <p className="font-bold text-ink">{item.previousGarageName || "Unassigned"} → {item.newGarageName}</p>
+                          <p className="mt-1 text-xs text-muted">{item.reason || "No reason recorded"}</p>
+                          <p className="mt-1 text-xs font-semibold text-blue-700">By {item.actorName} · {formatStatus(item.actorRole)} · {formatDateTime(item.createdAt)}</p>
+                          <p className="mt-1 text-xs text-muted">Customer notification: {item.customerNotified ? "sent" : "not confirmed"}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                )}
               </div>
 
               <aside className="space-y-4">
@@ -268,6 +364,37 @@ export default function BookingManagementModal({ bookingId, isAdmin, onClose, on
                       </select>
                       <textarea value={garageForm.note} onChange={(event) => setGarageForm({ ...garageForm, note: event.target.value })} placeholder="Reason for assignment (optional)" rows="3" className="mt-3 w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-ink" />
                       <button type="submit" disabled={saving || !garageForm.garageId || garageForm.garageId === booking.garageId} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-lime-400 px-4 text-sm font-bold text-black disabled:opacity-50"><FiSave />Assign garage</button>
+                    </form>
+
+                    <form onSubmit={saveOverride} className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                      <div className="flex items-center gap-2"><FiEdit3 className="text-amber-700" /><h4 className="font-bold text-ink">Manual override</h4></div>
+                      <p className="mt-1 text-xs text-muted">Use only when automatic values need operational correction. Every changed field is permanently recorded.</p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <label className="text-xs font-bold text-muted">Scheduled date<input type="datetime-local" value={overrideForm.scheduledDate} onChange={(e)=>setOverrideForm({...overrideForm,scheduledDate:e.target.value})} className="mt-1 h-10 w-full rounded-lg border border-line bg-white px-2 text-sm text-ink" /></label>
+                        <label className="text-xs font-bold text-muted">Search expiry<input type="datetime-local" value={overrideForm.searchExpiresAt} onChange={(e)=>setOverrideForm({...overrideForm,searchExpiresAt:e.target.value})} className="mt-1 h-10 w-full rounded-lg border border-line bg-white px-2 text-sm text-ink" /></label>
+                        <label className="text-xs font-bold text-muted">Accepted at<input type="datetime-local" value={overrideForm.acceptedAt} onChange={(e)=>setOverrideForm({...overrideForm,acceptedAt:e.target.value})} className="mt-1 h-10 w-full rounded-lg border border-line bg-white px-2 text-sm text-ink" /></label>
+                        <label className="text-xs font-bold text-muted">Delivered at<input type="datetime-local" value={overrideForm.deliveredAt} onChange={(e)=>setOverrideForm({...overrideForm,deliveredAt:e.target.value})} className="mt-1 h-10 w-full rounded-lg border border-line bg-white px-2 text-sm text-ink" /></label>
+                        <label className="text-xs font-bold text-muted">Customer accepted at<input type="datetime-local" value={overrideForm.customerAcceptedAt} onChange={(e)=>setOverrideForm({...overrideForm,customerAcceptedAt:e.target.value})} className="mt-1 h-10 w-full rounded-lg border border-line bg-white px-2 text-sm text-ink" /></label>
+                        <label className="text-xs font-bold text-muted">Start time<input type="time" value={overrideForm.startTime} onChange={(e)=>setOverrideForm({...overrideForm,startTime:e.target.value})} className="mt-1 h-10 w-full rounded-lg border border-line bg-white px-2 text-sm" /></label>
+                        <label className="text-xs font-bold text-muted">End time<input type="time" value={overrideForm.endTime} onChange={(e)=>setOverrideForm({...overrideForm,endTime:e.target.value})} className="mt-1 h-10 w-full rounded-lg border border-line bg-white px-2 text-sm" /></label>
+                        {[["handlingFee","Handling fee"],["payableAmount","Payable amount"],["totalServiceAmount","Service amount"],["totalServiceMaxAmount","Service max amount"]].map(([key,label])=><label key={key} className="text-xs font-bold text-muted">{label}<input type="number" min="0" value={overrideForm[key]} onChange={(e)=>setOverrideForm({...overrideForm,[key]:e.target.value})} className="mt-1 h-10 w-full rounded-lg border border-line bg-white px-2 text-sm" /></label>)}
+                      </div>
+                      {(overrideForm.servicePrices || []).length > 0 && (
+                        <div className="mt-3 rounded-xl border border-amber-200 bg-white p-3">
+                          <p className="text-xs font-bold uppercase tracking-wide text-muted">Final service prices</p>
+                          <div className="mt-2 grid gap-2">
+                            {overrideForm.servicePrices.map((item, index) => (
+                              <label key={item.bookingServiceId} className="grid grid-cols-[minmax(0,1fr)_110px] items-center gap-2 text-xs font-semibold text-ink">
+                                <span className="truncate">{item.serviceName}</span>
+                                <input type="number" min="0" value={item.finalPrice} placeholder={item.estimate == null ? "Unset" : `Est. ${item.estimate}`} onChange={(e)=>setOverrideForm((current)=>({ ...current, servicePrices: current.servicePrices.map((entry, entryIndex)=>entryIndex===index?{...entry,finalPrice:e.target.value}:entry) }))} className="h-9 rounded-lg border border-line px-2 text-sm" />
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <textarea value={overrideForm.customerAddress} onChange={(e)=>setOverrideForm({...overrideForm,customerAddress:e.target.value})} placeholder="Customer service address" rows="2" className="mt-2 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm" />
+                      <textarea required minLength="5" value={overrideForm.reason} onChange={(e)=>setOverrideForm({...overrideForm,reason:e.target.value})} placeholder="Required reason for manual override" rows="3" className="mt-2 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm" />
+                      <button type="submit" disabled={saving || overrideForm.reason.trim().length < 5} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-bold text-white disabled:opacity-50"><FiSave />Save manual override</button>
                     </form>
 
                     <form onSubmit={addNote} className="rounded-2xl border border-line bg-white p-4">

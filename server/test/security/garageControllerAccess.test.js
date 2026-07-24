@@ -43,6 +43,6 @@ test("controller history hides other customers and management remains owner or a
   assert.match(service, /customerAddress: own \? booking\.customerAddress : null/);
   assert.match(service, /status: \{ in: TERMINAL_BOOKING_STATUSES \}/);
   assert.match(ownerRoutes, /authorizeRoles\("GARAGE_OWNER"\)/);
-  assert.match(adminRoutes, /authorizeRoles\("ADMIN"\)/);
+  assert.match(adminRoutes, /authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
   assert.match(adminRoutes, /setLimit/);
 });

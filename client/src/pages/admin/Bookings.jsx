@@ -89,7 +89,8 @@ export default function Bookings({
 
   const isAdmin =
     user?.accountType === "STAFF" &&
-    user?.role === "ADMIN";
+    ["ADMIN", "SUB_ADMIN"].includes(user?.role);
+  const isMainAdmin = user?.accountType === "STAFF" && user?.role === "ADMIN";
 
   const load = async () => {
     setLoading(true);
@@ -137,7 +138,7 @@ export default function Bookings({
     event.preventDefault();
 
     if (
-      !isAdmin ||
+      !isMainAdmin ||
       confirmation !== CLEAR_CONFIRMATION
     ) {
       return;
@@ -241,7 +242,7 @@ export default function Bookings({
             </button>
           )}
 
-          {showBulkActions && isAdmin && (
+          {showBulkActions && isMainAdmin && (
             <button
               type="button"
               onClick={openClearDialog}
@@ -592,7 +593,7 @@ export default function Bookings({
         />
       )}
 
-      {showBulkActions && showClearDialog && isAdmin && (
+      {showBulkActions && showClearDialog && isMainAdmin && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 py-8"
           role="presentation"

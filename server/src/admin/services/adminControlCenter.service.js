@@ -123,15 +123,31 @@ const resendBookingNotification = async ({ bookingId, target = "BOTH", message =
       sent.garage += 1;
     }
   }
-  await prisma.adminBookingEvent.create({
-    data: {
-      bookingId,
-      staffId: staff.id,
-      staffName: staff.name || staff.loginId || "Admin",
-      action: "NOTIFICATION_RESENT",
-      note: body,
-      metadata: { target: normalizedTarget, sent },
-    },
+  const staffName = staff.name || staff.loginId || "Admin";
+  await prisma.$transaction(async (tx) => {
+    const adminEvent = await tx.adminBookingEvent.create({
+      data: {
+        bookingId,
+        staffId: staff.id,
+        staffName,
+        action: "NOTIFICATION_RESENT",
+        note: body,
+        metadata: { target: normalizedTarget, sent },
+      },
+    });
+    await tx.bookingEvent.create({
+      data: {
+        bookingId,
+        actorType: "STAFF",
+        actorId: staff.id,
+        actorName: staffName,
+        actorRole: staff.role,
+        eventType: "NOTIFICATION_RESENT",
+        title: "Booking notification resent",
+        detail: body,
+        metadata: { target: normalizedTarget, sent, adminEventId: adminEvent.id },
+      },
+    });
   });
   return sent;
 };

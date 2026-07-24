@@ -41,7 +41,7 @@ const createChallenge = async ({ staffAccountId, role, email }) => {
     await sendEmailOtp({
       to: deliveryEmail,
       otp,
-      subject: "Rovauto intern password reset OTP",
+      subject: `Rovauto ${String(role || "staff").toLowerCase().replaceAll("_", " ")} password reset OTP`,
     });
   } catch (error) {
     await prisma.staffPasswordResetChallenge

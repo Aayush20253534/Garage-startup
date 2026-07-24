@@ -7,14 +7,14 @@ const projectRoot = path.resolve(__dirname, "../../..");
 const read = (relativePath) =>
   fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 
-test("the admin control center is admin-only and exposes all requested modules", () => {
+test("the admin control center supports main and sub-admin operations", () => {
   const routes = read("server/src/admin/routes/adminControlCenter.routes.js");
   const indexRoutes = read("server/src/routes/index.routes.js");
   const app = read("client/src/App.jsx");
   const page = read("client/src/pages/admin/ControlCenter.jsx");
 
   assert.match(routes, /router\.use\(protect\)/);
-  assert.match(routes, /router\.use\(authorizeRoles\("ADMIN"\)\)/);
+  assert.match(routes, /router\.use\(authorizeRoles\("ADMIN", "SUB_ADMIN"\)\)/);
   assert.match(indexRoutes, /"\/admin\/control-center"/);
   assert.match(app, /path="\/admin\/control-center"/);
   assert.match(page, /Admin Control Center/);
@@ -28,11 +28,14 @@ test("the admin control center is admin-only and exposes all requested modules",
 test("admin mutations are audit logged with sanitized request metadata", () => {
   const middleware = read("server/src/admin/middlewares/adminAudit.middleware.js");
   const service = read("server/src/admin/services/adminAudit.service.js");
+  const indexRoutes = read("server/src/routes/index.routes.js");
 
   assert.match(middleware, /res\.on\("finish"/);
+  assert.match(indexRoutes, /router\.use\(adminAuditMiddleware\)/);
   assert.match(service, /MUTATING_METHODS/);
   assert.match(service, /req\.originalUrl/);
-  assert.match(service, /requestPath\.includes\("\/admin\/"\)/);
+  assert.match(service, /actor\?\.accountType === "STAFF"/);
+  assert.match(service, /\["ADMIN", "SUB_ADMIN", "INTERN"\]/);
   assert.match(service, /SENSITIVE_KEYS/);
   assert.match(service, /"\[redacted\]"/);
   assert.match(service, /prisma\.adminAuditLog\.create/);

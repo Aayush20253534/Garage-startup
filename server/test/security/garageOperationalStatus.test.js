@@ -18,7 +18,7 @@ test("admins can enable and disable every garage from the garage list", () => {
   const page = readProjectFile("client/src/pages/admin/Garages.jsx");
 
   assert.match(routes, /router\.patch\([\s\S]*"\/:garageId\/status"/);
-  assert.match(routes, /authorizeRoles\("ADMIN"\)/);
+  assert.match(routes, /authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
   assert.match(validation, /body\("isActive"\)[\s\S]*\.isBoolean\(\)/);
   assert.match(api, /setGarageActiveStatus\(garageId, isActive\)/);
   assert.match(page, /All garage statuses/);

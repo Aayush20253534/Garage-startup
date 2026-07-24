@@ -76,7 +76,7 @@ const getEffectiveAccountType = (user) => {
     return user.accountType;
   }
 
-  if (user?.role === "ADMIN" || user?.role === "INTERN") {
+  if (["ADMIN", "SUB_ADMIN", "INTERN"].includes(user?.role)) {
     return "STAFF";
   }
 
@@ -97,7 +97,7 @@ const hasPortalRole = (user, role, accountType) =>
   user?.role === role && getEffectiveAccountType(user) === accountType;
 
 const getAccountPortal = (user) => {
-  if (hasPortalRole(user, "ADMIN", "STAFF")) {
+  if (hasPortalRole(user, "ADMIN", "STAFF") || hasPortalRole(user, "SUB_ADMIN", "STAFF")) {
     return "/admin";
   }
 
@@ -170,7 +170,7 @@ function PwaDocumentShellGuard() {
   return null;
 }
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children, mainAdminOnly = false }) {
   const { user, garage, authLoading } = useApp();
   const location = useLocation();
 
@@ -186,7 +186,7 @@ function ProtectedRoute({ children }) {
   }
 
   if (isAdminRoute) {
-    const isAdmin = hasPortalRole(user, "ADMIN", "STAFF");
+    const isAdmin = hasPortalRole(user, "ADMIN", "STAFF") || hasPortalRole(user, "SUB_ADMIN", "STAFF");
 
     if (!isAdmin) {
       return (
@@ -196,6 +196,10 @@ function ProtectedRoute({ children }) {
           replace
         />
       );
+    }
+
+    if (mainAdminOnly && !hasPortalRole(user, "ADMIN", "STAFF")) {
+      return <Navigate to="/admin" replace />;
     }
   } else if (isInternRoute) {
     const isIntern = hasPortalRole(user, "INTERN", "STAFF");
@@ -753,6 +757,7 @@ const AdminControlCenter = lazyPage(
   "AdminControlCenter",
 );
 const AdminLogin = lazyPage(() => import("@/pages/admin/Login"), "AdminLogin");
+const AdminForgotPassword = lazyPage(() => import("@/pages/admin/ForgotPassword"), "AdminForgotPassword");
 const AdminCustomers = lazyPage(
   () => import("@/pages/admin/Customers"),
   "AdminCustomers",
@@ -786,6 +791,11 @@ const AdminSystemIssues = lazyPage(
   () => import("@/pages/admin/SystemIssues"),
   "AdminSystemIssues",
 );
+const AdminSubAdminAccounts = lazyPage(
+  () => import("@/pages/admin/SubAdminAccounts"),
+  "AdminSubAdminAccounts",
+);
+
 const AdminDangerous = lazyPage(
   () => import("@/pages/admin/Dangerous"),
   "AdminDangerous",
@@ -1014,10 +1024,11 @@ const adminItems = [
   { to: "/admin/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
   { to: "/admin/support-tickets", label: "Support & Disputes", icon: FiHelpCircle },
-  { to: "/admin/customer-support-accounts", label: "Support Accounts", icon: FiHeadphones },
+  { to: "/admin/customer-support-accounts", label: "Support Accounts", icon: FiHeadphones, mainAdminOnly: true },
   { to: "/admin/garage-controllers", label: "Garage Controllers", icon: FiUserCheck },
-  { to: "/admin/intern-accounts", label: "Intern Accounts", icon: FiUserCheck },
-  { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon },
+  { to: "/admin/intern-accounts", label: "Intern Accounts", icon: FiUserCheck, mainAdminOnly: true },
+  { to: "/admin/sub-admin-accounts", label: "Sub Admin Accounts", icon: FiShield, mainAdminOnly: true },
+  { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon, mainAdminOnly: true },
 ];
 
 const customerSupportItems = [
@@ -1111,6 +1122,7 @@ function AppRoutes() {
             element={<Navigate to="/forgot" replace />}
           />
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
           <Route path="/intern/login" element={<InternLogin />} />
           <Route
             path="/intern/forgot-password"
@@ -1454,7 +1466,7 @@ function AppRoutes() {
           <Route
             path="/admin/customer-support-accounts"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute mainAdminOnly>
                 <AdminCustomerSupportAccounts />
               </ProtectedRoute>
             }
@@ -1462,8 +1474,16 @@ function AppRoutes() {
           <Route
             path="/admin/intern-accounts"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute mainAdminOnly>
                 <AdminInternAccounts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/sub-admin-accounts"
+            element={
+              <ProtectedRoute mainAdminOnly>
+                <AdminSubAdminAccounts />
               </ProtectedRoute>
             }
           />
@@ -1478,7 +1498,7 @@ function AppRoutes() {
           <Route
             path="/admin/dangerous"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute mainAdminOnly>
                 <AdminDangerous />
               </ProtectedRoute>
             }

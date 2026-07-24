@@ -216,6 +216,8 @@ model StaffAccount {
   supportTicketMessages  SupportTicketMessage[]       @relation("SupportTicketStaffMessages")
   priceRangeSubmissions  PriceRangeSubmission[]       @relation("PriceRangeSubmissionSubmitter")
   priceRangeReviews      PriceRangeSubmission[]       @relation("PriceRangeSubmissionReviewer")
+  createdById            String?
+  createdByName          String?
 
   @@index([role])
   @@index([isActive])
@@ -812,6 +814,8 @@ model Booking {
   review                Review?
   trackingPoints        BookingTrackingPoint[]
   adminEvents           AdminBookingEvent[]
+  events                BookingEvent[]
+  reassignments         BookingReassignment[]
   supportTickets        SupportTicket[]
   walletTransactions    WalletTransaction[]
   escalations           BookingEscalation[]
@@ -838,6 +842,49 @@ model AdminBookingEvent {
   @@index([bookingId, createdAt])
   @@index([staffId, createdAt])
   @@map("admin_booking_events")
+}
+
+
+model BookingEvent {
+  id            String   @id @default(uuid())
+  bookingId     String
+  actorType     String   @default("SYSTEM")
+  actorId       String?
+  actorName     String?
+  actorRole     String?
+  eventType     String
+  title         String
+  detail        String?
+  previousValue Json?
+  nextValue     Json?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  booking       Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([actorId, createdAt])
+  @@map("booking_events")
+}
+
+model BookingReassignment {
+  id               String   @id @default(uuid())
+  bookingId        String
+  previousGarageId String?
+  previousGarageName String?
+  newGarageId      String
+  newGarageName    String
+  reason           String?
+  actorId          String
+  actorName        String
+  actorRole        String
+  customerNotified Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  booking          Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("booking_reassignments")
 }
 
 model BookingInspectionImage {
@@ -1606,6 +1653,7 @@ enum GarageControllerAvailability {
 
 enum StaffRole {
   ADMIN
+  SUB_ADMIN
   INTERN
 }
 

@@ -40,7 +40,7 @@ test("intern forgot-password uses a dedicated bounded OTP challenge", () => {
   const appState = read("client/src/hooks/useApp.jsx");
 
   assert.match(schema, /model StaffPasswordResetChallenge/);
-  assert.match(validation, /PASSWORD_RECOVERY_ROLES = \[\.\.\.USER_ROLES, "GARAGE_CONTROLLER", "INTERN"\]/);
+  assert.match(validation, /PASSWORD_RECOVERY_ROLES = \[\.\.\.USER_ROLES, "GARAGE_CONTROLLER", "SUB_ADMIN", "INTERN"\]/);
   assert.match(authService, /staffPasswordResetService\.createChallenge/);
   assert.match(authService, /staffPasswordResetService\.consumeChallenge/);
   assert.match(authService, /prisma\.\$transaction\(async \(tx\)/);
@@ -185,8 +185,8 @@ test("interns can create price ranges but cannot edit or delete them", () => {
   const updateRoute = routes.match(/router\.patch\([\s\S]*?\n\);/)?.[0] || "";
   const deleteRoute = routes.match(/router\.delete\([\s\S]*?\n\);/)?.[0] || "";
 
-  assert.match(createRoute, /authorizeRoles\("ADMIN", "INTERN"\)/);
-  assert.match(updateRoute, /authorizeRoles\("ADMIN"\)/);
+  assert.match(createRoute, /authorizeRoles\("ADMIN", "SUB_ADMIN", "INTERN"\)/);
+  assert.match(updateRoute, /authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
   assert.doesNotMatch(updateRoute, /"INTERN"/);
   assert.match(deleteRoute, /authorizeRoles\("ADMIN"\)/);
   assert.doesNotMatch(deleteRoute, /"INTERN"/);

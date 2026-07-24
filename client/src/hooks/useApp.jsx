@@ -74,6 +74,7 @@ const VALID_SESSION_ROLES = new Set([
   "GARAGE_OWNER",
   "GARAGE_CONTROLLER",
   "ADMIN",
+  "SUB_ADMIN",
   "INTERN",
   "CUSTOMER_SUPPORT",
 ]);
@@ -83,6 +84,7 @@ const ROLE_ACCOUNT_TYPES = {
   GARAGE_OWNER: "USER",
   GARAGE_CONTROLLER: "GARAGE_CONTROLLER",
   ADMIN: "STAFF",
+  SUB_ADMIN: "STAFF",
   INTERN: "STAFF",
   CUSTOMER_SUPPORT: "CUSTOMER_SUPPORT",
 };
@@ -286,10 +288,10 @@ const getStoredSessionRole = () => {
   if (
     pathname.startsWith("/admin") &&
     isValidSessionIdentity(cachedUser) &&
-    cachedUser.role === "ADMIN"
+    ["ADMIN", "SUB_ADMIN"].includes(cachedUser.role)
   ) {
     setSessionRole(cachedUser.role, cachedUser.accountType);
-    return "ADMIN";
+    return cachedUser.role;
   }
 
   if (
@@ -330,7 +332,7 @@ const isProtectedPath = (pathname = window.location.pathname) => {
   }
 
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    return pathname !== "/admin/login";
+    return !(pathname === "/admin/login" || pathname === "/admin/forgot-password");
   }
 
   if (pathname === "/intern" || pathname.startsWith("/intern/")) {

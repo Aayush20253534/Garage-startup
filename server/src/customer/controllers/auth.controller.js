@@ -320,7 +320,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
-  const result = await authService.resetPassword(req.body);
+  const result = await authService.resetPassword(req.body, getSessionMetadata(req));
 
   return res
     .status(200)

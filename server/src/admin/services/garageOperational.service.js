@@ -54,10 +54,14 @@ const setGarageOperationalStatus = async ({
   status,
   reason = "",
   suspendedUntil = null,
+  staff = null,
 }) => {
   const normalizedStatus = String(status || "").trim().toUpperCase();
   if (!GARAGE_OPERATIONAL_STATUSES.has(normalizedStatus)) {
     throw new ApiError(400, "Select a valid garage operational status");
+  }
+  if (normalizedStatus === "PERMANENTLY_BLOCKED" && staff?.role !== "ADMIN") {
+    throw new ApiError(403, "Only the main admin can permanently block a garage");
   }
 
   const now = new Date();

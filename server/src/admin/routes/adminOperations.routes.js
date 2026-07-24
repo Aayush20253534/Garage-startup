@@ -15,6 +15,7 @@ const {
   deleteCustomersSchema,
   updateCustomerStatusSchema,
   paymentQuerySchema,
+  manualBookingOverrideSchema,
   reassignBookingGarageSchema,
   updateBookingStatusSchema,
   walletRecipientQuerySchema,
@@ -23,7 +24,7 @@ const {
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN", "INTERN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 
 router.get("/stats", controller.getDashboardStats);
 router.get("/operations", controller.getOperationsDashboard);
@@ -43,7 +44,7 @@ router.delete(
 );
 router.patch(
   "/customers/:userId/status",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   updateCustomerStatusSchema,
   validate,
   controller.setCustomerActiveStatus,
@@ -64,21 +65,29 @@ router.get(
 );
 router.patch(
   "/bookings/:bookingId/status",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   updateBookingStatusSchema,
   validate,
   controller.updateBookingStatus,
 );
 router.patch(
   "/bookings/:bookingId/garage",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   reassignBookingGarageSchema,
   validate,
   controller.reassignBookingGarage,
 );
+router.patch(
+  "/bookings/:bookingId/manual-override",
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
+  manualBookingOverrideSchema,
+  validate,
+  controller.manualOverrideBooking,
+);
+
 router.post(
   "/bookings/:bookingId/notes",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   addBookingNoteSchema,
   validate,
   controller.addBookingAdminNote,
@@ -93,7 +102,7 @@ router.delete(
 
 router.get(
   "/payments",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   paymentQuerySchema,
   validate,
   controller.listPayments,

@@ -24,7 +24,7 @@ const validateImageFile = (file) => {
 };
 
 const assertCanManageGarageMedia = (garage, user) => {
-  if (user.role !== "ADMIN" && garage.ownerId !== user.id) {
+  if (!["ADMIN", "SUB_ADMIN"].includes(user.role) && garage.ownerId !== user.id) {
     throw new ApiError(403, "You are not allowed to manage media for this garage");
   }
 };
