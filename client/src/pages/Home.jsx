@@ -235,7 +235,7 @@ export default function Home() {
               </h1>
 
               <p className="mt-5 max-w-xl text-base leading-relaxed text-white/85 drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-lg">
-                Book car and bike repair, maintenance, pickup and doorstep
+                Book car repair, maintenance, pickup and doorstep
                 service from verified garages with transparent pricing, live
                 tracking and a 30-day service warranty.
               </p>
@@ -306,7 +306,7 @@ export default function Home() {
               </h2>
 
               <p className="mt-2 text-sm text-muted sm:text-base">
-                Explore trusted car and bike services from verified garages in
+                Explore trusted car services from verified garages in
                 Prayagraj.
               </p>
             </div>
