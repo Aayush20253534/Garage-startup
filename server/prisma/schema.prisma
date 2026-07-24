@@ -578,6 +578,8 @@ model Service {
   description  String?
   isActive     Boolean  @default(true)
   isComingSoon Boolean  @default(false)
+  isPopular    Boolean  @default(false)
+  popularOrder Int?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   durationMin  Int?
@@ -593,6 +595,7 @@ model Service {
   @@index([categoryId])
   @@index([isActive])
   @@index([isComingSoon])
+  @@index([isPopular, popularOrder])
 }
 
 model ServiceMedia {

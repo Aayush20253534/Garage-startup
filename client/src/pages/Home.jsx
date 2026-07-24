@@ -85,6 +85,26 @@ const formatAverageRating = (value) => {
   return `${Math.min(5, number).toFixed(1)}★`;
 };
 
+const getHomepagePopularServices = (serviceCategories = []) => {
+  const allServices = serviceCategories.flatMap((category) =>
+    (category.services || []).map((service) => ({
+      ...service,
+      category,
+    })),
+  );
+
+  const configuredServices = allServices
+    .filter((service) => toBoolean(service.isPopular))
+    .sort((left, right) => {
+      const leftOrder = Number(left.popularOrder) || Number.MAX_SAFE_INTEGER;
+      const rightOrder = Number(right.popularOrder) || Number.MAX_SAFE_INTEGER;
+
+      return leftOrder - rightOrder || left.name.localeCompare(right.name);
+    });
+
+  return configuredServices.slice(0, 6);
+};
+
 export default function Home() {
   const { user, vehicle, location, fetchServiceCategories } = useApp();
 
@@ -140,14 +160,7 @@ export default function Home() {
           ? serviceCategories
           : [];
 
-        const services = normalizedCategories
-          .flatMap((category) =>
-            (category.services || []).map((service) => ({
-              ...service,
-              category,
-            })),
-          )
-          .slice(0, 6);
+        const services = getHomepagePopularServices(normalizedCategories);
 
         setCategories(normalizedCategories);
         setPopularServices(services);

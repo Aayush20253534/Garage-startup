@@ -12,6 +12,7 @@ const {
 const THUMBNAIL_MAX_SIZE = 5 * 1024 * 1024;
 const THUMBNAIL_FOLDER = "rovauto/services";
 const CATEGORY_THUMBNAIL_FOLDER = "rovauto/service-categories";
+const MAX_POPULAR_SERVICES = 6;
 
 const normalizeText = (value) => String(value || "").trim();
 const parseBoolean = (value, fallback = true) => {
@@ -141,6 +142,15 @@ const updateCategory = async (categoryId, payload) => {
   }
   if (payload.isActive !== undefined) {
     data.isActive = parseBoolean(payload.isActive, true);
+    if (!data.isActive) {
+      data.isComingSoon = false;
+      data.services = {
+        updateMany: {
+          where: {},
+          data: { isPopular: false, popularOrder: null },
+        },
+      };
+    }
   }
   if (payload.isComingSoon !== undefined) {
     data.isComingSoon = parseBoolean(payload.isComingSoon, false);
@@ -188,6 +198,8 @@ const deactivateCategory = async (categoryId) => {
           where: {},
           data: {
             isActive: false,
+            isPopular: false,
+            popularOrder: null,
           },
         },
       },
@@ -231,9 +243,9 @@ const createService = async (payload) => {
 const updateService = async (serviceId, payload) => {
   await getService(serviceId);
 
-  if (payload.categoryId !== undefined) {
-    await getCategory(payload.categoryId);
-  }
+  const targetCategory = payload.categoryId !== undefined
+    ? await getCategory(payload.categoryId)
+    : null;
 
   const data = {};
   if (payload.categoryId !== undefined) data.categoryId = payload.categoryId;
@@ -247,9 +259,17 @@ const updateService = async (serviceId, payload) => {
   }
   if (payload.isActive !== undefined) {
     data.isActive = parseBoolean(payload.isActive, true);
+    if (!data.isActive) {
+      data.isPopular = false;
+      data.popularOrder = null;
+    }
   }
   if (payload.isComingSoon !== undefined) {
     data.isComingSoon = parseBoolean(payload.isComingSoon, false);
+  }
+  if (targetCategory && !targetCategory.isActive) {
+    data.isPopular = false;
+    data.popularOrder = null;
   }
   if (payload.restrictedCityIds !== undefined) {
     const restrictedCityIds = await ensureRestrictedCitiesExist(
@@ -282,12 +302,80 @@ const deactivateService = async (serviceId) => {
     data: {
       isActive: false,
       isComingSoon: false,
+      isPopular: false,
+      popularOrder: null,
     },
     include: serviceInclude,
   });
 
   await invalidateServiceCache();
   return service;
+};
+
+const setPopularServices = async (serviceIds = []) => {
+  const uniqueServiceIds = [...new Set(serviceIds)];
+
+  if (uniqueServiceIds.length !== serviceIds.length) {
+    throw new ApiError(400, "Popular services cannot contain duplicates");
+  }
+
+  if (uniqueServiceIds.length > MAX_POPULAR_SERVICES) {
+    throw new ApiError(
+      400,
+      `You can select at most ${MAX_POPULAR_SERVICES} popular services`,
+    );
+  }
+
+  const services = uniqueServiceIds.length
+    ? await prisma.service.findMany({
+        where: { id: { in: uniqueServiceIds } },
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+          category: { select: { name: true, isActive: true } },
+        },
+      })
+    : [];
+
+  if (services.length !== uniqueServiceIds.length) {
+    throw new ApiError(404, "One or more selected services were not found");
+  }
+
+  const unavailable = services.find(
+    (item) => !item.isActive || !item.category?.isActive,
+  );
+
+  if (unavailable) {
+    throw new ApiError(
+      400,
+      `${unavailable.name} must be active in an active category before it can be popular`,
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.service.updateMany({
+      where: { isPopular: true },
+      data: { isPopular: false, popularOrder: null },
+    });
+
+    for (const [index, serviceId] of uniqueServiceIds.entries()) {
+      await tx.service.update({
+        where: { id: serviceId },
+        data: { isPopular: true, popularOrder: index + 1 },
+      });
+    }
+  });
+
+  await invalidateServiceCache();
+
+  if (uniqueServiceIds.length === 0) return [];
+
+  return prisma.service.findMany({
+    where: { id: { in: uniqueServiceIds } },
+    include: serviceInclude,
+    orderBy: [{ popularOrder: "asc" }, { name: "asc" }],
+  });
 };
 
 const uploadThumbnail = async (serviceId, file) => {
@@ -398,6 +486,7 @@ module.exports = {
   getCategory,
   getService,
   listCategories,
+  setPopularServices,
   updateCategory,
   updateService,
   uploadCategoryThumbnail,

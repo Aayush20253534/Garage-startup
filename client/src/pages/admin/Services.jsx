@@ -5,18 +5,23 @@ import { useApp } from "@/hooks/useApp";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import {
   FiAlertCircle,
+  FiArrowDown,
+  FiArrowUp,
   FiCheckCircle,
   FiEdit3,
   FiImage,
   FiMapPin,
   FiPlus,
   FiRefreshCw,
+  FiSave,
   FiSearch,
+  FiStar,
   FiTrash2,
   FiX,
 } from "react-icons/fi";
 
 const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024;
+const MAX_POPULAR_SERVICES = 6;
 
 const emptyCategoryForm = {
   id: "",
@@ -190,6 +195,11 @@ export default function AdminServices() {
   const { user } = useApp();
   const isIntern = user?.role === "INTERN";
   const [categories, setCategories] = useState([]);
+  const [catalogueCategories, setCatalogueCategories] = useState([]);
+  const [popularServiceIds, setPopularServiceIds] = useState([]);
+  const [popularServiceDraft, setPopularServiceDraft] = useState([]);
+  const [popularServiceToAdd, setPopularServiceToAdd] = useState("");
+  const [savingPopular, setSavingPopular] = useState(false);
   const [cities, setCities] = useState([]);
   const [categoryCitySearch, setCategoryCitySearch] = useState("");
   const [serviceCitySearch, setServiceCitySearch] = useState("");
@@ -223,20 +233,88 @@ export default function AdminServices() {
     [categories]
   );
 
+  const catalogueServices = useMemo(
+    () =>
+      catalogueCategories.flatMap((category) =>
+        (category.services || []).map((service) => ({
+          ...service,
+          categoryName: category.name,
+          categoryActive: toBoolean(category.isActive),
+        })),
+      ),
+    [catalogueCategories],
+  );
+
+  const catalogueServiceById = useMemo(
+    () => new Map(catalogueServices.map((service) => [service.id, service])),
+    [catalogueServices],
+  );
+
+  const selectedPopularServices = useMemo(
+    () =>
+      popularServiceDraft
+        .map((serviceId) => catalogueServiceById.get(serviceId))
+        .filter(Boolean),
+    [catalogueServiceById, popularServiceDraft],
+  );
+
+  const availablePopularServices = useMemo(
+    () =>
+      catalogueServices
+        .filter(
+          (service) =>
+            toBoolean(service.isActive) &&
+            service.categoryActive &&
+            !popularServiceDraft.includes(service.id),
+        )
+        .sort(
+          (left, right) =>
+            left.categoryName.localeCompare(right.categoryName) ||
+            left.name.localeCompare(right.name),
+        ),
+    [catalogueServices, popularServiceDraft],
+  );
+
+  const popularSelectionChanged = useMemo(
+    () =>
+      popularServiceDraft.length !== popularServiceIds.length ||
+      popularServiceDraft.some(
+        (serviceId, index) => serviceId !== popularServiceIds[index],
+      ),
+    [popularServiceDraft, popularServiceIds],
+  );
+
   const load = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const [data, cityData] = await Promise.all([
+      const [data, catalogueData, cityData] = await Promise.all([
         adminApi.getServiceCategories({
           includeInactive,
           ...(search.trim() && { search: search.trim() }),
         }),
+        adminApi.getServiceCategories({ includeInactive: true }),
         cityApi.getAdminCities({ includeInactive: true }),
       ]);
 
+      const fullCatalogue = catalogueData || [];
+      const configuredPopularIds = fullCatalogue
+        .flatMap((category) => category.services || [])
+        .filter((service) => toBoolean(service.isPopular))
+        .sort(
+          (left, right) =>
+            (Number(left.popularOrder) || Number.MAX_SAFE_INTEGER) -
+              (Number(right.popularOrder) || Number.MAX_SAFE_INTEGER) ||
+            left.name.localeCompare(right.name),
+        )
+        .map((service) => service.id);
+
       setCategories(data || []);
+      setCatalogueCategories(fullCatalogue);
+      setPopularServiceIds(configuredPopularIds);
+      setPopularServiceDraft(configuredPopularIds);
+      setPopularServiceToAdd("");
       setCities(cityData || []);
       setServiceForm((current) => ({
         ...current,
@@ -624,6 +702,64 @@ export default function AdminServices() {
     }
   };
 
+  const addPopularService = () => {
+    if (!popularServiceToAdd) return;
+
+    if (popularServiceDraft.length >= MAX_POPULAR_SERVICES) {
+      setError(`You can select at most ${MAX_POPULAR_SERVICES} popular services.`);
+      return;
+    }
+
+    setError("");
+    setPopularServiceDraft((current) => [...current, popularServiceToAdd]);
+    setPopularServiceToAdd("");
+  };
+
+  const removePopularService = (serviceId) => {
+    setPopularServiceDraft((current) =>
+      current.filter((currentId) => currentId !== serviceId),
+    );
+  };
+
+  const movePopularService = (serviceId, direction) => {
+    setPopularServiceDraft((current) => {
+      const currentIndex = current.indexOf(serviceId);
+      const nextIndex = currentIndex + direction;
+
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= current.length) {
+        return current;
+      }
+
+      const next = [...current];
+      [next[currentIndex], next[nextIndex]] = [
+        next[nextIndex],
+        next[currentIndex],
+      ];
+      return next;
+    });
+  };
+
+  const savePopularServices = async () => {
+    if (savingPopular || !popularSelectionChanged) return;
+
+    setSavingPopular(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await adminApi.updatePopularServices(popularServiceDraft);
+      setSuccess("Popular vehicle services updated.");
+      await load();
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to update popular vehicle services",
+      );
+    } finally {
+      setSavingPopular(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-4 overflow-x-hidden">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -921,6 +1057,173 @@ export default function AdminServices() {
       )}
 
       <section className="card-soft rounded-2xl p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
+                <FiStar />
+              </span>
+              <div>
+                <h3 className="text-base font-bold text-ink">
+                  Popular Vehicle Services
+                </h3>
+                <p className="mt-0.5 text-xs leading-5 text-muted">
+                  Choose and order the services shown on the customer home page.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <span className="w-fit rounded-full bg-bg-soft px-3 py-1.5 text-xs font-bold text-ink">
+            {popularServiceDraft.length}/{MAX_POPULAR_SERVICES} selected
+          </span>
+        </div>
+
+        {!isIntern && (
+          <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <select
+              value={popularServiceToAdd}
+              onChange={(event) => setPopularServiceToAdd(event.target.value)}
+              disabled={
+                popularServiceDraft.length >= MAX_POPULAR_SERVICES ||
+                availablePopularServices.length === 0
+              }
+              className={fieldClass}
+            >
+              <option value="">
+                {popularServiceDraft.length >= MAX_POPULAR_SERVICES
+                  ? "Maximum 6 services selected"
+                  : "Select an active service"}
+              </option>
+              {availablePopularServices.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.categoryName} — {service.name}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={addPopularService}
+              disabled={!popularServiceToAdd}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FiPlus />
+              Add to home
+            </button>
+          </div>
+        )}
+
+        <div className="mt-4 grid gap-2">
+          {selectedPopularServices.map((service, index) => {
+            const thumbnail = getThumbnail(service);
+
+            return (
+              <div
+                key={service.id}
+                className="grid gap-3 rounded-xl border border-line bg-white p-3 sm:grid-cols-[40px_48px_minmax(0,1fr)_auto] sm:items-center"
+              >
+                <div className="grid h-10 w-10 place-items-center rounded-lg bg-bg-soft text-sm font-extrabold text-ink">
+                  {index + 1}
+                </div>
+
+                <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-lg bg-bg-soft">
+                  {thumbnail ? (
+                    <img
+                      src={thumbnail}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <FiImage className="text-muted" />
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-bold text-ink">
+                    {service.name}
+                  </div>
+                  <div className="mt-0.5 truncate text-xs text-muted">
+                    {service.categoryName}
+                  </div>
+                </div>
+
+                {!isIntern && (
+                  <div className="flex items-center gap-1 sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => movePopularService(service.id, -1)}
+                      disabled={index === 0}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-35"
+                      aria-label={`Move ${service.name} up`}
+                      title="Move up"
+                    >
+                      <FiArrowUp />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => movePopularService(service.id, 1)}
+                      disabled={index === selectedPopularServices.length - 1}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-35"
+                      aria-label={`Move ${service.name} down`}
+                      title="Move down"
+                    >
+                      <FiArrowDown />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removePopularService(service.id)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
+                      aria-label={`Remove ${service.name} from home`}
+                      title="Remove from home"
+                    >
+                      <FiX />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {selectedPopularServices.length === 0 && (
+            <div className="rounded-xl border border-dashed border-line bg-bg-soft/60 p-5 text-center text-sm text-muted">
+              No popular services selected. The home page will show an empty-state message
+              until an admin adds services here.
+            </div>
+          )}
+        </div>
+
+        {!isIntern && (
+          <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs leading-5 text-muted">
+              Only active services from active categories can be selected. City and
+              service restrictions still apply for each customer.
+            </p>
+
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => setPopularServiceDraft(popularServiceIds)}
+                disabled={!popularSelectionChanged || savingPopular}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-bold text-ink transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={savePopularServices}
+                disabled={!popularSelectionChanged || savingPopular}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-lime-400 px-4 text-sm font-bold text-black transition hover:bg-lime-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FiSave />
+                {savingPopular ? "Saving..." : "Save home services"}
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="card-soft rounded-2xl p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
           <label className="relative min-w-0">
             <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -1110,7 +1413,7 @@ export default function AdminServices() {
                     const serviceRestrictedCityNames =
                       getRestrictedCityNames(service);
 
-                    return (
+  return (
                       <div
                         key={service.id}
                         className="grid gap-3 rounded-xl border border-line p-3 transition hover:bg-bg-soft/70 sm:grid-cols-[56px_minmax(0,1fr)_auto]"

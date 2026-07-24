@@ -445,6 +445,10 @@ export const adminApi = {
     );
   },
 
+  async updatePopularServices(serviceIds) {
+    return unwrap(await api.put("/admin/services/popular", { serviceIds }));
+  },
+
   async createService(payload) {
     return unwrap(await api.post("/admin/services", payload));
   },

@@ -120,6 +120,7 @@ export default function Revenue() {
   const { user } = useApp();
   const isIntern = user?.role === "INTERN";
   const [ranges, setRanges] = useState([]);
+  const [totalRangeCount, setTotalRangeCount] = useState(0);
   const [nextRangeCursor, setNextRangeCursor] = useState(null);
   const [loadingMoreRanges, setLoadingMoreRanges] = useState(false);
   const [submissions, setSubmissions] = useState([]);
@@ -186,12 +187,23 @@ export default function Revenue() {
         adminApi.getPriceRangeSubmissions(),
       ]);
 
-      setRanges(Array.isArray(rangeList?.items) ? rangeList.items : []);
+      const loadedRanges = Array.isArray(rangeList?.items)
+        ? rangeList.items
+        : [];
+      const total = Number(rangeList?.total);
+
+      setRanges(loadedRanges);
+      setTotalRangeCount(
+        Number.isFinite(total) ? Math.max(0, total) : loadedRanges.length,
+      );
       setNextRangeCursor(rangeList?.nextCursor || null);
       setServices(serviceList || []);
       setSubmissions(submissionList || []);
       setSelectedRangeIds([]);
     } catch (err) {
+      setRanges([]);
+      setTotalRangeCount(0);
+      setNextRangeCursor(null);
       setError(err.response?.data?.message || "Unable to load price ranges");
     } finally {
       setLoading(false);
@@ -211,6 +223,10 @@ export default function Revenue() {
         cursor: nextRangeCursor,
       });
       setRanges((current) => [...current, ...(result?.items || [])]);
+      const total = Number(result?.total);
+      if (Number.isFinite(total)) {
+        setTotalRangeCount(Math.max(0, total));
+      }
       setNextRangeCursor(result?.nextCursor || null);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load more price ranges");
@@ -1418,12 +1434,17 @@ export default function Revenue() {
             <p className="text-sm font-bold text-ink">
               Approved Live Price Ranges
             </p>
-            <p className="mt-1 text-xs text-muted">
-              {ranges.length} customer-visible range{ranges.length === 1 ? "" : "s"}
-              {selectedRangeIds.length
-                ? ` · ${selectedRangeIds.length} selected`
-                : ""}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-full bg-bg-soft px-2.5 py-1 font-bold text-ink">
+                Total price ranges: {totalRangeCount}
+              </span>
+              <span className="text-muted">
+                Showing {ranges.length} of {totalRangeCount}
+                {selectedRangeIds.length
+                  ? ` · ${selectedRangeIds.length} selected`
+                  : ""}
+              </span>
+            </div>
           </div>
 
           {!isIntern && (

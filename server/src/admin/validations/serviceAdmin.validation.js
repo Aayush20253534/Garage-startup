@@ -63,6 +63,15 @@ const createServiceSchema = [
   ...restrictedCityIdsSchema,
 ];
 
+const updatePopularServicesSchema = [
+  body("serviceIds")
+    .isArray({ max: 6 })
+    .withMessage("serviceIds must be an array with at most 6 services"),
+  body("serviceIds.*")
+    .isUUID()
+    .withMessage("Each popular service ID must be valid"),
+];
+
 const updateServiceSchema = [
   ...serviceIdSchema,
   body("categoryId")
@@ -86,5 +95,6 @@ module.exports = {
   createServiceSchema,
   serviceIdSchema,
   updateCategorySchema,
+  updatePopularServicesSchema,
   updateServiceSchema,
 };

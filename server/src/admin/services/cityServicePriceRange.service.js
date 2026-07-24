@@ -139,13 +139,16 @@ const upsertLivePriceRange = async (payload = {}, db = prisma) => {
 const listPriceRanges = async (query = {}) => {
   const limit = parsePageLimit(query.limit);
   const cursor = decodeCursor(query.cursor, "createdAt");
-  const where = {
+  const filterWhere = {
     ...(query.city && { city: normalizeCity(query.city) }),
     ...(query.serviceId && { serviceId: query.serviceId }),
     ...(query.vehicleBrand && { vehicleBrand: normalizeScopeValue(query.vehicleBrand) }),
     ...(query.vehicleModel && { vehicleModel: normalizeScopeValue(query.vehicleModel) }),
     ...(query.fuelType && { fuelType: query.fuelType }),
     ...(query.isActive !== undefined && { isActive: query.isActive === "true" }),
+  };
+  const pageWhere = {
+    ...filterWhere,
     ...(cursor && {
       OR: [
         { createdAt: { lt: cursor.createdAt } },
@@ -154,17 +157,21 @@ const listPriceRanges = async (query = {}) => {
     }),
   };
 
-  const rows = await prisma.cityServicePriceRange.findMany({
-    where,
-    include: priceRangeInclude,
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: limit + 1,
-  });
+  const [rows, total] = await Promise.all([
+    prisma.cityServicePriceRange.findMany({
+      where: pageWhere,
+      include: priceRangeInclude,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+    }),
+    prisma.cityServicePriceRange.count({ where: filterWhere }),
+  ]);
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
   const last = items.at(-1);
   return {
     items,
+    total,
     nextCursor: hasMore
       ? encodeCursor({ id: last.id, createdAt: last.createdAt })
       : null,

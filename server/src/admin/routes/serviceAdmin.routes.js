@@ -12,6 +12,7 @@ const {
   createServiceSchema,
   serviceIdSchema,
   updateCategorySchema,
+  updatePopularServicesSchema,
   updateServiceSchema,
 } = require("../validations/serviceAdmin.validation");
 
@@ -57,6 +58,13 @@ router.post(
   categoryIdSchema,
   validate,
   controller.uploadCategoryThumbnail,
+);
+router.put(
+  "/popular",
+  authorizeRoles("ADMIN"),
+  updatePopularServicesSchema,
+  validate,
+  controller.updatePopularServices,
 );
 router.post(
   "/",

@@ -239,7 +239,7 @@ const getServiceAvailabilityWhere = (context) =>
 
 const getServiceCategories = async (options = {}) => {
   const context = await getCustomerServiceContext(options);
-  const cacheKey = context ? null : "services:categories:public:v3";
+  const cacheKey = context ? null : "services:categories:public:v4";
 
   const cached = cacheKey ? await getCache(cacheKey) : null;
   if (cached) return cached;

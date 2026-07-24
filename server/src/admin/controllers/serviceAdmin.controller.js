@@ -37,6 +37,13 @@ const createService = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Service created successfully", created));
 });
 
+const updatePopularServices = asyncHandler(async (req, res) => {
+  const services = await service.setPopularServices(req.body.serviceIds);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Popular services updated successfully", services));
+});
+
 const updateService = asyncHandler(async (req, res) => {
   const updated = await service.updateService(req.params.serviceId, req.body);
   return res
@@ -77,6 +84,7 @@ module.exports = {
   deactivateService,
   listCategories,
   updateCategory,
+  updatePopularServices,
   updateService,
   uploadCategoryThumbnail,
   uploadThumbnail,
