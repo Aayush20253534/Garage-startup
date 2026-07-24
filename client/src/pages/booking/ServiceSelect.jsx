@@ -82,9 +82,8 @@ function CartItems({ cart, serviceById, comingSoonIds, removeFromCart }) {
                 <ServicePriceDisplay
                   service={currentService}
                   className="max-w-52 justify-end text-right"
-                  regularClassName="text-sm font-black text-red-600 line-through decoration-[3px] decoration-red-500/90 sm:text-base"
-                  currentClassName="text-xs font-extrabold text-ink sm:text-sm"
-                  badgeClassName="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-emerald-800"
+                  regularClassName="text-[10px] font-bold text-red-500 line-through decoration-2 decoration-red-400/90 sm:text-xs"
+                  currentClassName="text-xs font-black text-ink sm:text-sm"
                 />
               )}
               <button
@@ -429,8 +428,8 @@ export default function ServiceSelect() {
                       <ServicePriceDisplay
                         service={service}
                         className="justify-start sm:justify-end"
-                        regularClassName="whitespace-nowrap text-xl font-black text-red-600 line-through decoration-[3px] decoration-red-500/90 sm:text-2xl"
-                        currentClassName="whitespace-nowrap text-base font-extrabold leading-tight text-ink sm:text-lg"
+                        regularClassName="whitespace-nowrap text-xs font-bold text-red-500 line-through decoration-2 decoration-red-400/90 sm:text-sm"
+                        currentClassName="whitespace-nowrap text-xl font-black leading-tight tracking-tight text-ink sm:text-2xl"
                       />
                     ) : (
                       <div className="max-w-44 text-xs font-bold leading-4 text-amber-700 sm:text-sm sm:leading-5">

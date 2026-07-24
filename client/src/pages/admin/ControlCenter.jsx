@@ -679,86 +679,146 @@ export default function ControlCenter() {
               title="Admin audit logs"
               description="Every action is tied to the exact main-admin, sub-admin, or intern account that performed it. Email and login ID are stored as point-in-time audit snapshots."
             >
-              <div className="mb-4 grid gap-3 rounded-xl border border-line bg-bg-soft p-3 sm:grid-cols-[minmax(0,1fr)_220px_auto]">
+              <div className="mb-5 grid gap-3 rounded-2xl border border-line bg-bg-soft/70 p-3 sm:grid-cols-[minmax(0,1fr)_220px_auto] sm:items-center">
                 <label className="relative block">
-                  <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                  <FiSearch className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
                   <input
                     value={auditSearch}
                     onChange={(event) => setAuditSearch(event.target.value)}
-                    placeholder="Search name, email, login ID, action or route"
-                    className={`${fieldClass} w-full pl-9`}
+                    placeholder="Search staff, action, resource or route"
+                    className={`${fieldClass} w-full bg-white pl-10`}
                   />
                 </label>
-                <select value={auditRole} onChange={(event) => setAuditRole(event.target.value)} className={fieldClass}>
+
+                <select
+                  value={auditRole}
+                  onChange={(event) => setAuditRole(event.target.value)}
+                  className={`${fieldClass} w-full bg-white`}
+                >
                   <option value="">All staff accounts</option>
                   <option value="ADMIN">Main admins</option>
                   <option value="SUB_ADMIN">Sub-admins</option>
                   <option value="INTERN">Interns</option>
                 </select>
-                <div className="flex h-10 items-center justify-center rounded-lg border border-line bg-white px-3 text-xs font-bold text-muted">
-                  {filteredAuditLogs.length} of {auditLogs.length} logs
+
+                <div className="flex h-10 items-center justify-center rounded-lg border border-line bg-white px-3 text-xs font-extrabold text-ink">
+                  {filteredAuditLogs.length} / {auditLogs.length}
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-[1180px] w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-xs uppercase text-muted">
-                      <th className="py-3">Time</th>
-                      <th>Exact staff account</th>
-                      <th>Action</th>
-                      <th>Resource</th>
-                      <th>Route</th>
-                      <th>Status</th>
-                      <th>IP</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAuditLogs.map((log) => {
-                      const roleLabel = log.actorRole === "ADMIN"
-                        ? "MAIN ADMIN"
-                        : log.actorRole === "SUB_ADMIN"
-                          ? "SUB ADMIN"
-                          : log.actorRole || "UNKNOWN ROLE";
-                      const primaryIdentifier = log.actorEmail || log.actorLoginId || log.actorId || "Identifier unavailable";
+              <div className="overflow-hidden rounded-2xl border border-line bg-white">
+                {filteredAuditLogs.map((log) => {
+                  const roleLabel = log.actorRole === "ADMIN"
+                    ? "MAIN ADMIN"
+                    : log.actorRole === "SUB_ADMIN"
+                      ? "SUB ADMIN"
+                      : log.actorRole || "UNKNOWN ROLE";
+                  const primaryIdentifier = log.actorEmail || log.actorLoginId || log.actorId || "Identifier unavailable";
+                  const numericStatus = Number(log.statusCode);
+                  const hasStatusCode = Number.isFinite(numericStatus);
+                  const requestSucceeded = hasStatusCode && numericStatus < 400;
 
-                      return (
-                        <tr key={log.id} className="border-b border-line align-top">
-                          <td className="py-3 whitespace-nowrap">{formatDateTime(log.createdAt)}</td>
-                          <td className="min-w-[260px] py-3">
-                            <div className="rounded-xl border border-line bg-bg-soft p-3" title={log.actorId || undefined}>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-extrabold text-ink">{log.actorName || "Unknown staff account"}</p>
-                                <span className="rounded-full border border-line bg-white px-2 py-0.5 text-[10px] font-extrabold text-ink">
-                                  {roleLabel}
-                                </span>
-                              </div>
-                              <p className="mt-1 break-all text-xs font-semibold text-muted">{primaryIdentifier}</p>
-                              {log.actorEmail && log.actorLoginId && log.actorEmail !== log.actorLoginId && (
-                                <p className="mt-0.5 break-all text-[11px] text-muted">Login ID: {log.actorLoginId}</p>
-                              )}
-                              {log.actorId && (
-                                <p className="mt-1 text-[10px] text-muted/80">Account ID: {log.actorId}</p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3"><Badge value={log.action} /></td>
-                          <td className="py-3">{log.resource}{log.resourceId ? ` · ${log.resourceId.slice(0, 8)}` : ""}</td>
-                          <td className="max-w-[320px] truncate py-3" title={log.path}>{log.method} {log.path}</td>
-                          <td className="py-3">{log.statusCode}</td>
-                          <td className="py-3">{log.ipAddress || "-"}</td>
-                        </tr>
-                      );
-                    })}
-                    {filteredAuditLogs.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="py-10 text-center text-sm text-muted">
-                          No audit logs match the selected account filters.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                  return (
+                    <article
+                      key={log.id}
+                      className="grid gap-4 border-b border-line p-4 transition last:border-b-0 hover:bg-bg-soft/50 sm:p-5 xl:grid-cols-[165px_minmax(220px,1.15fr)_minmax(180px,0.8fr)_minmax(260px,1.25fr)_105px] xl:items-start"
+                    >
+                      <div>
+                        <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
+                          Time
+                        </p>
+                        <p className="mt-1.5 whitespace-nowrap text-sm font-bold text-ink">
+                          {formatDateTime(log.createdAt)}
+                        </p>
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-extrabold text-ink">
+                            {log.actorName || "Unknown staff account"}
+                          </p>
+                          <span className="rounded-full border border-line bg-bg-soft px-2 py-0.5 text-[10px] font-extrabold text-ink">
+                            {roleLabel}
+                          </span>
+                        </div>
+                        <p className="mt-1 break-all text-xs font-semibold text-muted">
+                          {primaryIdentifier}
+                        </p>
+                        {log.actorEmail && log.actorLoginId && log.actorEmail !== log.actorLoginId && (
+                          <p className="mt-0.5 break-all text-[11px] text-muted">
+                            Login ID: {log.actorLoginId}
+                          </p>
+                        )}
+                        {log.actorId && (
+                          <p className="mt-1 break-all font-mono text-[10px] text-muted/80">
+                            {log.actorId}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
+                          Activity
+                        </p>
+                        <div className="mt-1.5">
+                          <Badge value={log.action} />
+                        </div>
+                        <p className="mt-2 break-words text-sm font-semibold text-ink">
+                          {log.resource || "Unknown resource"}
+                          {log.resourceId ? ` · ${log.resourceId.slice(0, 8)}` : ""}
+                        </p>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
+                          Request route
+                        </p>
+                        <div className="mt-1.5 flex min-w-0 items-start gap-2 rounded-xl border border-line bg-bg-soft px-3 py-2.5">
+                          <span className="shrink-0 rounded-md bg-ink px-2 py-1 text-[10px] font-black text-white">
+                            {log.method || "-"}
+                          </span>
+                          <span className="min-w-0 break-all font-mono text-xs leading-5 text-ink" title={log.path}>
+                            {log.path || "Route unavailable"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
+                          Result
+                        </p>
+                        <span
+                          className={`mt-1.5 inline-flex rounded-full border px-2.5 py-1 text-xs font-extrabold ${
+                            !hasStatusCode
+                              ? "border-line bg-bg-soft text-muted"
+                              : requestSucceeded
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : "border-red-200 bg-red-50 text-red-700"
+                          }`}
+                        >
+                          {log.statusCode || "-"}
+                        </span>
+                        <p className="mt-2 break-all text-xs text-muted">
+                          {log.ipAddress || "IP unavailable"}
+                        </p>
+                      </div>
+                    </article>
+                  );
+                })}
+
+                {filteredAuditLogs.length === 0 && (
+                  <div className="px-4 py-14 text-center sm:px-6">
+                    <div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-bg-soft text-muted">
+                      <FiFileText />
+                    </div>
+                    <p className="mt-3 text-sm font-bold text-ink">
+                      No matching audit logs
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      Try changing the search term or staff filter.
+                    </p>
+                  </div>
+                )}
               </div>
             </Section>
           )}

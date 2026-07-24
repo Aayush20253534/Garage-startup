@@ -619,10 +619,10 @@ export default function CategoryDetail() {
           return (
             <article
               key={pkg.id}
-              className="overflow-hidden rounded-[26px] border border-gray-100 bg-white p-3 shadow-[0_12px_36px_rgba(15,23,42,0.08)] sm:p-5 sm:shadow-lg"
+              className="group overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)] transition hover:border-gray-300 hover:shadow-[0_18px_48px_rgba(15,23,42,0.11)]"
             >
-              <div className="flex flex-col gap-0 md:flex-row md:gap-5">
-                <div className="relative aspect-[16/10] w-full flex-shrink-0 overflow-hidden rounded-[20px] bg-bg-soft md:h-44 md:w-56 md:rounded-2xl">
+              <div className="grid md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_320px]">
+                <div className="relative aspect-[16/10] w-full overflow-hidden bg-bg-soft md:aspect-auto md:min-h-[230px]">
                   <SafeImage
                     src={serviceImage}
                     alt={`${pkg.name} vehicle service`}
@@ -630,8 +630,10 @@ export default function CategoryDetail() {
                     height="420"
                     loading="lazy"
                     decoding="async"
-                    className={`h-full w-full object-cover transition ${
-                      comingSoon ? "scale-105 blur-sm grayscale" : ""
+                    className={`h-full w-full object-cover transition duration-500 ${
+                      comingSoon
+                        ? "scale-105 blur-sm grayscale"
+                        : "group-hover:scale-[1.02]"
                     }`}
                     fallback={
                       <div className="grid h-full w-full place-items-center text-4xl text-muted">
@@ -643,198 +645,135 @@ export default function CategoryDetail() {
                   {comingSoon && <ComingSoonOverlay />}
                 </div>
 
-                <div className="min-w-0 flex-1 pt-4 md:pt-0">
-                  {/* Compact mobile card */}
-                  <div className="md:hidden">
-                    <div className="mb-3 flex items-start justify-between gap-3 px-1">
-                      <h2 className="min-w-0 text-[1.3rem] font-extrabold leading-tight tracking-tight text-ink">
-                        {pkg.name}
-                      </h2>
+                <div className="min-w-0 p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <h2 className="min-w-0 text-xl font-black leading-tight tracking-tight text-ink sm:text-2xl">
+                      {pkg.name}
+                    </h2>
 
-                      {comingSoon && (
-                        <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-800">
-                          Coming soon
-                        </span>
+                    {comingSoon && (
+                      <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-amber-800">
+                        Coming soon
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                      <FiCheckCircle className="text-sm" />
+                      Verified
+                    </span>
+
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
+                      <FiStar className="text-sm" />
+                      Popular
+                    </span>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-2 gap-2.5">
+                    <div className="rounded-2xl border border-gray-100 bg-gray-50/80 px-3.5 py-3">
+                      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                        <FiShield className="text-base text-ink" />
+                        Warranty
+                      </div>
+                      <div className="mt-1.5 text-sm font-extrabold text-ink">
+                        Available
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-100 bg-gray-50/80 px-3.5 py-3">
+                      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                        <FiLayers className="text-base text-ink" />
+                        Coverage
+                      </div>
+                      <div className="mt-1.5 text-sm font-extrabold text-ink">
+                        {includes.length} item{includes.length === 1 ? "" : "s"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {includes.length > 0 && (
+                    <div className="mt-5">
+                      <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-muted">
+                        What is included
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {includes.slice(0, 3).map((item, index) => (
+                          <span
+                            key={`${item}-${index}`}
+                            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                        {includes.length > 3 && (
+                          <span className="rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs font-bold text-gray-600">
+                            +{includes.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <aside className="border-t border-gray-200 bg-gray-50/60 p-4 sm:p-5 md:col-span-2 xl:col-span-1 xl:border-l xl:border-t-0">
+                  <div className="flex h-full flex-col">
+                    <div>
+                      <p className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-muted">
+                        Estimated service price
+                      </p>
+
+                      {hasPrice ? (
+                        <div className="mt-2">
+                          <ServicePriceDisplay
+                            service={pkg}
+                            regularClassName="whitespace-nowrap text-sm font-bold text-red-500 line-through decoration-2 decoration-red-400/90"
+                            currentClassName="whitespace-nowrap text-2xl font-black leading-none tracking-tight text-ink sm:text-[1.7rem]"
+                          />
+                          {maxPrice > minPrice && (
+                            <p className="mt-2 text-xs leading-5 text-muted">
+                              Final price is confirmed before checkout.
+                            </p>
+                          )}
+                        </div>
+                      ) : pricingContextActive && !comingSoon ? (
+                        <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold leading-5 text-amber-800">
+                          {pkg.priceUnavailableMessage ||
+                            "Price not allocated for this vehicle"}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-lg font-extrabold text-ink">
+                          {comingSoon ? "Coming soon" : "Select vehicle for price"}
+                        </p>
                       )}
                     </div>
 
-                    {hasPrice && (
-                      <div className="mb-3 px-1">
-                        <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
-                          <ServicePriceDisplay
-                            service={pkg}
-                            regularClassName="whitespace-nowrap text-[1.55rem] font-black leading-none text-red-600 line-through decoration-[3px] decoration-red-500/90"
-                            currentClassName="whitespace-nowrap text-[1.2rem] font-extrabold leading-none tracking-tight text-ink"
-                          />
-
-                          {maxPrice > minPrice && (
-                            <span className="pb-0.5 text-xs font-medium text-muted">
-                              Estimated range
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {pricingContextActive && !hasPrice && !comingSoon && (
-                      <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold leading-5 text-amber-800">
-                        {pkg.priceUnavailableMessage ||
-                          "Price not allocated for this vehicle"}
-                      </div>
-                    )}
-
-                    <div className="mb-3 flex flex-wrap gap-2 px-1">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700">
-                        <FiCheckCircle className="text-sm" />
-                        Verified
-                      </span>
-
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700">
-                        <FiStar className="text-sm" />
-                        Popular
-                      </span>
-                    </div>
-
-                    <div className="mb-4 grid grid-cols-2 gap-2">
-                      <div className="rounded-2xl bg-gray-50 px-3 py-2.5">
-                        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                          <FiShield className="text-sm" />
-                          Warranty
-                        </div>
-                        <div className="text-sm font-bold text-ink">
-                          Available
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl bg-gray-50 px-3 py-2.5">
-                        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                          <FiLayers className="text-sm" />
-                          Included
-                        </div>
-                        <div className="text-sm font-bold text-ink">
-                          {includes.length} service
-                          {includes.length === 1 ? "" : "s"}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="mt-5 grid grid-cols-2 gap-2.5 xl:mt-auto xl:grid-cols-1">
                       <button
                         type="button"
                         onClick={() => setSelectedPackage(pkg)}
-                        className="min-h-12 rounded-2xl border border-gray-300 bg-white px-3 py-3 text-sm font-bold text-ink transition active:scale-[0.98]"
+                        className="min-h-12 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-extrabold text-ink transition hover:border-gray-950 hover:bg-gray-50 active:scale-[0.98]"
                       >
-                        Details
+                        View details
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleBook(pkg)}
                         disabled={comingSoon || (pricingContextActive && !hasPrice)}
-                        className="min-h-12 rounded-2xl bg-[#b9f000] px-3 py-3 text-sm font-extrabold text-gray-950 shadow-[0_10px_28px_-12px_rgba(185,240,0,0.9)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="min-h-12 rounded-xl bg-[#b9f000] px-4 py-3 text-sm font-black text-gray-950 shadow-[0_12px_28px_-14px_rgba(134,173,0,0.9)] transition hover:bg-[#a9dc00] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {comingSoon
                           ? "Coming Soon"
                           : !user
                             ? "Login to Book"
                             : hasPrice
-                              ? "Book"
+                              ? "Book service"
                               : "Unavailable"}
                       </button>
                     </div>
                   </div>
-
-                  {/* Existing desktop card */}
-                  <div className="hidden md:block">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <h2 className="text-xl font-bold sm:text-2xl">
-                        {pkg.name}
-                      </h2>
-
-                      {comingSoon && (
-                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
-                          Coming Soon
-                        </span>
-                      )}
-                    </div>
-
-                    {hasPrice && (
-                      <div className="mb-2 flex flex-wrap items-baseline gap-3">
-                        <ServicePriceDisplay
-                          service={pkg}
-                          regularClassName="text-2xl font-black text-red-600 line-through decoration-[3px] decoration-red-500/90"
-                          currentClassName="text-xl font-extrabold text-ink"
-                        />
-
-                        {maxPrice > minPrice && (
-                          <span className="text-base text-muted">
-                            estimated range
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {pricingContextActive && !hasPrice && !comingSoon && (
-                      <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-                        {pkg.priceUnavailableMessage ||
-                          "Price not allocated for this vehicle"}
-                      </div>
-                    )}
-
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="text-sm text-muted">
-                        Verified service
-                      </span>
-                    </div>
-
-                    <div className="mb-4 inline-block rounded-xl bg-yellow-100 px-3 py-1.5 text-sm font-medium text-yellow-800">
-                      Popular service
-                    </div>
-
-                    <ul className="mb-5 space-y-2">
-                      <li className="flex items-start gap-2 text-base">
-                        <span className="font-bold text-ink">Warranty:</span>
-                        <span className="text-muted">
-                          Service warranty available
-                        </span>
-                      </li>
-
-                      <li className="flex items-start gap-2 text-base">
-                        <span className="font-bold text-ink">Coverage :</span>
-                        <span className="text-muted">
-                          {includes.length} included
-                        </span>
-                      </li>
-                    </ul>
-
-                    <div className="my-4 border-t border-dashed border-gray-200" />
-
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPackage(pkg)}
-                        className="flex-1 rounded-2xl border border-gray-300 px-6 py-3 text-base font-bold transition hover:bg-gray-50"
-                      >
-                        View Details
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleBook(pkg)}
-                        disabled={comingSoon || (pricingContextActive && !hasPrice)}
-                        className="flex-1 rounded-2xl bg-[#b9f000] px-6 py-3 text-base font-bold shadow-[0_10px_40px_-10px_rgba(185,240,0,0.55)] transition hover:bg-[#9bd000] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {comingSoon
-                          ? "Coming Soon"
-                          : !user
-                            ? "Login to Book"
-                            : hasPrice
-                              ? "Book"
-                              : "Price unavailable"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                </aside>
               </div>
             </article>
           );
@@ -897,8 +836,8 @@ export default function CategoryDetail() {
                 <ServicePriceDisplay
                   service={selectedPackage}
                   className="mb-3"
-                  regularClassName="text-2xl font-black text-red-600 line-through decoration-[3px] decoration-red-500/90"
-                  currentClassName="text-xl font-extrabold text-ink"
+                  regularClassName="text-sm font-bold text-red-500 line-through decoration-2 decoration-red-400/90"
+                  currentClassName="text-2xl font-black tracking-tight text-ink"
                 />
               )}
 
@@ -940,8 +879,8 @@ export default function CategoryDetail() {
                     {selectedPackage.priceRange ? (
                       <ServicePriceDisplay
                         service={selectedPackage}
-                        regularClassName="text-base font-black text-red-600 line-through decoration-[3px] decoration-red-500/90"
-                        currentClassName="text-sm font-extrabold text-ink"
+                        regularClassName="text-xs font-bold text-red-500 line-through decoration-2 decoration-red-400/90"
+                        currentClassName="text-base font-black text-ink"
                       />
                     ) : user || guestPricingReady ? (
                       selectedPackage.priceUnavailableMessage ||

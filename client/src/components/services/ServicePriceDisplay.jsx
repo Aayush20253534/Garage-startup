@@ -17,10 +17,9 @@ export default function ServicePriceDisplay({
   service,
   mode = "range",
   className = "",
-  regularClassName = "text-2xl font-black text-red-600 line-through decoration-[3px] decoration-red-500/90",
-  currentClassName = "text-lg font-extrabold text-ink",
-  badgeClassName = "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-emerald-800",
-  showBadge = true,
+  regularClassName =
+    "text-sm font-bold text-red-500 line-through decoration-2 decoration-red-400/90",
+  currentClassName = "text-xl font-black tracking-tight text-ink",
 }) {
   if (!service?.priceRange) return null;
 
@@ -46,24 +45,19 @@ export default function ServicePriceDisplay({
       : formatRupeeRange(reference.min, reference.max);
 
   return (
-    <div
-      className={`inline-flex max-w-full flex-wrap items-end gap-x-3 gap-y-1.5 rounded-xl border border-line/80 bg-white/90 px-2.5 py-2 shadow-sm ${className}`}
+    <span
+      className={`inline-flex max-w-full flex-wrap items-baseline gap-x-2 gap-y-1 ${className}`}
     >
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-red-500 sm:text-[10px]">
-          Reference +{referenceMarkupPercent}%
-        </span>
-        <span className={regularClassName}>{referenceText}</span>
-      </div>
-
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-muted sm:text-[10px]">
-          Rovauto price
-        </span>
-        <span className={currentClassName}>{currentText}</span>
-      </div>
-
-      {showBadge && <span className={badgeClassName}>Actual price</span>}
-    </div>
+      <span className={currentClassName} aria-label={`Current price ${currentText}`}>
+        {currentText}
+      </span>
+      <span
+        className={regularClassName}
+        aria-label={`City comparison price ${referenceText}`}
+        title="City comparison price"
+      >
+        {referenceText}
+      </span>
+    </span>
   );
 }

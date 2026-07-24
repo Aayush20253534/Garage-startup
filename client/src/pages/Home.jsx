@@ -600,8 +600,8 @@ export default function Home() {
                               service={service}
                               mode="min"
                               className="justify-end"
-                              regularClassName="text-2xl font-black text-red-600 line-through decoration-[3px] decoration-red-500/90"
-                              currentClassName="text-lg font-extrabold text-ink"
+                              regularClassName="text-sm font-bold text-red-500 line-through decoration-2 decoration-red-400/90"
+                              currentClassName="text-xl font-black tracking-tight text-ink"
                             />
                           </div>
                         )}
@@ -617,8 +617,8 @@ export default function Home() {
                             service={service}
                             mode="min"
                             className="justify-end"
-                            regularClassName="text-xl font-black text-red-600 line-through decoration-[3px] decoration-red-500/90"
-                            currentClassName="text-base font-extrabold text-ink"
+                            regularClassName="text-xs font-bold text-red-500 line-through decoration-2 decoration-red-400/90"
+                            currentClassName="text-lg font-black tracking-tight text-ink"
                           />
                         </div>
                       )}
