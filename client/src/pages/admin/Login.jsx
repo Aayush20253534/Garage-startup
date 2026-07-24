@@ -62,7 +62,7 @@ export default function AdminLogin() {
 
           {selectedRole === "SUB_ADMIN" && (
             <div className="mt-4 text-center">
-              <Link to="/admin/forgot-password" className="text-sm font-bold text-ink underline underline-offset-4">Forgot sub-admin password?</Link>
+              <Link to="/admin/forgot-password" className="text-sm font-bold text-ink ">Forgot password</Link>
             </div>
           )}
         </section>
