@@ -32,7 +32,6 @@ export default function AdminLogin() {
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Platform operations</p>
               <h1 className="mt-1 text-2xl font-extrabold text-ink sm:text-3xl">Admin login</h1>
-              <p className="mt-2 text-sm leading-6 text-muted">Choose the account type assigned to you. Every action is recorded against your individual account.</p>
             </div>
           </div>
 
