@@ -44,6 +44,8 @@ const adminSupportRoutes = require("../admin/routes/adminSupport.routes");
 const customerSupportAccountRoutes = require("../admin/routes/customerSupportAccount.routes");
 const internAccountRoutes = require("../admin/routes/internAccount.routes");
 const garageControllerAdminRoutes = require("../admin/routes/garageController.routes");
+const adminAuditMiddleware = require("../admin/middlewares/adminAudit.middleware");
+const adminControlCenterRoutes = require("../admin/routes/adminControlCenter.routes");
 const garageControllerManagementRoutes = require("../garage/routes/controllerManagement.routes");
 const garageControllerSelfRoutes = require("../garage/routes/controllerSelf.routes");
 const customerSupportRoutes = require("../customerSupport/routes/customerSupport.routes");
@@ -144,6 +146,9 @@ router.use("/garage/controller", garageControllerSelfRoutes);
  * Admin and intern route modules already use protect plus role authorization.
  * protect now resolves staff accounts from StaffAccount.
  */
+router.use("/admin", adminAuditMiddleware);
+
+router.use("/admin/control-center", adminControlCenterRoutes);
 router.use(
   "/admin/garage-applications",
   adminGarageApplicationRoutes,

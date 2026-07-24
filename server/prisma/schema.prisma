@@ -518,11 +518,19 @@ model Garage {
   walletTransactions    GarageWalletTransaction[]
   reviews               Review[]
   trackingPoints        BookingTrackingPoint[]
+  availabilityRules     ServiceAvailabilityRule[]
+
+  operationalStatus     GarageOperationalStatus @default(ACTIVE)
+  suspensionReason      String?
+  suspendedAt           DateTime?
+  suspendedUntil        DateTime?
 
   @@index([ownerId])
   @@index([city])
   @@index([area])
   @@index([latitude, longitude])
+  @@index([operationalStatus, city])
+  @@index([operationalStatus, suspendedUntil])
 }
 
 model GarageImage {
@@ -591,6 +599,8 @@ model Service {
   category         ServiceCategory          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   media            ServiceMedia[]
   cityRestrictions ServiceCityRestriction[]
+  availabilityRules ServiceAvailabilityRule[]
+  priceSchedules   PriceRangeSchedule[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -706,6 +716,7 @@ model City {
   updatedAt            DateTime                  @updatedAt
   serviceRestrictions  ServiceCityRestriction[]
   categoryRestrictions CategoryCityRestriction[]
+  availabilityRules     ServiceAvailabilityRule[]
 
   @@index([isActive])
   @@index([name])
@@ -803,6 +814,7 @@ model Booking {
   adminEvents           AdminBookingEvent[]
   supportTickets        SupportTicket[]
   walletTransactions    WalletTransaction[]
+  escalations           BookingEscalation[]
 
   @@index([userId])
   @@index([garageId])
@@ -1431,6 +1443,154 @@ enum GarageApplicationStatus {
   CHANGES_REQUESTED
   APPROVED
   DENIED
+}
+
+
+model AdminAuditLog {
+  id          String   @id @default(uuid())
+  actorId     String?
+  actorName   String?
+  actorRole   String?
+  action      String
+  resource    String
+  resourceId  String?
+  method      String
+  path        String
+  statusCode  Int
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([resource, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}
+
+model AdminEscalationRule {
+  id               String   @id @default(uuid())
+  key              String   @unique
+  label            String
+  description      String?
+  enabled          Boolean  @default(true)
+  thresholdMinutes Int
+  severity         String   @default("MEDIUM")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([enabled])
+  @@map("admin_escalation_rules")
+}
+
+model BookingEscalation {
+  id              String                  @id @default(uuid())
+  bookingId       String
+  ruleKey         String
+  severity        String                  @default("MEDIUM")
+  status          BookingEscalationStatus @default(OPEN)
+  title           String
+  detail          String?
+  firstDetectedAt DateTime                @default(now())
+  lastDetectedAt  DateTime                @default(now())
+  acknowledgedAt  DateTime?
+  acknowledgedBy  String?
+  resolvedAt      DateTime?
+  resolutionNote  String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  booking         Booking                 @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, ruleKey])
+  @@index([status, severity, lastDetectedAt])
+  @@index([bookingId])
+  @@map("booking_escalations")
+}
+
+model PriceRangeSchedule {
+  id             String              @id @default(uuid())
+  scopeKey       String
+  city           String
+  serviceId      String
+  vehicleBrand   String?
+  vehicleModel   String?
+  fuelType       FuelType?
+  minPrice       Int
+  maxPrice       Int
+  isActive       Boolean             @default(true)
+  startsAt       DateTime
+  endsAt         DateTime?
+  status         PriceScheduleStatus @default(PENDING)
+  previousRange  Json?
+  appliedAt      DateTime?
+  expiredAt      DateTime?
+  cancelledAt    DateTime?
+  createdById    String?
+  createdByName  String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  service        Service             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([status, startsAt])
+  @@index([status, endsAt])
+  @@index([serviceId, city])
+  @@index([scopeKey])
+  @@map("price_range_schedules")
+}
+
+model ServiceAvailabilityRule {
+  id           String                 @id @default(uuid())
+  serviceId    String
+  cityId       String?
+  garageId     String?
+  vehicleBrand String?
+  vehicleModel String?
+  fuelType     FuelType?
+  dayOfWeek    Int?
+  startTime    String?
+  endTime      String?
+  effect       AvailabilityRuleEffect @default(DENY)
+  reason       String?
+  isActive     Boolean                @default(true)
+  createdById  String?
+  createdByName String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  service      Service                @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  city         City?                  @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  garage       Garage?                @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, isActive])
+  @@index([cityId, isActive])
+  @@index([garageId, isActive])
+  @@map("service_availability_rules")
+}
+
+enum GarageOperationalStatus {
+  ACTIVE
+  TEMPORARILY_SUSPENDED
+  PERMANENTLY_BLOCKED
+  UNDER_REVIEW
+  DOCUMENTS_EXPIRED
+}
+
+enum BookingEscalationStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum PriceScheduleStatus {
+  PENDING
+  APPLIED
+  EXPIRED
+  CANCELLED
+}
+
+enum AvailabilityRuleEffect {
+  ALLOW
+  DENY
 }
 
 enum Role {

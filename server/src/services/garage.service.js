@@ -8,6 +8,8 @@ const { addGarageWhatsappLink, createWhatsappLink } = require("../utils/whatsapp
 const googleMapsService = require("../maps/services/googleMaps.service");
 const { isGarageOpenNow } = require("../utils/garageHours");
 const { garageCanServeBooking } = require("../utils/garageCapabilities");
+const { reactivateExpiredGarageSuspensions } = require("../admin/services/garageOperational.service");
+const { filterGaragesByAvailabilityRules } = require("./serviceAvailabilityRule.service");
 
 const GARAGE_LIST_TTL = 5 * 60;
 const GARAGE_DETAIL_TTL = 5 * 60;
@@ -150,6 +152,7 @@ const buildRawGarageConditions = ({
 }) => {
   const conditions = [
     Prisma.sql`g."isActive" = true`,
+    Prisma.sql`g."operationalStatus" = 'ACTIVE'`,
     Prisma.sql`g."latitude" IS NOT NULL`,
     Prisma.sql`g."longitude" IS NOT NULL`,
   ];
@@ -257,6 +260,7 @@ const queryGarageDistanceRows = async ({
   limit = 200,
   ...filters
 }) => {
+  await reactivateExpiredGarageSuspensions();
   const numericLatitude = parseFiniteNumber(latitude);
   const numericLongitude = parseFiniteNumber(longitude);
   const numericRadiusKm = parsePositiveNumber(radiusKm, null);
@@ -628,6 +632,7 @@ const addDrivingMetrics = async ({ latitude, longitude, garages = [] }) => {
 };
 
 const getGarages = async (query = {}) => {
+  await reactivateExpiredGarageSuspensions();
   const {
     search,
     city,
@@ -646,6 +651,7 @@ const getGarages = async (query = {}) => {
 
   const where = {
     isActive: true,
+    operationalStatus: "ACTIVE",
 
     ...buildGarageServiceFilter(finalServiceIds),
 
@@ -869,6 +875,7 @@ const findNearbyEligibleGarages = async ({
   minGarageWalletBalance = 0,
   vehicle = null,
 }) => {
+  await reactivateExpiredGarageSuspensions();
   const numericLatitude = parseFiniteNumber(latitude);
   const numericLongitude = parseFiniteNumber(longitude);
 
@@ -911,6 +918,7 @@ const findNearbyEligibleGarages = async ({
     : await prisma.garage.findMany({
         where: {
           isActive: true,
+          operationalStatus: "ACTIVE",
 
           ...(onlyVerified && {
             isVerified: true,
@@ -934,12 +942,19 @@ const findNearbyEligibleGarages = async ({
       });
 
   garages = garages.filter((garage) =>
+    garage.operationalStatus === "ACTIVE" &&
     garageCanServeBooking({
       garage,
       serviceIds: finalServiceIds,
       vehicle,
     }),
   );
+
+  garages = await filterGaragesByAvailabilityRules({
+    garages,
+    serviceIds: finalServiceIds,
+    vehicle,
+  });
 
   if (requireOpenNow) {
     garages = garages.filter(isGarageOpenNow);
@@ -982,6 +997,7 @@ const findNearbyEligibleGarages = async ({
 };
 
 const getGarageById = async (garageId) => {
+  await reactivateExpiredGarageSuspensions();
   const cacheKey = `garages:public:${PUBLIC_GARAGE_CACHE_VERSION}:detail:${garageId}`;
 
   const cached = await getCache(cacheKey);
@@ -991,6 +1007,7 @@ const getGarageById = async (garageId) => {
     where: {
       id: garageId,
       isActive: true,
+      operationalStatus: "ACTIVE",
     },
     include: garageIncludeForDetails,
   });
@@ -1007,6 +1024,7 @@ const getGarageById = async (garageId) => {
 };
 
 const getGarageServices = async (garageId) => {
+  await reactivateExpiredGarageSuspensions();
   const cacheKey = `garages:public:${PUBLIC_GARAGE_CACHE_VERSION}:${garageId}:services`;
 
   const cached = await getCache(cacheKey);
@@ -1016,6 +1034,7 @@ const getGarageServices = async (garageId) => {
     where: {
       id: garageId,
       isActive: true,
+      operationalStatus: "ACTIVE",
     },
   });
 

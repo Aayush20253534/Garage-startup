@@ -4,6 +4,7 @@ const prisma = require("../../config/prisma");
 const { decodeCursor, encodeCursor, parsePageLimit } = require("../../utils/cursorPagination");
 const ApiError = require("../../utils/apiError");
 const { getCache, setCache, deletePattern } = require("../../utils/cache");
+const priceScheduleService = require("./priceSchedule.service");
 
 const PRICE_RANGE_CACHE_TTL_SECONDS = Number(
   process.env.PRICE_RANGE_CACHE_TTL_SECONDS || 5 * 60,
@@ -137,6 +138,7 @@ const upsertLivePriceRange = async (payload = {}, db = prisma) => {
 };
 
 const listPriceRanges = async (query = {}) => {
+  await priceScheduleService.applyDuePriceSchedules();
   const limit = parsePageLimit(query.limit);
   const cursor = decodeCursor(query.cursor, "createdAt");
   const filterWhere = {
@@ -664,6 +666,7 @@ const scoreMatch = (range, vehicle) => {
 };
 
 const findBestPriceRangesForBooking = async ({ city, services, vehicle }) => {
+  await priceScheduleService.applyDuePriceSchedules();
   const normalizedCity = normalizeCity(city);
   if (!normalizedCity) return new Map();
 
@@ -724,4 +727,10 @@ module.exports = {
   listPriceRangeSubmissions,
   reviewPriceRangeSubmission,
   updatePriceRange,
+  normalizeCity,
+  normalizeScopeValue,
+  getScopeKey,
+  scopeWhere,
+  upsertLivePriceRange,
+  validatePriceRangePayload,
 };

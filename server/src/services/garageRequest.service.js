@@ -262,7 +262,7 @@ const getCurrentRoundRequests = async (bookingId) => {
     where: {
       bookingId,
       status: BROADCAST_STATUS.SENT,
-      garage: { isActive: true },
+      garage: { isActive: true, operationalStatus: "ACTIVE" },
     },
     include: requestInclude,
     orderBy: { sentAt: "desc" },
@@ -696,7 +696,7 @@ const startNextGarageSearchCycle = async (bookingId) => {
       bookingId,
       garageId: { in: selectedGarages.map((garage) => garage.id) },
       status: BROADCAST_STATUS.SENT,
-      garage: { isActive: true },
+      garage: { isActive: true, operationalStatus: "ACTIVE" },
     },
     include: requestInclude,
     orderBy: { sentAt: "desc" },
@@ -791,7 +791,7 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
 
   if (!request) throw new ApiError(404, "Garage request not found");
 
-  if (!request.garage?.isActive) {
+  if (!request.garage?.isActive || request.garage?.operationalStatus !== "ACTIVE") {
     throw new ApiError(403, "This garage is disabled and cannot accept bookings");
   }
 
@@ -813,6 +813,7 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
       where: {
         id: garageId,
         isActive: true,
+        operationalStatus: "ACTIVE",
       },
       // This harmless timestamp update locks the garage row for the rest of
       // the acceptance transaction, preventing a disable/accept race.
@@ -862,7 +863,7 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
       throw new ApiError(404, "Garage request not found");
     }
 
-    if (!freshRequest.garage?.isActive) {
+    if (!freshRequest.garage?.isActive || freshRequest.garage?.operationalStatus !== "ACTIVE") {
       throw new ApiError(403, "This garage is disabled and cannot accept bookings");
     }
 

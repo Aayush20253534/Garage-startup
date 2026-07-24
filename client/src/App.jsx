@@ -748,6 +748,10 @@ const AdminDashboard = lazyPage(
   () => import("@/pages/admin/Dashboard"),
   "AdminDashboard",
 );
+const AdminControlCenter = lazyPage(
+  () => import("@/pages/admin/ControlCenter"),
+  "AdminControlCenter",
+);
 const AdminLogin = lazyPage(() => import("@/pages/admin/Login"), "AdminLogin");
 const AdminCustomers = lazyPage(
   () => import("@/pages/admin/Customers"),
@@ -999,6 +1003,7 @@ const controllerItems = [
 
 const adminItems = [
   { to: "/admin", label: "Dashboard", icon: FiGrid },
+  { to: "/admin/control-center", label: "Control Center", icon: FiShield },
   { to: "/admin/cars", label: "Cars", icon: FiTruck },
   { to: "/admin/services", label: "Services", icon: FiBriefcase },
   { to: "/admin/garages", label: "Garages", icon: FiHome },
@@ -1355,6 +1360,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/control-center"
+            element={
+              <ProtectedRoute>
+                <AdminControlCenter />
               </ProtectedRoute>
             }
           />

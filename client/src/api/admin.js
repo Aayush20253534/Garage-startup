@@ -43,6 +43,86 @@ export const adminApi = {
     return unwrap(await api.get("/admin/operations"));
   },
 
+  async getControlCenterOverview() {
+    return unwrap(await api.get("/admin/control-center/overview"));
+  },
+
+  async getAuditLogs(params = {}) {
+    return unwrap(await api.get("/admin/control-center/audit-logs", { params }));
+  },
+
+  async searchSupportBookings(search) {
+    return unwrap(await api.get("/admin/control-center/support-bookings", { params: { search } }));
+  },
+
+  async resendBookingNotification(bookingId, payload) {
+    return unwrap(await api.post(`/admin/control-center/support-bookings/${bookingId}/notify`, payload));
+  },
+
+  async getGaragePerformance(params = {}) {
+    return unwrap(await api.get("/admin/control-center/garages/performance", { params }));
+  },
+
+  async setGarageOperationalStatus(garageId, payload) {
+    return unwrap(await api.patch(`/admin/control-center/garages/${garageId}/operational-status`, payload));
+  },
+
+  async getEscalations(params = {}) {
+    return unwrap(await api.get("/admin/control-center/escalations", { params }));
+  },
+
+  async updateEscalation(id, payload) {
+    return unwrap(await api.patch(`/admin/control-center/escalations/${id}`, payload));
+  },
+
+  async getEscalationRules() {
+    return unwrap(await api.get("/admin/control-center/escalation-rules"));
+  },
+
+  async updateEscalationRule(id, payload) {
+    return unwrap(await api.patch(`/admin/control-center/escalation-rules/${id}`, payload));
+  },
+
+  async getPricingCoverage() {
+    return unwrap(await api.get("/admin/control-center/pricing/coverage"));
+  },
+
+  async exportPriceRangesCsv() {
+    return api.get("/admin/control-center/pricing/export", { responseType: "blob" });
+  },
+
+  async importPriceRanges(rows, dryRun = false) {
+    return unwrap(await api.post("/admin/control-center/pricing/import", { rows, dryRun }));
+  },
+
+  async getPriceSchedules(params = {}) {
+    return unwrap(await api.get("/admin/control-center/pricing/schedules", { params }));
+  },
+
+  async createPriceSchedule(payload) {
+    return unwrap(await api.post("/admin/control-center/pricing/schedules", payload));
+  },
+
+  async cancelPriceSchedule(id) {
+    return unwrap(await api.patch(`/admin/control-center/pricing/schedules/${id}/cancel`));
+  },
+
+  async getAvailabilityRules(params = {}) {
+    return unwrap(await api.get("/admin/control-center/availability-rules", { params }));
+  },
+
+  async createAvailabilityRule(payload) {
+    return unwrap(await api.post("/admin/control-center/availability-rules", payload));
+  },
+
+  async updateAvailabilityRule(id, payload) {
+    return unwrap(await api.patch(`/admin/control-center/availability-rules/${id}`, payload));
+  },
+
+  async deleteAvailabilityRule(id) {
+    return unwrap(await api.delete(`/admin/control-center/availability-rules/${id}`));
+  },
+
   async getApplications(status = "") {
     return unwrap(
       await api.get("/admin/garage-applications", {

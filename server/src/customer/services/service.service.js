@@ -7,6 +7,7 @@ const {
   buildCategoryAvailabilityWhere,
   buildServiceAvailabilityWhere,
 } = require("../../services/serviceCityRestriction.service");
+const { filterServicesByAvailabilityRules } = require("../../services/serviceAvailabilityRule.service");
 
 const normalizeText = (value) =>
   String(value || "")
@@ -267,10 +268,16 @@ const getServiceCategories = async (options = {}) => {
   });
 
   const result = await Promise.all(
-    categories.map(async (category) => ({
-      ...category,
-      services: await applyContextualPriceRanges(category.services, context),
-    })),
+    categories.map(async (category) => {
+      const availableServices = await filterServicesByAvailabilityRules(
+        category.services,
+        context || {},
+      );
+      return {
+        ...category,
+        services: await applyContextualPriceRanges(availableServices, context),
+      };
+    }),
   );
 
   const visibleCategories = context
@@ -293,7 +300,7 @@ const getServices = async (query = {}, options = {}) => {
 
   const cacheKey = context
     ? null
-    : `services:list:public:v3:${JSON.stringify({
+    : `services:list:public:v4:${JSON.stringify({
         categoryId: safeCategoryId,
         search: search || "",
         minPrice: minPrice || "",
@@ -324,7 +331,8 @@ const getServices = async (query = {}, options = {}) => {
     orderBy: { name: "asc" },
   });
 
-  const contextualServices = await applyContextualPriceRanges(services, context);
+  const availableServices = await filterServicesByAvailabilityRules(services, context || {});
+  const contextualServices = await applyContextualPriceRanges(availableServices, context);
   const minPriceValue = Number(minPrice);
   const maxPriceValue = Number(maxPrice);
   const hasMinPrice =
@@ -349,7 +357,7 @@ const getServices = async (query = {}, options = {}) => {
 
 const getServiceById = async (serviceId, options = {}) => {
   const context = await getCustomerServiceContext(options);
-  const cacheKey = context ? null : `services:detail:public:v3:${serviceId}`;
+  const cacheKey = context ? null : `services:detail:public:v4:${serviceId}`;
 
   const cached = cacheKey ? await getCache(cacheKey) : null;
   if (cached) return cached;
@@ -391,7 +399,12 @@ const getServiceById = async (serviceId, options = {}) => {
     throw new ApiError(404, "Service not found or unavailable in this city");
   }
 
-  const [pricedService] = await applyContextualPriceRanges([service], context);
+  const [availableService] = await filterServicesByAvailabilityRules([service], context || {});
+  if (!availableService) {
+    throw new ApiError(404, "Service is unavailable for this vehicle, city, or time window");
+  }
+
+  const [pricedService] = await applyContextualPriceRanges([availableService], context);
 
   const result = {
     ...pricedService,

@@ -29,27 +29,25 @@ test("admins can enable and disable every garage from the garage list", () => {
   assert.match(page, /rounded-md border px-3 text-xs font-bold/);
 });
 
-test("disabling a garage expires offers and refreshes customer search counts", () => {
-  const service = readProjectFile(
+test("garage status changes delegate to the operational restriction service", () => {
+  const garageAdmin = readProjectFile(
     "server/src/admin/services/garageAdmin.service.js",
   );
-  const statusStart = service.indexOf("const setGarageActiveStatus");
-  const statusEnd = service.indexOf("const listAssignableServices", statusStart);
+  const operational = readProjectFile(
+    "server/src/admin/services/garageOperational.service.js",
+  );
 
-  assert.ok(statusStart >= 0, "setGarageActiveStatus must exist");
-  assert.ok(statusEnd > statusStart, "setGarageActiveStatus must be bounded");
-
-  const statusSource = service.slice(statusStart, statusEnd);
-
-  assert.match(statusSource, /data: \{ isActive: nextIsActive \}/);
+  assert.match(garageAdmin, /garageOperationalService\.setGarageOperationalStatus/);
+  assert.match(garageAdmin, /PERMANENTLY_BLOCKED/);
+  assert.match(operational, /garageBroadcastRequest\.updateMany/);
   assert.match(
-    statusSource,
+    operational,
     /status: BROADCAST_STATUS\.SENT[\s\S]*status: BROADCAST_STATUS\.EXPIRED/,
   );
-  assert.match(statusSource, /invalidateCustomerCache\(userId\)/);
-  assert.match(statusSource, /deleteCache\("public:stats:v2"\)/);
+  assert.match(operational, /invalidateCustomerCache\(userId\)/);
+  assert.match(operational, /deleteCache\(`garages:\$\{garageId\}:services`\)/);
   assert.doesNotMatch(
-    statusSource,
+    operational,
     /garageOwner\.(?:update|updateMany|upsert|delete)/,
   );
 });
@@ -68,7 +66,7 @@ test("disabled garages are excluded from matching, alerts, and acceptance", () =
     garageSearch,
     /findNearbyEligibleGarages[\s\S]*where: \{[\s\S]*isActive: true/,
   );
-  assert.match(garageRequests, /garage: \{ isActive: true \}/);
+  assert.match(garageRequests, /operationalStatus:\s*"ACTIVE"/);
   assert.match(garageRequests, /activeGarageIds\.has\(request\.garage\?\.id\)/);
   assert.match(garageRequests, /operationalGarage\.count === 0/);
   assert.match(whatsapp, /canSendWhatsappToGarage/);
