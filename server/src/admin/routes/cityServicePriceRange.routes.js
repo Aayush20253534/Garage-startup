@@ -16,6 +16,7 @@ const {
   reviewSubmissionSchema,
   submissionQuerySchema,
   updatePriceRangeSchema,
+  upsertCityPriceDiscountSchema,
 } = require("../validations/cityServicePriceRange.validation");
 
 const router = express.Router();
@@ -29,6 +30,19 @@ const bulkDeleteStepUpRateLimit = rateLimit({
 
 router.use(protect);
 router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
+
+
+router.get(
+  "/city-discounts",
+  controller.listCityPriceDiscounts,
+);
+router.put(
+  "/city-discounts",
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
+  upsertCityPriceDiscountSchema,
+  validate,
+  controller.upsertCityPriceDiscount,
+);
 
 router.get("/", priceRangeQuerySchema, validate, controller.listPriceRanges);
 router.get(
@@ -82,6 +96,7 @@ router.patch(
   "/:id",
   authorizeRoles("ADMIN", "SUB_ADMIN"),
   updatePriceRangeSchema,
+  upsertCityPriceDiscountSchema,
   validate,
   controller.updatePriceRange,
 );

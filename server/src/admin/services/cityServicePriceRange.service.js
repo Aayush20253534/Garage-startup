@@ -5,6 +5,7 @@ const { decodeCursor, encodeCursor, parsePageLimit } = require("../../utils/curs
 const ApiError = require("../../utils/apiError");
 const { getCache, setCache, deletePattern } = require("../../utils/cache");
 const priceScheduleService = require("./priceSchedule.service");
+const cityPriceDiscountService = require("./cityPriceDiscount.service");
 
 const PRICE_RANGE_CACHE_TTL_SECONDS = Number(
   process.env.PRICE_RANGE_CACHE_TTL_SECONDS || 5 * 60,
@@ -694,6 +695,9 @@ const findBestPriceRangesForBooking = async ({ city, services, vehicle }) => {
     await setCache(cacheKey, ranges, PRICE_RANGE_CACHE_TTL_SECONDS);
   }
 
+  const cityDiscount =
+    await cityPriceDiscountService.getActiveCityPriceDiscount(normalizedCity);
+
   const result = new Map();
   for (const service of services) {
     const best = ranges
@@ -705,7 +709,12 @@ const findBestPriceRangesForBooking = async ({ city, services, vehicle }) => {
         return getTimestamp(b.range.createdAt) - getTimestamp(a.range.createdAt);
       })[0]?.range;
 
-    if (best) result.set(service.id, best);
+    if (best) {
+      result.set(
+        service.id,
+        cityPriceDiscountService.applyCityDiscountToRange(best, cityDiscount),
+      );
+    }
   }
 
   return result;

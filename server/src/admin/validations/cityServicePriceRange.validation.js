@@ -95,6 +95,15 @@ const priceRangeQuerySchema = [
   query("cursor").optional({ checkFalsy: true }).isString().isLength({ max: 512 }),
 ];
 
+
+const upsertCityPriceDiscountSchema = [
+  body("cityId").isUUID().withMessage("Valid city ID is required"),
+  body("discountPercent")
+    .isInt({ min: 1, max: 90 })
+    .withMessage("Discount percentage must be between 1 and 90"),
+  body("isActive").optional({ nullable: true }).isBoolean(),
+];
+
 const createPriceRangeSchema = [
   body("city").trim().notEmpty().withMessage("City is required"),
   body("serviceId").isUUID().withMessage("Valid service ID is required"),
@@ -133,4 +142,5 @@ module.exports = {
   reviewSubmissionSchema,
   submissionQuerySchema,
   updatePriceRangeSchema,
+  upsertCityPriceDiscountSchema,
 };

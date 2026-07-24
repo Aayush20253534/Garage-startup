@@ -430,6 +430,18 @@ export const adminApi = {
     );
   },
 
+  async getCityPriceDiscounts() {
+    return unwrap(
+      await api.get("/admin/city-service-price-ranges/city-discounts"),
+    );
+  },
+
+  async saveCityPriceDiscount(payload) {
+    return unwrap(
+      await api.put("/admin/city-service-price-ranges/city-discounts", payload),
+    );
+  },
+
   async createPriceRange(payload) {
     return unwrap(await api.post("/admin/city-service-price-ranges", payload));
   },

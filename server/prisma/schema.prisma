@@ -216,6 +216,8 @@ model StaffAccount {
   supportTicketMessages  SupportTicketMessage[]       @relation("SupportTicketStaffMessages")
   priceRangeSubmissions  PriceRangeSubmission[]       @relation("PriceRangeSubmissionSubmitter")
   priceRangeReviews      PriceRangeSubmission[]       @relation("PriceRangeSubmissionReviewer")
+  createdCityDiscounts  CityPriceDiscount[]           @relation("CityPriceDiscountCreatedBy")
+  updatedCityDiscounts  CityPriceDiscount[]           @relation("CityPriceDiscountUpdatedBy")
   createdById            String?
   createdByName          String?
 
@@ -719,9 +721,30 @@ model City {
   serviceRestrictions  ServiceCityRestriction[]
   categoryRestrictions CategoryCityRestriction[]
   availabilityRules     ServiceAvailabilityRule[]
+  priceDiscount         CityPriceDiscount?
 
   @@index([isActive])
   @@index([name])
+}
+
+
+model CityPriceDiscount {
+  id              String        @id @default(uuid())
+  cityId          String        @unique
+  discountPercent Int
+  isActive        Boolean       @default(true)
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  city            City          @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  createdBy       StaffAccount? @relation("CityPriceDiscountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy       StaffAccount? @relation("CityPriceDiscountUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([isActive])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("city_price_discounts")
 }
 
 model ServiceCityRestriction {

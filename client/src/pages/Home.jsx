@@ -16,7 +16,7 @@ import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
 import Seo, { SITE_ICON, SITE_URL } from "@/components/seo/Seo";
 import { getServiceCategoryPath } from "@/utils/serviceSlug";
-import { formatRupees } from "@/utils/priceRange";
+import ServicePriceDisplay from "@/components/services/ServicePriceDisplay";
 import {
   getCategoryThumbnailUrl,
   getServiceThumbnailUrl,
@@ -521,7 +521,6 @@ export default function Home() {
               {popularServices.map((service) => {
                 const image = getServiceThumbnailUrl(service);
                 const hasPrice = Boolean(user && service.priceRange);
-                const price = service.priceRange?.min;
                 const comingSoon =
                   toBoolean(service.isComingSoon) ||
                   toBoolean(service.category?.isComingSoon);
@@ -597,9 +596,13 @@ export default function Home() {
                         {hasPrice && !comingSoon && (
                           <div className="hidden shrink-0 text-right sm:block">
                             <div className="text-xs text-muted">From</div>
-                            <div className="text-xl font-bold text-ink">
-                              {formatRupees(price)}
-                            </div>
+                            <ServicePriceDisplay
+                              service={service}
+                              mode="min"
+                              className="justify-end"
+                              regularClassName="text-2xl font-extrabold text-red-600 line-through decoration-2"
+                              currentClassName="text-lg font-extrabold text-ink"
+                            />
                           </div>
                         )}
                       </div>
@@ -610,9 +613,13 @@ export default function Home() {
                             From
                           </span>
 
-                          <span className="text-lg font-extrabold text-ink">
-                            {formatRupees(price)}
-                          </span>
+                          <ServicePriceDisplay
+                            service={service}
+                            mode="min"
+                            className="justify-end"
+                            regularClassName="text-xl font-extrabold text-red-600 line-through decoration-2"
+                            currentClassName="text-base font-extrabold text-ink"
+                          />
                         </div>
                       )}
                     </div>

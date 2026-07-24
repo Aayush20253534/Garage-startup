@@ -12,6 +12,7 @@ import {
   FiEdit3,
   FiLock,
   FiPlus,
+  FiPercent,
   FiRefreshCw,
   FiTrash2,
   FiUser,
@@ -160,6 +161,13 @@ export default function Revenue() {
   const [bulkDeleteError, setBulkDeleteError] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [cityDiscounts, setCityDiscounts] = useState([]);
+  const [discountForm, setDiscountForm] = useState({
+    cityId: "",
+    discountPercent: "5",
+    isActive: true,
+  });
+  const [savingDiscount, setSavingDiscount] = useState(false);
 
   const loadCities = async () => {
     try {
@@ -181,11 +189,13 @@ export default function Revenue() {
         ...(filterVehicleModel && { vehicleModel: filterVehicleModel }),
         ...(filterFuelType && { fuelType: filterFuelType }),
       };
-      const [rangeList, serviceList, submissionList] = await Promise.all([
-        adminApi.getPriceRanges({ ...priceRangeFilters, limit: 100 }),
-        adminApi.getAssignableServices(),
-        adminApi.getPriceRangeSubmissions(),
-      ]);
+      const [rangeList, serviceList, submissionList, discountList] =
+        await Promise.all([
+          adminApi.getPriceRanges({ ...priceRangeFilters, limit: 100 }),
+          adminApi.getAssignableServices(),
+          adminApi.getPriceRangeSubmissions(),
+          adminApi.getCityPriceDiscounts(),
+        ]);
 
       const loadedRanges = Array.isArray(rangeList?.items)
         ? rangeList.items
@@ -199,6 +209,7 @@ export default function Revenue() {
       setNextRangeCursor(rangeList?.nextCursor || null);
       setServices(serviceList || []);
       setSubmissions(submissionList || []);
+      setCityDiscounts(Array.isArray(discountList) ? discountList : []);
       setSelectedRangeIds([]);
     } catch (err) {
       setRanges([]);
@@ -322,6 +333,62 @@ export default function Revenue() {
       setError(err.response?.data?.message || "Unable to save price range");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const selectDiscountCity = (cityId) => {
+    const existing = cityDiscounts.find((item) => item.cityId === cityId);
+    setDiscountForm({
+      cityId,
+      discountPercent: String(existing?.discountPercent || 5),
+      isActive: existing ? Boolean(existing.isActive) : true,
+    });
+  };
+
+  const saveCityDiscount = async (event) => {
+    event.preventDefault();
+    if (isIntern) return;
+
+    const discountPercent = Number(discountForm.discountPercent);
+    if (!discountForm.cityId) {
+      setError("Select a city for the discount.");
+      return;
+    }
+    if (
+      !Number.isInteger(discountPercent) ||
+      discountPercent < 1 ||
+      discountPercent > 90
+    ) {
+      setError("Discount percentage must be between 1 and 90.");
+      return;
+    }
+
+    setSavingDiscount(true);
+    setError("");
+    setSuccess("");
+    try {
+      const saved = await adminApi.saveCityPriceDiscount({
+        cityId: discountForm.cityId,
+        discountPercent,
+        isActive: discountForm.isActive,
+      });
+      setCityDiscounts((current) => {
+        const withoutSaved = current.filter(
+          (item) => item.cityId !== saved.cityId,
+        );
+        return [...withoutSaved, saved].sort((a, b) =>
+          String(a.city?.name || "").localeCompare(String(b.city?.name || "")),
+        );
+      });
+      setSuccess(
+        `${saved.city?.name || "City"} discount ${
+          saved.isActive ? "activated" : "disabled"
+        }.`,
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save city discount");
+    } finally {
+      setSavingDiscount(false);
     }
   };
 
@@ -796,6 +863,16 @@ export default function Revenue() {
     bulkDeleteConfirmation === bulkDeleteExpectedText &&
     bulkDeletePassword.length > 0 &&
     !deletingRanges;
+  const discountPreviewPercent = Math.min(
+    90,
+    Math.max(1, Number(discountForm.discountPercent) || 5),
+  );
+  const discountPreviewMin = Math.round(
+    1000 * (1 - discountPreviewPercent / 100),
+  );
+  const discountPreviewMax = Math.round(
+    2000 * (1 - discountPreviewPercent / 100),
+  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 overflow-x-hidden">
@@ -841,6 +918,151 @@ export default function Revenue() {
           approved entries become visible to customers.
         </div>
       )}
+
+      <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
+        <div className="border-b border-line p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-700">
+              <FiPercent />
+            </span>
+            <div>
+              <h3 className="font-bold text-ink">City discount</h3>
+              <p className="mt-1 text-sm text-muted">
+                Apply one genuine discount percentage to every active service
+                price range in a city. The stored range remains the regular
+                price and the reduced range becomes the actual booking price.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <form
+          onSubmit={saveCityDiscount}
+          className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_180px_160px_auto] lg:items-end"
+        >
+          <label className="grid gap-1.5 text-sm font-semibold text-ink">
+            City
+            <select
+              value={discountForm.cityId}
+              onChange={(event) => selectDiscountCity(event.target.value)}
+              className="h-11 rounded-lg border border-line bg-white px-3 outline-none focus:border-ink"
+            >
+              <option value="">Select city</option>
+              {cities
+                .filter((city) => city.isActive)
+                .map((city) => (
+                  <option key={city.id} value={city.id}>
+                    {city.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+
+          <label className="grid gap-1.5 text-sm font-semibold text-ink">
+            Discount percentage
+            <div className="relative">
+              <input
+                type="number"
+                min="1"
+                max="90"
+                step="1"
+                value={discountForm.discountPercent}
+                onChange={(event) =>
+                  setDiscountForm((current) => ({
+                    ...current,
+                    discountPercent: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-lg border border-line bg-white px-3 pr-9 outline-none focus:border-ink"
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-bold text-muted">
+                %
+              </span>
+            </div>
+          </label>
+
+          <label className="flex h-11 items-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-ink">
+            <input
+              type="checkbox"
+              checked={discountForm.isActive}
+              onChange={(event) =>
+                setDiscountForm((current) => ({
+                  ...current,
+                  isActive: event.target.checked,
+                }))
+              }
+              className="h-4 w-4"
+            />
+            Active
+          </label>
+
+          <button
+            type="submit"
+            disabled={isIntern || savingDiscount}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <FiCheck />
+            {savingDiscount ? "Saving..." : "Save discount"}
+          </button>
+        </form>
+
+        <div className="grid gap-4 border-t border-line bg-bg-soft p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wide text-muted">
+              Customer preview
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <span className="text-2xl font-extrabold text-red-600 line-through decoration-2">
+                {formatRupeeRange(1000, 2000)}
+              </span>
+              <span className="text-xl font-extrabold text-ink">
+                {formatRupeeRange(discountPreviewMin, discountPreviewMax)}
+              </span>
+              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-emerald-800">
+                {discountPreviewPercent}% off
+              </span>
+            </div>
+          </div>
+          <div className="text-xs leading-5 text-muted sm:max-w-sm sm:text-right">
+            The red crossed-out amount is the real stored regular price.
+            Checkout, booking estimates and garage matching use the reduced
+            price.
+          </div>
+        </div>
+
+        {cityDiscounts.length > 0 && (
+          <div className="border-t border-line p-4 sm:p-5">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {cityDiscounts.map((discount) => (
+                <button
+                  key={discount.id}
+                  type="button"
+                  onClick={() => selectDiscountCity(discount.cityId)}
+                  className="flex items-center justify-between rounded-xl border border-line bg-white px-3 py-3 text-left transition hover:border-ink"
+                >
+                  <span>
+                    <span className="block font-bold text-ink">
+                      {discount.city?.name || "Unknown city"}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted">
+                      {discount.isActive ? "Active" : "Disabled"}
+                    </span>
+                  </span>
+                  <span
+                    className={
+                      discount.isActive
+                        ? "font-extrabold text-emerald-700"
+                        : "font-extrabold text-muted"
+                    }
+                  >
+                    {discount.discountPercent}%
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
         <div className="border-b border-line p-4 sm:p-5">

@@ -52,11 +52,21 @@ const stripServicePrice = (
   service,
   { pricingStatus = null, priceUnavailableMessage = null } = {},
 ) => {
-  const { basePrice, minPrice, maxPrice, priceRange, ...rest } = service;
+  const {
+    basePrice,
+    minPrice,
+    maxPrice,
+    priceRange,
+    regularPriceRange,
+    discountPercent,
+    ...rest
+  } = service;
 
   return {
     ...rest,
     ...(priceRange && { priceRange }),
+    ...(regularPriceRange && { regularPriceRange }),
+    ...(discountPercent && { discountPercent }),
     hasPrice: Boolean(priceRange),
     ...(pricingStatus && { pricingStatus }),
     ...(priceUnavailableMessage && { priceUnavailableMessage }),
@@ -229,6 +239,17 @@ const applyContextualPriceRanges = async (services = [], context = null) => {
           min: Number(range.minPrice) || 0,
           max: Number(range.maxPrice) || Number(range.minPrice) || 0,
         },
+        ...(range.discountPercent && {
+          regularPriceRange: {
+            min: Number(range.regularMinPrice) || Number(range.minPrice) || 0,
+            max:
+              Number(range.regularMaxPrice) ||
+              Number(range.maxPrice) ||
+              Number(range.minPrice) ||
+              0,
+          },
+          discountPercent: Number(range.discountPercent),
+        }),
       },
       { pricingStatus: "AVAILABLE" },
     );

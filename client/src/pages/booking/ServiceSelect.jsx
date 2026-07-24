@@ -4,9 +4,9 @@ import { CATEGORY_UI } from "@/data/services";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
+import ServicePriceDisplay from "@/components/services/ServicePriceDisplay";
 import SafeImage from "@/components/common/SafeImage";
 import {
-  formatServicePriceRange,
   formatRupeeRange,
   getServiceMinPrice,
   getServiceMaxPrice,
@@ -78,11 +78,15 @@ function CartItems({ cart, serviceById, comingSoonIds, removeFromCart }) {
             </div>
 
             <div className="flex items-start gap-2">
-              <span className="whitespace-nowrap text-right text-xs font-semibold sm:text-sm">
-                {currentService?.priceRange
-                  ? formatServicePriceRange(currentService)
-                  : ""}
-              </span>
+              {currentService?.priceRange && (
+                <ServicePriceDisplay
+                  service={currentService}
+                  className="max-w-52 justify-end text-right"
+                  regularClassName="text-sm font-extrabold text-red-600 line-through decoration-2 sm:text-base"
+                  currentClassName="text-xs font-extrabold text-ink sm:text-sm"
+                  badgeClassName="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-emerald-800"
+                />
+              )}
               <button
                 type="button"
                 onClick={() => removeFromCart(item.id)}
@@ -301,7 +305,6 @@ export default function ServiceSelect() {
         <div className="grid gap-3 sm:gap-4">
           {list.map((service) => {
             const inCart = cart.some((item) => item.id === service.id);
-            const priceRange = formatServicePriceRange(service);
             const hasPrice = Boolean(service.priceRange);
             const comingSoon =
               toBoolean(selectedCategory?.isComingSoon) ||
@@ -418,20 +421,23 @@ export default function ServiceSelect() {
                     <div className="text-[11px] font-medium uppercase tracking-wide text-muted sm:text-xs sm:normal-case sm:tracking-normal">
                       Estimated
                     </div>
-                    <div
-                      className={
-                        hasPrice || comingSoon
-                          ? "whitespace-nowrap text-lg font-extrabold leading-tight text-ink sm:text-xl"
-                          : "max-w-44 text-xs font-bold leading-4 text-amber-700 sm:text-sm sm:leading-5"
-                      }
-                    >
-                      {comingSoon
-                        ? "Coming Soon"
-                        : hasPrice
-                          ? priceRange
-                          : service.priceUnavailableMessage ||
-                            "Price not allocated for this vehicle"}
-                    </div>
+                    {comingSoon ? (
+                      <div className="whitespace-nowrap text-lg font-extrabold leading-tight text-ink sm:text-xl">
+                        Coming Soon
+                      </div>
+                    ) : hasPrice ? (
+                      <ServicePriceDisplay
+                        service={service}
+                        className="justify-start sm:justify-end"
+                        regularClassName="whitespace-nowrap text-xl font-extrabold text-red-600 line-through decoration-2 sm:text-2xl"
+                        currentClassName="whitespace-nowrap text-base font-extrabold leading-tight text-ink sm:text-lg"
+                      />
+                    ) : (
+                      <div className="max-w-44 text-xs font-bold leading-4 text-amber-700 sm:text-sm sm:leading-5">
+                        {service.priceUnavailableMessage ||
+                          "Price not allocated for this vehicle"}
+                      </div>
+                    )}
                   </div>
 
                   <button

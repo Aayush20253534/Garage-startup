@@ -4,6 +4,7 @@ import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import LocationPicker from "@/components/maps/LocationPicker";
 import BookingPaymentLoader from "@/components/payment/BookingPaymentLoader";
+import ServicePriceDisplay from "@/components/services/ServicePriceDisplay";
 import {
   buildFullAddress,
   getDefaultUserLocation,
@@ -13,7 +14,6 @@ import {
   parseAddressParts,
 } from "@/utils/address";
 import {
-  formatServicePriceRange,
   formatRupeeRange,
   formatRupees,
   getServiceMinPrice,
@@ -833,9 +833,13 @@ export default function Checkout() {
                 className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3"
               >
                 <span className="min-w-0 truncate">{item.name}</span>
-                <span className="whitespace-nowrap text-right font-semibold">
-                  {formatServicePriceRange(item)}
-                </span>
+                <ServicePriceDisplay
+                  service={item}
+                  className="max-w-56 justify-end text-right"
+                  regularClassName="text-base font-extrabold text-red-600 line-through decoration-2"
+                  currentClassName="text-sm font-extrabold text-ink"
+                  badgeClassName="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-emerald-800"
+                />
               </div>
             ))
           )}

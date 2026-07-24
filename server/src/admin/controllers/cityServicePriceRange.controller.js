@@ -1,6 +1,32 @@
 const asyncHandler = require("../../utils/asyncHandler");
 const ApiResponse = require("../../utils/apiResponse");
 const service = require("../services/cityServicePriceRange.service");
+const cityPriceDiscountService = require("../services/cityPriceDiscount.service");
+
+const listCityPriceDiscounts = asyncHandler(async (req, res) => {
+  const discounts = await cityPriceDiscountService.listCityPriceDiscounts();
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "City price discounts fetched successfully",
+        discounts,
+      ),
+    );
+});
+
+const upsertCityPriceDiscount = asyncHandler(async (req, res) => {
+  const discount = await cityPriceDiscountService.upsertCityPriceDiscount(
+    req.body,
+    req.user,
+  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "City price discount saved successfully", discount),
+    );
+});
 
 const listPriceRanges = asyncHandler(async (req, res) => {
   const ranges = await service.listPriceRanges(req.query);
@@ -126,6 +152,7 @@ const deletePriceRanges = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  listCityPriceDiscounts,
   approveAllPriceRangeSubmissions,
   createPriceRange,
   deletePriceRange,
@@ -138,4 +165,5 @@ module.exports = {
   listPriceRanges,
   reviewPriceRangeSubmission,
   updatePriceRange,
+  upsertCityPriceDiscount,
 };

@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { CATEGORY_UI } from "@/data/services";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
+import ServicePriceDisplay from "@/components/services/ServicePriceDisplay";
 import SafeImage from "@/components/common/SafeImage";
 import api from "@/api/axios";
 import {
@@ -31,7 +32,6 @@ import {
   matchesServiceCategoryRoute,
 } from "@/utils/serviceSlug";
 import {
-  formatServicePriceRange,
   getServiceMinPrice,
   getServiceMaxPrice,
 } from "@/utils/priceRange";
@@ -607,7 +607,6 @@ export default function CategoryDetail() {
 
       <div className="grid gap-4">
         {packages.map((pkg) => {
-          const priceRange = formatServicePriceRange(pkg);
           const minPrice = getServiceMinPrice(pkg);
           const maxPrice = getServiceMaxPrice(pkg);
           const includes = getIncludes(pkg);
@@ -662,9 +661,11 @@ export default function CategoryDetail() {
                     {hasPrice && (
                       <div className="mb-3 px-1">
                         <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
-                          <span className="whitespace-nowrap text-[1.55rem] font-extrabold leading-none tracking-tight text-ink">
-                            {priceRange}
-                          </span>
+                          <ServicePriceDisplay
+                            service={pkg}
+                            regularClassName="whitespace-nowrap text-[1.55rem] font-extrabold leading-none text-red-600 line-through decoration-2"
+                            currentClassName="whitespace-nowrap text-[1.2rem] font-extrabold leading-none tracking-tight text-ink"
+                          />
 
                           {maxPrice > minPrice && (
                             <span className="pb-0.5 text-xs font-medium text-muted">
@@ -758,10 +759,12 @@ export default function CategoryDetail() {
                     </div>
 
                     {hasPrice && (
-                      <div className="mb-2 flex items-baseline gap-3">
-                        <span className="text-2xl font-bold text-ink">
-                          {priceRange}
-                        </span>
+                      <div className="mb-2 flex flex-wrap items-baseline gap-3">
+                        <ServicePriceDisplay
+                          service={pkg}
+                          regularClassName="text-2xl font-extrabold text-red-600 line-through decoration-2"
+                          currentClassName="text-xl font-extrabold text-ink"
+                        />
 
                         {maxPrice > minPrice && (
                           <span className="text-base text-muted">
@@ -891,11 +894,12 @@ export default function CategoryDetail() {
               </div>
 
               {selectedPackage.priceRange && (
-                <div className="mb-3 flex items-baseline gap-3">
-                  <span className="text-2xl font-bold text-ink">
-                    {formatServicePriceRange(selectedPackage)}
-                  </span>
-                </div>
+                <ServicePriceDisplay
+                  service={selectedPackage}
+                  className="mb-3"
+                  regularClassName="text-2xl font-extrabold text-red-600 line-through decoration-2"
+                  currentClassName="text-xl font-extrabold text-ink"
+                />
               )}
 
               {(user || guestPricingReady) &&
@@ -933,12 +937,18 @@ export default function CategoryDetail() {
                 <div>
                   <span className="text-sm text-muted">Estimated Price</span>
                   <div className="font-semibold">
-                    {selectedPackage.priceRange
-                      ? formatServicePriceRange(selectedPackage)
-                      : user || guestPricingReady
-                        ? selectedPackage.priceUnavailableMessage ||
-                          "Price not allocated for this vehicle"
-                        : "Select city, car and model to view pricing"}
+                    {selectedPackage.priceRange ? (
+                      <ServicePriceDisplay
+                        service={selectedPackage}
+                        regularClassName="text-base font-extrabold text-red-600 line-through decoration-2"
+                        currentClassName="text-sm font-extrabold text-ink"
+                      />
+                    ) : user || guestPricingReady ? (
+                      selectedPackage.priceUnavailableMessage ||
+                      "Price not allocated for this vehicle"
+                    ) : (
+                      "Select city, car and model to view pricing"
+                    )}
                   </div>
                 </div>
               </div>
