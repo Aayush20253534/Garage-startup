@@ -74,6 +74,8 @@ const recordAuditLog = async ({ req, statusCode }) => {
     data: {
       actorId: actor.id || null,
       actorName: actor.name || actor.loginId || actor.email || null,
+      actorEmail: actor.email || null,
+      actorLoginId: actor.loginId || null,
       actorRole: actor.role || null,
       action: inferAction(req.method, requestPath),
       resource,
@@ -103,6 +105,9 @@ const listAuditLogs = async (query = {}) => {
       ...(search && {
         OR: [
           { actorName: { contains: search, mode: "insensitive" } },
+          { actorEmail: { contains: search, mode: "insensitive" } },
+          { actorLoginId: { contains: search, mode: "insensitive" } },
+          { actorId: { contains: search, mode: "insensitive" } },
           { resource: { contains: search, mode: "insensitive" } },
           { resourceId: { contains: search, mode: "insensitive" } },
           { path: { contains: search, mode: "insensitive" } },

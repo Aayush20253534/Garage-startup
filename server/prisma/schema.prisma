@@ -1494,11 +1494,13 @@ enum GarageApplicationStatus {
 
 
 model AdminAuditLog {
-  id          String   @id @default(uuid())
-  actorId     String?
-  actorName   String?
-  actorRole   String?
-  action      String
+  id           String   @id @default(uuid())
+  actorId      String?
+  actorName    String?
+  actorEmail   String?
+  actorLoginId String?
+  actorRole    String?
+  action       String
   resource    String
   resourceId  String?
   method      String
@@ -1510,6 +1512,8 @@ model AdminAuditLog {
   createdAt   DateTime @default(now())
 
   @@index([actorId, createdAt])
+  @@index([actorEmail, createdAt])
+  @@index([actorLoginId, createdAt])
   @@index([resource, createdAt])
   @@index([action, createdAt])
   @@index([createdAt])

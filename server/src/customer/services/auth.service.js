@@ -59,6 +59,8 @@ const recordStaffSecurityAudit = async ({ staff, action, path, sessionMetadata =
     data: {
       actorId: staff.id,
       actorName: staff.name || staff.loginId || staff.email || null,
+      actorEmail: staff.email || null,
+      actorLoginId: staff.loginId || null,
       actorRole: staff.role,
       action,
       resource: "authentication",

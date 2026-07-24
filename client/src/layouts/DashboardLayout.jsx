@@ -9,7 +9,7 @@ import { useApp } from "@/hooks/useApp";
 import useUnreadNotifications from "@/hooks/useUnreadNotifications";
 import useOpenSystemIssueCount from "@/hooks/useOpenSystemIssueCount";
 import useCustomerSupportUnreadNotifications from "@/hooks/useCustomerSupportUnreadNotifications";
-import { FiLogOut, FiMenu, FiX } from "react-icons/fi";
+import { FiLogOut, FiMenu, FiShield, FiUserCheck, FiX } from "react-icons/fi";
 import {
   preloadCustomerPortal,
   preloadCustomerRoute,
@@ -58,6 +58,10 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         : isCustomerSupportPortal
           ? "CUSTOMER SUPPORT"
           : account?.role || "CUSTOMER";
+  const accountIdentifier = account?.email || account?.loginId || account?.phone || "Account identifier unavailable";
+  const accountLoginId = account?.loginId && account?.loginId !== account?.email
+    ? account.loginId
+    : null;
   const accountSummary = (
     <>
       <CustomerAvatar
@@ -322,6 +326,39 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
             )}
           </div>
         </header>
+
+        {isAdminPortal && account?.accountType === "STAFF" && (
+          <section className="border-b border-line bg-white">
+            <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-3 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-7 xl:px-8">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-ink text-white">
+                  <FiUserCheck className="text-xl" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-muted">Currently signed in</p>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-extrabold uppercase text-green-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-600" /> Active session
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-base font-extrabold text-ink">{accountName || "Staff account"}</p>
+                  <p className="truncate text-sm text-muted">{accountIdentifier}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <span className="inline-flex items-center gap-2 rounded-xl border border-line bg-bg-soft px-3 py-2 text-xs font-extrabold text-ink">
+                  <FiShield /> {accountRole}
+                </span>
+                {accountLoginId && (
+                  <span className="rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-muted">
+                    Login ID: <span className="font-extrabold text-ink">{accountLoginId}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
         <main
           key={pathname}
