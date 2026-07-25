@@ -94,15 +94,14 @@ test("customer knowledge documents the current safe booking experience", () => {
   assert.match(knowledge, /30-day Rovauto service warranty/i);
   assert.match(knowledge, /aggregate rating is zero/i);
   assert.match(knowledge, /Self drop-off & pickup/i);
-  assert.match(knowledge, /cannot be placed in the same booking/i);
-  assert.match(knowledge, /does not add the conflicting service/i);
+  assert.match(knowledge, /most services let the customer choose/i);
+  assert.match(knowledge, /support the selected handover mode/i);
   assert.match(knowledge, /Live pickup tracking is not used/i);
   assert.match(knowledge, /Ready for customer pickup/i);
   assert.match(knowledge, /Confirm Vehicle Collection/i);
   assert.match(knowledge, /online checkout amount is the Rovauto platform fee/i);
   assert.match(knowledge, /not a guaranteed final repair quotation/i);
   assert.match(knowledge, /assistant may receive only limited account signals/i);
-  assert.match(knowledge, /conflicting service is not added/i);
   assert.match(knowledge, /No pickup vehicle will come/i);
 });
 

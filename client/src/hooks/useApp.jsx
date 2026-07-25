@@ -23,8 +23,7 @@ import {
 } from "@/store/garageSlice";
 import { getCartPricingContextKey } from "@/utils/bookingCart";
 import {
-  MIXED_FULFILLMENT_MESSAGE,
-  getServiceFulfillmentType,
+  normalizeServiceFulfillmentMode,
 } from "@/utils/serviceFulfillment";
 
 const AppCtx = createContext(null);
@@ -1542,25 +1541,14 @@ export function AppProvider({ children }) {
       return { added: false, alreadyInCart: true };
     }
 
-    const incomingType = getServiceFulfillmentType(service);
-    const existingType = contextSafeCart[0]
-      ? getServiceFulfillmentType(contextSafeCart[0])
-      : incomingType;
-
-    if (contextSafeCart.length > 0 && incomingType !== existingType) {
-      return {
-        added: false,
-        conflict: true,
-        message: MIXED_FULFILLMENT_MESSAGE,
-      };
-    }
-
     setCartContextKey(nextContextKey);
     setCart([
       ...contextSafeCart,
       {
         ...service,
-        fulfillmentType: incomingType,
+        fulfillmentType: normalizeServiceFulfillmentMode(
+          service?.fulfillmentType,
+        ),
         pricingContextKey: nextContextKey,
       },
     ]);

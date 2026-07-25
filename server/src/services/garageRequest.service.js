@@ -340,9 +340,11 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
         where: {
           id: { in: requestGarageIds },
           isActive: true,
+          operationalStatus: "ACTIVE",
         },
         select: {
           id: true,
+          fulfillmentMode: true,
           supportedBrands: true,
           excludedServiceBrands: true,
           services: {
@@ -374,6 +376,7 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
           garage,
           serviceIds: requiredServiceIds,
           vehicle: booking.vehicle,
+          fulfillmentType: booking.fulfillmentType,
         }),
       )
       .map((garage) => garage.id),
@@ -382,11 +385,16 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
     activeGarageIds.has(request.garage?.id),
   );
 
+  const fulfillmentLabel =
+    booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+      ? "Self drop-off & customer pickup"
+      : "Pickup & delivery";
+
   for (const request of activeRequests) {
     const availableControllers = await garageControllerService.getAvailableControllers(
       request.garage.id,
     );
-    const controllerMessage = `${booking.vehicle?.brand || "Vehicle"} ${
+    const controllerMessage = `${fulfillmentLabel}. ${booking.vehicle?.brand || "Vehicle"} ${
       booking.vehicle?.model || ""
     } needs ${booking.services
       .map((item) => item.service?.name)
@@ -467,7 +475,7 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
           garageOwnerId: request.garage.ownerId,
           type: "BOOKING",
           title: "New nearby booking request",
-          message: `${booking.vehicle?.brand || "Vehicle"} ${
+          message: `${fulfillmentLabel}. ${booking.vehicle?.brand || "Vehicle"} ${
             booking.vehicle?.model || ""
           } needs ${booking.services
             .map((item) => item.service?.name)
@@ -632,6 +640,7 @@ const startNextGarageSearchCycle = async (bookingId) => {
     longitude: booking.customerLongitude,
     serviceIds,
     vehicle: booking.vehicle,
+    fulfillmentType: booking.fulfillmentType,
     maxDistance: searchStage.radiusKm,
     onlyVerified: true,
     requireOpenNow: false,
@@ -872,8 +881,28 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
     const freshRequest = await tx.garageBroadcastRequest.findFirst({
       where: { id: requestId, garageId },
       include: {
-        booking: true,
-        garage: { include: { wallet: true } },
+        booking: {
+          include: {
+            vehicle: true,
+            services: { select: { serviceId: true } },
+          },
+        },
+        garage: {
+          include: {
+            wallet: true,
+            services: {
+              where: { isActive: true },
+              include: {
+                service: {
+                  select: {
+                    isActive: true,
+                    category: { select: { isActive: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -892,6 +921,24 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
     const freshBooking = freshRequest.booking;
 
     if (!freshBooking) throw new ApiError(404, "Booking not found");
+
+    const requiredServiceIds = freshBooking.services.map(
+      (item) => item.serviceId,
+    );
+
+    if (
+      !garageCanServeBooking({
+        garage: freshRequest.garage,
+        serviceIds: requiredServiceIds,
+        vehicle: freshBooking.vehicle,
+        fulfillmentType: freshBooking.fulfillmentType,
+      })
+    ) {
+      throw new ApiError(
+        409,
+        "This garage no longer supports the booking mode, vehicle brand, or selected services",
+      );
+    }
 
     if (
       ![

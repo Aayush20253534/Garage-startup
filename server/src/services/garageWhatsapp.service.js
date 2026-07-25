@@ -462,7 +462,11 @@ const sendGarageBookingRequestWhatsapp = async ({
   const acceptUrl = getGarageAcceptUrl(request.id);
   const brand = booking.vehicle?.brand || "Vehicle";
   const model = booking.vehicle?.model || "N/A";
-  const services = formatServiceList(booking.services);
+  const fulfillmentLabel =
+    booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+      ? "Self drop-off & customer pickup"
+      : "Pickup & delivery";
+  const services = `${fulfillmentLabel}: ${formatServiceList(booking.services)}`;
   const numericAcceptFee = Number(acceptFee) || 0;
   const fallbackMessage = [
     "New Rovauto booking request",

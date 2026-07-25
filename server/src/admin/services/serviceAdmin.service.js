@@ -9,7 +9,7 @@ const {
   uploadToCloudinary,
 } = require("../../utils/cloudinaryUpload");
 const {
-  normalizeServiceFulfillmentType,
+  normalizeServiceFulfillmentMode,
 } = require("../../constants/serviceFulfillmentType");
 
 const THUMBNAIL_MAX_SIZE = 5 * 1024 * 1024;
@@ -230,7 +230,7 @@ const createService = async (payload) => {
       description: normalizeText(payload.description) || null,
       isActive: parseBoolean(payload.isActive, true),
       isComingSoon: parseBoolean(payload.isComingSoon, false),
-      fulfillmentType: normalizeServiceFulfillmentType(payload.fulfillmentType),
+      fulfillmentType: normalizeServiceFulfillmentMode(payload.fulfillmentType),
       ...(restrictedCityIds.length > 0 && {
         cityRestrictions: {
           create: restrictedCityIds.map((cityId) => ({ cityId })),
@@ -272,7 +272,7 @@ const updateService = async (serviceId, payload) => {
     data.isComingSoon = parseBoolean(payload.isComingSoon, false);
   }
   if (payload.fulfillmentType !== undefined) {
-    data.fulfillmentType = normalizeServiceFulfillmentType(
+    data.fulfillmentType = normalizeServiceFulfillmentMode(
       payload.fulfillmentType,
     );
   }

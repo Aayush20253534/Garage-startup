@@ -41,7 +41,7 @@ const emptyServiceForm = {
   description: "",
   isActive: true,
   isComingSoon: false,
-  fulfillmentType: "PICKUP_DELIVERY",
+  fulfillmentType: "BOTH",
   restrictedCityIds: [],
   thumbnail: null,
 };
@@ -592,7 +592,7 @@ export default function AdminServices() {
       fulfillmentType:
         service.fulfillmentType === "SELF_DROP_OFF"
           ? "SELF_DROP_OFF"
-          : "PICKUP_DELIVERY",
+          : "BOTH",
       restrictedCityIds: getRestrictedCityIds(service),
       thumbnail: null,
     });
@@ -1015,22 +1015,22 @@ export default function AdminServices() {
               Customer vehicle movement
             </legend>
             <p className="mb-3 text-xs leading-5 text-muted">
-              This applies only to this service. Existing services remain on the normal pickup-and-delivery flow unless changed here.
+              Most services allow the customer to choose pickup or self drop-off at checkout. Use self drop-off only for services that must never be collected by a garage.
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {[
                 {
-                  value: "PICKUP_DELIVERY",
-                  title: "Pickup & delivery",
+                  value: "BOTH",
+                  title: "Customer can choose either",
                   description:
-                    "The garage follows the current process: travels to the customer, receives the vehicle, and returns it after service.",
+                    "At checkout the customer can select pickup & delivery or self drop-off & pickup.",
                   icon: FiTruck,
                 },
                 {
                   value: "SELF_DROP_OFF",
-                  title: "Self drop-off & pickup",
+                  title: "Self drop-off only",
                   description:
-                    "The customer takes the vehicle to the assigned garage and collects it after the garage marks it ready.",
+                    "Pickup is disabled for this service. The customer must take the vehicle to the assigned garage and collect it after service.",
                   icon: FiMapPin,
                 },
               ].map((option) => {
@@ -1546,8 +1546,8 @@ export default function AdminServices() {
                                 <FiTruck />
                               )}
                               {service.fulfillmentType === "SELF_DROP_OFF"
-                                ? "Self drop-off & pickup"
-                                : "Pickup & delivery"}
+                                ? "Self drop-off only"
+                                : "Pickup or self drop-off"}
                             </span>
 
                             {serviceComingSoon && (

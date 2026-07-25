@@ -7,7 +7,10 @@ const { getCache, setCache } = require("../utils/cache");
 const { addGarageWhatsappLink, createWhatsappLink } = require("../utils/whatsapp");
 const googleMapsService = require("../maps/services/googleMaps.service");
 const { isGarageOpenNow } = require("../utils/garageHours");
-const { garageCanServeBooking } = require("../utils/garageCapabilities");
+const {
+  GARAGE_FULFILLMENT_MODE,
+  garageCanServeBooking,
+} = require("../utils/garageCapabilities");
 const { reactivateExpiredGarageSuspensions } = require("../admin/services/garageOperational.service");
 const { filterGaragesByAvailabilityRules } = require("./serviceAvailabilityRule.service");
 
@@ -149,6 +152,7 @@ const buildRawGarageConditions = ({
   requireWalletBalance = false,
   minGarageWalletBalance = 0,
   onlyVerified = false,
+  fulfillmentType = null,
 }) => {
   const conditions = [
     Prisma.sql`g."isActive" = true`,
@@ -159,6 +163,13 @@ const buildRawGarageConditions = ({
 
   if (verified === "true" || onlyVerified) {
     conditions.push(Prisma.sql`g."isVerified" = true`);
+  }
+
+  if (fulfillmentType) {
+    conditions.push(Prisma.sql`g."fulfillmentMode" IN (
+      ${GARAGE_FULFILLMENT_MODE.BOTH}::"GarageFulfillmentMode",
+      ${fulfillmentType}::"GarageFulfillmentMode"
+    )`);
   }
 
   if (city) {
@@ -333,7 +344,11 @@ const fetchGaragesByDistanceRows = async (
   return attachDistanceAndOrder(garages.map(serializer), distanceRows);
 };
 
-const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
+const buildGarageServiceFilter = (
+  serviceIds = [],
+  vehicle = null,
+  fulfillmentType = null,
+) => {
   const uniqueServiceIds = normalizeServiceIds(serviceIds);
 
   if (uniqueServiceIds.length === 0) return {};
@@ -344,6 +359,15 @@ const buildGarageServiceFilter = (serviceIds = [], vehicle = null) => {
 
   return {
     AND: [
+      ...(fulfillmentType
+        ? [
+            {
+              fulfillmentMode: {
+                in: [GARAGE_FULFILLMENT_MODE.BOTH, fulfillmentType],
+              },
+            },
+          ]
+        : []),
       ...(vehicleBrand
         ? [
             {
@@ -874,6 +898,7 @@ const findNearbyEligibleGarages = async ({
   requireWalletBalance = false,
   minGarageWalletBalance = 0,
   vehicle = null,
+  fulfillmentType = null,
 }) => {
   await reactivateExpiredGarageSuspensions();
   const numericLatitude = parseFiniteNumber(latitude);
@@ -900,6 +925,7 @@ const findNearbyEligibleGarages = async ({
     requireWalletBalance,
     minGarageWalletBalance,
     vehicle,
+    fulfillmentType,
     // Radius rounds notify every eligible garage returned by the geo query.
     // Use the query helper's maximum supported page rather than the old
     // batch-oriented limit of 150.
@@ -924,7 +950,7 @@ const findNearbyEligibleGarages = async ({
             isVerified: true,
           }),
 
-          ...buildGarageServiceFilter(finalServiceIds, vehicle),
+          ...buildGarageServiceFilter(finalServiceIds, vehicle, fulfillmentType),
 
           ...(requireWalletBalance && {
             wallet: {
@@ -947,6 +973,7 @@ const findNearbyEligibleGarages = async ({
       garage,
       serviceIds: finalServiceIds,
       vehicle,
+      fulfillmentType,
     }),
   );
 

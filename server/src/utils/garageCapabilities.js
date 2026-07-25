@@ -1,5 +1,31 @@
+const GARAGE_FULFILLMENT_MODE = Object.freeze({
+  BOTH: "BOTH",
+  PICKUP_DELIVERY: "PICKUP_DELIVERY",
+  SELF_DROP_OFF: "SELF_DROP_OFF",
+});
+
 const normalizeCapabilityValue = (value) =>
   String(value || "").trim().toLowerCase();
+
+const normalizeGarageFulfillmentMode = (value) => {
+  const normalized = String(value || "").trim().toUpperCase();
+
+  return Object.values(GARAGE_FULFILLMENT_MODE).includes(normalized)
+    ? normalized
+    : GARAGE_FULFILLMENT_MODE.BOTH;
+};
+
+const garageSupportsFulfillmentType = (garage, fulfillmentType) => {
+  const mode = normalizeGarageFulfillmentMode(garage?.fulfillmentMode);
+  const requestedType = String(fulfillmentType || "").trim().toUpperCase();
+
+  if (!requestedType) return true;
+
+  return (
+    mode === GARAGE_FULFILLMENT_MODE.BOTH ||
+    mode === requestedType
+  );
+};
 
 const normalizeServiceIds = (serviceIds = []) => [
   ...new Set(
@@ -79,11 +105,20 @@ const assignmentExcludesVehicle = (assignment, vehicle = {}) =>
   assignment?.isExcluded === true &&
   assignmentScopeMatchesVehicle(assignment, vehicle);
 
-const garageCanServeBooking = ({ garage, serviceIds = [], vehicle = {} }) => {
+const garageCanServeBooking = ({
+  garage,
+  serviceIds = [],
+  vehicle = {},
+  fulfillmentType,
+}) => {
   const requiredServiceIds = normalizeServiceIds(serviceIds);
   const assignments = Array.isArray(garage?.services) ? garage.services : [];
 
-  if (!requiredServiceIds.length || !garageSupportsVehicleBrand(garage, vehicle)) {
+  if (
+    !requiredServiceIds.length ||
+    !garageSupportsFulfillmentType(garage, fulfillmentType) ||
+    !garageSupportsVehicleBrand(garage, vehicle)
+  ) {
     return false;
   }
 
@@ -105,9 +140,12 @@ const garageCanServeBooking = ({ garage, serviceIds = [], vehicle = {} }) => {
 };
 
 module.exports = {
+  GARAGE_FULFILLMENT_MODE,
   assignmentExcludesVehicle,
   assignmentMatchesVehicle,
   garageCanServeBooking,
   garageExcludesVehicleBrand,
+  garageSupportsFulfillmentType,
   garageSupportsVehicleBrand,
+  normalizeGarageFulfillmentMode,
 };

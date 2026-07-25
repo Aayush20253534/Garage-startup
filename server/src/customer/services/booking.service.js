@@ -28,8 +28,9 @@ const {
 } = require("./bookingFinancialIdempotency");
 const {
   SERVICE_FULFILLMENT_TYPE,
-  getServiceFulfillmentTypes,
-  hasMixedServiceFulfillmentTypes,
+  allServicesSupportFulfillmentType,
+  getRequiredServiceFulfillmentType,
+  normalizeServiceFulfillmentType,
 } = require("../../constants/serviceFulfillmentType");
 
 const bookingInclude = {
@@ -209,6 +210,7 @@ const createBooking = async (userId, data) => {
     endTime,
     customerNote,
     location,
+    fulfillmentType: requestedFulfillmentType,
   } = data;
 
   if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
@@ -289,17 +291,28 @@ const createBooking = async (userId, data) => {
     );
   }
 
-  const fulfillmentTypes = getServiceFulfillmentTypes(services);
+  const requiredFulfillmentType =
+    getRequiredServiceFulfillmentType(services);
+  const fulfillmentType = requestedFulfillmentType
+    ? normalizeServiceFulfillmentType(requestedFulfillmentType)
+    : requiredFulfillmentType || SERVICE_FULFILLMENT_TYPE.PICKUP_DELIVERY;
 
-  if (hasMixedServiceFulfillmentTypes(services)) {
+  if (
+    requiredFulfillmentType &&
+    fulfillmentType !== requiredFulfillmentType
+  ) {
     throw new ApiError(
       409,
-      "Pickup-and-delivery services and self drop-off services cannot be booked together. Remove one service type and create a separate booking.",
+      "One or more selected services require self drop-off & pickup. Choose self drop-off to continue.",
     );
   }
 
-  const fulfillmentType =
-    fulfillmentTypes[0] || SERVICE_FULFILLMENT_TYPE.PICKUP_DELIVERY;
+  if (!allServicesSupportFulfillmentType(services, fulfillmentType)) {
+    throw new ApiError(
+      409,
+      "The selected vehicle handover option is not available for every service in this booking.",
+    );
+  }
 
   const comingSoonServices = services.filter(
     (service) =>

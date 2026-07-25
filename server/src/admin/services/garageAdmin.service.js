@@ -145,7 +145,7 @@ const invalidateGarageAdminChanges = async (garageId) => Promise.allSettled([
 
 const updateGarageDetails = async (garageId, payload = {}) => {
   const existingGarage = await getGarage(garageId);
-  const allowed = ["name", "description", "phone", "whatsappNo", "email", "address", "city", "area", "latitude", "longitude", "workingRadiusKm", "garageType", "supportedBrands", "excludedServiceBrands", "openingTime", "closingTime", "isVerified"];
+  const allowed = ["name", "description", "phone", "whatsappNo", "email", "address", "city", "area", "latitude", "longitude", "workingRadiusKm", "fulfillmentMode", "garageType", "supportedBrands", "excludedServiceBrands", "openingTime", "closingTime", "isVerified"];
   const data = Object.fromEntries(allowed.filter((key) => payload[key] !== undefined).map((key) => [key, payload[key]]));
 
   if (Array.isArray(data.excludedServiceBrands)) {

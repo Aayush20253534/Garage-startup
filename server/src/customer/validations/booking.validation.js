@@ -1,4 +1,5 @@
 const { body, param } = require("express-validator");
+const { SERVICE_FULFILLMENT_TYPES } = require("../../constants/serviceFulfillmentType");
 
 const bookingIdValidation = [
   param("id").isUUID().withMessage("Invalid booking ID"),
@@ -25,6 +26,11 @@ const createBookingValidation = [
     .withMessage("At least one service is required"),
 
   body("serviceIds.*").isUUID().withMessage("Each service ID must be valid"),
+
+  body("fulfillmentType")
+    .optional({ nullable: true, checkFalsy: true })
+    .isIn(SERVICE_FULFILLMENT_TYPES)
+    .withMessage("Choose pickup & delivery or self drop-off & pickup"),
 
   body("scheduledDate")
     .optional({ nullable: true, checkFalsy: true })

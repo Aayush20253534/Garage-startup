@@ -43,7 +43,7 @@ import {
 import { loadActiveCities } from "@/utils/cityAvailability";
 import {
   getServiceFulfillmentLabel,
-  isSelfDropOffService,
+  isSelfDropOffOnlyService,
 } from "@/utils/serviceFulfillment";
 
 const toBoolean = (value) =>
@@ -369,11 +369,6 @@ export default function CategoryDetail() {
 
     const result = addToCart(serviceItem);
 
-    if (result?.conflict) {
-      setCartNotice(result.message);
-      return;
-    }
-
     setCartNotice("");
     nav("/booking/services");
   };
@@ -694,12 +689,12 @@ export default function CategoryDetail() {
                         </span>
                         <span
                           className={`inline-flex items-center gap-1.5 ${
-                            isSelfDropOffService(pkg)
+                            isSelfDropOffOnlyService(pkg)
                               ? "text-violet-700"
                               : "text-sky-700"
                           }`}
                         >
-                          {isSelfDropOffService(pkg) ? (
+                          {isSelfDropOffOnlyService(pkg) ? (
                             <FiMapPin className="text-sm" />
                           ) : (
                             <FiTruck className="text-sm" />
@@ -905,12 +900,12 @@ export default function CategoryDetail() {
 
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-semibold ${
-                    isSelfDropOffService(selectedPackage)
+                    isSelfDropOffOnlyService(selectedPackage)
                       ? "border-violet-100 bg-violet-50 text-violet-800"
                       : "border-sky-100 bg-sky-50 text-sky-700"
                   }`}
                 >
-                  {isSelfDropOffService(selectedPackage) ? (
+                  {isSelfDropOffOnlyService(selectedPackage) ? (
                     <FiMapPin />
                   ) : (
                     <FiTruck />

@@ -151,6 +151,7 @@ test("admin creates a service without service-level prices", async () => {
     description: "Engine oil and filter replacement",
     isActive: true,
     isComingSoon: false,
+    fulfillmentType: "BOTH",
   });
 
   assert.equal(calls.creates.length, 1);
@@ -160,6 +161,7 @@ test("admin creates a service without service-level prices", async () => {
     description: "Engine oil and filter replacement",
     isActive: true,
     isComingSoon: false,
+    fulfillmentType: "BOTH",
   });
 });
 

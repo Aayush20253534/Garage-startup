@@ -8,12 +8,12 @@ Rovauto helps customers book vehicle services from verified garages in supported
 
 Sign in with a customer account and add at least one vehicle. Select the services you need and review the available price range for your city and vehicle. A vehicle can have only one active booking at a time, so complete or cancel the current booking before creating another booking for the same vehicle.
 
-Each service shows how the vehicle will move for that booking:
+Most services support both vehicle-handover options. At checkout, choose one option for the booking:
 
 - **Pickup & delivery:** the assigned garage follows Rovauto's normal vehicle pickup and return process.
 - **Self drop-off & pickup:** the customer takes the vehicle to the assigned garage and collects it from the garage after service.
 
-Pickup-and-delivery services and self drop-off services cannot be placed in the same booking. If a customer tries to mix them, the app shows a disclaimer and does not add the conflicting service. Finish the current booking type or remove it and create a separate booking for the other type.
+A service marked **Self drop-off only** disables pickup and automatically requires self drop-off for the booking. Rovauto sends the request only to garages that support the selected handover mode, serve the selected vehicle brand and model, and are assigned every selected service.
 
 ## Which Location Is Used
 
@@ -27,7 +27,7 @@ During a normal pickup-and-delivery job, live location sharing belongs to the as
 
 ## Vehicle And Service Selection
 
-Choose a saved vehicle, then select one or more active services of the same vehicle-movement type. Some services may be unavailable or marked coming soon in a particular city. Prices shown before booking are estimated ranges based on the configured city, service, and vehicle details. The garage confirms the final service amount after inspecting and completing the work.
+Choose a saved vehicle, then select one or more active services. At checkout, choose pickup or self drop-off unless one of the selected services is self drop-off only. Some services may be unavailable or marked coming soon in a particular city. Prices shown before booking are estimated ranges based on the configured city, service, and vehicle details. The garage confirms the final service amount after inspecting and completing the work.
 
 ## Checkout And Platform Fee
 

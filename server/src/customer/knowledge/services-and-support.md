@@ -6,12 +6,12 @@
 
 Rovauto lists active vehicle-care services configured for supported cities. Categories may include periodic maintenance, repair, inspection, cleaning, roadside assistance, and other services shown in the app. A service may be unavailable or coming soon in a particular city. The app's current service listing is the source of truth.
 
-Every bookable service can show one of two vehicle-movement options:
+Most bookable services allow either vehicle-handover option at checkout:
 
 - **Pickup & delivery:** the assigned garage follows the normal pickup and return process.
 - **Self drop-off & pickup:** the customer takes the vehicle to the assigned garage and collects it after the garage marks it ready.
 
-Services with different movement options cannot be combined in one cart or booking. If the customer tries to add a conflicting service, the app keeps the current cart unchanged and shows a disclaimer asking them to book the other type separately.
+A service explicitly marked **Self drop-off only** disables pickup for that booking. Garage matching considers the selected handover mode, the garage's supported vehicle-brand list, service assignments, exclusions, distance and operational status before any alert is sent.
 
 Displayed service prices are approved estimates or ranges for the selected city, service, and vehicle scope. They are not a guaranteed final repair quotation. If no approved range exists for the selected combination, the app must not invent a price or allow that service to proceed through checkout. The final service amount depends on the completed work and is confirmed before customer delivery acceptance or vehicle-collection confirmation.
 

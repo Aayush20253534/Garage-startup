@@ -80,6 +80,7 @@ const updateGarageDetailsSchema = [
   body("latitude").optional().isFloat({ min: 6, max: 38 }).toFloat(),
   body("longitude").optional().isFloat({ min: 68, max: 98 }).toFloat(),
   body("workingRadiusKm").optional().isInt({ min: 1, max: 100 }).toInt(),
+  body("fulfillmentMode").optional().isIn(["BOTH", "PICKUP_DELIVERY", "SELF_DROP_OFF"]),
   body("garageType").optional().isIn(["MULTI_BRAND", "AUTHORIZED"]),
   body("supportedBrands").optional().isArray({ max: 100 }),
   body("supportedBrands.*").optional().trim().isLength({ min: 1, max: 120 }),

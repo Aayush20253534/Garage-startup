@@ -1,40 +1,50 @@
-# Self Drop-off Service Setup
+# Pickup and Self Drop-off Setup
 
 ## Behaviour
 
-Rovauto now supports two service-level vehicle movement modes:
+Rovauto separates the service rule from the booking choice:
 
-- `PICKUP_DELIVERY`: the existing garage pickup and return process. This remains the default for every existing and newly created service unless an admin changes it.
-- `SELF_DROP_OFF`: the customer takes the vehicle to the assigned garage and returns to collect it after service.
+- A normal service is stored as `BOTH`. At checkout, the customer can choose either `PICKUP_DELIVERY` or `SELF_DROP_OFF` for the complete booking.
+- A service explicitly stored as `SELF_DROP_OFF` is self-drop-off-only. If the cart contains one or more of these services, checkout automatically selects self drop-off and disables pickup.
+- A garage is independently stored as `BOTH`, `PICKUP_DELIVERY`, or `SELF_DROP_OFF` according to the handover modes that it can fulfil.
 
-An admin selects the mode independently for each service from **Admin → Services → Customer vehicle movement**.
+An admin configures service behaviour from **Admin → Services → Customer vehicle movement** and garage behaviour from **Admin → Garages → Garage Details → Edit all details → Booking handover**.
 
-## Mixed cart protection
+## Customer checkout
 
-Pickup-and-delivery services and self drop-off services cannot be placed in the same booking.
+1. The customer can combine normal services and self-drop-off-only services in one cart.
+2. If every selected service is normal, checkout presents both handover options.
+3. If any selected service is self-drop-off-only, the booking must use self drop-off.
+4. The selected booking mode is saved on `Booking.fulfillmentType` and remains fixed once the pending booking has been created.
+5. Older clients that omit the booking mode remain compatible: normal carts default to pickup, while carts containing a self-drop-off-only service are inferred as self drop-off.
 
-Protection exists in both places:
+## Garage matching and notifications
 
-1. The customer UI refuses the second incompatible service and displays a disclaimer.
-2. The booking API validates the selected services again and returns HTTP `409` if a mixed request is submitted manually or by an outdated client.
+A garage is eligible only when all of the following are true:
+
+- Its `Garage.fulfillmentMode` supports the customer-selected booking mode.
+- Its `supportedBrands` list contains the booking vehicle's brand, or contains `ALL`.
+- The vehicle brand is not in the garage-wide excluded-brand list.
+- Every selected service is actively assigned to that garage for the vehicle's brand/model scope.
+- No matching service exclusion blocks that brand/model.
+- The service and its category are active and the existing operational, distance and availability checks pass.
+
+The same capability check runs during nearby matching, immediately before notifications are dispatched, and again inside the acceptance transaction. A garage therefore cannot accept a stale request after its mode, brand coverage or service allocation changes.
 
 ## Self drop-off lifecycle
 
-1. Customer selects only self drop-off services and pays the normal platform fee.
-2. The existing nearby-garage matching process runs without changes.
-3. The accepted garage address, map, phone and handover OTP are shown to the customer.
-4. The garage is told not to travel to the customer. Customer address and coordinates are not exposed as a pickup destination.
-5. The customer reaches the garage and shares the OTP.
-6. Garage captures five drop-off inspection photos and starts service.
-7. Garage captures five post-service photos and marks the vehicle ready for customer pickup.
-8. Customer visits the garage, enters the final amount paid and confirms vehicle collection.
-9. The booking completes and warranty/service history activate through the existing completion process.
+1. Customer chooses self drop-off, or checkout forces it because a selected service requires it.
+2. Matching alerts only garages that support self drop-off and the selected vehicle/services.
+3. After acceptance, the customer receives the garage address, map, phone and handover OTP.
+4. The customer takes the vehicle to the garage and later collects it there.
+5. Pickup-route tracking and customer-proximity unlocking remain disabled for self-drop-off bookings.
+6. Inspection photos, final amount confirmation, completion, warranty and service history continue through the existing booking lifecycle.
 
-Live pickup-route tracking and customer-proximity unlocking are disabled only for self drop-off bookings. Standard bookings continue using the existing tracking and proximity rules.
+For pickup bookings, notifications only go to pickup-capable garages, and the existing collection/return tracking flow remains active.
 
 ## Database deployment
 
-Run the migration before starting the updated server:
+Deploy and regenerate Prisma before starting the updated server:
 
 ```bash
 cd server
@@ -42,27 +52,25 @@ npm run prisma:deploy
 npm run prisma:generate
 ```
 
-Migration:
+New migration:
 
-`server/prisma/migrations/20260725003000_add_service_fulfillment_type/migration.sql`
+`server/prisma/migrations/20260725173000_add_customer_and_garage_fulfillment_modes/migration.sql`
 
-The migration adds:
+It:
 
-- `Service.fulfillmentType`
-- `Booking.fulfillmentType`
-- PostgreSQL enum `ServiceFulfillmentType`
-
-Both columns default to `PICKUP_DELIVERY`, so existing services and bookings preserve their current behaviour.
+- Converts existing normal services from `PICKUP_DELIVERY` to service mode `BOTH`.
+- Preserves explicitly configured self-drop-off-only services.
+- Keeps existing booking snapshots unchanged.
+- Adds `Garage.fulfillmentMode` with a safe default of `BOTH`.
 
 ## Verification checklist
 
-- Edit one service in admin and choose **Self drop-off & pickup**.
-- Confirm the service badge is visible on customer service cards.
-- Add that service to cart, then attempt to add a standard service; confirm the disclaimer appears and the second item is not added.
-- Repeat in reverse order.
-- Submit a mixed service-ID request directly to the API; confirm it returns `409`.
-- Complete a self drop-off booking and confirm no live pickup route is created.
-- Confirm garage sees the OTP and photo controls without customer-distance unlocking.
-- Confirm the garage cannot see or navigate to the customer address for the self drop-off booking.
-- Mark the vehicle ready and confirm the customer sees **Confirm Vehicle Collection**.
-- Confirm a normal pickup-and-delivery booking works exactly as before.
+- For a normal service, confirm checkout allows both pickup and self drop-off.
+- For a self-drop-off-only service, confirm pickup is disabled.
+- Mix a normal service with a self-drop-off-only service and confirm checkout forces self drop-off instead of rejecting the cart.
+- Set one garage to pickup-only, one to self-drop-off-only and one to both.
+- Confirm a pickup booking alerts only pickup-only/both garages.
+- Confirm a self-drop-off booking alerts only self-drop-off-only/both garages.
+- Remove the vehicle brand from a garage's supported-brand list and confirm it receives no request.
+- Confirm every selected service must be assigned for the vehicle brand/model.
+- Change a garage capability after a request is created and confirm acceptance is rejected by the final transactional check.

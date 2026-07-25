@@ -496,6 +496,7 @@ model Garage {
   longitude             Float
   placeId               String?
   workingRadiusKm       Int                       @default(15)
+  fulfillmentMode       GarageFulfillmentMode     @default(BOTH)
   garageType            String?                   @default("MULTI_BRAND")
   supportedBrands       Json?
   excludedServiceBrands Json                      @default("[]")
@@ -535,6 +536,7 @@ model Garage {
   @@index([latitude, longitude])
   @@index([operationalStatus, city])
   @@index([operationalStatus, suspendedUntil])
+  @@index([fulfillmentMode])
 }
 
 model GarageImage {
@@ -592,7 +594,7 @@ model Service {
   isComingSoon Boolean  @default(false)
   isPopular    Boolean  @default(false)
   popularOrder Int?
-  fulfillmentType ServiceFulfillmentType @default(PICKUP_DELIVERY)
+  fulfillmentType ServiceFulfillmentMode @default(BOTH)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   durationMin  Int?
@@ -1843,6 +1845,17 @@ enum RequestType {
 }
 
 enum ServiceFulfillmentType {
+  PICKUP_DELIVERY
+  SELF_DROP_OFF
+}
+
+enum ServiceFulfillmentMode {
+  BOTH
+  SELF_DROP_OFF
+}
+
+enum GarageFulfillmentMode {
+  BOTH
   PICKUP_DELIVERY
   SELF_DROP_OFF
 }

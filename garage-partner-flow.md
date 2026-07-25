@@ -97,14 +97,17 @@ Customer details are revealed only after assignment, and controller views furthe
 
 ## 7. Handover, service, and delivery
 
+Before dispatch, the garage must support the booking's pickup/self-drop-off mode, the vehicle brand, and every selected service for the vehicle scope. The same eligibility is checked again when the request is accepted.
+
 1. Assignment generates a six-digit handover OTP with a two-hour expiry.
-2. The customer shares it only during physical vehicle handover.
-3. Garage/controller submits the OTP plus the required pickup inspection images.
-4. Verification uses hashed OTP storage, bounded attempts, a concurrency claim, and Cloudinary upload.
-5. Successful verification changes the booking from `CONFIRMED` to `IN_PROGRESS`.
-6. Garage/controller uploads delivery inspection images and marks the vehicle delivered.
-7. Customer reviews the delivery, supplies/confirms the final service amount, and accepts delivery.
-8. Booking becomes `COMPLETED`; review, service history, and warranty flows become available.
+2. For pickup bookings, the garage collects and returns the vehicle. For self-drop-off bookings, the customer takes the vehicle to the garage and collects it there.
+3. The customer shares the OTP only during physical vehicle handover.
+4. Garage/controller submits the OTP plus the required handover inspection images.
+5. Verification uses hashed OTP storage, bounded attempts, a concurrency claim, and Cloudinary upload.
+6. Successful verification changes the booking from `CONFIRMED` to `IN_PROGRESS`.
+7. Garage/controller uploads delivery inspection images and marks the vehicle delivered.
+8. Customer reviews the delivery, supplies/confirms the final service amount, and accepts delivery.
+9. Booking becomes `COMPLETED`; review, service history, and warranty flows become available.
 
 `deliveredAt` is a delivery checkpoint, not a separate `BookingStatus`.
 

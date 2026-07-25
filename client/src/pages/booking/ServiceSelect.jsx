@@ -17,10 +17,8 @@ import {
   warmImageCache,
 } from "@/utils/imageCache";
 import {
-  MIXED_FULFILLMENT_MESSAGE,
   getServiceFulfillmentLabel,
-  hasMixedFulfillmentTypes,
-  isSelfDropOffService,
+  isSelfDropOffOnlyService,
 } from "@/utils/serviceFulfillment";
 import {
   FiAlertCircle,
@@ -100,12 +98,12 @@ function CartItems({ cart, serviceById, comingSoonIds, removeFromCart }) {
             <div className="mt-2.5 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
               <span
                 className={`inline-flex max-w-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-[10px] font-extrabold leading-none ${
-                  isSelfDropOffService(displayItem)
+                  isSelfDropOffOnlyService(displayItem)
                     ? "border-violet-100 bg-violet-50 text-violet-800"
                     : "border-sky-100 bg-sky-50 text-sky-700"
                 }`}
               >
-                {isSelfDropOffService(displayItem) ? <FiMapPin /> : <FiTruck />}
+                {isSelfDropOffOnlyService(displayItem) ? <FiMapPin /> : <FiTruck />}
                 {getServiceFulfillmentLabel(displayItem)}
               </span>
 
@@ -173,10 +171,6 @@ export default function ServiceSelect() {
     return !currentService?.priceRange;
   });
 
-  const hasMixedFulfillmentInCart = hasMixedFulfillmentTypes(
-    cart.map((item) => serviceById.get(item.id) || item),
-  );
-
   const pricedCartItems = cart
     .map((item) => serviceById.get(item.id))
     .filter((item) => item?.priceRange);
@@ -194,15 +188,12 @@ export default function ServiceSelect() {
   const checkoutBlocked =
     cart.length === 0 ||
     hasComingSoonInCart ||
-    hasUnavailableInCart ||
-    hasMixedFulfillmentInCart;
+    hasUnavailableInCart;
 
   const checkoutLabel =
     cart.length === 0
       ? "Add service"
-      : hasComingSoonInCart ||
-          hasUnavailableInCart ||
-          hasMixedFulfillmentInCart
+      : hasComingSoonInCart || hasUnavailableInCart
         ? "Review cart"
         : "Continue";
 
@@ -293,13 +284,6 @@ export default function ServiceSelect() {
             A service in your cart is restricted in this city or has no price
             allocated for the selected vehicle. Remove it before continuing.
           </span>
-        </div>
-      )}
-
-      {hasMixedFulfillmentInCart && (
-        <div className="mt-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <FiAlertCircle className="mt-0.5 shrink-0" />
-          <span>{MIXED_FULFILLMENT_MESSAGE}</span>
         </div>
       )}
 
@@ -404,12 +388,12 @@ export default function ServiceSelect() {
 
                   <span
                     className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold sm:text-xs ${
-                      isSelfDropOffService(service)
+                      isSelfDropOffOnlyService(service)
                         ? "bg-violet-50 text-violet-800"
                         : "bg-sky-50 text-sky-700"
                     }`}
                   >
-                    {isSelfDropOffService(service) ? <FiMapPin /> : <FiTruck />}
+                    {isSelfDropOffOnlyService(service) ? <FiMapPin /> : <FiTruck />}
                     {getServiceFulfillmentLabel(service)}
                   </span>
 
@@ -513,10 +497,7 @@ export default function ServiceSelect() {
                           ),
                         });
 
-                        if (result?.conflict) {
-                          setError(result.message);
-                          setMobileCartOpen(true);
-                        } else {
+                        if (result?.added || result?.alreadyInCart) {
                           setError("");
                         }
                       }
@@ -605,9 +586,7 @@ export default function ServiceSelect() {
               ? "Remove Coming Soon Items"
               : hasUnavailableInCart
                 ? "Remove Unavailable Items"
-                : hasMixedFulfillmentInCart
-                  ? "Separate Service Types"
-                  : "Continue"}{" "}
+                : "Continue"}{" "}
             <FiArrowRight />
           </Link>
         </aside>
@@ -638,15 +617,11 @@ export default function ServiceSelect() {
                 </button>
               </div>
 
-              {(hasComingSoonInCart ||
-                hasUnavailableInCart ||
-                hasMixedFulfillmentInCart) && (
+              {(hasComingSoonInCart || hasUnavailableInCart) && (
                 <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
                   <FiAlertCircle className="mt-0.5 shrink-0" />
                   <span>
-                    {hasMixedFulfillmentInCart
-                      ? MIXED_FULFILLMENT_MESSAGE
-                      : "Remove unavailable or coming-soon services before continuing."}
+                    Remove unavailable or coming-soon services before continuing.
                   </span>
                 </div>
               )}

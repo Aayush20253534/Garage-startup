@@ -1,5 +1,10 @@
 const { body, param, query } = require("express-validator");
-const { SERVICE_FULFILLMENT_TYPES } = require("../../constants/serviceFulfillmentType");
+const { SERVICE_FULFILLMENT_MODES } = require("../../constants/serviceFulfillmentType");
+
+const SERVICE_FULFILLMENT_INPUTS = [
+  ...SERVICE_FULFILLMENT_MODES,
+  "PICKUP_DELIVERY", // Legacy admin clients normalize to BOTH in the service layer.
+];
 
 const categoryIdSchema = [
   param("categoryId").isUUID().withMessage("Invalid service category ID"),
@@ -63,8 +68,8 @@ const createServiceSchema = [
     .toBoolean(),
   body("fulfillmentType")
     .optional({ nullable: true })
-    .isIn(SERVICE_FULFILLMENT_TYPES)
-    .withMessage("fulfillmentType must be PICKUP_DELIVERY or SELF_DROP_OFF"),
+    .isIn(SERVICE_FULFILLMENT_INPUTS)
+    .withMessage("fulfillmentType must be BOTH or SELF_DROP_OFF"),
   ...restrictedCityIdsSchema,
 ];
 
@@ -92,8 +97,8 @@ const updateServiceSchema = [
     .toBoolean(),
   body("fulfillmentType")
     .optional({ nullable: true })
-    .isIn(SERVICE_FULFILLMENT_TYPES)
-    .withMessage("fulfillmentType must be PICKUP_DELIVERY or SELF_DROP_OFF"),
+    .isIn(SERVICE_FULFILLMENT_INPUTS)
+    .withMessage("fulfillmentType must be BOTH or SELF_DROP_OFF"),
   ...restrictedCityIdsSchema,
 ];
 

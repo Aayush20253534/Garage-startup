@@ -29,9 +29,8 @@ import {
 import { requireAvailableCityName } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 import {
-  MIXED_FULFILLMENT_MESSAGE,
-  hasMixedFulfillmentTypes,
-  isSelfDropOffService,
+  SERVICE_FULFILLMENT_TYPE,
+  cartRequiresSelfDropOff,
 } from "@/utils/serviceFulfillment";
 import {
   FiAlertCircle,
@@ -162,6 +161,9 @@ export default function Checkout() {
   const [wallet, setWallet] = useState(null);
   const [useWallet, setUseWallet] = useState(false);
   const [paymentProgress, setPaymentProgress] = useState(null);
+  const [fulfillmentType, setFulfillmentType] = useState(
+    SERVICE_FULFILLMENT_TYPE.PICKUP_DELIVERY,
+  );
   const paymentAttemptRef = useRef(false);
   const [addressForm, setAddressForm] = useState(() =>
     getCheckoutAddressForm({ location, user }),
@@ -205,9 +207,9 @@ export default function Checkout() {
   const canSavePhone = INDIA_PHONE_REGEX.test(phoneToSave);
   const comingSoonItems = cart.filter(isCartItemComingSoon);
   const hasComingSoonItems = comingSoonItems.length > 0;
-  const hasMixedFulfillmentItems = hasMixedFulfillmentTypes(cart);
+  const requiresSelfDropOff = cartRequiresSelfDropOff(cart);
   const isSelfDropOffBooking =
-    cart.length > 0 && cart.every(isSelfDropOffService);
+    fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF;
   const blocksCurrentVehicleBooking =
     Boolean(activeVehicleBooking?.id) &&
     activeVehicleBooking.id !== pendingBooking?.id;
@@ -230,6 +232,12 @@ export default function Checkout() {
       setUseWallet(false);
     }
   }, [useWallet, walletBalance]);
+
+  useEffect(() => {
+    if (requiresSelfDropOff) {
+      setFulfillmentType(SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF);
+    }
+  }, [requiresSelfDropOff]);
 
   useEffect(() => {
     let mounted = true;
@@ -548,11 +556,6 @@ export default function Checkout() {
       return;
     }
 
-    if (hasMixedFulfillmentItems) {
-      setError(MIXED_FULFILLMENT_MESSAGE);
-      return;
-    }
-
     if (!hasSavedPhone) {
       setError("Save a valid mobile number before opening payment.");
       return;
@@ -585,6 +588,7 @@ export default function Checkout() {
         const bookingRes = await api.post("/bookings/checkout", {
           vehicleId: vehicle.id,
           serviceIds: cart.map((item) => item.id),
+          fulfillmentType,
           location: checkoutLocation,
         });
 
@@ -698,12 +702,71 @@ export default function Checkout() {
           </div>
         )}
 
-        {hasMixedFulfillmentItems && (
-          <div className="mt-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-            <FiAlertCircle className="mt-1 shrink-0" />
-            <span>{MIXED_FULFILLMENT_MESSAGE}</span>
+        <section className="card-soft mt-6 p-5 sm:p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-bold text-ink">Choose vehicle handover</h2>
+            <p className="text-sm leading-6 text-muted">
+              Select how the vehicle reaches the garage for this booking. Garage alerts are sent only to garages that support your selected option and vehicle brand.
+            </p>
           </div>
-        )}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {[
+              {
+                value: SERVICE_FULFILLMENT_TYPE.PICKUP_DELIVERY,
+                title: "Pickup & delivery",
+                description: "An eligible garage collects the vehicle from your saved service address and returns it after service.",
+                icon: FiTruck,
+                disabled: requiresSelfDropOff,
+              },
+              {
+                value: SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF,
+                title: "Self drop-off & pickup",
+                description: "You take the vehicle to the assigned garage and collect it after the service is ready.",
+                icon: FiMapPin,
+                disabled: false,
+              },
+            ].map((option) => {
+              const selected = fulfillmentType === option.value;
+              const Icon = option.icon;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={option.disabled || Boolean(pendingBooking?.id)}
+                  onClick={() => {
+                    setFulfillmentType(option.value);
+                    setError("");
+                  }}
+                  className={`flex min-h-32 items-start gap-3 rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    selected
+                      ? "border-ink bg-white shadow-sm ring-1 ring-ink"
+                      : "border-line bg-bg-soft/60 hover:border-ink/30 hover:bg-white"
+                  }`}
+                >
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${selected ? "bg-brand text-black" : "bg-white text-muted"}`}>
+                    <Icon />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2 font-bold text-ink">
+                      {option.title}
+                      {selected && <FiCheckCircle className="text-green-700" />}
+                    </span>
+                    <span className="mt-1 block text-sm leading-5 text-muted">
+                      {option.description}
+                    </span>
+                    {option.disabled && (
+                      <span className="mt-2 block text-xs font-semibold text-violet-700">
+                        A selected service is self drop-off only.
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         {!hasSavedPhone && (
           <div className="card-soft mt-5 grid gap-4 border border-amber-200 bg-amber-50 p-5">
@@ -969,7 +1032,6 @@ export default function Checkout() {
             loading ||
             cart.length === 0 ||
             hasComingSoonItems ||
-            hasMixedFulfillmentItems ||
             blocksCurrentVehicleBooking ||
             !hasSavedPhone
           }
@@ -982,9 +1044,7 @@ export default function Checkout() {
               : "Activating booking..."
             : hasComingSoonItems
               ? "Remove Coming Soon Services"
-              : hasMixedFulfillmentItems
-                ? "Separate Service Types"
-                : cart.length === 0
+              : cart.length === 0
                 ? "Add services to continue"
                 : blocksCurrentVehicleBooking
                   ? "Complete active booking first"

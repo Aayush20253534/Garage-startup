@@ -4,9 +4,9 @@
 
 ## When This Booking Type Applies
 
-Only services labelled **Self drop-off & pickup** use this process. All other services continue to use Rovauto's normal pickup-and-delivery process.
+At checkout, most services let the customer choose **Pickup & delivery** or **Self drop-off & pickup** for the whole booking. Services labelled **Self drop-off only** automatically require this process and disable the pickup option.
 
-A self drop-off service and a pickup-and-delivery service cannot be placed in the same cart or booking. If the customer tries to mix them, the conflicting service is not added and the app shows a disclaimer asking the customer to create a separate booking.
+The selected handover mode applies to every service in the booking. Garage matching sends the request only to garages that support the chosen mode, the selected vehicle brand and model, and every selected service.
 
 ## Before Checkout
 

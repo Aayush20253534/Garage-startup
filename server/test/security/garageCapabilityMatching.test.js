@@ -7,6 +7,7 @@ const {
   assignmentMatchesVehicle,
   garageCanServeBooking,
   garageExcludesVehicleBrand,
+  garageSupportsFulfillmentType,
 } = require("../../src/utils/garageCapabilities");
 
 const projectRoot = path.resolve(__dirname, "../../..");
@@ -59,6 +60,35 @@ test("garage capability matching requires every assigned service and supported b
       vehicle: { brand: "Toyota", model: "Innova" },
     }),
     false,
+  );
+});
+
+
+test("garage handover capability must match the customer-selected booking mode", () => {
+  const pickupGarage = { ...capableGarage, fulfillmentMode: "PICKUP_DELIVERY" };
+  const selfDropGarage = { ...capableGarage, fulfillmentMode: "SELF_DROP_OFF" };
+  const bothGarage = { ...capableGarage, fulfillmentMode: "BOTH" };
+
+  assert.equal(
+    garageSupportsFulfillmentType(pickupGarage, "PICKUP_DELIVERY"),
+    true,
+  );
+  assert.equal(
+    garageSupportsFulfillmentType(pickupGarage, "SELF_DROP_OFF"),
+    false,
+  );
+  assert.equal(
+    garageSupportsFulfillmentType(selfDropGarage, "PICKUP_DELIVERY"),
+    false,
+  );
+  assert.equal(
+    garageCanServeBooking({
+      garage: bothGarage,
+      serviceIds: ["service-oil"],
+      vehicle: { brand: "Ford", model: "EcoSport" },
+      fulfillmentType: "SELF_DROP_OFF",
+    }),
+    true,
   );
 });
 
@@ -251,9 +281,11 @@ test("garage alerts recheck capability before WhatsApp and in-app delivery", () 
   );
 
   assert.match(requestService, /garageCanServeBooking/);
+  assert.match(requestService, /fulfillmentMode: true/);
   assert.match(requestService, /supportedBrands: true/);
   assert.match(requestService, /serviceId: \{ in: requiredServiceIds \}/);
   assert.match(eligibilityService, /garageCanServeBooking\(\{/);
+  assert.match(eligibilityService, /g\."fulfillmentMode" IN/);
   assert.match(eligibilityService, /jsonb_array_elements_text/);
 });
 
