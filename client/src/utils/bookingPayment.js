@@ -352,6 +352,7 @@ const verifyBookingPayment = async ({ bookingId, cashfreeOrderId }) => {
 export const payForBooking = async ({
   booking,
   useWallet = false,
+  walletOnlyExpected = false,
   onProgress,
 } = {}) => {
   if (!booking?.id) {
@@ -370,10 +371,17 @@ export const payForBooking = async ({
   );
 
   let sdkLoadError = null;
-  const cashfreeReadyPromise = loadCashfreeCheckout().catch((error) => {
-    sdkLoadError = error;
-    return false;
-  });
+  let cashfreeReadyPromise = null;
+
+  // A wallet-only payment is completed entirely by the backend. Avoid opening
+  // or waiting for the Cashfree SDK unless the server reports that a remaining
+  // gateway amount is still required (for example, after a wallet balance race).
+  if (!walletOnlyExpected) {
+    cashfreeReadyPromise = loadCashfreeCheckout().catch((error) => {
+      sdkLoadError = error;
+      return false;
+    });
+  }
 
   const result = await requestBookingPaymentOrder({
     bookingId: booking.id,
@@ -387,6 +395,13 @@ export const payForBooking = async ({
       BOOKING_PAYMENT_PROGRESS.ACTIVATING_SEARCH,
     );
     return result.booking;
+  }
+
+  if (!cashfreeReadyPromise) {
+    cashfreeReadyPromise = loadCashfreeCheckout().catch((error) => {
+      sdkLoadError = error;
+      return false;
+    });
   }
 
   const cashfreeReady = await cashfreeReadyPromise;

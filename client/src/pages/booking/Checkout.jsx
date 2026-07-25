@@ -192,6 +192,13 @@ export default function Checkout() {
     ? Math.min(walletBalance, payNowAmount)
     : 0;
   const cashfreePayNowAmount = Math.max(payNowAmount - walletAmountUsed, 0);
+  const paymentMethod =
+    useWallet && walletAmountUsed > 0
+      ? cashfreePayNowAmount <= 0
+        ? "wallet"
+        : "split"
+      : "cashfree";
+  const walletOnlyExpected = paymentMethod === "wallet";
   const savedPhone = normalizeIndianPhone(user?.phone || "");
   const phoneToSave = normalizeIndianPhone(phoneDraft);
   const hasSavedPhone = INDIA_PHONE_REGEX.test(savedPhone);
@@ -588,6 +595,7 @@ export default function Checkout() {
       const paidBooking = await payForBooking({
         booking,
         useWallet,
+        walletOnlyExpected,
         onProgress: setPaymentProgress,
       });
 
@@ -631,7 +639,10 @@ export default function Checkout() {
 
   return (
     <>
-      <BookingPaymentLoader phase={paymentProgress} />
+      <BookingPaymentLoader
+        phase={paymentProgress}
+        paymentMethod={paymentMethod}
+      />
       <div className="container-x grid gap-8 py-12 lg:grid-cols-[1fr_400px]">
       <div>
         <h1 className="text-3xl font-bold sm:text-4xl">Checkout</h1>

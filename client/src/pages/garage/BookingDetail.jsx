@@ -501,91 +501,121 @@ export default function GarageBookingDetail() {
           )}
 
           {isHandoverStage ? (
-            <div className="card-soft p-5 sm:p-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h3 className="text-xl font-bold">
-                    {isSelfDropOff ? "Receive Customer Drop-off" : "Receive Vehicle"}
-                  </h3>
-                  <p className="mt-1 text-sm text-muted">
-                    {isSelfDropOff
-                      ? "When the customer arrives at your garage, verify the handover OTP and capture the vehicle condition before starting service."
-                      : `Share live location first. The handover OTP unlocks when you are within ${ARRIVAL_UNLOCK_DISTANCE_METERS}m of the customer location.`}
-                  </p>
-                </div>
-                <span
-                  className={[
-                    "inline-flex h-8 w-fit items-center rounded-lg px-3 text-xs font-bold",
-                    isNearCustomer
-                      ? "bg-brand text-black"
-                      : "bg-bg-soft text-muted",
-                  ].join(" ")}
-                >
-                  {isSelfDropOff
-                    ? "At garage"
-                    : formatDistance(distanceToCustomerMeters)}
-                </span>
-              </div>
-
-              {!isNearCustomer ? (
-                <div className="mt-5 rounded-xl border border-line bg-bg-soft p-4 text-sm text-muted">
-                  <div className="flex items-start gap-3">
-                    <FiNavigation className="mt-0.5 shrink-0 text-brand-dark" />
-                    <p>
-                      Keep live sharing on and navigate to the customer. The OTP
-                      box appears automatically once you are very close.
+            <div className="card-soft overflow-hidden">
+              <div className="border-b border-line bg-gradient-to-r from-white to-bg-soft/70 p-5 sm:p-6">
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                  <div className="min-w-0">
+                    <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-muted">
+                      Vehicle handover
+                    </p>
+                    <h3 className="mt-1 text-xl font-bold sm:text-2xl">
+                      {isSelfDropOff ? "Receive Customer Drop-off" : "Receive Vehicle"}
+                    </h3>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+                      {isSelfDropOff
+                        ? "When the customer arrives at your garage, verify the handover OTP and capture the vehicle condition before starting service."
+                        : `Share live location first. The handover OTP unlocks when you are within ${ARRIVAL_UNLOCK_DISTANCE_METERS}m of the customer location.`}
                     </p>
                   </div>
-                </div>
-              ) : (
-                <>
-                  <p className="mt-4 text-xs text-muted">
-                    OTP expiry: {formatDateTime(booking.handoverOtpExpiresAt)}
-                    {" "}(exactly 2 hours after generation). The customer can
-                    generate a new OTP from booking tracking if needed.
-                  </p>
-                  <input
-                    value={otp}
-                    onChange={(event) =>
-                      setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    placeholder="6-digit handover OTP"
-                    className="mt-4 w-full rounded-xl border border-line px-4 py-3 focus:border-ink focus:outline-none"
-                  />
-
-                  {hasCompleteOtp && (
-                    <div className="mt-4">
-                      <p className="mb-3 text-sm text-muted">
-                        Upload exactly five {isSelfDropOff ? "drop-off" : "pickup"} photos after entering the OTP. Each photo must be 1 MB or less.
-                      </p>
-                      <ImageUpload
-                        min={5}
-                        max={5}
-                        value={preServiceImages}
-                        onChange={setPreServiceImages}
-                      />
-                    </div>
-                  )}
-
-                  <button
-                    onClick={verifyHandover}
-                    disabled={
-                      loading ||
-                      !hasCompleteOtp ||
-                      preServiceImages.length !== 5
-                    }
-                    className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
+                  <span
+                    className={[
+                      "inline-flex w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-extrabold shadow-sm",
+                      isNearCustomer
+                        ? "border-brand/50 bg-brand/20 text-ink"
+                        : "border-line bg-white text-muted",
+                    ].join(" ")}
                   >
-                    {loading
-                      ? "Verifying..."
-                      : isSelfDropOff
-                        ? "Verify Drop-off & Start Service"
-                        : "Verify Handover & Start Service"}
-                  </button>
-                </>
-              )}
+                    {isSelfDropOff ? (
+                      <>
+                        <FiMapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                        Customer arrives here
+                      </>
+                    ) : (
+                      <>
+                        <FiNavigation className="h-3.5 w-3.5" aria-hidden="true" />
+                        {formatDistance(distanceToCustomerMeters)}
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-5 sm:p-6">
+                {!isNearCustomer ? (
+                  <div className="rounded-xl border border-line bg-bg-soft p-4 text-sm text-muted">
+                    <div className="flex items-start gap-3">
+                      <FiNavigation className="mt-0.5 shrink-0 text-brand-dark" />
+                      <p>
+                        Keep live sharing on and navigate to the customer. The OTP
+                        box appears automatically once you are very close.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-xl border border-line bg-bg-soft px-4 py-3">
+                      <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted">
+                        OTP valid until
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-ink">
+                        {formatDateTime(booking.handoverOtpExpiresAt)}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-muted">
+                        The OTP expires exactly two hours after generation. The
+                        customer can generate a new one from booking tracking.
+                      </p>
+                    </div>
+
+                    <label
+                      htmlFor="garage-handover-otp"
+                      className="mt-5 block text-sm font-bold text-ink"
+                    >
+                      6-digit handover OTP
+                    </label>
+                    <input
+                      id="garage-handover-otp"
+                      value={otp}
+                      onChange={(event) =>
+                        setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+                      }
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="Enter customer OTP"
+                      className="mt-2 h-12 w-full rounded-xl border border-line px-4 text-base tracking-[0.08em] focus:border-ink focus:outline-none"
+                    />
+
+                    {hasCompleteOtp && (
+                      <div className="mt-5">
+                        <p className="mb-3 text-sm leading-6 text-muted">
+                          Upload exactly five {isSelfDropOff ? "drop-off" : "pickup"} photos after entering the OTP. Each photo must be 1 MB or less.
+                        </p>
+                        <ImageUpload
+                          min={5}
+                          max={5}
+                          value={preServiceImages}
+                          onChange={setPreServiceImages}
+                        />
+                      </div>
+                    )}
+
+                    <button
+                      onClick={verifyHandover}
+                      disabled={
+                        loading ||
+                        !hasCompleteOtp ||
+                        preServiceImages.length !== 5
+                      }
+                      className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {loading
+                        ? "Verifying..."
+                        : isSelfDropOff
+                          ? "Verify Drop-off & Start Service"
+                          : "Verify Handover & Start Service"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           ) : null}
 
