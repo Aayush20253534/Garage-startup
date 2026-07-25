@@ -1,4 +1,5 @@
-const { Prisma } = require("@prisma/client");
+const prismaClient = require("@prisma/client");
+const { Prisma } = prismaClient;
 
 const REQUIRED_SERVICE_FIELDS = [
   "id",
@@ -59,14 +60,32 @@ const serviceFulfillmentField = serviceModel.fields.find(
 const bookingFulfillmentField = bookingModel.fields.find(
   (field) => field.name === "fulfillmentType",
 );
-const fulfillmentEnum = Prisma.dmmf.datamodel.enums.find(
+const fulfillmentEnum = Prisma.dmmf.datamodel.enums?.find(
   (item) => item.name === "ServiceFulfillmentType",
 );
-const generatedFulfillmentValues = new Set(
-  (fulfillmentEnum?.values || []).map((value) =>
-    typeof value === "string" ? value : value.name,
-  ),
-);
+
+const enumValues = (candidate) => {
+  if (!candidate || typeof candidate !== "object") return [];
+
+  return Object.values(candidate)
+    .map((value) => {
+      if (typeof value === "string") return value;
+      if (value && typeof value.name === "string") return value.name;
+      return null;
+    })
+    .filter(Boolean);
+};
+
+// Prisma 7 no longer guarantees that user-defined enum values are exposed in
+// Prisma.dmmf.datamodel.enums. The generated runtime enum is the stable source
+// for prisma-client-js, while the DMMF lookup is retained as a compatibility
+// fallback for older generated clients.
+const generatedFulfillmentValues = new Set([
+  ...enumValues(prismaClient.ServiceFulfillmentType),
+  ...enumValues(prismaClient.$Enums?.ServiceFulfillmentType),
+  ...enumValues(Prisma.ServiceFulfillmentType),
+  ...enumValues(fulfillmentEnum?.values),
+]);
 const requiredFulfillmentValues = [
   "BOTH",
   "PICKUP_DELIVERY",
