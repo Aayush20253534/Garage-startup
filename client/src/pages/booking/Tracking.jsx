@@ -20,7 +20,6 @@ import {
   FiCheck,
   FiCheckCircle,
   FiClock,
-  FiDollarSign,
   FiMapPin,
   FiMessageCircle,
   FiNavigation,
@@ -849,54 +848,90 @@ function Tracking() {
         )}
 
         {booking.deliveredAt && booking.status !== "COMPLETED" && (
-          <div className="card-soft mt-6 p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">
-                  {isSelfDropOff ? "Vehicle ready for self pickup" : "Vehicle delivery ready"}
-                </h2>
-                <p className="mt-2 text-sm text-muted">
-                  {isSelfDropOff
-                    ? "Visit the garage, review the post-service photos and vehicle, enter the final amount paid, then confirm collection."
-                    : "Review the delivery photos, enter the final amount you paid to the garage, then accept delivery."}
-                </p>
+          <section className="card-soft mt-6 overflow-hidden" aria-labelledby="customer-confirmation-title">
+            <div className="border-b border-line bg-bg-soft p-5 sm:p-6">
+              <div className="flex items-start gap-3.5 sm:gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-xl text-ink shadow-sm">
+                  <FiCheckCircle aria-hidden="true" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
+                        Final booking step
+                      </p>
+                      <h2 id="customer-confirmation-title" className="mt-1 text-xl font-bold leading-tight sm:text-2xl">
+                        {isSelfDropOff ? "Your vehicle is ready for pickup" : "Your vehicle has arrived"}
+                      </h2>
+                    </div>
+
+                    <span className="inline-flex w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-brand/40 bg-brand-soft px-3 py-1.5 text-xs font-bold text-ink">
+                      <span className="h-2 w-2 rounded-full bg-brand-dark" aria-hidden="true" />
+                      Action required
+                    </span>
+                  </div>
+
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-muted sm:text-base">
+                    {isSelfDropOff
+                      ? "Check the completed work and post-service photos at the garage. Then enter the amount you actually paid and confirm that you collected the vehicle."
+                      : "Review the completed work and delivery photos. Then enter the amount you actually paid and confirm that you received the vehicle."}
+                  </p>
+                </div>
               </div>
-              <span className="chip-brand w-fit">Customer confirmation</span>
             </div>
 
-            <label className="mt-5 block">
-              <span className="mb-1.5 flex items-center gap-2 text-sm font-semibold">
-                <FiDollarSign className="text-brand-dark" />
-                Final amount paid to garage
-              </span>
-              <input
-                type="number"
-                min="1"
-                inputMode="numeric"
-                value={finalAmount}
-                onChange={(event) =>
-                  setFinalAmount(event.target.value.replace(/\D/g, ""))
-                }
-                placeholder="Enter final amount"
-                className="w-full rounded-xl border border-line px-4 py-3 text-sm font-semibold outline-none transition focus:border-ink"
-              />
-            </label>
+            <div className="p-5 sm:p-6">
+              <div className="rounded-2xl border border-line bg-white p-4 sm:p-5">
+                <label className="block" htmlFor="final-booking-amount">
+                  <span className="text-sm font-bold text-ink">Final amount paid to the garage</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted">
+                    Enter the complete amount paid for this booking, including any approved additional work.
+                  </span>
 
-            <button
-              type="button"
-              onClick={acceptDelivery}
-              disabled={actionLoading === "delivery" || Number(finalAmount) <= 0}
-              className="btn-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              {actionLoading === "delivery"
-                ? isSelfDropOff
-                  ? "Confirming..."
-                  : "Accepting..."
-                : isSelfDropOff
-                  ? "Confirm Vehicle Collection"
-                  : "Accept Vehicle Delivery"}
-            </button>
-          </div>
+                  <div className="relative mt-3">
+                    <span className="pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center border-r border-line text-base font-bold text-ink" aria-hidden="true">
+                      ₹
+                    </span>
+                    <input
+                      id="final-booking-amount"
+                      type="number"
+                      min="1"
+                      inputMode="numeric"
+                      value={finalAmount}
+                      onChange={(event) =>
+                        setFinalAmount(event.target.value.replace(/\D/g, ""))
+                      }
+                      placeholder="Enter amount"
+                      className="min-h-14 w-full rounded-xl border border-line bg-white py-3 pl-16 pr-4 text-base font-bold text-ink outline-none transition placeholder:font-medium placeholder:text-muted focus:border-ink focus:ring-2 focus:ring-ink/10"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs leading-5 text-muted sm:max-w-xl">
+                  Confirm only after you have checked the vehicle. This completes the booking and records the final amount.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={acceptDelivery}
+                  disabled={actionLoading === "delivery" || Number(finalAmount) <= 0}
+                  className="btn-primary min-h-12 w-full shrink-0 px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                >
+                  <FiCheck aria-hidden="true" />
+                  {actionLoading === "delivery"
+                    ? isSelfDropOff
+                      ? "Confirming collection..."
+                      : "Confirming delivery..."
+                    : isSelfDropOff
+                      ? "Confirm vehicle pickup"
+                      : "Confirm vehicle delivery"}
+                </button>
+              </div>
+            </div>
+          </section>
         )}
 
         {booking.status === "COMPLETED" && (
