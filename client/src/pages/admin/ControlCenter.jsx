@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
-import { useApp } from "@/hooks/useApp";
 import { cityApi } from "@/api/cities";
 import BookingManagementModal from "@/components/admin/BookingManagementModal";
 import { formatRupees } from "@/utils/priceRange";
@@ -124,11 +123,7 @@ const parseCsv = (text) => {
 };
 
 export default function ControlCenter() {
-  const { user } = useApp();
-  const isMainAdmin = user?.accountType === "STAFF" && user?.role === "ADMIN";
-  const availableOperationalStatuses = isMainAdmin
-    ? operationalStatuses
-    : operationalStatuses.filter((status) => status !== "PERMANENTLY_BLOCKED");
+  const availableOperationalStatuses = operationalStatuses;
   const [tab, setTab] = useState("escalations");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");

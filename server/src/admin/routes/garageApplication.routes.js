@@ -19,7 +19,7 @@ router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 // remain admin decisions because they create accounts and alter marketplace access.
 router.get("/", applicationQuerySchema, validate, applicationController.listApplications);
 router.get("/:applicationId", applicationIdSchema, validate, applicationController.getApplication);
-router.delete("/", authorizeRoles("ADMIN"), applicationController.deleteApplications);
+router.delete("/", authorizeRoles("ADMIN", "SUB_ADMIN"), applicationController.deleteApplications);
 router.post(
   "/:applicationId/approve",
   authorizeRoles("ADMIN", "SUB_ADMIN"),

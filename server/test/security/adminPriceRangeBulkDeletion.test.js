@@ -7,7 +7,7 @@ const projectRoot = path.resolve(__dirname, "../../..");
 const readProjectFile = (relativePath) =>
   fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 
-test("bulk price range deletion is validated and restricted to admins", () => {
+test("bulk price range deletion is validated for admins and sub-admins", () => {
   const routes = readProjectFile(
     "server/src/admin/routes/cityServicePriceRange.routes.js",
   );
@@ -20,7 +20,7 @@ test("bulk price range deletion is validated and restricted to admins", () => {
 
   assert.match(
     routes,
-    /router\.delete\([\s\S]*"\/"[\s\S]*authorizeRoles\("ADMIN"\)[\s\S]*deletePriceRangesSchema[\s\S]*deletePriceRanges/,
+    /router\.delete\([\s\S]*"\/"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)[\s\S]*deletePriceRangesSchema[\s\S]*deletePriceRanges/,
   );
   assert.match(validation, /body\("priceRangeIds"\)/);
   assert.match(validation, /isArray\(\{ min: 1, max: 1000 \}\)/);
@@ -66,7 +66,7 @@ test("admin price ranges UI supports selected, shown, and global deletion", () =
   );
 });
 
-test("bulk deletion verifies the active admin password before deleting", async () => {
+test("bulk deletion verifies the active staff password before deleting", async () => {
   const prismaPath = require.resolve("../../src/config/prisma");
   const cachePath = require.resolve("../../src/utils/cache");
   const argonPath = require.resolve("argon2");

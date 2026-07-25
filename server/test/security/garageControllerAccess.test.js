@@ -46,3 +46,21 @@ test("controller history hides other customers and management remains owner or a
   assert.match(adminRoutes, /authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
   assert.match(adminRoutes, /setLimit/);
 });
+
+
+test("controller management tolerates body-less requests and uses structured card UI", () => {
+  const controller = read("server/src/garage/controllers/controller.controller.js");
+  const validation = read("server/src/garage/validations/controller.validation.js");
+  const managementUi = read("client/src/components/garage/ControllerManagement.jsx");
+  const dashboardUi = read("client/src/pages/garage/ControllerDashboard.jsx");
+
+  assert.match(controller, /req\.body\?\.garageId/);
+  assert.match(controller, /const requestBody = \(req = \{\}\) => req\.body \|\| \{\}/);
+  assert.match(controller, /transferBooking\(req\.user, requestedGarageId\(req\)/);
+  assert.match(validation, /body\("garageId"\)\.optional\(\)\.isUUID\(\)/);
+  assert.doesNotMatch(managementUi, /rounded-(?:full|2xl|3xl)/);
+  assert.doesNotMatch(dashboardUi, /rounded-(?:full|2xl|3xl)/);
+  assert.match(managementUi, /Controller accounts/);
+  assert.match(managementUi, /grid gap-4 md:grid-cols-2 xl:grid-cols-3/);
+  assert.match(dashboardUi, /Combined garage history/);
+});

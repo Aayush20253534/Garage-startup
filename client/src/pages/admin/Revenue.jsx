@@ -1919,7 +1919,7 @@ export default function Revenue() {
                           </>
                           ) : (
                             <span className="text-xs font-semibold text-muted">
-                              Admin edit/delete only
+                              Admin and sub-admin edit/delete
                             </span>
                           )}
                         </div>

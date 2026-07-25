@@ -9,7 +9,7 @@ const rules = require("../validations/customerSupportAccount.validation");
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN"));
 
 router.get("/", controller.listAccounts);
 router.post("/", rules.createAccount, validate, controller.createAccount);

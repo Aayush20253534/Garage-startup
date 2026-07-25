@@ -37,7 +37,7 @@ router.patch(
 );
 router.delete(
   "/",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   deleteGaragesSchema,
   validate,
   controller.deleteGarages,

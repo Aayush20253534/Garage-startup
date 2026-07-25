@@ -499,8 +499,8 @@ const approveAllPriceRangeSubmissions = async (reviewedBy) => {
 };
 
 const deletePriceRangeSubmission = async (id, deletedBy) => {
-  if (!deletedBy?.id || deletedBy.role !== "ADMIN") {
-    throw new ApiError(403, "Only admins can delete price range submission history");
+  if (!deletedBy?.id || !["ADMIN", "SUB_ADMIN"].includes(deletedBy.role)) {
+    throw new ApiError(403, "Only admin accounts can delete price range submission history");
   }
 
   const existing = await prisma.priceRangeSubmission.findUnique({
@@ -514,8 +514,8 @@ const deletePriceRangeSubmission = async (id, deletedBy) => {
 };
 
 const deletePriceRangeSubmissions = async ({ status } = {}, deletedBy) => {
-  if (!deletedBy?.id || deletedBy.role !== "ADMIN") {
-    throw new ApiError(403, "Only admins can delete price range submission history");
+  if (!deletedBy?.id || !["ADMIN", "SUB_ADMIN"].includes(deletedBy.role)) {
+    throw new ApiError(403, "Only admin accounts can delete price range submission history");
   }
 
   const normalizedStatus = normalizeText(status).toUpperCase();
@@ -565,14 +565,14 @@ const assertBulkDeleteStepUp = async ({
   if (normalizeText(confirmation) !== expectedConfirmation) {
     throw new ApiError(400, `Type ${expectedConfirmation} to continue`);
   }
-  if (!requestedBy?.id || requestedBy.role !== "ADMIN" || !password) {
-    throw new ApiError(403, "Admin password confirmation is required");
+  if (!requestedBy?.id || !["ADMIN", "SUB_ADMIN"].includes(requestedBy.role) || !password) {
+    throw new ApiError(403, "Admin or sub-admin password confirmation is required");
   }
 
   const admin = await prisma.staffAccount.findFirst({
     where: {
       id: requestedBy.id,
-      role: "ADMIN",
+      role: requestedBy.role,
       isActive: true,
     },
     select: { password: true },
@@ -588,7 +588,7 @@ const assertBulkDeleteStepUp = async ({
   }
 
   if (!validPassword) {
-    throw new ApiError(403, "Admin password confirmation failed");
+    throw new ApiError(403, "Staff password confirmation failed");
   }
 };
 

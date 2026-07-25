@@ -7,14 +7,14 @@ const projectRoot = path.resolve(__dirname, "../../..");
 const read = (relativePath) =>
   fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 
-test("customer block and unblock is admin-only and revokes every session", () => {
+test("customer block and unblock is available to admins and sub-admins and revokes every session", () => {
   const routes = read("server/src/admin/routes/adminOperations.routes.js");
   const validation = read("server/src/admin/validations/adminOperations.validation.js");
   const service = read("server/src/admin/services/adminOperations.service.js");
 
   assert.match(
     routes,
-    /"\/customers\/:userId\/status"[\s\S]*authorizeRoles\("ADMIN"\)/,
+    /"\/customers\/:userId\/status"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)/,
   );
   assert.match(
     validation,

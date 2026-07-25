@@ -1024,10 +1024,10 @@ const adminItems = [
   { to: "/admin/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
   { to: "/admin/support-tickets", label: "Support & Disputes", icon: FiHelpCircle },
-  { to: "/admin/customer-support-accounts", label: "Support Accounts", icon: FiHeadphones, mainAdminOnly: true },
+  { to: "/admin/customer-support-accounts", label: "Support Accounts", icon: FiHeadphones },
   { to: "/admin/garage-controllers", label: "Garage Controllers", icon: FiUserCheck },
-  { to: "/admin/intern-accounts", label: "Intern Accounts", icon: FiUserCheck, mainAdminOnly: true },
-  { to: "/admin/sub-admin-accounts", label: "Sub Admin Accounts", icon: FiShield, mainAdminOnly: true },
+  { to: "/admin/intern-accounts", label: "Intern Accounts", icon: FiUserCheck },
+  { to: "/admin/sub-admin-accounts", label: "Sub Admin Accounts", icon: FiShield },
   { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon, mainAdminOnly: true },
 ];
 
@@ -1466,7 +1466,7 @@ function AppRoutes() {
           <Route
             path="/admin/customer-support-accounts"
             element={
-              <ProtectedRoute mainAdminOnly>
+              <ProtectedRoute>
                 <AdminCustomerSupportAccounts />
               </ProtectedRoute>
             }
@@ -1474,7 +1474,7 @@ function AppRoutes() {
           <Route
             path="/admin/intern-accounts"
             element={
-              <ProtectedRoute mainAdminOnly>
+              <ProtectedRoute>
                 <AdminInternAccounts />
               </ProtectedRoute>
             }
@@ -1482,7 +1482,7 @@ function AppRoutes() {
           <Route
             path="/admin/sub-admin-accounts"
             element={
-              <ProtectedRoute mainAdminOnly>
+              <ProtectedRoute>
                 <AdminSubAdminAccounts />
               </ProtectedRoute>
             }

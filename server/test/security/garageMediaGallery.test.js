@@ -68,7 +68,7 @@ test("deleting a garage image compacts ordering and promotes a thumbnail", () =>
   );
 });
 
-test("admins can select and atomically delete multiple garage photos", () => {
+test("admins and sub-admins can select and atomically delete multiple garage photos", () => {
   const routeSource = readSource("src/routes/garageMedia.routes.js");
   const serviceSource = readSource("src/services/garageMedia.service.js");
   const controllerSource = readSource("src/controllers/garageMedia.controller.js");
@@ -77,7 +77,7 @@ test("admins can select and atomically delete multiple garage photos", () => {
 
   assert.match(
     routeSource,
-    /router\.delete\([\s\S]*\/:garageId\/media[\s\S]*authorizeRoles\("ADMIN"\)[\s\S]*deleteGarageImages/,
+    /router\.delete\([\s\S]*\/:garageId\/media[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)[\s\S]*deleteGarageImages/,
   );
   assert.match(controllerSource, /req\.body\?\.imageIds/);
   assert.match(serviceSource, /garageImage\.deleteMany/);

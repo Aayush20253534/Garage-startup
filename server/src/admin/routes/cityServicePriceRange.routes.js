@@ -79,14 +79,14 @@ router.patch(
 );
 router.delete(
   "/submissions",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   deletePriceRangeSubmissionsSchema,
   validate,
   controller.deletePriceRangeSubmissions,
 );
 router.delete(
   "/submissions/:id",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   priceRangeSubmissionIdSchema,
   validate,
   controller.deletePriceRangeSubmission,
@@ -102,7 +102,7 @@ router.patch(
 );
 router.delete(
   "/",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   bulkDeleteStepUpRateLimit,
   deletePriceRangesSchema,
   validate,
@@ -110,7 +110,7 @@ router.delete(
 );
 router.delete(
   "/:id",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   priceRangeIdSchema,
   validate,
   controller.deletePriceRange,

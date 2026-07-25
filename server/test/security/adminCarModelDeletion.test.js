@@ -7,13 +7,13 @@ const projectRoot = path.resolve(__dirname, "../../..");
 const readProjectFile = (relativePath) =>
   fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 
-test("car model deletion is validated, admin-only, and permanent", () => {
+test("car model deletion is validated, available to admins and sub-admins, and permanent", () => {
   const routes = readProjectFile("server/src/admin/routes/carMeta.routes.js");
   const service = readProjectFile("server/src/admin/services/carMeta.service.js");
 
   assert.match(
     routes,
-    /router\.delete\("\/models\/:modelId", authorizeRoles\("ADMIN"\), modelIdSchema, validate, controller\.deleteModel\)/,
+    /router\.delete\("\/models\/:modelId", authorizeRoles\("ADMIN", "SUB_ADMIN"\), modelIdSchema, validate, controller\.deleteModel\)/,
   );
 
   const deleteStart = service.indexOf("const deleteModel");

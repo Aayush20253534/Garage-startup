@@ -37,7 +37,7 @@ router.get(
 );
 router.delete(
   "/customers",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   deleteCustomersSchema,
   validate,
   controller.deleteCustomers,
@@ -94,7 +94,7 @@ router.post(
 );
 router.delete(
   "/bookings/all",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   clearBookingsSchema,
   validate,
   controller.clearAllBookings,
@@ -109,14 +109,14 @@ router.get(
 );
 router.get(
   "/wallet-transfers/recipients",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   walletRecipientQuerySchema,
   validate,
   controller.searchWalletTransferRecipients,
 );
 router.post(
   "/wallet-transfers",
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   adminWalletTransferSchema,
   validate,
   controller.transferWalletFunds,

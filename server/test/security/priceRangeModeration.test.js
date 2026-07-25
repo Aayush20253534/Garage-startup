@@ -7,7 +7,7 @@ const repoRoot = path.resolve(__dirname, "../../..");
 const read = (relativePath) =>
   fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 
-test("price range moderation supports sub-admin review while deletion stays main-admin-only", () => {
+test("price range moderation gives admins and sub-admins the same review and deletion access", () => {
   const routes = read(
     "server/src/admin/routes/cityServicePriceRange.routes.js",
   );
@@ -29,11 +29,11 @@ test("price range moderation supports sub-admin review while deletion stays main
   );
   assert.match(
     routes,
-    /router\.delete\([\s\S]*?"\/submissions\/:id"[\s\S]*?authorizeRoles\("ADMIN"\)/,
+    /router\.delete\([\s\S]*?"\/submissions\/:id"[\s\S]*?authorizeRoles\("ADMIN", "SUB_ADMIN"\)/,
   );
   assert.match(
     routes,
-    /router\.delete\([\s\S]*?"\/submissions"[\s\S]*?authorizeRoles\("ADMIN"\)[\s\S]*?deletePriceRangeSubmissions/,
+    /router\.delete\([\s\S]*?"\/submissions"[\s\S]*?authorizeRoles\("ADMIN", "SUB_ADMIN"\)[\s\S]*?deletePriceRangeSubmissions/,
   );
   assert.match(
     routes,
@@ -319,7 +319,7 @@ test("intern submissions stay outside live customer price ranges until approval"
         { ...payload, minPrice: 1100, maxPrice: 1600 },
         { id: "intern-1", role: "INTERN" },
       ),
-      /Only admins can edit/,
+      /Only admin accounts can edit/,
     );
 
     const edited = await service.editPriceRangeSubmission(
@@ -371,7 +371,7 @@ test("intern submissions stay outside live customer price ranges until approval"
         id: "intern-1",
         role: "INTERN",
       }),
-      /Only admins can delete/,
+      /Only admin accounts can delete/,
     );
     await service.deletePriceRangeSubmission(rejected.id, {
       id: "admin-1",
@@ -424,7 +424,7 @@ test("intern submissions stay outside live customer price ranges until approval"
         id: "intern-1",
         role: "INTERN",
       }),
-      /Only admins can approve/,
+      /Only admin accounts can approve/,
     );
   } finally {
     if (previousPrisma) require.cache[prismaPath] = previousPrisma;

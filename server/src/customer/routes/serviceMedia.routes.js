@@ -22,7 +22,7 @@ router.get(
 );
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN"));
 
 router.post(
   "/:serviceId/media",

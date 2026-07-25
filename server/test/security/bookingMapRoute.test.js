@@ -79,7 +79,7 @@ test("accepted booking tracking uses garage GPS and the fixed booking address", 
   );
   assert.match(
     mapRoutes,
-    /tracking\/location"[\s\S]*authorizeRoles\("GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN"\)/,
+    /tracking\/location"[\s\S]*authorizeRoles\("GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN", "SUB_ADMIN"\)/,
   );
   assert.match(
     trackingService,

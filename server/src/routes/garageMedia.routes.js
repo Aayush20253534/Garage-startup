@@ -25,7 +25,7 @@ router.delete(
 router.delete(
   "/:garageId/media",
   protect,
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
   garageMediaController.deleteGarageImages,
 );
 

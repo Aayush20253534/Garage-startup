@@ -24,14 +24,14 @@ test("sub-admin accounts reuse staff authentication with email OTP and password 
   assert.match(authService, /action: "PASSWORD_RESET_SELF"/);
   assert.match(validation, /PASSWORD_RECOVERY_ROLES = \[\.\.\.USER_ROLES, "GARAGE_CONTROLLER", "SUB_ADMIN", "INTERN"\]/);
   assert.match(otpRules, /role === "ADMIN" \? getAdminDeliveryEmail\(\) : normalizeEmail\(email\)/);
-  assert.match(accountRoutes, /router\.use\(authorizeRoles\("ADMIN"\)\)/);
+  assert.match(accountRoutes, /router\.use\(authorizeRoles\("ADMIN", "SUB_ADMIN"\)\)/);
   assert.match(accountService, /role: "SUB_ADMIN"/);
   assert.match(accountService, /loginId: normalizedEmail/);
   assert.match(accountService, /staffSession\.updateMany/);
   assert.match(passwordResetService, /String\(role \|\| "staff"\)/);
 });
 
-test("sub-admins have operational access but dangerous actions stay main-admin-only", () => {
+test("sub-admins match admin access everywhere except dangerous commands", () => {
   const operations = read("server/src/admin/routes/adminOperations.routes.js");
   const priceRoutes = read("server/src/admin/routes/cityServicePriceRange.routes.js");
   const carRoutes = read("server/src/admin/routes/carMeta.routes.js");
@@ -42,15 +42,15 @@ test("sub-admins have operational access but dangerous actions stay main-admin-o
 
   assert.match(operations, /"\/bookings\/:bookingId\/status"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
   assert.match(operations, /"\/bookings\/:bookingId\/manual-override"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
-  assert.match(operations, /"\/bookings\/all"[\s\S]*authorizeRoles\("ADMIN"\)/);
-  assert.match(operations, /"\/wallet-transfers"[\s\S]*authorizeRoles\("ADMIN"\)/);
+  assert.match(operations, /"\/bookings\/all"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
+  assert.match(operations, /"\/wallet-transfers"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
   assert.match(priceRoutes, /"\/submissions\/:id\/review"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
-  assert.match(priceRoutes, /router\.delete\([\s\S]*"\/"[\s\S]*authorizeRoles\("ADMIN"\)[\s\S]*deletePriceRanges/);
-  assert.match(carRoutes, /router\.delete\("\/models\/:modelId", authorizeRoles\("ADMIN"\)/);
-  assert.match(garageRoutes, /router\.delete\([\s\S]*"\/"[\s\S]*authorizeRoles\("ADMIN"\)[\s\S]*deleteGarages/);
+  assert.match(priceRoutes, /router\.delete\([\s\S]*"\/"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)[\s\S]*deletePriceRanges/);
+  assert.match(carRoutes, /router\.delete\("\/models\/:modelId", authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
+  assert.match(garageRoutes, /router\.delete\([\s\S]*"\/"[\s\S]*authorizeRoles\("ADMIN", "SUB_ADMIN"\)[\s\S]*deleteGarages/);
   assert.match(dangerousRoutes, /router\.use\(authorizeRoles\("ADMIN"\)\)/);
   assert.match(controllerService, /\["ADMIN", "SUB_ADMIN"\]\.includes\(actor\?\.role\)/);
-  assert.match(operationalService, /PERMANENTLY_BLOCKED" && staff\?\.role !== "ADMIN"/);
+  assert.match(operationalService, /PERMANENTLY_BLOCKED" && !\["ADMIN", "SUB_ADMIN"\]\.includes\(staff\?\.role\)/);
 });
 
 test("booking events and reassignment history are persisted with actor identity", () => {
@@ -103,7 +103,7 @@ test("manual booking overrides require a reason and submit only changed values",
   assert.match(modal, /Garage reassignment history/);
 });
 
-test("admin portal distinguishes main and sub-admin login and guards main-only pages", () => {
+test("admin portal distinguishes staff login and guards only the dangerous page", () => {
   const login = read("client/src/pages/admin/Login.jsx");
   const forgot = read("client/src/pages/admin/ForgotPassword.jsx");
   const accounts = read("client/src/pages/admin/SubAdminAccounts.jsx");
@@ -118,6 +118,8 @@ test("admin portal distinguishes main and sub-admin login and guards main-only p
   assert.match(forgot, /resetSubAdminPassword/);
   assert.match(accounts, /Create sub-admin/);
   assert.match(app, /function ProtectedRoute\(\{ children, mainAdminOnly = false \}\)/);
-  assert.match(app, /<ProtectedRoute mainAdminOnly>/);
+  assert.equal((app.match(/<ProtectedRoute mainAdminOnly>/g) || []).length, 1);
+  assert.match(app, /path="\/admin\/dangerous"[\s\S]*<ProtectedRoute mainAdminOnly>/);
+  assert.doesNotMatch(app, /path="\/admin\/(?:customer-support-accounts|intern-accounts|sub-admin-accounts)"[\s\S]{0,120}<ProtectedRoute mainAdminOnly>/);
   assert.match(layout, /item\.mainAdminOnly/);
 });

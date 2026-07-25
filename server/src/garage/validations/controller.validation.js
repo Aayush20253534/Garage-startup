@@ -9,9 +9,11 @@ const phoneRule = body("phone")
 
 const optionalGarageId = [
   query("garageId").optional().isUUID().withMessage("Invalid garage ID"),
+  body("garageId").optional().isUUID().withMessage("Invalid garage ID"),
 ];
 const controllerId = [
   param("controllerId").isUUID().withMessage("Invalid controller ID"),
+  ...optionalGarageId,
 ];
 
 const createFields = [

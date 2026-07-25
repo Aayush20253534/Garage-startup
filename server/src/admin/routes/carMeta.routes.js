@@ -32,6 +32,6 @@ router.patch("/brands/:brandId", authorizeRoles("ADMIN", "SUB_ADMIN"), logoUploa
 router.delete("/brands/:brandId", authorizeRoles("ADMIN", "SUB_ADMIN"), brandIdSchema, validate, controller.deactivateBrand);
 router.post("/brands/:brandId/models", authorizeRoles("ADMIN", "SUB_ADMIN"), createModelSchema, validate, controller.createModel);
 router.patch("/models/:modelId", authorizeRoles("ADMIN", "SUB_ADMIN"), updateModelSchema, validate, controller.updateModel);
-router.delete("/models/:modelId", authorizeRoles("ADMIN"), modelIdSchema, validate, controller.deleteModel);
+router.delete("/models/:modelId", authorizeRoles("ADMIN", "SUB_ADMIN"), modelIdSchema, validate, controller.deleteModel);
 
 module.exports = router;

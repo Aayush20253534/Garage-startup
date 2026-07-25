@@ -70,7 +70,7 @@ export default function AdminLogin() {
           <div className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Secure access</p>
             <div className="mt-5 grid gap-3">
-              {["Email OTP is required after the password", "Audit logs identify the exact staff account", "Dangerous and staff-management actions remain main-admin-only"].map((item) => (
+              {["Email OTP is required after the password", "Audit logs identify the exact staff account", "Dangerous commands remain restricted to the main admin"].map((item) => (
                 <div key={item} className="flex items-start gap-3 text-sm text-ink"><FiCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-dark" /><span>{item}</span></div>
               ))}
             </div>
