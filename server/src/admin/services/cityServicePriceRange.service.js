@@ -235,11 +235,12 @@ const listPriceRangeSubmissions = async (query = {}, staff) => {
     ...(query.city && { city: normalizeCity(query.city) }),
   };
 
+  // Do not truncate submission history. Interns may submit any number of
+  // price ranges and admins must be able to review every matching record.
   return prisma.priceRangeSubmission.findMany({
     where,
     include: submissionInclude,
-    orderBy: [{ createdAt: "desc" }],
-    take: 250,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
 };
 

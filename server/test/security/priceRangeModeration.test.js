@@ -77,6 +77,16 @@ test("price range moderation gives admins and sub-admins the same review and del
   assert.match(service, /processed: approved \+ superseded/);
   assert.match(service, /const deletePriceRangeSubmissions/);
   assert.match(service, /where: normalizedStatus \? \{ status: normalizedStatus \} : \{\}/);
+
+  const listSubmissionsImplementation = service.match(
+    /const listPriceRangeSubmissions = async[\s\S]*?^};/m,
+  )?.[0];
+  assert.ok(listSubmissionsImplementation);
+  assert.doesNotMatch(listSubmissionsImplementation, /\btake\s*:/);
+  assert.match(
+    listSubmissionsImplementation,
+    /orderBy: \[\{ createdAt: "desc" \}, \{ id: "desc" \}\]/,
+  );
 });
 
 test("intern submissions stay outside live customer price ranges until approval", async () => {
