@@ -11,8 +11,8 @@ export const normalizeServiceFulfillmentType = (value) =>
     ? SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
     : SERVICE_FULFILLMENT_TYPE.PICKUP_DELIVERY;
 
-export const getServiceFulfillmentType = (service = {}) =>
-  normalizeServiceFulfillmentType(service.fulfillmentType);
+export const getServiceFulfillmentType = (service) =>
+  normalizeServiceFulfillmentType(service?.fulfillmentType);
 
 export const isSelfDropOffService = (service = {}) =>
   getServiceFulfillmentType(service) ===

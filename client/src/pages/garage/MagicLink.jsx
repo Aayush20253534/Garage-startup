@@ -128,7 +128,7 @@ export default function MagicLink() {
   }, [authLoading, garageToken, id]);
 
   const accepted = booking && isUnlockedStatus(booking.status);
-  const isSelfDropOff = isSelfDropOffService(booking);
+  const isSelfDropOff = booking ? isSelfDropOffService(booking) : false;
   const isPending = booking?.status === "NEW" || booking?.status === "SENT";
   const acceptFee = Number(booking?.acceptFee || 0);
   const walletBalance = Number(
