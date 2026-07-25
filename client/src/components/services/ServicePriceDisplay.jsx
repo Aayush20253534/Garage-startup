@@ -18,7 +18,7 @@ export default function ServicePriceDisplay({
   mode = "range",
   className = "",
   regularClassName =
-    "text-sm font-bold text-red-500 line-through decoration-2 decoration-red-400/90",
+    "text-sm font-semibold text-gray-400 line-through decoration-[1.5px] decoration-gray-400",
   currentClassName = "text-xl font-black tracking-tight text-ink",
 }) {
   if (!service?.priceRange) return null;
@@ -46,7 +46,7 @@ export default function ServicePriceDisplay({
 
   return (
     <span
-      className={`inline-flex max-w-full flex-wrap items-baseline gap-x-2 gap-y-1 ${className}`}
+      className={`inline-flex max-w-full flex-wrap items-baseline gap-x-2.5 gap-y-1 ${className}`}
     >
       <span className={currentClassName} aria-label={`Current price ${currentText}`}>
         {currentText}
@@ -54,7 +54,6 @@ export default function ServicePriceDisplay({
       <span
         className={regularClassName}
         aria-label={`City comparison price ${referenceText}`}
-        title="City comparison price"
       >
         {referenceText}
       </span>

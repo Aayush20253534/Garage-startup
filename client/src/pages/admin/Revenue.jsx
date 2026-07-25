@@ -921,30 +921,29 @@ export default function Revenue() {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-3xl border border-line bg-white shadow-sm">
+      <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]">
         <div className="flex flex-col gap-4 border-b border-line px-4 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
-          <div className="flex items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-bg-soft text-ink">
               <FiPercent />
             </span>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-lg font-extrabold text-ink">
-                City price comparison
+                City display pricing
               </h3>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
-                Set one display-only comparison percentage for every service in
-                a city. Checkout and booking calculations continue to use the
-                stored price range.
+                Add a crossed comparison range to service cards for a city. The saved price range remains the only amount used for booking and checkout.
               </p>
             </div>
           </div>
 
-          <span className="w-fit rounded-full border border-line bg-bg-soft px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-muted">
-            Display pricing only
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-muted">
+            <FiLock className="text-xs" />
+            Checkout unchanged
           </span>
         </div>
 
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_390px]">
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
           <form
             onSubmit={saveCityDiscount}
             className="p-4 sm:p-6 lg:border-r lg:border-line"
@@ -992,94 +991,111 @@ export default function Revenue() {
               </label>
             </div>
 
-            <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-line bg-bg-soft/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={discountForm.isActive}
-                onClick={() =>
-                  setDiscountForm((current) => ({
-                    ...current,
-                    isActive: !current.isActive,
-                  }))
-                }
-                className="flex items-center gap-3 text-left"
-              >
-                <span
-                  className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
-                    discountForm.isActive ? "bg-ink" : "bg-gray-300"
-                  }`}
+            <div className="mt-5 rounded-xl border border-line bg-bg-soft/55 p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={discountForm.isActive}
+                  onClick={() =>
+                    setDiscountForm((current) => ({
+                      ...current,
+                      isActive: !current.isActive,
+                    }))
+                  }
+                  className="flex min-w-0 items-center gap-3 text-left"
                 >
                   <span
-                    className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition ${
-                      discountForm.isActive ? "translate-x-6" : "translate-x-1"
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
+                      discountForm.isActive ? "bg-ink" : "bg-gray-300"
                     }`}
-                  />
-                </span>
-                <span>
-                  <span className="block text-sm font-extrabold text-ink">
-                    {discountForm.isActive ? "Rule active" : "Rule disabled"}
+                  >
+                    <span
+                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition ${
+                        discountForm.isActive ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
                   </span>
-                  <span className="mt-0.5 block text-xs text-muted">
-                    Controls whether customers see the crossed comparison price.
+                  <span className="min-w-0">
+                    <span className="block text-sm font-extrabold text-ink">
+                      {discountForm.isActive ? "Visible to customers" : "Hidden from customers"}
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-5 text-muted">
+                      The comparison range appears without extra labels on customer service cards.
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
 
-              <button
-                type="submit"
-                disabled={isIntern || savingDiscount}
-                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-extrabold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <FiCheck />
-                {savingDiscount ? "Saving..." : "Save rule"}
-              </button>
+                <button
+                  type="submit"
+                  disabled={isIntern || savingDiscount}
+                  className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-ink px-5 text-sm font-extrabold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FiCheck />
+                  {savingDiscount ? "Saving..." : "Save display rule"}
+                </button>
+              </div>
             </div>
           </form>
 
-          <div className="bg-bg-soft/70 p-4 sm:p-6">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-muted">
-              Customer preview
-            </p>
+          <aside className="bg-bg-soft/55 p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-muted">
+                  Customer preview
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  Product-style service card
+                </p>
+              </div>
+              <span
+                className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${
+                  discountForm.isActive
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-gray-200 text-gray-500"
+                }`}
+              >
+                {discountForm.isActive ? "Visible" : "Hidden"}
+              </span>
+            </div>
 
-            <div className="mt-3 rounded-2xl border border-line bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-extrabold text-ink">
-                    Example service
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    Estimated price range
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${
-                    discountForm.isActive
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {discountForm.isActive ? "Visible" : "Hidden"}
+            <div className="mt-3 overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+              <div className="relative h-28 overflow-hidden bg-gradient-to-br from-gray-950 via-gray-800 to-gray-700 p-4 text-white">
+                <div className="absolute -right-7 -top-8 h-28 w-28 rounded-full bg-[#b9f000]/20 blur-2xl" />
+                <p className="relative text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#b9f000]">
+                  Rovauto service
+                </p>
+                <p className="relative mt-2 max-w-[220px] text-lg font-black leading-tight">
+                  High Performance AC Service
+                </p>
+                <span className="relative mt-3 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-white/90">
+                  Verified service
                 </span>
               </div>
 
-              <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-3xl font-black tracking-tight text-ink">
-                  {formatRupeeRange(1000, 2000)}
-                </span>
-                {discountForm.isActive && (
-                  <span className="text-base font-bold text-red-500 line-through decoration-2 decoration-red-400/90">
-                    {formatRupeeRange(discountPreviewMin, discountPreviewMax)}
+              <div className="p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.13em] text-muted">
+                  Estimated price range
+                </p>
+                <div className="mt-2 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                  <span className="text-2xl font-black tracking-tight text-ink">
+                    {formatRupeeRange(1000, 2000)}
                   </span>
-                )}
-              </div>
-
-              <div className="mt-5 border-t border-dashed border-line pt-4 text-xs leading-5 text-muted">
-                Customers are charged {formatRupeeRange(1000, 2000)}. The crossed
-                amount is display-only and is never used at checkout.
+                  {discountForm.isActive && (
+                    <span className="text-sm font-semibold text-gray-400 line-through decoration-[1.5px] decoration-gray-400">
+                      {formatRupeeRange(discountPreviewMin, discountPreviewMax)}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-2 text-xs leading-5 text-muted">
+                  The first amount is always used for booking and checkout.
+                </p>
+                <div className="mt-4 h-10 rounded-lg bg-[#b9f000] text-center text-sm font-black leading-10 text-gray-950">
+                  Book service
+                </div>
               </div>
             </div>
-          </div>
+          </aside>
         </div>
 
         {cityDiscounts.length > 0 && (
@@ -1090,7 +1106,7 @@ export default function Revenue() {
                   Configured cities
                 </h4>
                 <p className="mt-0.5 text-xs text-muted">
-                  Select a city to edit its existing display rule.
+                  Select a city row to edit its display rule.
                 </p>
               </div>
               <span className="rounded-full bg-bg-soft px-2.5 py-1 text-xs font-bold text-muted">
@@ -1098,28 +1114,32 @@ export default function Revenue() {
               </span>
             </div>
 
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {cityDiscounts.map((discount) => (
+            <div className="overflow-hidden rounded-xl border border-line">
+              {cityDiscounts.map((discount, index) => (
                 <button
                   key={discount.id}
                   type="button"
                   onClick={() => selectDiscountCity(discount.cityId)}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-white px-4 py-3.5 text-left transition hover:border-gray-400 hover:bg-bg-soft/40"
+                  className={`flex w-full items-center justify-between gap-4 bg-white px-4 py-3.5 text-left transition hover:bg-bg-soft/60 ${
+                    index === cityDiscounts.length - 1 ? "" : "border-b border-line"
+                  }`}
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate font-extrabold text-ink">
-                      {discount.city?.name || "Unknown city"}
-                    </span>
-                    <span className="mt-1 flex items-center gap-1.5 text-xs text-muted">
-                      <span
-                        className={`h-2 w-2 rounded-full ${
-                          discount.isActive ? "bg-emerald-500" : "bg-gray-300"
-                        }`}
-                      />
-                      {discount.isActive ? "Active" : "Disabled"}
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                        discount.isActive ? "bg-emerald-500" : "bg-gray-300"
+                      }`}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-extrabold text-ink">
+                        {discount.city?.name || "Unknown city"}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-muted">
+                        {discount.isActive ? "Visible on service cards" : "Rule disabled"}
+                      </span>
                     </span>
                   </span>
-                  <span className="shrink-0 rounded-lg bg-bg-soft px-2.5 py-1.5 text-sm font-black text-ink">
+                  <span className="shrink-0 text-sm font-black text-ink">
                     +{discount.discountPercent}%
                   </span>
                 </button>
