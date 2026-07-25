@@ -65,52 +65,58 @@ function CartItems({ cart, serviceById, comingSoonIds, removeFromCart }) {
         return (
           <div
             key={item.id}
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-xl border border-line bg-white px-3 py-2.5 text-sm"
+            className="rounded-xl border border-line bg-white p-3 text-sm"
           >
-            <div className="min-w-0">
-              <span className="block truncate font-medium text-ink">
-                {displayItem.name}
-              </span>
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-ink">
+                  {displayItem.name}
+                </span>
+
+                {comingSoon && (
+                  <span className="mt-1 block text-xs font-semibold text-amber-700">
+                    Coming Soon
+                  </span>
+                )}
+
+                {unavailable && !comingSoon && (
+                  <span className="mt-1 block text-xs font-semibold leading-4 text-red-700">
+                    {currentService?.priceUnavailableMessage ||
+                      "Unavailable for this city or vehicle"}
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => removeFromCart(item.id)}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted transition hover:bg-red-50 hover:text-red-700"
+                aria-label={`Remove ${displayItem.name}`}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="mt-2.5 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
               <span
-                className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                className={`inline-flex max-w-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-[10px] font-extrabold leading-none ${
                   isSelfDropOffService(displayItem)
-                    ? "bg-violet-50 text-violet-800"
-                    : "bg-sky-50 text-sky-700"
+                    ? "border-violet-100 bg-violet-50 text-violet-800"
+                    : "border-sky-100 bg-sky-50 text-sky-700"
                 }`}
               >
                 {isSelfDropOffService(displayItem) ? <FiMapPin /> : <FiTruck />}
                 {getServiceFulfillmentLabel(displayItem)}
               </span>
-              {comingSoon && (
-                <span className="mt-0.5 block text-xs font-semibold text-amber-700">
-                  Coming Soon
-                </span>
-              )}
-              {unavailable && !comingSoon && (
-                <span className="mt-0.5 block text-xs font-semibold leading-4 text-red-700">
-                  {currentService?.priceUnavailableMessage ||
-                    "Unavailable for this city or vehicle"}
-                </span>
-              )}
-            </div>
 
-            <div className="flex items-start gap-2">
               {currentService?.priceRange && (
                 <ServicePriceDisplay
                   service={currentService}
-                  className="max-w-52 justify-end text-right"
-                  regularClassName="text-[10px] font-bold text-red-500 line-through decoration-2 decoration-red-400/90 sm:text-xs"
-                  currentClassName="text-xs font-black text-ink sm:text-sm"
+                  className="ml-auto flex-col items-end gap-x-0 gap-y-0.5 text-right"
+                  regularClassName="text-[10px] font-bold leading-none text-red-500 line-through decoration-2 decoration-red-400/90"
+                  currentClassName="whitespace-nowrap text-sm font-black leading-none text-ink"
                 />
               )}
-              <button
-                type="button"
-                onClick={() => removeFromCart(item.id)}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted transition hover:bg-red-50 hover:text-red-700"
-                aria-label={`Remove ${displayItem.name}`}
-              >
-                <FiX />
-              </button>
             </div>
           </div>
         );
