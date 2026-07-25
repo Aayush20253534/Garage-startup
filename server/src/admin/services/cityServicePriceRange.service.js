@@ -566,7 +566,7 @@ const assertBulkDeleteStepUp = async ({
     throw new ApiError(400, `Type ${expectedConfirmation} to continue`);
   }
   if (!requestedBy?.id || !["ADMIN", "SUB_ADMIN"].includes(requestedBy.role) || !password) {
-    throw new ApiError(403, "Admin or sub-admin password confirmation is required");
+    throw new ApiError(403, "Admin or Main Admin password confirmation is required");
   }
 
   const admin = await prisma.staffAccount.findFirst({

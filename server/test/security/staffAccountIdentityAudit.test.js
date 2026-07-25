@@ -14,7 +14,7 @@ test("admin portal always displays the exact signed-in staff account", () => {
   assert.match(layout, /Active session/);
   assert.match(layout, /account\?\.email \|\| account\?\.loginId/);
   assert.match(layout, /Login ID:/);
-  assert.match(layout, /account\?\.role === "SUB_ADMIN" \? "SUB ADMIN" : "MAIN ADMIN"/);
+  assert.match(layout, /account\?\.role === "SUB_ADMIN" \? "ADMIN" : "MAIN ADMIN"/);
 });
 
 test("audit logs snapshot and display email and login ID for each staff account", () => {
@@ -37,9 +37,9 @@ test("audit logs snapshot and display email and login ID for each staff account"
   assert.match(auditService, /actorLoginId: \{ contains: search/);
   assert.match(authService, /actorEmail: staff\.email \|\| null/);
   assert.match(authService, /actorLoginId: staff\.loginId \|\| null/);
-  assert.match(controlCenter, /Exact staff account/);
+  assert.match(controlCenter, /exact Main Admin, Admin, or intern account/);
   assert.match(controlCenter, /log\.actorEmail \|\| log\.actorLoginId \|\| log\.actorId/);
   assert.match(controlCenter, /Main admins/);
-  assert.match(controlCenter, /Sub-admins/);
+  assert.match(controlCenter, /Admins/);
   assert.match(controlCenter, /Account ID:/);
 });

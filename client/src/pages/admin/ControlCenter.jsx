@@ -672,7 +672,7 @@ export default function ControlCenter() {
           {tab === "audit" && (
             <Section
               title="Admin audit logs"
-              description="Every action is tied to the exact main-admin, sub-admin, or intern account that performed it. Email and login ID are stored as point-in-time audit snapshots."
+              description="Every action is tied to the exact Main Admin, Admin, or intern account that performed it. Email and login ID are stored as point-in-time audit snapshots."
             >
               <div className="mb-5 rounded-xl border border-line bg-bg-soft/60 p-3">
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-center">
@@ -693,7 +693,7 @@ export default function ControlCenter() {
                   >
                     <option value="">All staff accounts</option>
                     <option value="ADMIN">Main admins</option>
-                    <option value="SUB_ADMIN">Sub-admins</option>
+                    <option value="SUB_ADMIN">Admins</option>
                     <option value="INTERN">Interns</option>
                   </select>
 
@@ -708,7 +708,7 @@ export default function ControlCenter() {
                   const roleLabel = log.actorRole === "ADMIN"
                     ? "MAIN ADMIN"
                     : log.actorRole === "SUB_ADMIN"
-                      ? "SUB ADMIN"
+                      ? "ADMIN"
                       : log.actorRole || "UNKNOWN ROLE";
                   const primaryIdentifier = log.actorEmail || log.actorLoginId || log.actorId || "Identifier unavailable";
                   const numericStatus = Number(log.statusCode);
@@ -811,7 +811,7 @@ export default function ControlCenter() {
                         )}
                         {log.actorId && (
                           <span className="break-words font-mono [overflow-wrap:anywhere]">
-                            Account: {log.actorId}
+                            Account ID: {log.actorId}
                           </span>
                         )}
                         <span className="break-words [overflow-wrap:anywhere] sm:ml-auto">

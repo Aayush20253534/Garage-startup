@@ -1027,7 +1027,7 @@ const adminItems = [
   { to: "/admin/customer-support-accounts", label: "Support Accounts", icon: FiHeadphones },
   { to: "/admin/garage-controllers", label: "Garage Controllers", icon: FiUserCheck },
   { to: "/admin/intern-accounts", label: "Intern Accounts", icon: FiUserCheck },
-  { to: "/admin/sub-admin-accounts", label: "Sub Admin Accounts", icon: FiShield },
+  { to: "/admin/sub-admin-accounts", label: "Admin Accounts", icon: FiShield },
   { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon, mainAdminOnly: true },
 ];
 

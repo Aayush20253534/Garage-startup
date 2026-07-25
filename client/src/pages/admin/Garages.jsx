@@ -798,7 +798,7 @@ export default function Garages() {
 
       {isIntern && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
-          Intern access is read-only. Admins and sub-admins can approve applications, delete garages, and change assigned services.
+          Intern access is read-only. Admins and Main Admins can approve applications, delete garages, and change assigned services.
         </div>
       )}
 

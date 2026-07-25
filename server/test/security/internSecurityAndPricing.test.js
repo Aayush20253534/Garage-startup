@@ -191,6 +191,6 @@ test("interns can create price ranges but cannot edit or delete them", () => {
   assert.match(deleteRoute, /authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
   assert.doesNotMatch(deleteRoute, /"INTERN"/);
   assert.match(revenue, /Interns can add new price ranges/);
-  assert.match(revenue, /Admin and sub-admin edit\/delete/);
+  assert.match(revenue, /Admin and Main Admin edit\/delete/);
   assert.match(revenue, /if \(isIntern && form\.id\)/);
 });

@@ -38,7 +38,7 @@ export default function AdminLogin() {
           <div className="mt-6 grid grid-cols-2 rounded-xl bg-bg-soft p-1">
             {[
               { role: "ADMIN", label: "Main admin", icon: FiShield },
-              { role: "SUB_ADMIN", label: "Sub admin", icon: FiUsers },
+              { role: "SUB_ADMIN", label: "Admin", icon: FiUsers },
             ].map(({ role, label, icon: Icon }) => (
               <button key={role} type="button" onClick={() => setSelectedRole(role)} className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold ${selectedRole === role ? "bg-white text-ink shadow-sm" : "text-muted"}`}>
                 <Icon /> {label}
@@ -48,7 +48,7 @@ export default function AdminLogin() {
 
           <StaffEmailOtpLoginForm
             key={selectedRole}
-            identifierLabel={selectedRole === "ADMIN" ? "Main admin ID, email, or phone" : "Sub-admin email"}
+            identifierLabel={selectedRole === "ADMIN" ? "Main admin ID, email, or phone" : "Admin email"}
             identifierPlaceholder={selectedRole === "ADMIN" ? "admin" : "name@rovauto.com"}
             expectedRole={selectedRole}
             beginLogin={(identifier, password) => adminApi.login(identifier, password, selectedRole)}
@@ -56,7 +56,7 @@ export default function AdminLogin() {
             resendOtp={adminApi.resendLoginOtp}
             onSuccess={handleAuthenticated}
             submitLabel="Continue"
-            loaderEyebrow={selectedRole === "ADMIN" ? "MAIN ADMIN ACCESS" : "SUB ADMIN ACCESS"}
+            loaderEyebrow={selectedRole === "ADMIN" ? "MAIN ADMIN ACCESS" : "ADMIN ACCESS"}
           />
 
           {selectedRole === "SUB_ADMIN" && (

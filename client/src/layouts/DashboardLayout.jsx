@@ -52,7 +52,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   const accountRole = isGaragePortal
     ? "GARAGE OWNER"
     : isAdminPortal
-      ? account?.role === "SUB_ADMIN" ? "SUB ADMIN" : "MAIN ADMIN"
+      ? account?.role === "SUB_ADMIN" ? "ADMIN" : "MAIN ADMIN"
       : isInternPortal
         ? "INTERN"
         : isCustomerSupportPortal

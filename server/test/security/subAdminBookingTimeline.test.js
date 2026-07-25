@@ -25,7 +25,8 @@ test("sub-admin accounts reuse staff authentication with email OTP and password 
   assert.match(validation, /PASSWORD_RECOVERY_ROLES = \[\.\.\.USER_ROLES, "GARAGE_CONTROLLER", "SUB_ADMIN", "INTERN"\]/);
   assert.match(otpRules, /role === "ADMIN" \? getAdminDeliveryEmail\(\) : normalizeEmail\(email\)/);
   assert.match(accountRoutes, /router\.use\(authorizeRoles\("ADMIN", "SUB_ADMIN"\)\)/);
-  assert.match(accountService, /role: "SUB_ADMIN"/);
+  assert.match(accountService, /ADMIN_ROLES = \["ADMIN", "SUB_ADMIN"\]/);
+  assert.match(accountService, /role: normalizedRole/);
   assert.match(accountService, /loginId: normalizedEmail/);
   assert.match(accountService, /staffSession\.updateMany/);
   assert.match(passwordResetService, /String\(role \|\| "staff"\)/);
@@ -111,12 +112,14 @@ test("admin portal distinguishes staff login and guards only the dangerous page"
   const layout = read("client/src/layouts/DashboardLayout.jsx");
 
   assert.match(login, /Main admin/);
-  assert.match(login, /Sub admin/);
+  assert.match(login, /label: "Admin"/);
   assert.match(login, /expectedRole=\{selectedRole\}/);
   assert.match(login, /\/admin\/forgot-password/);
   assert.match(forgot, /requestSubAdminPasswordReset/);
   assert.match(forgot, /resetSubAdminPassword/);
-  assert.match(accounts, /Create sub-admin/);
+  assert.match(accounts, /Create account/);
+  assert.match(accounts, /Main Admin/);
+  assert.match(accounts, /payload\.role = editing\.role/);
   assert.match(app, /function ProtectedRoute\(\{ children, mainAdminOnly = false \}\)/);
   assert.equal((app.match(/<ProtectedRoute mainAdminOnly>/g) || []).length, 1);
   assert.match(app, /path="\/admin\/dangerous"[\s\S]*<ProtectedRoute mainAdminOnly>/);
