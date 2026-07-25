@@ -956,7 +956,7 @@ export default function Checkout() {
                 <ServicePriceDisplay
                   service={item}
                   className="max-w-56 justify-end text-right"
-                  regularClassName="text-xs font-semibold text-gray-400 line-through decoration-[1.5px] decoration-gray-400"
+                  regularClassName="text-xs font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500"
                   currentClassName="text-sm font-black text-ink"
                 />
               </div>

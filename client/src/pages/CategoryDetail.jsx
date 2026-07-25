@@ -64,6 +64,7 @@ const getIncludes = (service) => {
 const GUEST_FUEL_TYPES = [
   { label: "Petrol", value: "PETROL" },
   { label: "Diesel", value: "DIESEL" },
+  { label: "Electric", value: "ELECTRIC" },
   { label: "CNG", value: "CNG" },
   { label: "Hybrid", value: "HYBRID" },
   { label: "Other", value: "OTHER" },
@@ -768,7 +769,7 @@ export default function CategoryDetail() {
                         <div className="mt-2.5">
                           <ServicePriceDisplay
                             service={pkg}
-                            regularClassName="whitespace-nowrap text-sm font-semibold text-gray-400 line-through decoration-[1.5px] decoration-gray-400"
+                            regularClassName="whitespace-nowrap text-sm font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500"
                             currentClassName="whitespace-nowrap text-[1.7rem] font-black leading-none tracking-tight text-gray-950"
                           />
                           <p className="mt-3 text-xs leading-5 text-gray-500">
@@ -875,7 +876,7 @@ export default function CategoryDetail() {
                 <ServicePriceDisplay
                   service={selectedPackage}
                   className="mb-3"
-                  regularClassName="text-sm font-semibold text-gray-400 line-through decoration-[1.5px] decoration-gray-400"
+                  regularClassName="text-sm font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500"
                   currentClassName="text-2xl font-black tracking-tight text-ink"
                 />
               )}
@@ -933,7 +934,7 @@ export default function CategoryDetail() {
                     {selectedPackage.priceRange ? (
                       <ServicePriceDisplay
                         service={selectedPackage}
-                        regularClassName="text-xs font-semibold text-gray-400 line-through decoration-[1.5px] decoration-gray-400"
+                        regularClassName="text-xs font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500"
                         currentClassName="text-base font-black text-ink"
                       />
                     ) : user || guestPricingReady ? (

@@ -1,6 +1,6 @@
 const { body, param, query } = require("express-validator");
 
-const fuelTypes = ["PETROL", "DIESEL", "HYBRID", "CNG", "OTHER"];
+const fuelTypes = ["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"];
 
 const priceRangeIdSchema = [param("id").isUUID().withMessage("Invalid price range ID")];
 
@@ -100,7 +100,7 @@ const upsertCityPriceDiscountSchema = [
   body("cityId").isUUID().withMessage("Valid city ID is required"),
   body("discountPercent")
     .isInt({ min: 1, max: 90 })
-    .withMessage("Reference markup percentage must be between 1 and 90"),
+    .withMessage("Comparison increase percentage must be between 1 and 90"),
   body("isActive").optional({ nullable: true }).isBoolean(),
 ];
 

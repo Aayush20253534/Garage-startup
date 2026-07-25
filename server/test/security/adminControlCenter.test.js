@@ -79,6 +79,7 @@ test("escalations, pricing coverage, CSV import, schedules, and availability rul
   assert.match(routes, /"\/pricing\/schedules"/);
   assert.match(routes, /"\/availability-rules"/);
   assert.match(service, /getPricingCoverage/);
+  assert.match(service, /pricingCoverageService\.buildPricingCoverageReport/);
   assert.match(service, /exportPriceRangesCsv/);
   assert.match(service, /importPriceRanges/);
   assert.match(schedule, /previousRange/);

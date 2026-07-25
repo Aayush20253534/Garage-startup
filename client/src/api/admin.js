@@ -91,8 +91,8 @@ export const adminApi = {
     return unwrap(await api.patch(`/admin/control-center/escalation-rules/${id}`, payload));
   },
 
-  async getPricingCoverage() {
-    return unwrap(await api.get("/admin/control-center/pricing/coverage"));
+  async getPricingCoverage(params = {}) {
+    return unwrap(await api.get("/admin/control-center/pricing/coverage", { params }));
   },
 
   async exportPriceRangesCsv() {

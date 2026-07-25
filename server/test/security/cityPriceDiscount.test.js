@@ -39,7 +39,7 @@ test("city reference markup is persisted and attached to customer price ranges",
   assert.match(customerService, /referenceMarkupPercent/);
 });
 
-test("customer UI labels the increased crossed price as a reference value", () => {
+test("customer UI shows the comparison as a red crossed price without extra labels", () => {
   const component = read(
     "client/src/components/services/ServicePriceDisplay.jsx",
   );
@@ -50,12 +50,13 @@ test("customer UI labels the increased crossed price as a reference value", () =
   const checkout = read("client/src/pages/booking/Checkout.jsx");
 
   assert.match(component, /compareAtPriceRange/);
-  assert.match(component, /Reference \+\{referenceMarkupPercent\}%/);
-  assert.match(component, /Rovauto price/);
-  assert.match(component, /decoration-\[3px\]/);
+  assert.match(component, /text-red-500 line-through/);
+  assert.match(component, /decoration-red-500/);
+  assert.doesNotMatch(component, /Reference \+\{referenceMarkupPercent\}%/);
+  assert.doesNotMatch(component, /Rovauto price/);
   assert.doesNotMatch(component, /% off/);
-  assert.match(revenue, /City price comparison/);
-  assert.match(revenue, /reference value\s+only/);
+  assert.match(revenue, /crossed comparison range/);
+  assert.match(revenue, /without extra labels/);
   assert.match(home, /ServicePriceDisplay/);
   assert.match(category, /ServicePriceDisplay/);
   assert.match(serviceSelect, /ServicePriceDisplay/);

@@ -21,7 +21,7 @@ const onboardingValidation = [
     .trim()
     .notEmpty()
     .withMessage("Fuel type is required")
-    .isIn(["PETROL", "DIESEL", "HYBRID", "CNG", "OTHER"])
+    .isIn(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"])
     .withMessage("Invalid fuel type"),
 
   body("vehicle.registrationNumber")

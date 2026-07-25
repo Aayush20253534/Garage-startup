@@ -111,7 +111,7 @@ function CartItems({ cart, serviceById, comingSoonIds, removeFromCart }) {
                 <ServicePriceDisplay
                   service={currentService}
                   className="ml-auto flex-col items-end gap-x-0 gap-y-0.5 text-right"
-                  regularClassName="text-[10px] font-semibold leading-none text-gray-400 line-through decoration-[1.5px] decoration-gray-400"
+                  regularClassName="text-[10px] font-semibold leading-none text-red-500 line-through decoration-[1.5px] decoration-red-500"
                   currentClassName="whitespace-nowrap text-sm font-black leading-none text-ink"
                 />
               )}
@@ -462,7 +462,7 @@ export default function ServiceSelect() {
                       <ServicePriceDisplay
                         service={service}
                         className="justify-start sm:justify-end"
-                        regularClassName="whitespace-nowrap text-xs font-semibold text-gray-400 line-through decoration-[1.5px] decoration-gray-400 sm:text-sm"
+                        regularClassName="whitespace-nowrap text-xs font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500 sm:text-sm"
                         currentClassName="whitespace-nowrap text-xl font-black leading-tight tracking-tight text-ink sm:text-2xl"
                       />
                     ) : (

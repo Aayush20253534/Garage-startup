@@ -18,7 +18,7 @@ export default function ServicePriceDisplay({
   mode = "range",
   className = "",
   regularClassName =
-    "text-sm font-semibold text-gray-400 line-through decoration-[1.5px] decoration-gray-400",
+    "text-sm font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500",
   currentClassName = "text-xl font-black tracking-tight text-ink",
 }) {
   if (!service?.priceRange) return null;

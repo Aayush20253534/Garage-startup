@@ -6,6 +6,7 @@ const escalationService = require("./bookingEscalation.service");
 const garageOperationalService = require("./garageOperational.service");
 const priceScheduleService = require("./priceSchedule.service");
 const priceRangeService = require("./cityServicePriceRange.service");
+const pricingCoverageService = require("./pricingCoverage.service");
 const { deletePattern } = require("../../utils/cache");
 
 const FUEL_TYPES = new Set(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"]);
@@ -233,54 +234,42 @@ const listGaragePerformance = async (query = {}) => {
   });
 };
 
-const getPricingCoverage = async () => {
+const getPricingCoverage = async (query = {}) => {
   await priceScheduleService.applyDuePriceSchedules();
-  const [cities, services, brands, models, ranges] = await Promise.all([
+  const [cities, services, brands, ranges, vehicleFuelScopes] = await Promise.all([
     prisma.city.findMany({ where: { isActive: true }, select: { id: true, name: true, normalizedName: true } }),
     prisma.service.findMany({ where: { isActive: true, category: { isActive: true } }, include: { category: true } }),
-    prisma.vehicleBrand.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
-    prisma.vehicleModel.findMany({ where: { isActive: true, brand: { isActive: true } }, include: { brand: { select: { id: true, name: true } } } }),
-    prisma.cityServicePriceRange.findMany({ where: { isActive: true }, select: { city: true, serviceId: true, vehicleBrand: true, vehicleModel: true } }),
+    prisma.vehicleBrand.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        models: {
+          where: { isActive: true },
+          select: { id: true, name: true, isActive: true },
+        },
+      },
+    }),
+    prisma.cityServicePriceRange.findMany({
+      where: { isActive: true },
+      select: {
+        city: true,
+        serviceId: true,
+        vehicleBrand: true,
+        vehicleModel: true,
+        fuelType: true,
+        isActive: true,
+      },
+    }),
+    prisma.vehicle.findMany({
+      select: { brand: true, model: true, fuelType: true },
+      distinct: ["brand", "model", "fuelType"],
+    }),
   ]);
-  const cityServiceKeys = new Set(ranges.map((range) => `${range.city}|${range.serviceId}`));
-  const serviceIdsWithRange = new Set(ranges.map((range) => range.serviceId));
-  const brandsWithRange = new Set(ranges.map((range) => String(range.vehicleBrand || "").toLowerCase()).filter(Boolean));
-  const missingCityServices = [];
-  for (const city of cities) {
-    for (const service of services) {
-      if (!cityServiceKeys.has(`${city.normalizedName}|${service.id}`)) {
-        missingCityServices.push({ city: city.name, serviceId: service.id, serviceName: service.name, category: service.category?.name });
-      }
-    }
-  }
-  const missingModels = models.filter((model) => {
-    const brandName = model.brand.name.toLowerCase();
-    const modelName = model.name.toLowerCase();
-    return !ranges.some((range) => {
-      const rangeBrand = String(range.vehicleBrand || "").toLowerCase();
-      const rangeModel = String(range.vehicleModel || "").toLowerCase();
-      return rangeBrand === brandName && (!rangeModel || rangeModel === modelName);
-    });
-  });
-  return {
-    totals: {
-      activeRanges: ranges.length,
-      activeCities: cities.length,
-      activeServices: services.length,
-      activeBrands: brands.length,
-      activeModels: models.length,
-      missingCityServicePairs: missingCityServices.length,
-      servicesWithoutAnyRange: services.filter((service) => !serviceIdsWithRange.has(service.id)).length,
-      brandsWithoutAnyRange: brands.filter((brand) => !brandsWithRange.has(brand.name.toLowerCase())).length,
-      modelsWithoutCoverage: missingModels.length,
-    },
-    servicesWithoutAnyRange: services
-      .filter((service) => !serviceIdsWithRange.has(service.id))
-      .map((service) => ({ id: service.id, name: service.name, category: service.category?.name })),
-    brandsWithoutAnyRange: brands.filter((brand) => !brandsWithRange.has(brand.name.toLowerCase())),
-    missingCityServices: missingCityServices.slice(0, 500),
-    missingModels: missingModels.slice(0, 500).map((model) => ({ id: model.id, name: model.name, brand: model.brand.name })),
-  };
+  return pricingCoverageService.buildPricingCoverageReport(
+    { cities, services, brands, ranges, vehicleFuelScopes },
+    query,
+  );
 };
 
 const csvEscape = (value) => {

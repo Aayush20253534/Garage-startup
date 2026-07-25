@@ -45,6 +45,18 @@ const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 
 const fieldClass = "h-10 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-ink";
 const buttonClass = "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50";
+const emptyCoverageFilters = {
+  city: "",
+  serviceId: "",
+  vehicleBrand: "",
+  fuelType: "",
+};
+const buildCoverageParams = (filters = {}) => ({
+  ...Object.fromEntries(
+    Object.entries(filters).filter(([, value]) => String(value || "").trim()),
+  ),
+  limit: 500,
+});
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -61,7 +73,18 @@ const statusTone = (status) => {
 };
 
 function Badge({ value }) {
-  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${statusTone(value)}`}>{formatStatus(value)}</span>;
+  const permanentlyBlocked = String(value || "") === "PERMANENTLY_BLOCKED";
+  return (
+    <span
+      className={`inline-flex border font-bold ${
+        permanentlyBlocked
+          ? "min-w-[154px] justify-center rounded-none border-l-4 px-3 py-2 text-[11px] uppercase tracking-wide"
+          : "rounded-md px-2.5 py-1 text-xs"
+      } ${statusTone(value)}`}
+    >
+      {formatStatus(value)}
+    </span>
+  );
 }
 
 function StatCard({ label, value, hint }) {
@@ -139,6 +162,7 @@ export default function ControlCenter() {
   const [performanceDays, setPerformanceDays] = useState(30);
   const [garageStatusDrafts, setGarageStatusDrafts] = useState({});
   const [coverage, setCoverage] = useState(null);
+  const [coverageFilters, setCoverageFilters] = useState(emptyCoverageFilters);
   const [schedules, setSchedules] = useState([]);
   const [availabilityRules, setAvailabilityRules] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
@@ -188,7 +212,7 @@ export default function ControlCenter() {
         adminApi.getEscalations(),
         adminApi.getEscalationRules(),
         adminApi.getGaragePerformance({ days: performanceDays }),
-        adminApi.getPricingCoverage(),
+        adminApi.getPricingCoverage({ limit: 500 }),
         adminApi.getPriceSchedules(),
         adminApi.getAvailabilityRules(),
         adminApi.getAuditLogs({ limit: 150 }),
@@ -243,6 +267,24 @@ export default function ControlCenter() {
     } finally {
       setBusy("");
     }
+  };
+
+  const refreshCoverage = async (filters = coverageFilters) => {
+    setBusy("coverage");
+    clearMessages();
+    try {
+      setCoverage(await adminApi.getPricingCoverage(buildCoverageParams(filters)));
+    } catch (err) {
+      showError(err, "Unable to refresh price-range coverage");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const resetCoverageFilters = async () => {
+    const nextFilters = { ...emptyCoverageFilters };
+    setCoverageFilters(nextFilters);
+    await refreshCoverage(nextFilters);
   };
 
   const searchBookings = async (event) => {
@@ -353,7 +395,7 @@ export default function ControlCenter() {
       setSuccess(`${result.imported} price ranges imported.`);
       setImportRows([]);
       setImportPreview(null);
-      setCoverage(await adminApi.getPricingCoverage());
+      setCoverage(await adminApi.getPricingCoverage(buildCoverageParams(coverageFilters)));
     } catch (err) {
       showError(err, "Unable to import price ranges");
     } finally {
@@ -599,10 +641,10 @@ export default function ControlCenter() {
                           <td className="px-2 py-3">{garage.complaintCount}</td>
                           <td className="px-2 py-3 font-bold">{formatRupees(garage.serviceRevenue)}</td>
                           <td className="px-2 py-3">
-                            <div className="grid min-w-[240px] gap-2">
-                              <select value={draft.status} onChange={(event) => setGarageStatusDrafts((current) => ({ ...current, [garage.id]: { ...draft, status: event.target.value } }))} className={fieldClass}>{availableOperationalStatuses.map((status) => <option key={status}>{status}</option>)}</select>
-                              {draft.status === "TEMPORARILY_SUSPENDED" && <input type="datetime-local" value={draft.suspendedUntil} onChange={(event) => setGarageStatusDrafts((current) => ({ ...current, [garage.id]: { ...draft, suspendedUntil: event.target.value } }))} className={fieldClass} />}
-                              {draft.status !== "ACTIVE" && <input value={draft.reason} onChange={(event) => setGarageStatusDrafts((current) => ({ ...current, [garage.id]: { ...draft, reason: event.target.value } }))} placeholder="Reason" className={fieldClass} />}
+                            <div className="flex min-w-[640px] items-center gap-2">
+                              <select value={draft.status} onChange={(event) => setGarageStatusDrafts((current) => ({ ...current, [garage.id]: { ...draft, status: event.target.value } }))} className={`${fieldClass} w-56 shrink-0`}>{availableOperationalStatuses.map((status) => <option key={status}>{status}</option>)}</select>
+                              {draft.status === "TEMPORARILY_SUSPENDED" && <input type="datetime-local" value={draft.suspendedUntil} onChange={(event) => setGarageStatusDrafts((current) => ({ ...current, [garage.id]: { ...draft, suspendedUntil: event.target.value } }))} className={`${fieldClass} w-52 shrink-0`} />}
+                              {draft.status !== "ACTIVE" && <input value={draft.reason} onChange={(event) => setGarageStatusDrafts((current) => ({ ...current, [garage.id]: { ...draft, reason: event.target.value } }))} placeholder="Reason" className={`${fieldClass} min-w-0 flex-1`} />}
                               <button disabled={busy === `garage:${garage.id}`} onClick={() => saveGarageStatus(garage)} className={`${buttonClass} bg-ink text-white`}><FiSave />Apply</button>
                             </div>
                           </td>
@@ -617,13 +659,49 @@ export default function ControlCenter() {
 
           {tab === "pricing" && (
             <div className="space-y-5">
-              <Section title="Price-range coverage" description="Find services, cities, brands, and models that do not yet have usable pricing." actions={<div className="flex gap-2"><button onClick={exportCsv} disabled={busy === "export"} className={`${buttonClass} border border-line bg-white text-ink`}><FiDownload />Export CSV</button><label className={`${buttonClass} cursor-pointer bg-ink text-white`}><FiUpload />Choose CSV<input type="file" accept=".csv,text/csv" onChange={handleCsvFile} className="hidden" /></label></div>}>
-                {coverage && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><StatCard label="Active ranges" value={coverage.totals?.activeRanges} /><StatCard label="Missing city/service" value={coverage.totals?.missingCityServicePairs} /><StatCard label="Services without pricing" value={coverage.totals?.servicesWithoutAnyRange} /><StatCard label="Models without coverage" value={coverage.totals?.modelsWithoutCoverage} /></div>}
+              <Section title="Price-range coverage" description="See every untouched service and every missing city, brand, model, and fuel-type price scope." actions={<div className="flex flex-wrap gap-2"><button onClick={() => refreshCoverage()} disabled={busy === "coverage"} className={`${buttonClass} border border-line bg-white text-ink`}><FiRefreshCw className={busy === "coverage" ? "animate-spin" : ""} />Refresh</button><button onClick={exportCsv} disabled={busy === "export"} className={`${buttonClass} border border-line bg-white text-ink`}><FiDownload />Export CSV</button><label className={`${buttonClass} cursor-pointer bg-ink text-white`}><FiUpload />Choose CSV<input type="file" accept=".csv,text/csv" onChange={handleCsvFile} className="hidden" /></label></div>}>
+                {coverage && (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <StatCard label="Active ranges" value={coverage.totals?.activeRanges} />
+                    <StatCard label="Untouched services" value={coverage.totals?.untouchedServices} hint="No active price range of any type" />
+                    <StatCard label="Brand + fuel gaps" value={coverage.totals?.brandFuelGaps} hint="At least one model is still missing" />
+                    <StatCard label="Model + fuel gaps" value={coverage.totals?.modelFuelGaps} hint={`${coverage.totals?.coveredModelFuelScopes || 0} scopes already covered`} />
+                  </div>
+                )}
                 {importPreview && <div className={`mt-4 rounded-xl border p-4 ${importPreview.valid ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}><p className="font-bold">CSV validation: {importPreview.valid ? "Ready" : "Errors found"}</p><p className="mt-1 text-sm">{importPreview.rows} rows checked.</p>{importPreview.errors?.slice(0, 12).map((item) => <p key={`${item.row}:${item.message}`} className="mt-1 text-sm text-red-700">Row {item.row}: {item.message}</p>)}{importPreview.valid && <button onClick={commitImport} disabled={busy === "import"} className={`${buttonClass} mt-3 bg-green-700 text-white`}><FiUpload />Import {importPreview.rows} rows</button>}</div>}
-                <div className="mt-5 grid gap-4 lg:grid-cols-3">
-                  <div className="rounded-xl bg-bg-soft p-4"><h3 className="font-bold text-ink">Services without any range</h3><div className="mt-3 max-h-64 space-y-2 overflow-y-auto">{coverage?.servicesWithoutAnyRange?.slice(0, 100).map((item) => <p key={item.id} className="text-sm">{item.category} · {item.name}</p>)}</div></div>
-                  <div className="rounded-xl bg-bg-soft p-4"><h3 className="font-bold text-ink">Missing city/service pairs</h3><div className="mt-3 max-h-64 space-y-2 overflow-y-auto">{coverage?.missingCityServices?.slice(0, 100).map((item) => <p key={`${item.city}:${item.serviceId}`} className="text-sm">{item.city} · {item.serviceName}</p>)}</div></div>
-                  <div className="rounded-xl bg-bg-soft p-4"><h3 className="font-bold text-ink">Uncovered models</h3><div className="mt-3 max-h-64 space-y-2 overflow-y-auto">{coverage?.missingModels?.slice(0, 100).map((item) => <p key={item.id} className="text-sm">{item.brand} · {item.name}</p>)}</div></div>
+                <div className="mt-5 rounded-xl border border-line bg-bg-soft/60 p-4">
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <select value={coverageFilters.city} onChange={(event) => setCoverageFilters((current) => ({ ...current, city: event.target.value }))} className={fieldClass}><option value="">All cities</option>{coverage?.filters?.cities?.map((city) => <option key={city} value={city}>{city}</option>)}</select>
+                    <select value={coverageFilters.serviceId} onChange={(event) => setCoverageFilters((current) => ({ ...current, serviceId: event.target.value }))} className={fieldClass}><option value="">All services</option>{coverage?.filters?.services?.map((service) => <option key={service.id} value={service.id}>{service.category} · {service.name}</option>)}</select>
+                    <select value={coverageFilters.vehicleBrand} onChange={(event) => setCoverageFilters((current) => ({ ...current, vehicleBrand: event.target.value }))} className={fieldClass}><option value="">All brands</option>{coverage?.filters?.brands?.map((brand) => <option key={brand} value={brand}>{brand}</option>)}</select>
+                    <select value={coverageFilters.fuelType} onChange={(event) => setCoverageFilters((current) => ({ ...current, fuelType: event.target.value }))} className={fieldClass}><option value="">All fuel types</option>{coverage?.filters?.fuelTypes?.map((fuel) => <option key={fuel} value={fuel}>{formatStatus(fuel)}</option>)}</select>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs leading-5 text-muted">Coverage recognises ALL-brand, ALL-model, and any-fuel ranges. Registered vehicle fuel combinations are used where available; models without usage data are checked against all supported fuels.</p>
+                    <div className="flex gap-2"><button type="button" onClick={resetCoverageFilters} disabled={busy === "coverage"} className={`${buttonClass} border border-line bg-white text-ink`}>Clear</button><button type="button" onClick={() => refreshCoverage()} disabled={busy === "coverage"} className={`${buttonClass} bg-ink text-white`}><FiSearch />Apply filters</button></div>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-xl border border-line bg-white p-4">
+                  <div className="flex flex-wrap items-end justify-between gap-2"><div><h3 className="font-extrabold text-ink">Untouched services</h3><p className="mt-1 text-xs text-muted">These services have no active price range in any city, brand, model, or fuel type.</p></div><span className="text-sm font-bold text-muted">{coverage?.untouchedServices?.length || 0}</span></div>
+                  <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {coverage?.untouchedServices?.map((item) => <article key={item.id} className="border border-line bg-bg-soft px-3 py-3"><p className="text-xs font-bold uppercase tracking-wide text-muted">{item.category}</p><p className="mt-1 text-sm font-extrabold text-ink">{item.name}</p></article>)}
+                    {coverage?.untouchedServices?.length === 0 && <p className="text-sm text-emerald-700">Every active service has at least one price range.</p>}
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-5 xl:grid-cols-2">
+                  <div className="overflow-hidden rounded-xl border border-line bg-white">
+                    <div className="border-b border-line px-4 py-3"><h3 className="font-extrabold text-ink">Remaining brand and fuel coverage</h3><p className="mt-1 text-xs text-muted">Shows how many models still need pricing for each brand and fuel type.</p></div>
+                    <div className="max-h-[430px] overflow-auto"><table className="min-w-[760px] w-full text-left text-sm"><thead className="sticky top-0 bg-bg-soft text-xs uppercase tracking-wide text-muted"><tr><th className="px-3 py-3">City</th><th className="px-3">Service</th><th className="px-3">Brand</th><th className="px-3">Fuel</th><th className="px-3">Missing</th></tr></thead><tbody>{coverage?.brandFuelGaps?.map((item) => <tr key={`${item.city}:${item.serviceId}:${item.vehicleBrand}:${item.fuelType}`} className="border-t border-line"><td className="px-3 py-3">{item.city}</td><td className="px-3 py-3"><p className="font-bold text-ink">{item.serviceName}</p><p className="text-xs text-muted">{item.category}</p></td><td className="px-3 py-3 font-semibold">{item.vehicleBrand}</td><td className="px-3 py-3">{formatStatus(item.fuelType)}</td><td className="px-3 py-3 font-bold text-red-700">{item.missingModels}/{item.totalModels} models</td></tr>)}</tbody></table>{coverage?.brandFuelGaps?.length === 0 && <p className="p-5 text-sm text-emerald-700">No brand and fuel gaps match these filters.</p>}</div>
+                    {coverage?.resultMeta?.brandResultsTruncated && <p className="border-t border-line px-4 py-3 text-xs text-amber-800">Showing the first {coverage.resultMeta.returnedBrandFuelGaps} of {coverage.resultMeta.filteredBrandFuelGapCount} matching gaps. Narrow the filters to see the rest.</p>}
+                  </div>
+
+                  <div className="overflow-hidden rounded-xl border border-line bg-white">
+                    <div className="border-b border-line px-4 py-3"><h3 className="font-extrabold text-ink">Remaining model and fuel coverage</h3><p className="mt-1 text-xs text-muted">Exact vehicle model and fuel combinations that still have no usable price.</p></div>
+                    <div className="max-h-[430px] overflow-auto"><table className="min-w-[820px] w-full text-left text-sm"><thead className="sticky top-0 bg-bg-soft text-xs uppercase tracking-wide text-muted"><tr><th className="px-3 py-3">City</th><th className="px-3">Service</th><th className="px-3">Brand</th><th className="px-3">Model</th><th className="px-3">Fuel</th></tr></thead><tbody>{coverage?.modelFuelGaps?.map((item) => <tr key={`${item.city}:${item.serviceId}:${item.vehicleBrand}:${item.vehicleModel}:${item.fuelType}`} className="border-t border-line"><td className="px-3 py-3">{item.city}</td><td className="px-3 py-3"><p className="font-bold text-ink">{item.serviceName}</p><p className="text-xs text-muted">{item.category}</p></td><td className="px-3 py-3 font-semibold">{item.vehicleBrand}</td><td className="px-3 py-3">{item.vehicleModel}</td><td className="px-3 py-3 font-bold text-red-700">{formatStatus(item.fuelType)}</td></tr>)}</tbody></table>{coverage?.modelFuelGaps?.length === 0 && <p className="p-5 text-sm text-emerald-700">No model and fuel gaps match these filters.</p>}</div>
+                    {coverage?.resultMeta?.modelResultsTruncated && <p className="border-t border-line px-4 py-3 text-xs text-amber-800">Showing the first {coverage.resultMeta.returnedModelFuelGaps} of {coverage.resultMeta.filteredModelFuelGapCount} matching gaps. Narrow the filters to see the rest.</p>}
+                  </div>
                 </div>
               </Section>
 

@@ -24,6 +24,7 @@ const fuelTypes = [
   "",
   "PETROL",
   "DIESEL",
+  "ELECTRIC",
   "HYBRID",
   "CNG",
   "OTHER",
@@ -359,7 +360,7 @@ export default function Revenue() {
       discountPercent < 1 ||
       discountPercent > 90
     ) {
-      setError("Reference markup must be between 1 and 90%.");
+      setError("Comparison increase must be between 1 and 90%.");
       return;
     }
 
@@ -1060,17 +1061,19 @@ export default function Revenue() {
             </div>
 
             <div className="mt-3 overflow-hidden rounded-xl border border-line bg-white shadow-sm">
-              <div className="relative h-28 overflow-hidden bg-gradient-to-br from-gray-950 via-gray-800 to-gray-700 p-4 text-white">
+              <div className="relative h-40 overflow-hidden bg-gradient-to-br from-gray-950 via-gray-800 to-gray-700 p-4 text-white">
                 <div className="absolute -right-7 -top-8 h-28 w-28 rounded-full bg-[#b9f000]/20 blur-2xl" />
-                <p className="relative text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#b9f000]">
-                  Rovauto service
-                </p>
-                <p className="relative mt-2 max-w-[220px] text-lg font-black leading-tight">
-                  High Performance AC Service
-                </p>
-                <span className="relative mt-3 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-white/90">
-                  Verified service
-                </span>
+                <div className="relative z-10 flex h-full flex-col">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#b9f000]">
+                    Rovauto service
+                  </p>
+                  <p className="mt-2 max-w-[220px] text-lg font-black leading-tight">
+                    High Performance AC Service
+                  </p>
+                  <span className="mt-auto inline-flex w-fit items-center border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-bold text-white/90">
+                    Verified service
+                  </span>
+                </div>
               </div>
 
               <div className="p-4">
@@ -1082,7 +1085,7 @@ export default function Revenue() {
                     {formatRupeeRange(1000, 2000)}
                   </span>
                   {discountForm.isActive && (
-                    <span className="text-sm font-semibold text-gray-400 line-through decoration-[1.5px] decoration-gray-400">
+                    <span className="text-sm font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500">
                       {formatRupeeRange(discountPreviewMin, discountPreviewMax)}
                     </span>
                   )}

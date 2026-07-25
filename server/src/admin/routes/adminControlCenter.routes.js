@@ -39,7 +39,16 @@ router.patch("/escalations/:id", uuidParam(), body("status").isIn(["OPEN", "ACKN
 router.get("/escalation-rules", controller.listEscalationRules);
 router.patch("/escalation-rules/:id", uuidParam(), body("thresholdMinutes").optional().isInt({ min: 1, max: 10080 }).toInt(), body("severity").optional().isIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"]), body("enabled").optional().isBoolean().toBoolean(), validate, controller.updateEscalationRule);
 
-router.get("/pricing/coverage", controller.getPricingCoverage);
+router.get(
+  "/pricing/coverage",
+  query("city").optional().trim().isLength({ max: 100 }),
+  query("serviceId").optional().isUUID().withMessage("serviceId must be a valid id"),
+  query("vehicleBrand").optional().trim().isLength({ max: 100 }),
+  query("fuelType").optional().isIn(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"]),
+  query("limit").optional().isInt({ min: 10, max: 1000 }).toInt(),
+  validate,
+  controller.getPricingCoverage,
+);
 router.get("/pricing/export", controller.exportPriceRanges);
 router.post("/pricing/import", body("rows").isArray({ min: 1, max: 2000 }), body("dryRun").optional().isBoolean().toBoolean(), validate, controller.importPriceRanges);
 router.get("/pricing/schedules", controller.listPriceSchedules);

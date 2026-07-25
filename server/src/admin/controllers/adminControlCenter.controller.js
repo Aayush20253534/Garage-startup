@@ -14,7 +14,7 @@ const listEscalations = asyncHandler(async (req, res) => send(res, "Escalations 
 const updateEscalation = asyncHandler(async (req, res) => send(res, "Escalation updated", await service.updateEscalation({ id: req.params.id, ...req.body, staff: req.user })));
 const listEscalationRules = asyncHandler(async (req, res) => send(res, "Escalation rules fetched", await service.listEscalationRules()));
 const updateEscalationRule = asyncHandler(async (req, res) => send(res, "Escalation rule updated", await service.updateEscalationRule(req.params.id, req.body)));
-const getPricingCoverage = asyncHandler(async (req, res) => send(res, "Pricing coverage fetched", await service.getPricingCoverage()));
+const getPricingCoverage = asyncHandler(async (req, res) => send(res, "Pricing coverage fetched", await service.getPricingCoverage(req.query)));
 const exportPriceRanges = asyncHandler(async (req, res) => {
   const csv = await service.exportPriceRangesCsv();
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
