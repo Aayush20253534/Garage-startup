@@ -8,6 +8,9 @@ const {
   deleteFromCloudinary,
   uploadToCloudinary,
 } = require("../../utils/cloudinaryUpload");
+const {
+  normalizeServiceFulfillmentType,
+} = require("../../constants/serviceFulfillmentType");
 
 const THUMBNAIL_MAX_SIZE = 5 * 1024 * 1024;
 const THUMBNAIL_FOLDER = "rovauto/services";
@@ -227,6 +230,7 @@ const createService = async (payload) => {
       description: normalizeText(payload.description) || null,
       isActive: parseBoolean(payload.isActive, true),
       isComingSoon: parseBoolean(payload.isComingSoon, false),
+      fulfillmentType: normalizeServiceFulfillmentType(payload.fulfillmentType),
       ...(restrictedCityIds.length > 0 && {
         cityRestrictions: {
           create: restrictedCityIds.map((cityId) => ({ cityId })),
@@ -266,6 +270,11 @@ const updateService = async (serviceId, payload) => {
   }
   if (payload.isComingSoon !== undefined) {
     data.isComingSoon = parseBoolean(payload.isComingSoon, false);
+  }
+  if (payload.fulfillmentType !== undefined) {
+    data.fulfillmentType = normalizeServiceFulfillmentType(
+      payload.fulfillmentType,
+    );
   }
   if (targetCategory && !targetCategory.isActive) {
     data.isPopular = false;

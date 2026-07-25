@@ -1,4 +1,5 @@
 const { body, param, query } = require("express-validator");
+const { SERVICE_FULFILLMENT_TYPES } = require("../../constants/serviceFulfillmentType");
 
 const categoryIdSchema = [
   param("categoryId").isUUID().withMessage("Invalid service category ID"),
@@ -60,6 +61,10 @@ const createServiceSchema = [
     .isBoolean()
     .withMessage("isComingSoon must be true or false")
     .toBoolean(),
+  body("fulfillmentType")
+    .optional({ nullable: true })
+    .isIn(SERVICE_FULFILLMENT_TYPES)
+    .withMessage("fulfillmentType must be PICKUP_DELIVERY or SELF_DROP_OFF"),
   ...restrictedCityIdsSchema,
 ];
 
@@ -85,6 +90,10 @@ const updateServiceSchema = [
     .isBoolean()
     .withMessage("isComingSoon must be true or false")
     .toBoolean(),
+  body("fulfillmentType")
+    .optional({ nullable: true })
+    .isIn(SERVICE_FULFILLMENT_TYPES)
+    .withMessage("fulfillmentType must be PICKUP_DELIVERY or SELF_DROP_OFF"),
   ...restrictedCityIdsSchema,
 ];
 

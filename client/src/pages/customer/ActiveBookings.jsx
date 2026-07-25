@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
+import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 import AcceptedGarageCard from "@/components/booking/AcceptedGarageCard";
 import {
   FiNavigation,
@@ -140,8 +141,11 @@ export default function ActiveBookings() {
           const isAwaitingDeliveryAcceptance = Boolean(
             booking.deliveredAt && !booking.customerAcceptedAt,
           );
+          const isSelfDropOff = isSelfDropOffService(booking);
           const statusText = isAwaitingDeliveryAcceptance
-            ? "DELIVERY READY"
+            ? isSelfDropOff
+              ? "READY FOR PICKUP"
+              : "DELIVERY READY"
             : formatStatus(booking.status);
 
           return (
@@ -160,6 +164,13 @@ export default function ActiveBookings() {
                       <h3 className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-ink">
                         {getServicesText(booking)}
                       </h3>
+                      <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                        isSelfDropOff
+                          ? "bg-violet-100 text-violet-800"
+                          : "bg-sky-100 text-sky-800"
+                      }`}>
+                        {isSelfDropOff ? "Self drop-off & pickup" : "Pickup & delivery"}
+                      </span>
                     </div>
 
                     <span className="inline-flex h-7 w-fit shrink-0 items-center rounded-md border border-brand/30 bg-brand/10 px-2.5 text-[11px] font-bold text-ink">
@@ -217,7 +228,7 @@ export default function ActiveBookings() {
                       className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-brand px-3.5 text-sm font-semibold text-black shadow-sm transition hover:bg-brand-dark"
                     >
                       <FiNavigation />
-                      Review Delivery
+                      {isSelfDropOff ? "Confirm Collection" : "Review Delivery"}
                     </Link>
                   ) : (
                     <Link

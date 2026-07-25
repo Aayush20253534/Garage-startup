@@ -42,6 +42,10 @@ import {
   warmImageCache,
 } from "@/utils/imageCache";
 import { loadActiveCities } from "@/utils/cityAvailability";
+import {
+  getServiceFulfillmentLabel,
+  isSelfDropOffService,
+} from "@/utils/serviceFulfillment";
 
 const toBoolean = (value) =>
   value === true ||
@@ -99,6 +103,7 @@ export default function CategoryDetail() {
   const [filterOptionsError, setFilterOptionsError] = useState("");
   const [pricingError, setPricingError] = useState("");
   const [pricingLoading, setPricingLoading] = useState(false);
+  const [cartNotice, setCartNotice] = useState("");
   const [guestFilterDraft, setGuestFilterDraft] = useState({
     city: guestCity,
     brand: guestBrandId,
@@ -363,7 +368,14 @@ export default function CategoryDetail() {
       categoryComingSoon,
     };
 
-    addToCart(serviceItem);
+    const result = addToCart(serviceItem);
+
+    if (result?.conflict) {
+      setCartNotice(result.message);
+      return;
+    }
+
+    setCartNotice("");
     nav("/booking/services");
   };
 
@@ -393,6 +405,26 @@ export default function CategoryDetail() {
           </span>
         )}
       </div>
+
+      {cartNotice && (
+        <div
+          role="alert"
+          className="mb-5 flex items-start justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900"
+        >
+          <div className="flex items-start gap-2">
+            <FiMapPin className="mt-1 shrink-0" aria-hidden="true" />
+            <span>{cartNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCartNotice("")}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-full transition hover:bg-amber-100"
+            aria-label="Dismiss booking notice"
+          >
+            <FiX aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       {!user && (
         <section
@@ -668,6 +700,21 @@ export default function CategoryDetail() {
                       <FiStar className="text-sm" />
                       Popular
                     </span>
+
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${
+                        isSelfDropOffService(pkg)
+                          ? "border-violet-100 bg-violet-50 text-violet-800"
+                          : "border-sky-100 bg-sky-50 text-sky-700"
+                      }`}
+                    >
+                      {isSelfDropOffService(pkg) ? (
+                        <FiMapPin className="text-sm" />
+                      ) : (
+                        <FiTruck className="text-sm" />
+                      )}
+                      {getServiceFulfillmentLabel(pkg)}
+                    </span>
                   </div>
 
                   <div className="mt-5 grid grid-cols-2 gap-2.5">
@@ -858,6 +905,21 @@ export default function CategoryDetail() {
                 <div className="rounded-xl bg-yellow-100 px-3 py-1.5 text-sm font-medium text-yellow-800">
                   Popular service
                 </div>
+
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-semibold ${
+                    isSelfDropOffService(selectedPackage)
+                      ? "border-violet-100 bg-violet-50 text-violet-800"
+                      : "border-sky-100 bg-sky-50 text-sky-700"
+                  }`}
+                >
+                  {isSelfDropOffService(selectedPackage) ? (
+                    <FiMapPin />
+                  ) : (
+                    <FiTruck />
+                  )}
+                  {getServiceFulfillmentLabel(selectedPackage)}
+                </span>
               </div>
 
               <div className="mb-5 grid grid-cols-2 gap-3">

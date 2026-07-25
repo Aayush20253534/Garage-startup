@@ -17,10 +17,8 @@ import { setBookings } from "@/store/garageSlice";
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
-import {
-  BOOKING_TIMELINE_STEPS,
-  getBookingTimelineState,
-} from "@/utils/bookingTimeline";
+import { getBookingTimelineState } from "@/utils/bookingTimeline";
+import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 
 
 
@@ -265,7 +263,7 @@ export default function GarageBookingDetail() {
   };
 
   const verifyHandover = async () => {
-    if (!isNearCustomer || preServiceImages.length !== 5 || !otp.trim()) return;
+    if ((!isSelfDropOff && !isNearCustomer) || preServiceImages.length !== 5 || !otp.trim()) return;
 
     setLoading(true);
     setError("");
@@ -286,7 +284,11 @@ export default function GarageBookingDetail() {
       });
       setOtp("");
       setPreServiceImages([]);
-      setSuccess("Vehicle handover verified and service started.");
+      setSuccess(
+        isSelfDropOff
+          ? "Customer drop-off verified and service started."
+          : "Vehicle handover verified and service started.",
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to verify handover OTP");
     } finally {
@@ -320,7 +322,9 @@ export default function GarageBookingDetail() {
       });
       setPostServiceImages([]);
       setSuccess(
-        "Vehicle marked delivered. The customer must now inspect, enter the final amount, and accept delivery.",
+        isSelfDropOff
+          ? "Vehicle marked ready for customer pickup. The customer must visit the garage, inspect it, enter the final amount and confirm collection."
+          : "Vehicle marked delivered. The customer must now inspect, enter the final amount, and accept delivery.",
       );
     } catch (err) {
       setError(
@@ -339,8 +343,11 @@ export default function GarageBookingDetail() {
     }
   };
 
-  const { currentIndex: currentStepIndex } =
-    getBookingTimelineState(booking);
+  const {
+    currentIndex: currentStepIndex,
+    steps: timelineSteps,
+  } = getBookingTimelineState(booking);
+  const isSelfDropOff = isSelfDropOffService(booking);
   const inspectionImages = booking.inspectionImages || [];
   const isCompletedByCustomer =
     booking.status === "COMPLETED" || Boolean(booking.customerAcceptedAt);
@@ -349,7 +356,11 @@ export default function GarageBookingDetail() {
   const bookingDisplayId =
     booking.bookingCode || booking.bookingId || booking.id;
   const isHandoverStage = ["ACCEPTED", "CONFIRMED"].includes(booking.status);
-  const liveTrackingEnabled = ["ACCEPTED", "CONFIRMED", "IN_PROGRESS", "DELIVERED"].includes(booking.status);
+  const liveTrackingEnabled =
+    !isSelfDropOff &&
+    ["ACCEPTED", "CONFIRMED", "IN_PROGRESS", "DELIVERED"].includes(
+      booking.status,
+    );
   const distanceToCustomerMeters =
     getDistanceMeters(
       trackingSummary?.latestLocation,
@@ -359,8 +370,9 @@ export default function GarageBookingDetail() {
       ? Math.round(Number(trackingSummary.route.distanceMeters))
       : null);
   const isNearCustomer =
-    Number.isFinite(distanceToCustomerMeters) &&
-    distanceToCustomerMeters <= ARRIVAL_UNLOCK_DISTANCE_METERS;
+    isSelfDropOff ||
+    (Number.isFinite(distanceToCustomerMeters) &&
+      distanceToCustomerMeters <= ARRIVAL_UNLOCK_DISTANCE_METERS);
   const hasCompleteOtp = otp.length === 6;
 
   if (isCompletedByCustomer) {
@@ -404,9 +416,18 @@ export default function GarageBookingDetail() {
                   {new Date(booking.createdAt).toLocaleDateString()}
                 </p>
               </div>
-              <span className="chip-brand shrink-0">
-                {booking.status.replaceAll("_", " ")}
-              </span>
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <span className="chip-brand">
+                  {booking.status.replaceAll("_", " ")}
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                  isSelfDropOff
+                    ? "bg-violet-100 text-violet-800"
+                    : "bg-sky-100 text-sky-800"
+                }`}>
+                  {isSelfDropOff ? "Customer self drop-off" : "Garage pickup"}
+                </span>
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -465,15 +486,31 @@ export default function GarageBookingDetail() {
             />
           )}
 
+          {isHandoverStage && isSelfDropOff && (
+            <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5 text-sm leading-6 text-violet-900">
+              <div className="flex items-start gap-3">
+                <FiMapPin className="mt-1 shrink-0" />
+                <div>
+                  <p className="font-bold">Wait for the customer at your garage</p>
+                  <p className="mt-1">
+                    This is a self drop-off booking. Do not travel to the customer. When they arrive, verify their OTP and capture five drop-off inspection photos.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {isHandoverStage ? (
             <div className="card-soft p-5 sm:p-6">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h3 className="text-xl font-bold">Receive Vehicle</h3>
+                  <h3 className="text-xl font-bold">
+                    {isSelfDropOff ? "Receive Customer Drop-off" : "Receive Vehicle"}
+                  </h3>
                   <p className="mt-1 text-sm text-muted">
-                    Share live location first. The handover OTP unlocks when
-                    you are within {ARRIVAL_UNLOCK_DISTANCE_METERS}m of the
-                    customer location.
+                    {isSelfDropOff
+                      ? "When the customer arrives at your garage, verify the handover OTP and capture the vehicle condition before starting service."
+                      : `Share live location first. The handover OTP unlocks when you are within ${ARRIVAL_UNLOCK_DISTANCE_METERS}m of the customer location.`}
                   </p>
                 </div>
                 <span
@@ -484,7 +521,9 @@ export default function GarageBookingDetail() {
                       : "bg-bg-soft text-muted",
                   ].join(" ")}
                 >
-                  {formatDistance(distanceToCustomerMeters)}
+                  {isSelfDropOff
+                    ? "At garage"
+                    : formatDistance(distanceToCustomerMeters)}
                 </span>
               </div>
 
@@ -519,8 +558,7 @@ export default function GarageBookingDetail() {
                   {hasCompleteOtp && (
                     <div className="mt-4">
                       <p className="mb-3 text-sm text-muted">
-                        Upload exactly five pickup photos after entering the
-                        OTP. Each photo must be 1 MB or less.
+                        Upload exactly five {isSelfDropOff ? "drop-off" : "pickup"} photos after entering the OTP. Each photo must be 1 MB or less.
                       </p>
                       <ImageUpload
                         min={5}
@@ -540,7 +578,11 @@ export default function GarageBookingDetail() {
                     }
                     className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {loading ? "Verifying..." : "Verify Handover & Start Service"}
+                    {loading
+                      ? "Verifying..."
+                      : isSelfDropOff
+                        ? "Verify Drop-off & Start Service"
+                        : "Verify Handover & Start Service"}
                   </button>
                 </>
               )}
@@ -552,7 +594,9 @@ export default function GarageBookingDetail() {
               <h3 className="mb-2 text-xl font-bold">Complete Service</h3>
               <p className="mb-4 text-muted">
                 Upload exactly five post-service photos, each 1 MB or less.
-                The customer enters the final amount while accepting delivery.
+                {isSelfDropOff
+                  ? "The customer enters the final amount when confirming collection at your garage."
+                  : "The customer enters the final amount while accepting delivery."}
               </p>
               <ImageUpload
                 min={5}
@@ -568,15 +612,20 @@ export default function GarageBookingDetail() {
                 }
                 className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Completing..." : "Mark Ready for Customer"}
+                {loading
+                  ? "Completing..."
+                  : isSelfDropOff
+                    ? "Mark Ready for Customer Pickup"
+                    : "Mark Ready for Customer"}
               </button>
             </div>
           ) : null}
 
           {isAwaitingCustomerAcceptance && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-              The vehicle is marked delivered. This booking becomes completed
-              only after the customer receives the vehicle and accepts delivery.
+              {isSelfDropOff
+                ? "The vehicle is ready at your garage. This booking completes only after the customer inspects it, enters the final amount and confirms collection."
+                : "The vehicle is marked delivered. This booking becomes completed only after the customer receives the vehicle and accepts delivery."}
             </div>
           )}
 
@@ -584,8 +633,12 @@ export default function GarageBookingDetail() {
             <InspectionGallery
               images={inspectionImages}
               phase="PICKUP"
-              title="Pickup inspection photos"
-              description="Evidence recorded before the garage started service."
+              title={isSelfDropOff ? "Drop-off inspection photos" : "Pickup inspection photos"}
+              description={
+                isSelfDropOff
+                  ? "Evidence recorded when the customer handed over the vehicle at the garage."
+                  : "Evidence recorded before the garage started service."
+              }
             />
           )}
 
@@ -593,7 +646,7 @@ export default function GarageBookingDetail() {
             <InspectionGallery
               images={inspectionImages}
               phase="DELIVERY"
-              title="Delivery inspection photos"
+              title={isSelfDropOff ? "Post-service inspection photos" : "Delivery inspection photos"}
               description="Evidence recorded after the service was completed."
             />
           )}
@@ -601,7 +654,7 @@ export default function GarageBookingDetail() {
           <div className="card-soft p-6">
             <h3 className="mb-4 text-xl font-bold">Live Timeline</h3>
             <div className="space-y-4">
-              {BOOKING_TIMELINE_STEPS
+              {timelineSteps
                 .slice(0, currentStepIndex + 1)
                 .map((step, index) => (
                   <div key={step.status} className="flex gap-4">
@@ -641,20 +694,28 @@ export default function GarageBookingDetail() {
                   {booking.customer.phone || "N/A"}
                 </span>
               </p>
-              <p>
-                <span className="text-muted">Address:</span>{" "}
-                <span className="font-semibold">
-                  {booking.customer.address || "N/A"}
-                </span>
-              </p>
+              {isSelfDropOff ? (
+                <p className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-violet-900">
+                  Customer will bring the vehicle to this garage. Their home/service address is not a pickup destination.
+                </p>
+              ) : (
+                <p>
+                  <span className="text-muted">Address:</span>{" "}
+                  <span className="font-semibold">
+                    {booking.customer.address || "N/A"}
+                  </span>
+                </p>
+              )}
             </div>
-            <MapPanel
-              center={booking.customer.location}
-              height={220}
-              className="mb-4"
-              zoom={16}
-            />
-            <div className="grid grid-cols-3 gap-2">
+            {!isSelfDropOff && (
+              <MapPanel
+                center={booking.customer.location}
+                height={220}
+                className="mb-4"
+                zoom={16}
+              />
+            )}
+            <div className={`grid gap-2 ${isSelfDropOff ? "grid-cols-2" : "grid-cols-3"}`}>
               <button
                 onClick={() =>
                   booking.customer.phone &&
@@ -678,13 +739,15 @@ export default function GarageBookingDetail() {
                 <FiMessageSquare className="h-5 w-5" />
                 <span className="text-xs font-semibold">WhatsApp</span>
               </button>
-              <button
-                onClick={openGoogleMaps}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark"
-              >
-                <FiMapPin className="h-5 w-5" />
-                <span className="text-xs font-semibold">Navigate</span>
-              </button>
+              {!isSelfDropOff && (
+                <button
+                  onClick={openGoogleMaps}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark"
+                >
+                  <FiMapPin className="h-5 w-5" />
+                  <span className="text-xs font-semibold">Navigate</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

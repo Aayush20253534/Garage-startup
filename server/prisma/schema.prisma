@@ -592,6 +592,7 @@ model Service {
   isComingSoon Boolean  @default(false)
   isPopular    Boolean  @default(false)
   popularOrder Int?
+  fulfillmentType ServiceFulfillmentType @default(PICKUP_DELIVERY)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   durationMin  Int?
@@ -610,6 +611,7 @@ model Service {
   @@index([isActive])
   @@index([isComingSoon])
   @@index([isPopular, popularOrder])
+  @@index([fulfillmentType])
 }
 
 model ServiceMedia {
@@ -798,6 +800,7 @@ model Booking {
   expiredAt             DateTime?
   payableAmount         Int                      @default(49)
   requestType           RequestType              @default(NORMAL)
+  fulfillmentType       ServiceFulfillmentType    @default(PICKUP_DELIVERY)
   totalServiceAmount    Int                      @default(0)
   walletAmountUsed      Int                      @default(0)
   totalServiceMaxAmount Int                      @default(0)
@@ -849,6 +852,7 @@ model Booking {
   @@index([vehicleId])
   @@index([status])
   @@index([requestType])
+  @@index([fulfillmentType])
 }
 
 model AdminBookingEvent {
@@ -1836,6 +1840,11 @@ enum BroadcastStatus {
 enum RequestType {
   NORMAL
   SOS
+}
+
+enum ServiceFulfillmentType {
+  PICKUP_DELIVERY
+  SELF_DROP_OFF
 }
 
 enum TrackingSource {

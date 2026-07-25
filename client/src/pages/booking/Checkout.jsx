@@ -29,9 +29,15 @@ import {
 import { requireAvailableCityName } from "@/utils/cityAvailability";
 import { addRecentActivity } from "@/utils/activityLog";
 import {
+  MIXED_FULFILLMENT_MESSAGE,
+  hasMixedFulfillmentTypes,
+  isSelfDropOffService,
+} from "@/utils/serviceFulfillment";
+import {
   FiAlertCircle,
   FiCheckCircle,
   FiCreditCard,
+  FiMapPin,
   FiPhone,
   FiTrash2,
   FiTruck,
@@ -192,6 +198,9 @@ export default function Checkout() {
   const canSavePhone = INDIA_PHONE_REGEX.test(phoneToSave);
   const comingSoonItems = cart.filter(isCartItemComingSoon);
   const hasComingSoonItems = comingSoonItems.length > 0;
+  const hasMixedFulfillmentItems = hasMixedFulfillmentTypes(cart);
+  const isSelfDropOffBooking =
+    cart.length > 0 && cart.every(isSelfDropOffService);
   const blocksCurrentVehicleBooking =
     Boolean(activeVehicleBooking?.id) &&
     activeVehicleBooking.id !== pendingBooking?.id;
@@ -532,6 +541,11 @@ export default function Checkout() {
       return;
     }
 
+    if (hasMixedFulfillmentItems) {
+      setError(MIXED_FULFILLMENT_MESSAGE);
+      return;
+    }
+
     if (!hasSavedPhone) {
       setError("Save a valid mobile number before opening payment.");
       return;
@@ -622,11 +636,9 @@ export default function Checkout() {
       <div>
         <h1 className="text-3xl font-bold sm:text-4xl">Checkout</h1>
         <p className="mt-1 text-muted">
-          Pay the platform fee now to start garage search. The garage will use
-          your saved service address below, regardless of your current device
-          location. Edit it only when you want the garage to arrive somewhere
-          else. The final service amount is paid directly to the garage after
-          the work is complete.
+          {isSelfDropOffBooking
+            ? "Pay the platform fee now to start nearby garage search. Your saved location is used only to find a suitable garage; you must take the vehicle to the assigned garage and collect it after service."
+            : "Pay the platform fee now to start garage search. The garage will use your saved service address below, regardless of your current device location. Edit it only when you want the garage to arrive somewhere else. The final service amount is paid directly to the garage after the work is complete."}
         </p>
 
         {error && (
@@ -675,6 +687,13 @@ export default function Checkout() {
           </div>
         )}
 
+        {hasMixedFulfillmentItems && (
+          <div className="mt-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+            <FiAlertCircle className="mt-1 shrink-0" />
+            <span>{MIXED_FULFILLMENT_MESSAGE}</span>
+          </div>
+        )}
+
         {!hasSavedPhone && (
           <div className="card-soft mt-5 grid gap-4 border border-amber-200 bg-amber-50 p-5">
             <div className="flex items-start gap-3">
@@ -719,7 +738,11 @@ export default function Checkout() {
 
         <div className="card-soft mt-8 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Service Address</h3>
+            <h3 className="text-lg font-semibold">
+              {isSelfDropOffBooking
+                ? "Location for nearby garage matching"
+                : "Service Address"}
+            </h3>
             {!editingAddress && (
               <button
                 type="button"
@@ -739,8 +762,16 @@ export default function Checkout() {
                   setAddressForm(next);
                   setError("");
                 }}
-                label="Search service address"
-                helper="Select the address and confirm the exact service entrance."
+                label={
+                  isSelfDropOffBooking
+                    ? "Search your location"
+                    : "Search service address"
+                }
+                helper={
+                  isSelfDropOffBooking
+                    ? "This location is used to find nearby garages. The garage will not collect or return the vehicle."
+                    : "Select the address and confirm the exact service entrance."
+                }
                 required
               />
 
@@ -768,6 +799,16 @@ export default function Checkout() {
               {addressForm.formattedAddress || addressForm.fullAddress || buildFullAddress(addressForm) || "No address set"}
             </div>
           )}
+
+
+          {isSelfDropOffBooking && (
+            <div className="mt-4 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-900">
+              <FiMapPin className="mt-1 shrink-0" />
+              <p>
+                <span className="font-bold">Self drop-off booking:</span> no pickup or return vehicle is included. After a garage accepts, you will receive its address, map and handover OTP.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="card-soft mt-6 p-6">
@@ -792,7 +833,7 @@ export default function Checkout() {
       <aside className="card-soft h-fit p-5 sm:p-6 lg:sticky lg:top-24">
         <div className="flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand">
-            <FiTruck />
+            {isSelfDropOffBooking ? <FiMapPin /> : <FiTruck />}
           </span>
           <div className="text-sm">
             <div className="font-semibold">
@@ -800,6 +841,11 @@ export default function Checkout() {
             </div>
             <div className="text-xs text-muted">
               {vehicle?.fuelType || vehicle?.fuel || "Petrol"}
+            </div>
+            <div className="mt-1 text-xs font-semibold text-ink">
+              {isSelfDropOffBooking
+                ? "Self drop-off & pickup"
+                : "Pickup & delivery"}
             </div>
           </div>
         </div>
@@ -912,6 +958,7 @@ export default function Checkout() {
             loading ||
             cart.length === 0 ||
             hasComingSoonItems ||
+            hasMixedFulfillmentItems ||
             blocksCurrentVehicleBooking ||
             !hasSavedPhone
           }
@@ -924,7 +971,9 @@ export default function Checkout() {
               : "Activating booking..."
             : hasComingSoonItems
               ? "Remove Coming Soon Services"
-              : cart.length === 0
+              : hasMixedFulfillmentItems
+                ? "Separate Service Types"
+                : cart.length === 0
                 ? "Add services to continue"
                 : blocksCurrentVehicleBooking
                   ? "Complete active booking first"
@@ -935,8 +984,9 @@ export default function Checkout() {
                       : "Pay with wallet"}
         </button>
         <div className="mt-3 text-center text-xs text-muted">
-          Pay only the platform fee now. The service amount is paid in cash at
-          the garage after work is complete.
+          {isSelfDropOffBooking
+            ? "Pay only the platform fee now. Take the vehicle to the assigned garage and pay the final service amount there."
+            : "Pay only the platform fee now. The service amount is paid in cash at the garage after work is complete."}
         </div>
       </aside>
       </div>

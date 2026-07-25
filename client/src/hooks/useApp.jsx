@@ -22,6 +22,10 @@ import {
   setGarage,
 } from "@/store/garageSlice";
 import { getCartPricingContextKey } from "@/utils/bookingCart";
+import {
+  MIXED_FULFILLMENT_MESSAGE,
+  getServiceFulfillmentType,
+} from "@/utils/serviceFulfillment";
 
 const AppCtx = createContext(null);
 
@@ -1531,23 +1535,37 @@ export function AppProvider({ children }) {
 
   const addToCart = (service) => {
     const nextContextKey = getCartPricingContextKey(vehicle, location);
+    const contextSafeCart = cartContextKey === nextContextKey ? cart : [];
+    const exists = contextSafeCart.some((item) => item.id === service.id);
+
+    if (exists) {
+      return { added: false, alreadyInCart: true };
+    }
+
+    const incomingType = getServiceFulfillmentType(service);
+    const existingType = contextSafeCart[0]
+      ? getServiceFulfillmentType(contextSafeCart[0])
+      : incomingType;
+
+    if (contextSafeCart.length > 0 && incomingType !== existingType) {
+      return {
+        added: false,
+        conflict: true,
+        message: MIXED_FULFILLMENT_MESSAGE,
+      };
+    }
 
     setCartContextKey(nextContextKey);
-    setCart((current) => {
-      const contextSafeCart =
-        cartContextKey === nextContextKey ? current : [];
-      const exists = contextSafeCart.find((item) => item.id === service.id);
+    setCart([
+      ...contextSafeCart,
+      {
+        ...service,
+        fulfillmentType: incomingType,
+        pricingContextKey: nextContextKey,
+      },
+    ]);
 
-      return exists
-        ? contextSafeCart
-        : [
-            ...contextSafeCart,
-            {
-              ...service,
-              pricingContextKey: nextContextKey,
-            },
-          ];
-    });
+    return { added: true };
   };
 
   const removeFromCart = (id) => {

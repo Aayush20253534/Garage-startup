@@ -93,6 +93,7 @@ export const mapGarageRequestToBooking = (request) => {
       bookingId: booking.id,
       bookingCode: booking.bookingCode,
       status,
+      fulfillmentType: booking.fulfillmentType || "PICKUP_DELIVERY",
     createdAt: booking.createdAt || request.createdAt,
     distance: request.distanceKm || request.distance || 0,
     etaMinutes: request.etaMinutes || null,

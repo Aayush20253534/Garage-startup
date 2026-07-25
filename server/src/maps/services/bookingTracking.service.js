@@ -2,6 +2,9 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/apiError");
 const googleMapsService = require("./googleMaps.service");
 const { deletePattern } = require("../../utils/cache");
+const {
+  SERVICE_FULFILLMENT_TYPE,
+} = require("../../constants/serviceFulfillmentType");
 
 const TRACKABLE_STATUSES = new Set([
   "GARAGE_ASSIGNED",
@@ -206,9 +209,19 @@ const refreshRouteIfNeeded = async (booking, currentLocation) => {
   }
 };
 
+const assertLiveTrackingEnabledForBooking = (booking) => {
+  if (booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF) {
+    throw new ApiError(
+      409,
+      "Live pickup tracking is not used for self drop-off bookings",
+    );
+  }
+};
+
 const startTracking = async ({ bookingId, account }) => {
   const booking = await loadBooking(bookingId);
   await resolveTrackingActor(account, booking);
+  assertLiveTrackingEnabledForBooking(booking);
 
   if (!TRACKABLE_STATUSES.has(booking.status)) {
     throw new ApiError(409, "Live tracking is not available for this booking status");
@@ -231,6 +244,7 @@ const startTracking = async ({ bookingId, account }) => {
 const addTrackingPoint = async ({ bookingId, account, data }) => {
   const booking = await loadBooking(bookingId);
   const actor = await resolveTrackingActor(account, booking);
+  assertLiveTrackingEnabledForBooking(booking);
 
   if (!TRACKABLE_STATUSES.has(booking.status)) {
     throw new ApiError(409, "Live tracking is not available for this booking status");
@@ -360,6 +374,7 @@ const addTrackingPoint = async ({ bookingId, account, data }) => {
 const stopTracking = async ({ bookingId, account }) => {
   const booking = await loadBooking(bookingId);
   await resolveTrackingActor(account, booking);
+  assertLiveTrackingEnabledForBooking(booking);
 
   return prisma.booking.update({
     where: { id: bookingId },
@@ -375,6 +390,7 @@ const stopTracking = async ({ bookingId, account }) => {
 const getTracking = async ({ bookingId, account }) => {
   const booking = await loadBooking(bookingId);
   await assertCanView(account, booking);
+  assertLiveTrackingEnabledForBooking(booking);
 
   const points = await prisma.bookingTrackingPoint.findMany({
     where: { bookingId },

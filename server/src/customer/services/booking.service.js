@@ -26,6 +26,11 @@ const {
 const {
   getBookingRefundIdempotencyKey,
 } = require("./bookingFinancialIdempotency");
+const {
+  SERVICE_FULFILLMENT_TYPE,
+  getServiceFulfillmentTypes,
+  hasMixedServiceFulfillmentTypes,
+} = require("../../constants/serviceFulfillmentType");
 
 const bookingInclude = {
   user: {
@@ -284,6 +289,18 @@ const createBooking = async (userId, data) => {
     );
   }
 
+  const fulfillmentTypes = getServiceFulfillmentTypes(services);
+
+  if (hasMixedServiceFulfillmentTypes(services)) {
+    throw new ApiError(
+      409,
+      "Pickup-and-delivery services and self drop-off services cannot be booked together. Remove one service type and create a separate booking.",
+    );
+  }
+
+  const fulfillmentType =
+    fulfillmentTypes[0] || SERVICE_FULFILLMENT_TYPE.PICKUP_DELIVERY;
+
   const comingSoonServices = services.filter(
     (service) =>
       service.isComingSoon || service.category?.isComingSoon,
@@ -348,6 +365,7 @@ const createBooking = async (userId, data) => {
             startTime: startTime || null,
             endTime: endTime || null,
             requestType: "NORMAL",
+            fulfillmentType,
             status: "PENDING_PAYMENT",
 
             // Payment verification starts the first 2-minute-30-second search round.

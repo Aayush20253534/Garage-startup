@@ -17,6 +17,7 @@ import {
 import { garageApi } from "@/api/garage";
 import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
+import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 
 const isUnlockedStatus = (status) =>
   ["ACCEPTED", "CONFIRMED", "IN_PROGRESS", "DELIVERED", "COMPLETED"].includes(
@@ -127,6 +128,7 @@ export default function MagicLink() {
   }, [authLoading, garageToken, id]);
 
   const accepted = booking && isUnlockedStatus(booking.status);
+  const isSelfDropOff = isSelfDropOffService(booking);
   const isPending = booking?.status === "NEW" || booking?.status === "SENT";
   const acceptFee = Number(booking?.acceptFee || 0);
   const walletBalance = Number(
@@ -343,6 +345,13 @@ export default function MagicLink() {
                   rows={[
                     { label: "Services", value: serviceNames, strong: true },
                     {
+                      label: "Vehicle movement",
+                      value: isSelfDropOff
+                        ? "Customer self drop-off & pickup"
+                        : "Garage pickup & delivery",
+                      strong: true,
+                    },
+                    {
                       label: "Estimated bill",
                       value: formatRupees(booking.estimatedBill || 0),
                       strong: true,
@@ -362,6 +371,14 @@ export default function MagicLink() {
                       : []),
                   ]}
                 />
+                {isSelfDropOff && (
+                  <div className="mt-3 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-900">
+                    <FiMapPin className="mt-1 shrink-0" />
+                    <p>
+                      <span className="font-extrabold">Self drop-off request:</span> do not travel to the customer. After acceptance, the customer will bring the vehicle to your garage and return to collect it.
+                    </p>
+                  </div>
+                )}
               </section>
 
               {accepted && (
@@ -388,14 +405,23 @@ export default function MagicLink() {
                         label: "Phone",
                         value: booking.customer?.phone || "Not available",
                       },
-                      {
-                        label: "Address",
-                        value: booking.customer?.address || "Not available",
-                      },
+                      ...(isSelfDropOff
+                        ? [
+                            {
+                              label: "Arrival",
+                              value: "Customer will bring the vehicle to your garage",
+                            },
+                          ]
+                        : [
+                            {
+                              label: "Address",
+                              value: booking.customer?.address || "Not available",
+                            },
+                          ]),
                     ]}
                   />
 
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className={`grid gap-2 sm:gap-3 ${isSelfDropOff ? "grid-cols-2" : "grid-cols-3"}`}>
                     <button
                       type="button"
                       disabled={!booking.customer?.phone}
@@ -422,14 +448,16 @@ export default function MagicLink() {
                       <FiMessageSquare className="h-5 w-5" />
                       WhatsApp
                     </button>
-                    <button
-                      type="button"
-                      onClick={openGoogleMaps}
-                      className="inline-flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl bg-brand px-2 py-3 text-xs font-extrabold text-black transition hover:bg-brand-dark sm:text-sm"
-                    >
-                      <FiNavigation className="h-5 w-5" />
-                      Navigate
-                    </button>
+                    {!isSelfDropOff && (
+                      <button
+                        type="button"
+                        onClick={openGoogleMaps}
+                        className="inline-flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl bg-brand px-2 py-3 text-xs font-extrabold text-black transition hover:bg-brand-dark sm:text-sm"
+                      >
+                        <FiNavigation className="h-5 w-5" />
+                        Navigate
+                      </button>
+                    )}
                   </div>
                 </motion.section>
               )}

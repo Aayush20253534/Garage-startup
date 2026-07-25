@@ -14,10 +14,8 @@ import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
-import {
-  BOOKING_TIMELINE_STEPS,
-  getBookingTimelineState,
-} from "@/utils/bookingTimeline";
+import { getBookingTimelineState } from "@/utils/bookingTimeline";
+import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 import {
   FiCheck,
   FiCheckCircle,
@@ -78,6 +76,7 @@ const getServicesTotal = (booking) => {
 
 
 const getHeaderCopy = (booking, remainingSeconds) => {
+  const isSelfDropOff = isSelfDropOffService(booking);
   if (!booking) {
     return {
       title: "Loading booking",
@@ -138,25 +137,32 @@ const getHeaderCopy = (booking, remainingSeconds) => {
 
   if (["GARAGE_ASSIGNED", "CONFIRMED"].includes(booking.status)) {
     return {
-      title: "Garage Accepted Your Booking",
-      description:
-        "Your garage is confirmed. Customer details are now unlocked for the garage.",
+      title: isSelfDropOff
+        ? "Garage Ready for Your Drop-off"
+        : "Garage Accepted Your Booking",
+      description: isSelfDropOff
+        ? "Take your vehicle to the assigned garage. Use the address, directions and handover OTP shown below."
+        : "Your garage is confirmed. Customer details are now unlocked for the garage.",
     };
   }
 
   if (booking.status === "IN_PROGRESS" && booking.deliveredAt) {
     return {
-      title: "Vehicle Ready for Delivery",
-      description:
-        "Review the completed service and accept delivery when you receive the vehicle.",
+      title: isSelfDropOff
+        ? "Vehicle Ready for Self Pickup"
+        : "Vehicle Ready for Delivery",
+      description: isSelfDropOff
+        ? "Visit the garage, review the completed work, enter the final amount paid and confirm collection."
+        : "Review the completed service and accept delivery when you receive the vehicle.",
     };
   }
 
   if (booking.status === "IN_PROGRESS") {
     return {
       title: "Service In Progress",
-      description:
-        "The handover OTP was verified and the garage is servicing your vehicle.",
+      description: isSelfDropOff
+        ? "Your drop-off was verified and the garage is servicing your vehicle."
+        : "The handover OTP was verified and the garage is servicing your vehicle.",
     };
   }
 
@@ -503,7 +509,11 @@ function Tracking() {
     const amount = Math.round(Number(finalAmount));
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      setError("Enter the final amount paid to the garage before accepting delivery.");
+      setError(
+        isSelfDropOffService(booking)
+          ? "Enter the final amount paid to the garage before confirming collection."
+          : "Enter the final amount paid to the garage before accepting delivery.",
+      );
       return;
     }
 
@@ -520,7 +530,9 @@ function Tracking() {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Could not accept vehicle delivery.",
+          (isSelfDropOffService(booking)
+            ? "Could not confirm vehicle collection."
+            : "Could not accept vehicle delivery."),
       );
     } finally {
       setActionLoading("");
@@ -604,7 +616,11 @@ function Tracking() {
   }
 
 
-  const { currentIndex: currentStep } = getBookingTimelineState(booking);
+  const {
+    currentIndex: currentStep,
+    steps: timelineSteps,
+  } = getBookingTimelineState(booking);
+  const isSelfDropOff = isSelfDropOffService(booking);
   const searching = booking.status === "SEARCHING_GARAGE";
   const searchRound = getSearchRound(booking);
   const searchRadiusKm = getSearchRadiusKm(booking);
@@ -731,7 +747,7 @@ function Tracking() {
           </div>
         )}
 
-        {!searching && booking.garage && (
+        {!searching && booking.garage && !isSelfDropOff && (
           <div>
             <LiveBookingTracking
               bookingId={booking.id}
@@ -740,10 +756,26 @@ function Tracking() {
           </div>
         )}
 
+        {!searching && booking.garage && isSelfDropOff && (
+          <div className="rounded-3xl border border-violet-200 bg-violet-50 p-5 text-violet-950 shadow-sm sm:p-6">
+            <div className="flex items-start gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-xl text-violet-700 shadow-sm">
+                <FiMapPin />
+              </span>
+              <div>
+                <h2 className="text-lg font-bold">Take your vehicle to the assigned garage</h2>
+                <p className="mt-1 text-sm leading-6 text-violet-800">
+                  Pickup tracking is not used for this service. Navigate to the garage, hand over the vehicle there and share the OTP with garage staff.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="card-soft mt-8 p-6">
           <h2 className="mb-5 text-lg font-semibold">Live booking timeline</h2>
           <div className="grid gap-1">
-            {BOOKING_TIMELINE_STEPS.map((step, index) => {
+            {timelineSteps.map((step, index) => {
               const completed = index < currentStep;
               const current = index === currentStep;
 
@@ -766,7 +798,7 @@ function Tracking() {
                         index + 1
                       )}
                     </motion.div>
-                    {index < BOOKING_TIMELINE_STEPS.length - 1 && (
+                    {index < timelineSteps.length - 1 && (
                       <div
                         className={`my-1 min-h-10 w-px flex-1 ${
                           completed ? "bg-brand" : "bg-line"
@@ -795,8 +827,12 @@ function Tracking() {
             <InspectionGallery
               images={pickupImages}
               phase="PICKUP"
-              title="Pickup inspection photos"
-              description="These photos were recorded before the garage started working on your vehicle."
+              title={isSelfDropOff ? "Drop-off inspection photos" : "Pickup inspection photos"}
+              description={
+                isSelfDropOff
+                  ? "These photos were recorded when you handed the vehicle over at the garage."
+                  : "These photos were recorded before the garage started working on your vehicle."
+              }
             />
           </div>
         )}
@@ -806,7 +842,7 @@ function Tracking() {
             <InspectionGallery
               images={deliveryImages}
               phase="DELIVERY"
-              title="Delivery inspection photos"
+              title={isSelfDropOff ? "Post-service inspection photos" : "Delivery inspection photos"}
               description="These photos were recorded after the garage completed the selected services."
             />
           </div>
@@ -816,10 +852,13 @@ function Tracking() {
           <div className="card-soft mt-6 p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-xl font-bold">Vehicle delivery ready</h2>
+                <h2 className="text-xl font-bold">
+                  {isSelfDropOff ? "Vehicle ready for self pickup" : "Vehicle delivery ready"}
+                </h2>
                 <p className="mt-2 text-sm text-muted">
-                  Review the delivery photos, enter the final amount you paid
-                  to the garage, then accept delivery.
+                  {isSelfDropOff
+                    ? "Visit the garage, review the post-service photos and vehicle, enter the final amount paid, then confirm collection."
+                    : "Review the delivery photos, enter the final amount you paid to the garage, then accept delivery."}
                 </p>
               </div>
               <span className="chip-brand w-fit">Customer confirmation</span>
@@ -850,8 +889,12 @@ function Tracking() {
               className="btn-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {actionLoading === "delivery"
-                ? "Accepting..."
-                : "Accept Vehicle Delivery"}
+                ? isSelfDropOff
+                  ? "Confirming..."
+                  : "Accepting..."
+                : isSelfDropOff
+                  ? "Confirm Vehicle Collection"
+                  : "Accept Vehicle Delivery"}
             </button>
           </div>
         )}
@@ -861,8 +904,9 @@ function Tracking() {
             <div className="card-soft mt-6 p-6">
               <h3 className="mb-2 text-xl font-bold">Service completed</h3>
               <p className="text-sm text-muted">
-                You confirmed the final amount and the booking is now in your
-                service history.
+                {isSelfDropOff
+                  ? "You confirmed collection and the booking is now in your service history."
+                  : "You confirmed the final amount and the booking is now in your service history."}
               </p>
               <button
                 type="button"
@@ -1008,6 +1052,17 @@ function Tracking() {
         ) : booking.garage ? (
           <div>
             <AcceptedGarageCard garage={booking.garage} compact />
+
+            {isSelfDropOff && (
+              <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-900">
+                <div className="flex items-start gap-2">
+                  <FiMapPin className="mt-1 shrink-0" />
+                  <span>
+                    This garage will not collect or return your vehicle. Take it to this address and return here when it is marked ready.
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="mt-5 grid gap-3 text-sm">
               <Row label="Phone" value={booking.garage.phone || "Not provided"} />

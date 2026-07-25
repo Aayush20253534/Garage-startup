@@ -9,6 +9,9 @@ const {
   getDefaultCountryCode,
   normalizeWhatsappNumber,
 } = require("../utils/whatsapp");
+const {
+  SERVICE_FULFILLMENT_TYPE,
+} = require("../constants/serviceFulfillmentType");
 
 const looksLikeMetaToken = (value) => /^EA[A-Za-z0-9_-]+/.test(String(value || ""));
 const looksLikePhoneNumberId = (value) => /^\d{8,}$/.test(String(value || ""));
@@ -502,6 +505,26 @@ const sendGarageCustomerLocationWhatsapp = async ({ garage, booking, to = null }
 
   const customerName = booking.user?.name || "Customer";
   const customerPhone = booking.user?.phone || "Phone not available";
+
+  if (booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF) {
+    return sendWhatsappMessage({
+      to: to || garage.whatsappNo || garage.phone,
+      message: [
+        `Rovauto booking ${booking.bookingCode} accepted.`,
+        `Customer: ${customerName}`,
+        `Phone: ${customerPhone}`,
+        "Fulfilment: Customer self drop-off and self pickup.",
+        "Do not travel to the customer address. Verify the handover OTP when the customer reaches the garage.",
+      ].join("\n"),
+      context: {
+        type: "garage_customer_self_drop_off",
+        garageId: garage.id,
+        bookingId: booking.id,
+        bookingCode: booking.bookingCode,
+      },
+    });
+  }
+
   const location = getCustomerLocationText(booking);
   const mapsLink = getCustomerMapsLink(booking);
   const mapButtonParameter = getCustomerMapButtonParameter(booking);
@@ -553,14 +576,33 @@ const sendCustomerGarageDetailsWhatsapp = async ({
   const garagePhone = garage.phone || garage.whatsappNo || "Not available";
   const garageAddress = garage.address || "Address not available";
   const mapButtonParameter = getGarageMapButtonParameter(garage);
+  const isSelfDropOff =
+    booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF;
   const message = [
     `Rovauto booking ${booking.bookingCode} confirmed.`,
     `Garage: ${garage.name}`,
     `Phone: ${garagePhone}`,
     `Address: ${garageAddress}`,
     `Garage location: ${mapsLink}`,
+    isSelfDropOff
+      ? "This booking is self drop-off and self pickup. Take the vehicle to the garage; no pickup vehicle will arrive."
+      : "The garage will follow the normal pickup and delivery process.",
     "Your vehicle handover OTP has been sent to your registered email address.",
   ].join("\n");
+
+  if (isSelfDropOff) {
+    return sendWhatsappMessage({
+      to: customer.phone,
+      message,
+      context: {
+        type: "customer_garage_details_self_drop_off",
+        customerId: customer.id,
+        garageId: garage.id,
+        bookingId: booking.id,
+        bookingCode: booking.bookingCode,
+      },
+    });
+  }
 
   return sendWhatsappTemplateMessage({
     to: customer.phone,
@@ -605,12 +647,21 @@ const sendCustomerVehicleDeliveredWhatsapp = async ({
   booking,
 }) => {
   const trackingUrl = `${getFrontendBaseUrl()}/tracking?bookingId=${booking.id}`;
-  const message = [
-    `Rovauto booking ${booking.bookingCode} is ready for delivery.`,
-    `${garage.name} has uploaded the post-service inspection photos and marked your vehicle delivered.`,
-    "Accept delivery only after receiving and checking the vehicle.",
-    `Review and accept here: ${trackingUrl}`,
-  ].join("\n");
+  const isSelfDropOff =
+    booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF;
+  const message = isSelfDropOff
+    ? [
+        `Rovauto booking ${booking.bookingCode} is ready for self pickup.`,
+        `${garage.name} has completed the service and uploaded the post-service inspection photos.`,
+        "Visit the garage, inspect the vehicle, enter the final amount paid, and confirm collection.",
+        `Review and confirm here: ${trackingUrl}`,
+      ].join("\n")
+    : [
+        `Rovauto booking ${booking.bookingCode} is ready for delivery.`,
+        `${garage.name} has uploaded the post-service inspection photos and marked your vehicle delivered.`,
+        "Accept delivery only after receiving and checking the vehicle.",
+        `Review and accept here: ${trackingUrl}`,
+      ].join("\n");
 
   return sendWhatsappMessage({
     to: customer.phone,

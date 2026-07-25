@@ -262,7 +262,7 @@ const getServiceAvailabilityWhere = (context) =>
 
 const getServiceCategories = async (options = {}) => {
   const context = await getCustomerServiceContext(options);
-  const cacheKey = context ? null : "services:categories:public:v4";
+  const cacheKey = context ? null : "services:categories:public:v5";
 
   const cached = cacheKey ? await getCache(cacheKey) : null;
   if (cached) return cached;
@@ -322,7 +322,7 @@ const getServices = async (query = {}, options = {}) => {
 
   const cacheKey = context
     ? null
-    : `services:list:public:v4:${JSON.stringify({
+    : `services:list:public:v5:${JSON.stringify({
         categoryId: safeCategoryId,
         search: search || "",
         minPrice: minPrice || "",
@@ -379,7 +379,7 @@ const getServices = async (query = {}, options = {}) => {
 
 const getServiceById = async (serviceId, options = {}) => {
   const context = await getCustomerServiceContext(options);
-  const cacheKey = context ? null : `services:detail:public:v4:${serviceId}`;
+  const cacheKey = context ? null : `services:detail:public:v5:${serviceId}`;
 
   const cached = cacheKey ? await getCache(cacheKey) : null;
   if (cached) return cached;

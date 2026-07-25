@@ -1,3 +1,5 @@
+import { isSelfDropOffService } from "@/utils/serviceFulfillment";
+
 export const BOOKING_TIMELINE_STEPS = [
   {
     key: "REQUEST_SENT",
@@ -43,6 +45,44 @@ export const BOOKING_TIMELINE_STEPS = [
   },
 ];
 
+export const SELF_DROP_OFF_TIMELINE_STEPS = [
+  {
+    ...BOOKING_TIMELINE_STEPS[0],
+    description: "Your self drop-off request was sent to suitable nearby garages.",
+  },
+  {
+    ...BOOKING_TIMELINE_STEPS[1],
+    label: "Garage Assigned",
+    shortLabel: "Assigned",
+    description: "A garage accepted. Use its address and directions to take your vehicle there.",
+  },
+  {
+    ...BOOKING_TIMELINE_STEPS[2],
+    label: "Drop Vehicle at Garage",
+    shortLabel: "Drop-off",
+    description: "At the garage, share the handover OTP and complete the drop-off inspection photos.",
+  },
+  {
+    ...BOOKING_TIMELINE_STEPS[3],
+    description: "The garage verified your drop-off and started servicing the vehicle.",
+  },
+  {
+    ...BOOKING_TIMELINE_STEPS[4],
+    label: "Ready for Customer Pickup",
+    shortLabel: "Pickup",
+    description: "The garage finished the work. Visit the garage, inspect the vehicle and confirm collection.",
+  },
+  {
+    ...BOOKING_TIMELINE_STEPS[5],
+    description: "You confirmed collection and the service is complete.",
+  },
+];
+
+export const getBookingTimelineSteps = (booking = {}) =>
+  isSelfDropOffService(booking)
+    ? SELF_DROP_OFF_TIMELINE_STEPS
+    : BOOKING_TIMELINE_STEPS;
+
 const getReachedIndex = (booking = {}) => {
   const status = String(booking.status || "").toUpperCase();
 
@@ -59,15 +99,15 @@ const getReachedIndex = (booking = {}) => {
 
 export const getBookingTimelineState = (booking = {}) => {
   const status = String(booking.status || "").toUpperCase();
-  const currentIndex = getReachedIndex(booking);
-  const step = BOOKING_TIMELINE_STEPS[currentIndex];
-  const percent = Math.round(
-    ((currentIndex + 1) / BOOKING_TIMELINE_STEPS.length) * 100,
-  );
+  const steps = getBookingTimelineSteps(booking);
+  const currentIndex = Math.min(getReachedIndex(booking), steps.length - 1);
+  const step = steps[currentIndex];
+  const percent = Math.round(((currentIndex + 1) / steps.length) * 100);
 
   return {
     currentIndex,
     step,
+    steps,
     percent,
     isCancelled: status === "CANCELLED",
     isExpired: status === "EXPIRED",

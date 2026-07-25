@@ -5,6 +5,9 @@ const garageService = require("./garage.service");
 const BOOKING_STATUS = require("../constants/bookingStatus");
 const BROADCAST_STATUS = require("../constants/broadcastStatus");
 const REQUEST_TYPE = require("../constants/requestType");
+const {
+  SERVICE_FULFILLMENT_TYPE,
+} = require("../constants/serviceFulfillmentType");
 const WALLET_TRANSACTION_TYPE = require("../constants/walletTransactionType");
 const WALLET_TRANSACTION_STATUS = require("../constants/walletTransactionStatus");
 const { calculatePlatformFee } = require("../garage/constants");
@@ -133,14 +136,29 @@ const redactPendingCustomerDetails = (request) => {
 };
 
 const serializeGarageRequest = (request) => {
-  const safeRequest = redactPendingCustomerDetails(request);
+  let safeRequest = redactPendingCustomerDetails(request);
   const distanceKm = getRequestDistanceKm(request);
   const acceptFee = getGarageAcceptFee(request.booking);
+  const isSelfDropOff =
+    request.booking?.fulfillmentType ===
+    SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF;
+
+  if (isSelfDropOff && safeRequest.booking) {
+    safeRequest = {
+      ...safeRequest,
+      booking: {
+        ...safeRequest.booking,
+        customerAddress: null,
+        customerLatitude: null,
+        customerLongitude: null,
+      },
+    };
+  }
 
   return {
     ...safeRequest,
     distanceKm,
-    etaMinutes: estimateArrivalMinutes(distanceKm),
+    etaMinutes: isSelfDropOff ? null : estimateArrivalMinutes(distanceKm),
     acceptFee,
     acceptUrl: getGarageAcceptUrl(request.id),
     garage: addGarageWhatsappLink(safeRequest.garage),
@@ -1068,7 +1086,11 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
   );
 
   const distanceKm = getRequestDistanceKm(result.request);
-  const etaMinutes = estimateArrivalMinutes(distanceKm);
+  const etaMinutes =
+    result.request.booking.fulfillmentType ===
+    SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+      ? null
+      : estimateArrivalMinutes(distanceKm);
 
   const acceptanceNotificationResults = await Promise.allSettled([
     bookingLifecycleService.notifyGarageAccepted({
@@ -1173,10 +1195,14 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
 
   return {
     ...serializeGarageRequest(result.request),
-    customerLocationLink: getMapsLink(
-      result.request.booking.customerLatitude,
-      result.request.booking.customerLongitude,
-    ),
+    customerLocationLink:
+      result.request.booking.fulfillmentType ===
+      SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+        ? null
+        : getMapsLink(
+            result.request.booking.customerLatitude,
+            result.request.booking.customerLongitude,
+          ),
   };
 };
 

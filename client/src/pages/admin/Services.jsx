@@ -17,6 +17,7 @@ import {
   FiSearch,
   FiStar,
   FiTrash2,
+  FiTruck,
   FiX,
 } from "react-icons/fi";
 
@@ -40,6 +41,7 @@ const emptyServiceForm = {
   description: "",
   isActive: true,
   isComingSoon: false,
+  fulfillmentType: "PICKUP_DELIVERY",
   restrictedCityIds: [],
   thumbnail: null,
 };
@@ -549,6 +551,7 @@ export default function AdminServices() {
         description: serviceForm.description.trim() || null,
         isActive: serviceForm.isActive,
         isComingSoon: serviceForm.isComingSoon,
+        fulfillmentType: serviceForm.fulfillmentType,
         restrictedCityIds: serviceForm.restrictedCityIds,
       };
 
@@ -586,6 +589,10 @@ export default function AdminServices() {
       description: service.description || "",
       isActive: Boolean(service.isActive),
       isComingSoon: isServiceComingSoon(service),
+      fulfillmentType:
+        service.fulfillmentType === "SELF_DROP_OFF"
+          ? "SELF_DROP_OFF"
+          : "PICKUP_DELIVERY",
       restrictedCityIds: getRestrictedCityIds(service),
       thumbnail: null,
     });
@@ -1002,6 +1009,77 @@ export default function AdminServices() {
             />
             Coming Soon
           </label>
+
+          <fieldset className="md:col-span-2 xl:col-span-4 rounded-xl border border-line bg-bg-soft/60 p-3">
+            <legend className="px-1 text-sm font-bold text-ink">
+              Customer vehicle movement
+            </legend>
+            <p className="mb-3 text-xs leading-5 text-muted">
+              This applies only to this service. Existing services remain on the normal pickup-and-delivery flow unless changed here.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                {
+                  value: "PICKUP_DELIVERY",
+                  title: "Pickup & delivery",
+                  description:
+                    "The garage follows the current process: travels to the customer, receives the vehicle, and returns it after service.",
+                  icon: FiTruck,
+                },
+                {
+                  value: "SELF_DROP_OFF",
+                  title: "Self drop-off & pickup",
+                  description:
+                    "The customer takes the vehicle to the assigned garage and collects it after the garage marks it ready.",
+                  icon: FiMapPin,
+                },
+              ].map((option) => {
+                const selected = serviceForm.fulfillmentType === option.value;
+                const Icon = option.icon;
+
+                return (
+                  <label
+                    key={option.value}
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                      selected
+                        ? "border-ink bg-white shadow-sm"
+                        : "border-line bg-white/70 hover:border-ink/30"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="serviceFulfillmentType"
+                      value={option.value}
+                      checked={selected}
+                      onChange={(event) =>
+                        setServiceForm((current) => ({
+                          ...current,
+                          fulfillmentType: event.target.value,
+                        }))
+                      }
+                      className="sr-only"
+                    />
+                    <span
+                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
+                        selected ? "bg-lime-300 text-black" : "bg-bg-soft text-muted"
+                      }`}
+                    >
+                      <Icon />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2 text-sm font-bold text-ink">
+                        {option.title}
+                        {selected && <FiCheckCircle className="text-green-700" />}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-muted">
+                        {option.description}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
 
           <div className="md:col-span-2 xl:col-span-4">
             <RestrictedCityPicker
@@ -1453,6 +1531,23 @@ export default function AdminServices() {
                               ].join(" ")}
                             >
                               {serviceActive ? "Active" : "Inactive"}
+                            </span>
+
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
+                                service.fulfillmentType === "SELF_DROP_OFF"
+                                  ? "bg-violet-100 text-violet-800"
+                                  : "bg-sky-50 text-sky-700"
+                              }`}
+                            >
+                              {service.fulfillmentType === "SELF_DROP_OFF" ? (
+                                <FiMapPin />
+                              ) : (
+                                <FiTruck />
+                              )}
+                              {service.fulfillmentType === "SELF_DROP_OFF"
+                                ? "Self drop-off & pickup"
+                                : "Pickup & delivery"}
                             </span>
 
                             {serviceComingSoon && (

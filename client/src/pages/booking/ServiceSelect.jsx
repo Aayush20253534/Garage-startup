@@ -17,11 +17,18 @@ import {
   warmImageCache,
 } from "@/utils/imageCache";
 import {
+  MIXED_FULFILLMENT_MESSAGE,
+  getServiceFulfillmentLabel,
+  hasMixedFulfillmentTypes,
+  isSelfDropOffService,
+} from "@/utils/serviceFulfillment";
+import {
   FiAlertCircle,
   FiArrowRight,
   FiCheck,
   FiChevronDown,
   FiChevronUp,
+  FiMapPin,
   FiMinus,
   FiPlus,
   FiSettings,
@@ -63,6 +70,16 @@ function CartItems({ cart, serviceById, comingSoonIds, removeFromCart }) {
             <div className="min-w-0">
               <span className="block truncate font-medium text-ink">
                 {displayItem.name}
+              </span>
+              <span
+                className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  isSelfDropOffService(displayItem)
+                    ? "bg-violet-50 text-violet-800"
+                    : "bg-sky-50 text-sky-700"
+                }`}
+              >
+                {isSelfDropOffService(displayItem) ? <FiMapPin /> : <FiTruck />}
+                {getServiceFulfillmentLabel(displayItem)}
               </span>
               {comingSoon && (
                 <span className="mt-0.5 block text-xs font-semibold text-amber-700">
@@ -150,6 +167,10 @@ export default function ServiceSelect() {
     return !currentService?.priceRange;
   });
 
+  const hasMixedFulfillmentInCart = hasMixedFulfillmentTypes(
+    cart.map((item) => serviceById.get(item.id) || item),
+  );
+
   const pricedCartItems = cart
     .map((item) => serviceById.get(item.id))
     .filter((item) => item?.priceRange);
@@ -165,12 +186,17 @@ export default function ServiceSelect() {
   );
 
   const checkoutBlocked =
-    cart.length === 0 || hasComingSoonInCart || hasUnavailableInCart;
+    cart.length === 0 ||
+    hasComingSoonInCart ||
+    hasUnavailableInCart ||
+    hasMixedFulfillmentInCart;
 
   const checkoutLabel =
     cart.length === 0
       ? "Add service"
-      : hasComingSoonInCart || hasUnavailableInCart
+      : hasComingSoonInCart ||
+          hasUnavailableInCart ||
+          hasMixedFulfillmentInCart
         ? "Review cart"
         : "Continue";
 
@@ -261,6 +287,13 @@ export default function ServiceSelect() {
             A service in your cart is restricted in this city or has no price
             allocated for the selected vehicle. Remove it before continuing.
           </span>
+        </div>
+      )}
+
+      {hasMixedFulfillmentInCart && (
+        <div className="mt-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <FiAlertCircle className="mt-0.5 shrink-0" />
+          <span>{MIXED_FULFILLMENT_MESSAGE}</span>
         </div>
       )}
 
@@ -363,6 +396,17 @@ export default function ServiceSelect() {
                     )}
                   </div>
 
+                  <span
+                    className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold sm:text-xs ${
+                      isSelfDropOffService(service)
+                        ? "bg-violet-50 text-violet-800"
+                        : "bg-sky-50 text-sky-700"
+                    }`}
+                  >
+                    {isSelfDropOffService(service) ? <FiMapPin /> : <FiTruck />}
+                    {getServiceFulfillmentLabel(service)}
+                  </span>
+
                   {includedItems.length > 0 ? (
                     <>
                       <ul className="mt-3 grid gap-1.5 text-sm sm:hidden">
@@ -449,7 +493,7 @@ export default function ServiceSelect() {
                       }
 
                       if (!comingSoon) {
-                        addToCart({
+                        const result = addToCart({
                           ...service,
                           category: {
                             id: selectedCategory?.id,
@@ -462,6 +506,13 @@ export default function ServiceSelect() {
                             selectedCategory?.isComingSoon,
                           ),
                         });
+
+                        if (result?.conflict) {
+                          setError(result.message);
+                          setMobileCartOpen(true);
+                        } else {
+                          setError("");
+                        }
                       }
                     }}
                     disabled={(!hasPrice && !inCart) || (comingSoon && !inCart)}
@@ -548,7 +599,9 @@ export default function ServiceSelect() {
               ? "Remove Coming Soon Items"
               : hasUnavailableInCart
                 ? "Remove Unavailable Items"
-                : "Continue"}{" "}
+                : hasMixedFulfillmentInCart
+                  ? "Separate Service Types"
+                  : "Continue"}{" "}
             <FiArrowRight />
           </Link>
         </aside>
@@ -579,11 +632,15 @@ export default function ServiceSelect() {
                 </button>
               </div>
 
-              {(hasComingSoonInCart || hasUnavailableInCart) && (
+              {(hasComingSoonInCart ||
+                hasUnavailableInCart ||
+                hasMixedFulfillmentInCart) && (
                 <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
                   <FiAlertCircle className="mt-0.5 shrink-0" />
                   <span>
-                    Remove unavailable or coming-soon services before continuing.
+                    {hasMixedFulfillmentInCart
+                      ? MIXED_FULFILLMENT_MESSAGE
+                      : "Remove unavailable or coming-soon services before continuing."}
                   </span>
                 </div>
               )}

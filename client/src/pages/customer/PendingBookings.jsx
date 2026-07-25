@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/api/axios";
 import { useApp } from "@/hooks/useApp";
+import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 import BookingPaymentLoader from "@/components/payment/BookingPaymentLoader";
 import {
   getPaymentErrorCode,
@@ -299,6 +300,7 @@ export default function PendingBookings() {
           const onlineAmount = getBookingOnlineAmount(booking);
           const walletAmountUsed = getWalletAmountForBooking(booking);
           const cashfreeAmount = getCashfreeAmountForBooking(booking);
+          const isSelfDropOff = isSelfDropOffService(booking);
 
           return (
             <article
@@ -322,6 +324,13 @@ export default function PendingBookings() {
                     <h3 className="mt-3 text-xl font-bold leading-tight text-ink">
                       {getServicesText(booking)}
                     </h3>
+                    <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                      isSelfDropOff
+                        ? "bg-violet-100 text-violet-800"
+                        : "bg-sky-100 text-sky-800"
+                    }`}>
+                      {isSelfDropOff ? "Self drop-off & pickup" : "Pickup & delivery"}
+                    </span>
                   </div>
 
                   <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -365,7 +374,9 @@ export default function PendingBookings() {
                   <div className="mt-5 flex items-start gap-2 text-sm text-muted">
                     <FiMapPin className="mt-0.5 h-4 w-4 shrink-0" />
                     <span className="line-clamp-2">
-                      {getAddressText(booking)}
+                      {isSelfDropOff
+                        ? "Location used only to find a nearby garage; customer transports the vehicle."
+                        : getAddressText(booking)}
                     </span>
                   </div>
                 </div>
