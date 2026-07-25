@@ -1,12 +1,19 @@
 # Services, Warranty And Customer Support
 
-> Customer-assistant knowledge verified on 23 July 2026.
+> Customer-assistant knowledge verified on 25 July 2026.
 
 ## Available Services
 
 Rovauto lists active vehicle-care services configured for supported cities. Categories may include periodic maintenance, repair, inspection, cleaning, roadside assistance, and other services shown in the app. A service may be unavailable or coming soon in a particular city. The app's current service listing is the source of truth.
 
-Displayed service prices are approved estimates or ranges for the selected city, service, and vehicle scope. They are not a guaranteed final repair quotation. If no approved range exists for the selected combination, the app must not invent a price or allow that service to proceed through checkout. The final service amount depends on the completed work and is confirmed before customer delivery acceptance.
+Every bookable service can show one of two vehicle-movement options:
+
+- **Pickup & delivery:** the assigned garage follows the normal pickup and return process.
+- **Self drop-off & pickup:** the customer takes the vehicle to the assigned garage and collects it after the garage marks it ready.
+
+Services with different movement options cannot be combined in one cart or booking. If the customer tries to add a conflicting service, the app keeps the current cart unchanged and shows a disclaimer asking them to book the other type separately.
+
+Displayed service prices are approved estimates or ranges for the selected city, service, and vehicle scope. They are not a guaranteed final repair quotation. If no approved range exists for the selected combination, the app must not invent a price or allow that service to proceed through checkout. The final service amount depends on the completed work and is confirmed before customer delivery acceptance or vehicle-collection confirmation.
 
 ## Roadside Assistance And SOS
 
@@ -28,13 +35,13 @@ The chatbot can guide the customer to the correct support area, but it cannot ap
 
 ## Reviews
 
-After a completed booking, the customer can leave one rating and review for the garage and can manage their own review where the app permits it. Reviews should describe genuine service experience and must not contain private contact, payment, or credential information.
+After a completed booking, the customer can leave one rating and review for the garage and can manage their own review where the app permits it. A self drop-off booking becomes reviewable only after the customer confirms vehicle collection. Reviews should describe genuine service experience and must not contain private contact, payment, or credential information.
 
 Homepage garage ratings are calculated from the current ratings of available verified garages. If no eligible garages exist, the displayed aggregate rating is zero.
 
 ## Rovauto Warranty
 
-A completed eligible service includes a 30-day Rovauto service warranty card shown in the customer dashboard or service history. Open the warranty page or create a support ticket for warranty help. Warranty eligibility and resolution depend on the completed booking record and the issue reported; the chatbot must not promise a refund or a specific outcome.
+A completed eligible service includes a 30-day Rovauto service warranty card shown in the customer dashboard or service history. For self drop-off services, completion occurs after the customer returns to the garage and confirms collection. Open the warranty page or create a support ticket for warranty help. Warranty eligibility and resolution depend on the completed booking record and the issue reported; the chatbot must not promise a refund or a specific outcome.
 
 ## Contact
 

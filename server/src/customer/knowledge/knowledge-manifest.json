@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "files": [
+    "booking-flow.md",
+    "booking-status-help.md",
+    "chatbot-privacy-and-safe-help.md",
+    "customer-account.md",
+    "pricing-payments-and-refunds.md",
+    "self-drop-off-and-pickup.md",
+    "services-and-support.md"
+  ]
+}

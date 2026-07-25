@@ -1,6 +1,6 @@
 # Customer Account And Setup
 
-> Customer-assistant knowledge verified on 23 July 2026.
+> Customer-assistant knowledge verified on 25 July 2026.
 
 ## Registration And Login
 
@@ -10,11 +10,13 @@ Never share passwords, OTPs, payment credentials, session tokens, or recovery co
 
 ## Customer, Garage Owner, And Controller Accounts
 
-Customer and garage-owner accounts are separate. Garage controllers/staff also have separate accounts tied to one garage. A customer account is used to manage vehicles, locations, bookings, payments, complaints, and support. Applying to become a garage partner uses the separate Partner flow and does not convert the customer dashboard into the garage portal.
+Customer and garage-owner accounts are separate. Garage controllers or staff also have separate accounts tied to one garage. A customer account is used to manage vehicles, locations, bookings, payments, complaints, and support. Applying to become a garage partner uses the separate Partner flow and does not convert the customer dashboard into the garage portal.
 
 ## Required Customer Setup
 
 Before booking, add at least one vehicle and a usable saved location. A default vehicle and default location make checkout faster, but the customer can explicitly choose another saved vehicle or location. Checkout uses the confirmed saved service destination and must not silently substitute the device's current GPS position.
+
+For pickup-and-delivery services, the selected location is the vehicle pickup and return destination. For self drop-off services, it is used to confirm service availability and find nearby garages; the customer later travels to the garage address shown after acceptance.
 
 ## Vehicles
 
@@ -23,6 +25,8 @@ Customers can add, edit, delete, and choose a default vehicle. Vehicle details i
 ## Saved Locations
 
 Customers can save multiple locations and choose one as default. A manually entered address is validated and geocoded when saved. A GPS location stores the detected coordinates. If a location is outside Rovauto's supported cities, the app explains that service is not available there yet.
+
+A self drop-off booking does not turn the saved customer location into a pickup destination. Once a garage accepts, use the assigned garage address and directions in the booking tracker.
 
 ## Profile And Password
 
@@ -34,7 +38,7 @@ The customer wallet can be viewed from the dashboard or wallet screen. Available
 
 ## Notifications And Activities
 
-Notifications can include garage-search updates, booking acceptance, handover instructions, payment events, delivery, warranty, support, and system messages. Customers can mark individual notifications or all notifications as read. Sensitive values such as handover OTPs should be viewed only in the secure booking flow and must not be copied into chatbot messages.
+Notifications can include garage-search updates, booking acceptance, handover instructions, payment events, delivery, vehicle-ready-for-pickup updates, warranty, support, and system messages. Customers can mark individual notifications or all notifications as read. Sensitive values such as handover OTPs should be viewed only in the secure booking flow and must not be copied into chatbot messages.
 
 ## Chat Privacy
 

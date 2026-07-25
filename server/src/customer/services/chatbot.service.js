@@ -13,6 +13,16 @@ const {
 } = require("../security/chatbotPrivacy");
 
 const KNOWLEDGE_DIR = path.join(__dirname, "..", "knowledge");
+const KNOWLEDGE_MANIFEST_PATH = path.join(
+  KNOWLEDGE_DIR,
+  "knowledge-manifest.json",
+);
+const FALLBACK_SAFE_KNOWLEDGE_FILES = [
+  "booking-flow.md",
+  "booking-status-help.md",
+  "customer-account.md",
+  "services-and-support.md",
+];
 const GROQ_TIMEOUT_MS = Number(process.env.CHATBOT_GROQ_TIMEOUT_MS || process.env.GROQ_TIMEOUT_MS || 12000);
 const MAX_HISTORY_MESSAGES = 8;
 const MAX_CONTEXT_SECTIONS = 5;
@@ -99,20 +109,55 @@ const splitMarkdownSections = (fileName, content) => {
   return sections;
 };
 
+const isSafeKnowledgeFileName = (fileName) =>
+  typeof fileName === "string" &&
+  fileName.endsWith(".md") &&
+  path.basename(fileName) === fileName;
+
+const getSafeKnowledgeFiles = () => {
+  if (!fs.existsSync(KNOWLEDGE_MANIFEST_PATH)) {
+    return FALLBACK_SAFE_KNOWLEDGE_FILES;
+  }
+
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(KNOWLEDGE_MANIFEST_PATH, "utf8"),
+    );
+
+    if (!Array.isArray(manifest.files)) {
+      return FALLBACK_SAFE_KNOWLEDGE_FILES;
+    }
+
+    return [...new Set(manifest.files)]
+      .filter(isSafeKnowledgeFileName)
+      .sort();
+  } catch (error) {
+    console.error("Customer knowledge manifest error:", error.message);
+    return FALLBACK_SAFE_KNOWLEDGE_FILES;
+  }
+};
+
 const loadKnowledge = () => {
   const files = fs.existsSync(KNOWLEDGE_DIR)
-    ? fs
-        .readdirSync(KNOWLEDGE_DIR)
-        .filter((file) => file.endsWith(".md"))
-        .sort()
+    ? getSafeKnowledgeFiles().filter((file) =>
+        fs.existsSync(path.join(KNOWLEDGE_DIR, file)),
+      )
     : [];
 
-  const signature = files
-    .map((file) => {
+  const manifestSignature = fs.existsSync(KNOWLEDGE_MANIFEST_PATH)
+    ? (() => {
+        const stat = fs.statSync(KNOWLEDGE_MANIFEST_PATH);
+        return `manifest:${stat.mtimeMs}:${stat.size}`;
+      })()
+    : "manifest:fallback";
+
+  const signature = [
+    manifestSignature,
+    ...files.map((file) => {
       const stat = fs.statSync(path.join(KNOWLEDGE_DIR, file));
       return `${file}:${stat.mtimeMs}:${stat.size}`;
-    })
-    .join("|");
+    }),
+  ].join("|");
 
   if (knowledgeCache?.signature === signature) {
     return knowledgeCache.sections;

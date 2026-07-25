@@ -17,6 +17,14 @@ const knowledgeDir = path.join(
   "knowledge",
 );
 
+const knowledgeManifestPath = path.join(
+  knowledgeDir,
+  "knowledge-manifest.json",
+);
+
+const readKnowledgeManifest = () =>
+  JSON.parse(fs.readFileSync(knowledgeManifestPath, "utf8"));
+
 const readKnowledge = () =>
   fs
     .readdirSync(knowledgeDir)
@@ -54,6 +62,23 @@ test("assistant output sanitizer removes internal source paths and privileged ro
   assert.match(answer, /internal route removed/);
 });
 
+test("customer knowledge manifest explicitly allowlists every markdown source", () => {
+  const manifest = readKnowledgeManifest();
+  const markdownFiles = fs
+    .readdirSync(knowledgeDir)
+    .filter((file) => file.endsWith(".md"))
+    .sort();
+  const allowlistedFiles = [...new Set(manifest.files || [])].sort();
+
+  assert.equal(manifest.version, 1);
+  assert.deepEqual(allowlistedFiles, markdownFiles);
+
+  for (const file of allowlistedFiles) {
+    assert.equal(path.basename(file), file);
+    assert.match(file, /^[a-z0-9-]+\.md$/);
+  }
+});
+
 test("customer knowledge documents the current safe booking experience", () => {
   const knowledge = readKnowledge();
 
@@ -68,6 +93,17 @@ test("customer knowledge documents the current safe booking experience", () => {
   assert.match(knowledge, /no extra platform-fee payment/i);
   assert.match(knowledge, /30-day Rovauto service warranty/i);
   assert.match(knowledge, /aggregate rating is zero/i);
+  assert.match(knowledge, /Self drop-off & pickup/i);
+  assert.match(knowledge, /cannot be placed in the same booking/i);
+  assert.match(knowledge, /does not add the conflicting service/i);
+  assert.match(knowledge, /Live pickup tracking is not used/i);
+  assert.match(knowledge, /Ready for customer pickup/i);
+  assert.match(knowledge, /Confirm Vehicle Collection/i);
+  assert.match(knowledge, /online checkout amount is the Rovauto platform fee/i);
+  assert.match(knowledge, /not a guaranteed final repair quotation/i);
+  assert.match(knowledge, /assistant may receive only limited account signals/i);
+  assert.match(knowledge, /conflicting service is not added/i);
+  assert.match(knowledge, /No pickup vehicle will come/i);
 });
 
 test("customer knowledge excludes deployment secrets and internal implementation details", () => {
@@ -80,6 +116,11 @@ test("customer knowledge excludes deployment secrets and internal implementation
   assert.doesNotMatch(knowledge, /server\/src\/|client\/src\/|\/api\/v1\/admin/i);
   assert.doesNotMatch(knowledge, /Prisma|PostGIS|Redis|database schema|environment variable/i);
   assert.doesNotMatch(knowledge, /garage acceptance fee|garage wallet balance/i);
+  assert.doesNotMatch(knowledge, /migration|controller route|admin dashboard|sub-admin/i);
+  assert.doesNotMatch(
+    knowledge,
+    /\bSELECT\b[\s\S]{0,40}\bFROM\b|\bINSERT\s+INTO\b|\bUPDATE\s+[A-Za-z0-9_]+\s+SET\b|\bDELETE\s+FROM\b/i,
+  );
 });
 
 test("chatbot model context uses only minimal account signals", () => {
@@ -103,4 +144,10 @@ test("chatbot model context uses only minimal account signals", () => {
   assert.doesNotMatch(source, /garageCity:/);
   assert.doesNotMatch(source, /registrationNumber/);
   assert.doesNotMatch(source, /customerAddress/);
+  assert.match(source, /knowledge-manifest\.json/);
+  assert.match(source, /isSafeKnowledgeFileName/);
+  assert.doesNotMatch(
+    source,
+    /readdirSync\(KNOWLEDGE_DIR\)[\s\S]{0,160}endsWith\("\.md"\)/,
+  );
 });
