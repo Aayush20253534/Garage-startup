@@ -216,11 +216,12 @@ const reorderGarageImages = async (garageId, imageIds = []) => {
   return getGarage(garageId);
 };
 
-const setGarageActiveStatus = async (garageId, isActive) => {
+const setGarageActiveStatus = async (garageId, isActive, staff) => {
   await garageOperationalService.setGarageOperationalStatus({
     garageId,
     status: isActive === true ? "ACTIVE" : "PERMANENTLY_BLOCKED",
     reason: isActive === true ? "" : "Disabled from the admin garage list",
+    staff,
   });
   return getGarage(garageId);
 };

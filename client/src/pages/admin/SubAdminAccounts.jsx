@@ -159,7 +159,7 @@ export default function SubAdminAccounts() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-5">
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -200,103 +200,126 @@ export default function SubAdminAccounts() {
         </div>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           ["Total", summary.total, FiShield],
           ["Main Admin", summary.mainAdmins, FiUserCheck],
           ["Admin", summary.admins, FiUsers],
           ["Disabled", summary.total - summary.active, FiUserX],
         ].map(([label, value, Icon]) => (
-          <article key={label} className="rounded-lg border border-line bg-white p-5">
-            <Icon className="h-5 w-5" />
-            <p className="mt-3 text-xs font-bold uppercase text-muted">{label}</p>
-            <p className="text-3xl font-extrabold text-ink">{value}</p>
+          <article
+            key={label}
+            className="min-w-0 rounded-lg border border-line bg-white p-4 sm:p-5"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-bold uppercase tracking-wide text-muted">
+                  {label}
+                </p>
+                <p className="mt-1 text-3xl font-extrabold leading-none text-ink">
+                  {value}
+                </p>
+              </div>
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-line bg-bg-soft">
+                <Icon className="h-5 w-5" />
+              </div>
+            </div>
           </article>
         ))}
       </section>
 
       <form
         onSubmit={create}
-        className="grid gap-3 rounded-lg border border-line bg-white p-5 md:grid-cols-2 xl:grid-cols-5"
+        className="rounded-lg border border-line bg-white p-4 sm:p-5"
       >
-        <input
-          required
-          value={form.name}
-          onChange={(event) => setForm({ ...form, name: event.target.value })}
-          placeholder="Full name"
-          className="h-11 rounded-md border border-line px-3"
-        />
-        <input
-          required
-          type="email"
-          value={form.email}
-          onChange={(event) => setForm({ ...form, email: event.target.value })}
-          placeholder="Email"
-          className="h-11 rounded-md border border-line px-3"
-        />
-        <input
-          required
-          type="password"
-          value={form.password}
-          onChange={(event) => setForm({ ...form, password: event.target.value })}
-          placeholder="Strong password"
-          className="h-11 rounded-md border border-line px-3"
-        />
-        <select
-          value={isMainAdmin ? form.role : "SUB_ADMIN"}
-          onChange={(event) => setForm({ ...form, role: event.target.value })}
-          disabled={!isMainAdmin}
-          className="h-11 rounded-md border border-line bg-white px-3 disabled:bg-bg-soft disabled:text-muted"
-          aria-label="Admin account role"
-        >
-          <option value="SUB_ADMIN">Admin</option>
-          <option value="ADMIN">Main Admin</option>
-        </select>
-        <button
-          disabled={saving}
-          className="flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <FiPlus /> Create account
-        </button>
+        <div className="mb-4">
+          <p className="text-sm font-bold text-ink">Create admin account</p>
+          <p className="mt-1 text-xs text-muted">
+            Add an operational Admin or another Main Admin account.
+          </p>
+        </div>
+
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(150px,0.7fr)_minmax(170px,0.75fr)]">
+          <input
+            required
+            value={form.name}
+            onChange={(event) => setForm({ ...form, name: event.target.value })}
+            placeholder="Full name"
+            className="h-11 min-w-0 rounded-md border border-line px-3"
+          />
+          <input
+            required
+            type="email"
+            value={form.email}
+            onChange={(event) => setForm({ ...form, email: event.target.value })}
+            placeholder="Email"
+            className="h-11 min-w-0 rounded-md border border-line px-3"
+          />
+          <input
+            required
+            type="password"
+            value={form.password}
+            onChange={(event) => setForm({ ...form, password: event.target.value })}
+            placeholder="Strong password"
+            className="h-11 min-w-0 rounded-md border border-line px-3"
+          />
+          <select
+            value={isMainAdmin ? form.role : "SUB_ADMIN"}
+            onChange={(event) => setForm({ ...form, role: event.target.value })}
+            disabled={!isMainAdmin}
+            className="h-11 min-w-0 rounded-md border border-line bg-white px-3 disabled:bg-bg-soft disabled:text-muted"
+            aria-label="Admin account role"
+          >
+            <option value="SUB_ADMIN">Admin</option>
+            <option value="ADMIN">Main Admin</option>
+          </select>
+          <button
+            disabled={saving}
+            className="flex h-11 min-w-[170px] items-center justify-center gap-2 whitespace-nowrap rounded-md bg-ink px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 xl:col-span-1"
+          >
+            <FiPlus className="shrink-0" />
+            <span>Create account</span>
+          </button>
+        </div>
       </form>
 
-      <section className="overflow-hidden rounded-lg border border-line bg-white">
+      <section className="min-w-0 overflow-hidden rounded-lg border border-line bg-white">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
+          <table className="min-w-[900px] w-full text-left text-sm">
             <thead className="bg-bg-soft text-xs uppercase text-muted">
               <tr>
-                <th className="px-5 py-3">Account</th>
-                <th className="px-5 py-3">Role</th>
-                <th className="px-5 py-3">Created by</th>
-                <th className="px-5 py-3">Last login</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Actions</th>
+                <th className="min-w-[220px] px-4 py-3 sm:px-5">Account</th>
+                <th className="whitespace-nowrap px-4 py-3 sm:px-5">Role</th>
+                <th className="min-w-[140px] px-4 py-3 sm:px-5">Created by</th>
+                <th className="min-w-[170px] px-4 py-3 sm:px-5">Last login</th>
+                <th className="whitespace-nowrap px-4 py-3 sm:px-5">Status</th>
+                <th className="whitespace-nowrap px-4 py-3 sm:px-5">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {accounts.map((account) => (
                 <tr key={account.id}>
-                  <td className="px-5 py-4">
+                  <td className="px-4 py-4 sm:px-5">
                     <p className="font-bold text-ink">{account.name}</p>
-                    <p className="text-xs text-muted">{account.email}</p>
+                    <p className="break-all text-xs text-muted">{account.email}</p>
                     {account.id === user?.id && (
                       <p className="mt-1 text-xs font-bold text-brand-dark">
                         Current session
                       </p>
                     )}
                   </td>
-                  <td className="px-5 py-4">
+                  <td className="whitespace-nowrap px-4 py-4 sm:px-5">
                     <span className="inline-flex rounded-md border border-line bg-bg-soft px-2.5 py-1 text-xs font-bold text-ink">
                       {roleLabel(account.role)}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-xs text-muted">
+                  <td className="px-4 py-4 text-xs text-muted sm:px-5">
                     {account.createdByName || "Main Admin"}
                   </td>
-                  <td className="px-5 py-4 text-xs text-muted">
+                  <td className="whitespace-nowrap px-4 py-4 text-xs text-muted sm:px-5">
                     {formatDate(account.lastLoginAt)}
                   </td>
-                  <td className="px-5 py-4">
+                  <td className="whitespace-nowrap px-4 py-4 sm:px-5">
                     <span
                       className={`inline-flex rounded-md px-2.5 py-1 text-xs font-bold ${
                         account.isActive
@@ -307,7 +330,7 @@ export default function SubAdminAccounts() {
                       {account.isActive ? "Active" : "Disabled"}
                     </span>
                   </td>
-                  <td className="px-5 py-4">
+                  <td className="whitespace-nowrap px-4 py-4 sm:px-5">
                     <div className="flex gap-2">
                       <button
                         type="button"

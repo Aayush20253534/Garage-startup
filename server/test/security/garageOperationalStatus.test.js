@@ -30,6 +30,9 @@ test("admins can enable and disable every garage from the garage list", () => {
 });
 
 test("garage status changes delegate to the operational restriction service", () => {
+  const controller = readProjectFile(
+    "server/src/admin/controllers/garageAdmin.controller.js",
+  );
   const garageAdmin = readProjectFile(
     "server/src/admin/services/garageAdmin.service.js",
   );
@@ -37,8 +40,14 @@ test("garage status changes delegate to the operational restriction service", ()
     "server/src/admin/services/garageOperational.service.js",
   );
 
+  assert.match(
+    controller,
+    /setGarageActiveStatus\([\s\S]*req\.params\.garageId,[\s\S]*req\.body\.isActive,[\s\S]*req\.user/,
+  );
+  assert.match(garageAdmin, /setGarageActiveStatus = async \(garageId, isActive, staff\)/);
   assert.match(garageAdmin, /garageOperationalService\.setGarageOperationalStatus/);
   assert.match(garageAdmin, /PERMANENTLY_BLOCKED/);
+  assert.match(garageAdmin, /reason:[\s\S]*staff,/);
   assert.match(operational, /garageBroadcastRequest\.updateMany/);
   assert.match(
     operational,

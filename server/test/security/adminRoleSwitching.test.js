@@ -32,6 +32,8 @@ test("admin accounts can be switched between Admin and Main Admin", () => {
   assert.match(page, /<option value="ADMIN">Main Admin<\/option>/);
   assert.match(page, /payload\.role = editing\.role/);
   assert.match(page, /Existing sessions were revoked/);
+  assert.match(page, /whitespace-nowrap[\s\S]*Create account/);
+  assert.match(page, /min-w-\[900px\]/);
 });
 
 test("dangerous commands remain limited to Main Admin after role switching", () => {

@@ -16,6 +16,7 @@ const setGarageActiveStatus = asyncHandler(async (req, res) => {
   const garage = await service.setGarageActiveStatus(
     req.params.garageId,
     req.body.isActive,
+    req.user,
   );
   const action = garage.isActive ? "enabled" : "disabled";
 
