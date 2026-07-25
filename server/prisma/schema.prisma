@@ -594,7 +594,7 @@ model Service {
   isComingSoon Boolean  @default(false)
   isPopular    Boolean  @default(false)
   popularOrder Int?
-  fulfillmentType ServiceFulfillmentMode @default(BOTH)
+  fulfillmentType ServiceFulfillmentType @default(BOTH)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   durationMin  Int?
@@ -1845,12 +1845,8 @@ enum RequestType {
 }
 
 enum ServiceFulfillmentType {
-  PICKUP_DELIVERY
-  SELF_DROP_OFF
-}
-
-enum ServiceFulfillmentMode {
   BOTH
+  PICKUP_DELIVERY
   SELF_DROP_OFF
 }
 

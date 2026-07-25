@@ -3,7 +3,7 @@ const ApiError = require("../../utils/apiError");
 const googleMapsService = require("./googleMaps.service");
 const { deletePattern } = require("../../utils/cache");
 const {
-  SERVICE_FULFILLMENT_TYPE,
+  bookingUsesSelfDropOff,
 } = require("../../constants/serviceFulfillmentType");
 
 const TRACKABLE_STATUSES = new Set([
@@ -71,6 +71,11 @@ const loadBooking = async (bookingId) => {
         },
       },
       vehicle: true,
+      services: {
+        include: {
+          service: { select: { fulfillmentType: true } },
+        },
+      },
     },
   });
   if (!booking) throw new ApiError(404, "Booking not found");
@@ -210,7 +215,7 @@ const refreshRouteIfNeeded = async (booking, currentLocation) => {
 };
 
 const assertLiveTrackingEnabledForBooking = (booking) => {
-  if (booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF) {
+  if (bookingUsesSelfDropOff(booking)) {
     throw new ApiError(
       409,
       "Live pickup tracking is not used for self drop-off bookings",

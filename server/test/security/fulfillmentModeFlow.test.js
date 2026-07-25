@@ -9,17 +9,22 @@ const read = (relativePath) =>
 
 test("service and garage fulfilment modes are persisted with safe defaults", () => {
   const schema = read("server/prisma/schema.prisma");
-  const migration = read(
+  const originalMigration = read(
     "server/prisma/migrations/20260725173000_add_customer_and_garage_fulfillment_modes/migration.sql",
   );
+  const compatibilityMigration = read(
+    "server/prisma/migrations/20260725190000_repair_fulfillment_enum_compatibility/migration.sql",
+  );
 
-  assert.match(schema, /fulfillmentType\s+ServiceFulfillmentMode\s+@default\(BOTH\)/);
+  assert.match(schema, /fulfillmentType\s+ServiceFulfillmentType\s+@default\(BOTH\)/);
   assert.match(schema, /fulfillmentMode\s+GarageFulfillmentMode\s+@default\(BOTH\)/);
-  assert.match(schema, /enum ServiceFulfillmentMode[\s\S]*BOTH[\s\S]*SELF_DROP_OFF/);
+  assert.match(schema, /enum ServiceFulfillmentType[\s\S]*BOTH[\s\S]*PICKUP_DELIVERY[\s\S]*SELF_DROP_OFF/);
+  assert.doesNotMatch(schema, /enum ServiceFulfillmentMode/);
   assert.match(schema, /enum GarageFulfillmentMode[\s\S]*PICKUP_DELIVERY[\s\S]*SELF_DROP_OFF/);
-  assert.match(migration, /WHEN "fulfillmentType"::text = 'SELF_DROP_OFF'/);
-  assert.match(migration, /ELSE 'BOTH'::"ServiceFulfillmentMode"/);
-  assert.match(migration, /ADD COLUMN "fulfillmentMode"/);
+  assert.match(originalMigration, /ADD COLUMN "fulfillmentMode"/);
+  assert.match(compatibilityMigration, /ServiceFulfillmentType_v2/);
+  assert.match(compatibilityMigration, /WHERE booking\."fulfillmentType"::text = 'BOTH'/);
+  assert.match(compatibilityMigration, /DROP TYPE IF EXISTS "ServiceFulfillmentMode"/);
 });
 
 test("customer checkout selects one booking mode and backend validates service support", () => {
@@ -54,12 +59,13 @@ test("admin garage mode and notification eligibility include handover and vehicl
   assert.match(garageAdmin, /Pickup & delivery only/);
   assert.match(garageAdmin, /Self drop-off only/);
   assert.match(garageValidation, /body\("fulfillmentMode"\)/);
-  assert.match(requestService, /fulfillmentType: booking\.fulfillmentType/);
+  assert.match(requestService, /fulfillmentType: bookingFulfillmentType/);
   assert.match(requestService, /supportedBrands: true/);
   assert.match(requestService, /operationalStatus: "ACTIVE"/);
   assert.match(requestService, /This garage no longer supports the booking mode/);
   assert.match(whatsappService, /Self drop-off & customer pickup/);
   assert.match(prismaSchemaCheck, /missingGarageFields/);
+  assert.match(prismaSchemaCheck, /ServiceFulfillmentType is missing/);
   assert.match(capabilityService, /garageSupportsFulfillmentType/);
   assert.match(capabilityService, /garageSupportsVehicleBrand/);
 });

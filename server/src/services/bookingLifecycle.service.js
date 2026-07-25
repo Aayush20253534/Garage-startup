@@ -19,7 +19,7 @@ const {
 } = require("../utils/cloudinaryUpload");
 const { REQUIRED_BOOKING_INSPECTION_IMAGES } = require("../garage/constants");
 const {
-  SERVICE_FULFILLMENT_TYPE,
+  bookingUsesSelfDropOff,
 } = require("../constants/serviceFulfillmentType");
 
 const DEFAULT_SEARCH_TIMEOUT_SECONDS = 150;
@@ -130,8 +130,7 @@ const sendCustomerHandoverOtpEmail = async ({
   const safeBookingCode = escapeHtml(bookingCode);
   const safeExpiryText = escapeHtml(expiryText);
   const safeOtp = escapeHtml(otp);
-  const isSelfDropOff =
-    booking?.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF;
+  const isSelfDropOff = bookingUsesSelfDropOff(booking);
   const handoverInstruction = isSelfDropOff
     ? `Take your vehicle to ${garageName} and share this OTP only after you arrive at the garage.`
     : "Share this OTP only when physically handing over your vehicle.";
@@ -404,7 +403,7 @@ const notifyGarageAccepted = async ({
   etaMinutes = null,
 }) => {
   const isSelfDropOff =
-    booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF;
+    bookingUsesSelfDropOff(booking);
   const etaText = !isSelfDropOff && etaMinutes
     ? ` Estimated arrival: ${etaMinutes} min${
         distanceKm ? ` (${Number(distanceKm).toFixed(1)} km away)` : ""
@@ -448,7 +447,7 @@ const notifyVehicleHandoverOtp = async ({
       : "Vehicle handover OTP",
     message: [
       `Your handover OTP is ${otp}.`,
-      booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+      bookingUsesSelfDropOff(booking)
         ? garage?.name
           ? `Share it only after you reach ${garage.name} and drop off your vehicle.`
           : "Share it only after reaching the assigned garage."
@@ -472,7 +471,7 @@ const notifyVehicleHandoverOtp = async ({
 
 const notifyVehicleDelivered = async ({ booking, garage }) => {
   const isSelfDropOff =
-    booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF;
+    bookingUsesSelfDropOff(booking);
 
   return notificationService.createNotification({
     userId: booking.userId,
@@ -847,7 +846,7 @@ const markBookingDeliveredByGarage = async ({
   if (!booking.handoverOtpVerifiedAt) {
     throw new ApiError(
       400,
-      booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+      bookingUsesSelfDropOff(booking)
         ? "Verify the customer drop-off OTP before marking the vehicle ready"
         : "Verify customer handover OTP before marking delivery",
     );
@@ -861,7 +860,7 @@ const markBookingDeliveredByGarage = async ({
   ) {
     throw new ApiError(
       400,
-      booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+      bookingUsesSelfDropOff(booking)
         ? "Booking cannot be marked ready for pickup now"
         : "Booking cannot be marked delivered now",
     );
@@ -870,7 +869,7 @@ const markBookingDeliveredByGarage = async ({
   if (booking.deliveredAt) {
     throw new ApiError(
       400,
-      booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+      bookingUsesSelfDropOff(booking)
         ? "Booking is already marked ready for pickup"
         : "Booking is already marked delivered",
     );
@@ -908,11 +907,11 @@ const markBookingDeliveredByGarage = async ({
     {
       type: "READY_FOR_DELIVERY",
       title:
-        updatedBooking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+        bookingUsesSelfDropOff(updatedBooking)
           ? "Vehicle ready for customer pickup"
           : "Vehicle ready for acceptance",
       detail:
-        updatedBooking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+        bookingUsesSelfDropOff(updatedBooking)
           ? `Booking ${updatedBooking.bookingCode || updatedBooking.id} is ready for customer collection at ${request.garage.name}.`
           : `Booking ${updatedBooking.bookingCode || updatedBooking.id} was marked ready by ${request.garage.name}.`,
       path: `/tracking?bookingId=${updatedBooking.id}`,
@@ -951,7 +950,7 @@ const acceptDeliveredBookingByCustomer = async ({
   if (!booking.deliveredAt) {
     throw new ApiError(
       400,
-      booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+      bookingUsesSelfDropOff(booking)
         ? "Garage has not marked this booking ready for pickup yet"
         : "Garage has not marked this booking delivered yet",
     );
@@ -983,7 +982,7 @@ const acceptDeliveredBookingByCustomer = async ({
       type: "BOOKING_COMPLETED",
       title: "Service completed",
       detail:
-        updatedBooking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+        bookingUsesSelfDropOff(updatedBooking)
           ? `Booking ${updatedBooking.bookingCode || updatedBooking.id} was completed after customer collection.`
           : `Booking ${updatedBooking.bookingCode || updatedBooking.id} was completed after delivery acceptance.`,
       path: "/dashboard/history",

@@ -54,8 +54,9 @@ test("controller management tolerates body-less requests and uses structured car
   const managementUi = read("client/src/components/garage/ControllerManagement.jsx");
   const dashboardUi = read("client/src/pages/garage/ControllerDashboard.jsx");
 
-  assert.match(controller, /req\.body\?\.garageId/);
-  assert.match(controller, /const requestBody = \(req = \{\}\) => req\.body \|\| \{\}/);
+  assert.match(controller, /const requestSection = \(req, key\)/);
+  assert.match(controller, /return params\.garageId \|\| query\.garageId \|\| body\.garageId \|\| null/);
+  assert.match(controller, /const requestBody = \(req\) => requestSection\(req, "body"\)/);
   assert.match(controller, /transferBooking\(req\.user, requestedGarageId\(req\)/);
   assert.match(validation, /body\("garageId"\)\.optional\(\)\.isUUID\(\)/);
   assert.doesNotMatch(managementUi, /rounded-(?:full|2xl|3xl)/);

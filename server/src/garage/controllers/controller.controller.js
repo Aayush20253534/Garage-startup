@@ -2,10 +2,20 @@ const asyncHandler = require("../../utils/asyncHandler");
 const ApiResponse = require("../../utils/apiResponse");
 const service = require("../services/controller.service");
 
-const requestedGarageId = (req = {}) =>
-  req.params?.garageId || req.query?.garageId || req.body?.garageId || null;
+const requestSection = (req, key) => {
+  const section = req && typeof req === "object" ? req[key] : null;
+  return section && typeof section === "object" ? section : {};
+};
 
-const requestBody = (req = {}) => req.body || {};
+const requestedGarageId = (req) => {
+  const params = requestSection(req, "params");
+  const query = requestSection(req, "query");
+  const body = requestSection(req, "body");
+
+  return params.garageId || query.garageId || body.garageId || null;
+};
+
+const requestBody = (req) => requestSection(req, "body");
 
 const list = asyncHandler(async (req, res) => {
   const result = await service.listControllers(req.user, requestedGarageId(req));

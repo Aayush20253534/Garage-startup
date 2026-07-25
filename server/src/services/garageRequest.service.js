@@ -7,6 +7,8 @@ const BROADCAST_STATUS = require("../constants/broadcastStatus");
 const REQUEST_TYPE = require("../constants/requestType");
 const {
   SERVICE_FULFILLMENT_TYPE,
+  bookingUsesSelfDropOff,
+  resolveBookingFulfillmentType,
 } = require("../constants/serviceFulfillmentType");
 const WALLET_TRANSACTION_TYPE = require("../constants/walletTransactionType");
 const WALLET_TRANSACTION_STATUS = require("../constants/walletTransactionStatus");
@@ -139,9 +141,7 @@ const serializeGarageRequest = (request) => {
   let safeRequest = redactPendingCustomerDetails(request);
   const distanceKm = getRequestDistanceKm(request);
   const acceptFee = getGarageAcceptFee(request.booking);
-  const isSelfDropOff =
-    request.booking?.fulfillmentType ===
-    SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF;
+  const isSelfDropOff = bookingUsesSelfDropOff(request.booking);
 
   if (isSelfDropOff && safeRequest.booking) {
     safeRequest = {
@@ -320,6 +320,7 @@ const getGarageRequestById = async (garageId, requestId, controllerId = null) =>
 
 const sendGarageRequestAlerts = async ({ requests, booking }) => {
   const alertJobs = [];
+  const bookingFulfillmentType = resolveBookingFulfillmentType(booking);
   const acceptFee = getGarageAcceptFee(booking);
   const feeMessage = acceptFee > 0
     ? ` Acceptance requires Rs. ${acceptFee} in garage wallet.`
@@ -376,7 +377,7 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
           garage,
           serviceIds: requiredServiceIds,
           vehicle: booking.vehicle,
-          fulfillmentType: booking.fulfillmentType,
+          fulfillmentType: bookingFulfillmentType,
         }),
       )
       .map((garage) => garage.id),
@@ -386,7 +387,7 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
   );
 
   const fulfillmentLabel =
-    booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+    bookingFulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
       ? "Self drop-off & customer pickup"
       : "Pickup & delivery";
 
@@ -579,6 +580,19 @@ const startNextGarageSearchCycle = async (bookingId) => {
 
   if (!booking) throw new ApiError(404, "Booking not found");
 
+  const bookingFulfillmentType = resolveBookingFulfillmentType(booking);
+
+  if (booking.fulfillmentType !== bookingFulfillmentType) {
+    await prisma.booking.updateMany({
+      where: {
+        id: booking.id,
+        fulfillmentType: booking.fulfillmentType,
+      },
+      data: { fulfillmentType: bookingFulfillmentType },
+    });
+    booking.fulfillmentType = bookingFulfillmentType;
+  }
+
   if (
     booking.status !== BOOKING_STATUS.SEARCHING_GARAGE ||
     booking.garageId
@@ -640,7 +654,7 @@ const startNextGarageSearchCycle = async (bookingId) => {
     longitude: booking.customerLongitude,
     serviceIds,
     vehicle: booking.vehicle,
-    fulfillmentType: booking.fulfillmentType,
+    fulfillmentType: bookingFulfillmentType,
     maxDistance: searchStage.radiusKm,
     onlyVerified: true,
     requireOpenNow: false,
@@ -925,13 +939,22 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
     const requiredServiceIds = freshBooking.services.map(
       (item) => item.serviceId,
     );
+    const freshFulfillmentType = resolveBookingFulfillmentType(freshBooking);
+
+    if (freshBooking.fulfillmentType !== freshFulfillmentType) {
+      await tx.booking.update({
+        where: { id: freshBooking.id },
+        data: { fulfillmentType: freshFulfillmentType },
+      });
+      freshBooking.fulfillmentType = freshFulfillmentType;
+    }
 
     if (
       !garageCanServeBooking({
         garage: freshRequest.garage,
         serviceIds: requiredServiceIds,
         vehicle: freshBooking.vehicle,
-        fulfillmentType: freshBooking.fulfillmentType,
+        fulfillmentType: freshFulfillmentType,
       })
     ) {
       throw new ApiError(
@@ -1133,11 +1156,9 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
   );
 
   const distanceKm = getRequestDistanceKm(result.request);
-  const etaMinutes =
-    result.request.booking.fulfillmentType ===
-    SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
-      ? null
-      : estimateArrivalMinutes(distanceKm);
+  const etaMinutes = bookingUsesSelfDropOff(result.request.booking)
+    ? null
+    : estimateArrivalMinutes(distanceKm);
 
   const acceptanceNotificationResults = await Promise.allSettled([
     bookingLifecycleService.notifyGarageAccepted({
@@ -1242,11 +1263,9 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
 
   return {
     ...serializeGarageRequest(result.request),
-    customerLocationLink:
-      result.request.booking.fulfillmentType ===
-      SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
-        ? null
-        : getMapsLink(
+    customerLocationLink: bookingUsesSelfDropOff(result.request.booking)
+      ? null
+      : getMapsLink(
             result.request.booking.customerLatitude,
             result.request.booking.customerLongitude,
           ),

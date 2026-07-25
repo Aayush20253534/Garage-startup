@@ -9,6 +9,7 @@ const {
   getServiceAllowedFulfillmentTypes,
   normalizeServiceFulfillmentMode,
   normalizeServiceFulfillmentType,
+  resolveBookingFulfillmentType,
 } = require("../../src/constants/serviceFulfillmentType");
 
 test("unknown booking modes safely default to pickup and delivery", () => {
@@ -82,5 +83,27 @@ test("all standard services support either customer-selected mode", () => {
       SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF,
     ),
     true,
+  );
+});
+
+
+test("legacy BOTH booking snapshots resolve to a concrete safe mode", () => {
+  assert.equal(
+    resolveBookingFulfillmentType({
+      fulfillmentType: "BOTH",
+      services: [{ service: { fulfillmentType: "BOTH" } }],
+    }),
+    SERVICE_FULFILLMENT_TYPE.PICKUP_DELIVERY,
+  );
+
+  assert.equal(
+    resolveBookingFulfillmentType({
+      fulfillmentType: "BOTH",
+      services: [
+        { service: { fulfillmentType: "BOTH" } },
+        { service: { fulfillmentType: "SELF_DROP_OFF" } },
+      ],
+    }),
+    SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF,
   );
 });

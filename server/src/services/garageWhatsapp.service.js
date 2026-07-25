@@ -10,7 +10,7 @@ const {
   normalizeWhatsappNumber,
 } = require("../utils/whatsapp");
 const {
-  SERVICE_FULFILLMENT_TYPE,
+  bookingUsesSelfDropOff,
 } = require("../constants/serviceFulfillmentType");
 
 const looksLikeMetaToken = (value) => /^EA[A-Za-z0-9_-]+/.test(String(value || ""));
@@ -463,7 +463,7 @@ const sendGarageBookingRequestWhatsapp = async ({
   const brand = booking.vehicle?.brand || "Vehicle";
   const model = booking.vehicle?.model || "N/A";
   const fulfillmentLabel =
-    booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF
+    bookingUsesSelfDropOff(booking)
       ? "Self drop-off & customer pickup"
       : "Pickup & delivery";
   const services = `${fulfillmentLabel}: ${formatServiceList(booking.services)}`;
@@ -510,7 +510,7 @@ const sendGarageCustomerLocationWhatsapp = async ({ garage, booking, to = null }
   const customerName = booking.user?.name || "Customer";
   const customerPhone = booking.user?.phone || "Phone not available";
 
-  if (booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF) {
+  if (bookingUsesSelfDropOff(booking)) {
     return sendWhatsappMessage({
       to: to || garage.whatsappNo || garage.phone,
       message: [
@@ -581,7 +581,7 @@ const sendCustomerGarageDetailsWhatsapp = async ({
   const garageAddress = garage.address || "Address not available";
   const mapButtonParameter = getGarageMapButtonParameter(garage);
   const isSelfDropOff =
-    booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF;
+    bookingUsesSelfDropOff(booking);
   const message = [
     `Rovauto booking ${booking.bookingCode} confirmed.`,
     `Garage: ${garage.name}`,
@@ -652,7 +652,7 @@ const sendCustomerVehicleDeliveredWhatsapp = async ({
 }) => {
   const trackingUrl = `${getFrontendBaseUrl()}/tracking?bookingId=${booking.id}`;
   const isSelfDropOff =
-    booking.fulfillmentType === SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF;
+    bookingUsesSelfDropOff(booking);
   const message = isSelfDropOff
     ? [
         `Rovauto booking ${booking.bookingCode} is ready for self pickup.`,

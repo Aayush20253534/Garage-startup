@@ -21,11 +21,15 @@ const serviceModel = Prisma.dmmf.datamodel.models.find(
 const garageModel = Prisma.dmmf.datamodel.models.find(
   (model) => model.name === "Garage",
 );
+const bookingModel = Prisma.dmmf.datamodel.models.find(
+  (model) => model.name === "Booking",
+);
 
-if (!serviceModel || !garageModel) {
+if (!serviceModel || !garageModel || !bookingModel) {
   const missingModels = [
     !serviceModel ? "Service" : null,
     !garageModel ? "Garage" : null,
+    !bookingModel ? "Booking" : null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -49,10 +53,45 @@ const staleFields = REMOVED_SERVICE_PRICE_FIELDS.filter((field) =>
   generatedFields.has(field),
 );
 
+const serviceFulfillmentField = serviceModel.fields.find(
+  (field) => field.name === "fulfillmentType",
+);
+const bookingFulfillmentField = bookingModel.fields.find(
+  (field) => field.name === "fulfillmentType",
+);
+const fulfillmentEnum = Prisma.dmmf.datamodel.enums.find(
+  (item) => item.name === "ServiceFulfillmentType",
+);
+const generatedFulfillmentValues = new Set(
+  (fulfillmentEnum?.values || []).map((value) =>
+    typeof value === "string" ? value : value.name,
+  ),
+);
+const requiredFulfillmentValues = [
+  "BOTH",
+  "PICKUP_DELIVERY",
+  "SELF_DROP_OFF",
+];
+const missingFulfillmentValues = requiredFulfillmentValues.filter(
+  (value) => !generatedFulfillmentValues.has(value),
+);
+const fulfillmentTypeErrors = [
+  serviceFulfillmentField?.type !== "ServiceFulfillmentType"
+    ? `Service.fulfillmentType uses ${serviceFulfillmentField?.type || "no enum"}`
+    : null,
+  bookingFulfillmentField?.type !== "ServiceFulfillmentType"
+    ? `Booking.fulfillmentType uses ${bookingFulfillmentField?.type || "no enum"}`
+    : null,
+  missingFulfillmentValues.length > 0
+    ? `ServiceFulfillmentType is missing: ${missingFulfillmentValues.join(", ")}`
+    : null,
+].filter(Boolean);
+
 if (
   missingFields.length > 0 ||
   missingGarageFields.length > 0 ||
-  staleFields.length > 0
+  staleFields.length > 0 ||
+  fulfillmentTypeErrors.length > 0
 ) {
   const details = [
     missingFields.length > 0
@@ -63,6 +102,9 @@ if (
       : null,
     staleFields.length > 0
       ? `still contains removed fields: ${staleFields.join(", ")}`
+      : null,
+    fulfillmentTypeErrors.length > 0
+      ? fulfillmentTypeErrors.join("; ")
       : null,
   ]
     .filter(Boolean)
