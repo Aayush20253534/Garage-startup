@@ -132,9 +132,14 @@ export default function Revenue() {
   const [form, setForm] = useState(emptyForm);
   const [cityForm, setCityForm] = useState({ name: "", state: "" });
   const [filterCity, setFilterCity] = useState("");
+  const [filterServiceId, setFilterServiceId] = useState("");
   const [filterVehicleBrand, setFilterVehicleBrand] = useState("");
   const [filterVehicleModel, setFilterVehicleModel] = useState("");
   const [filterFuelType, setFilterFuelType] = useState("");
+  const [filterVehicleOptions, setFilterVehicleOptions] = useState([]);
+  const [filterOptionRangeCount, setFilterOptionRangeCount] = useState(0);
+  const [loadingFilterOptions, setLoadingFilterOptions] = useState(false);
+  const [filterOptionsRevision, setFilterOptionsRevision] = useState(0);
   const [submissionFilter, setSubmissionFilter] = useState(
     isIntern ? "ALL" : "PENDING",
   );
@@ -186,6 +191,7 @@ export default function Revenue() {
     try {
       const priceRangeFilters = {
         ...(filterCity.trim() && { city: filterCity.trim() }),
+        ...(filterServiceId && { serviceId: filterServiceId }),
         ...(filterVehicleBrand && { vehicleBrand: filterVehicleBrand }),
         ...(filterVehicleModel && { vehicleModel: filterVehicleModel }),
         ...(filterFuelType && { fuelType: filterFuelType }),
@@ -212,6 +218,7 @@ export default function Revenue() {
       setSubmissions(submissionList || []);
       setCityDiscounts(Array.isArray(discountList) ? discountList : []);
       setSelectedRangeIds([]);
+      setFilterOptionsRevision((revision) => revision + 1);
     } catch (err) {
       setRanges([]);
       setTotalRangeCount(0);
@@ -228,6 +235,7 @@ export default function Revenue() {
       setLoadingMoreRanges(true);
       const result = await adminApi.getPriceRanges({
         ...(filterCity.trim() && { city: filterCity.trim() }),
+        ...(filterServiceId && { serviceId: filterServiceId }),
         ...(filterVehicleBrand && { vehicleBrand: filterVehicleBrand }),
         ...(filterVehicleModel && { vehicleModel: filterVehicleModel }),
         ...(filterFuelType && { fuelType: filterFuelType }),
@@ -246,6 +254,43 @@ export default function Revenue() {
       setLoadingMoreRanges(false);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+
+    if (!filterServiceId) {
+      setFilterVehicleOptions([]);
+      setFilterOptionRangeCount(0);
+      setLoadingFilterOptions(false);
+      return undefined;
+    }
+
+    setLoadingFilterOptions(true);
+    adminApi
+      .getPriceRangeFilterOptions({
+        serviceId: filterServiceId,
+        ...(filterCity.trim() && { city: filterCity.trim() }),
+      })
+      .then((result) => {
+        if (!active) return;
+        setFilterVehicleOptions(
+          Array.isArray(result?.vehicleBrands) ? result.vehicleBrands : [],
+        );
+        setFilterOptionRangeCount(Number(result?.rangeCount) || 0);
+      })
+      .catch(() => {
+        if (!active) return;
+        setFilterVehicleOptions([]);
+        setFilterOptionRangeCount(0);
+      })
+      .finally(() => {
+        if (active) setLoadingFilterOptions(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [filterServiceId, filterCity, filterOptionsRevision]);
 
   useEffect(() => {
     adminApi
@@ -827,10 +872,23 @@ export default function Revenue() {
   );
 
   const vehicleModels = selectedVehicleBrand?.models || [];
-  const selectedFilterVehicleBrand = vehicleBrands.find(
-    (brand) => brand.name === filterVehicleBrand,
+  const selectedFilterVehicleBrand = filterVehicleOptions.find(
+    (brand) => brand.value === filterVehicleBrand,
   );
   const filterVehicleModels = selectedFilterVehicleBrand?.models || [];
+  const selectedFilterService = services.find(
+    (service) => service.id === filterServiceId,
+  );
+  const selectedFilterServiceLabel = selectedFilterService
+    ? formatServiceLabel(selectedFilterService)
+    : "this service";
+  const filterCoverageMessage = !filterServiceId
+    ? "Select a service to limit the brand and model filters to vehicles configured for that service."
+    : loadingFilterOptions
+      ? `Loading the vehicles configured for ${selectedFilterServiceLabel}...`
+      : filterOptionRangeCount > 0
+        ? `${filterOptionRangeCount} configured price range${filterOptionRangeCount === 1 ? "" : "s"} found for ${selectedFilterServiceLabel}${filterCity ? ` in ${filterCity}` : ""}. Brand and model filters only show covered vehicle scopes.`
+        : `No vehicle price ranges are configured for ${selectedFilterServiceLabel}${filterCity ? ` in ${filterCity}` : ""}.`;
   const submissionEditBrand = vehicleBrands.find(
     (brand) => brand.name === submissionEditForm.vehicleBrand,
   );
@@ -1670,16 +1728,38 @@ export default function Revenue() {
             event.preventDefault();
             load();
           }}
-          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto]"
+          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(5,minmax(0,1fr))_auto]"
         >
           <CitySelect
             key={`filter-city-${citySelectKey}`}
             value={filterCity}
-            onChange={setFilterCity}
+            onChange={(city) => {
+              setFilterCity(city);
+              setFilterVehicleBrand("");
+              setFilterVehicleModel("");
+            }}
             placeholder="Filter by city"
             includeInactive
             className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink"
           />
+
+          <select
+            value={filterServiceId}
+            onChange={(event) => {
+              setFilterServiceId(event.target.value);
+              setFilterVehicleBrand("");
+              setFilterVehicleModel("");
+            }}
+            className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+            aria-label="Filter price ranges by service"
+          >
+            <option value="">All services</option>
+            {services.map((service) => (
+              <option key={service.id} value={service.id}>
+                {formatServiceLabel(service)}
+              </option>
+            ))}
+          </select>
 
           <select
             value={filterVehicleBrand}
@@ -1687,13 +1767,20 @@ export default function Revenue() {
               setFilterVehicleBrand(event.target.value);
               setFilterVehicleModel("");
             }}
-            className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
-            aria-label="Filter price ranges by vehicle brand"
+            disabled={!filterServiceId || loadingFilterOptions}
+            className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink disabled:cursor-not-allowed disabled:bg-bg-soft disabled:text-muted"
+            aria-label="Filter price ranges by configured vehicle brand"
           >
-            <option value="">All brands</option>
-            {vehicleBrands.map((brand) => (
-              <option key={brand.id || brand.name} value={brand.name}>
-                {brand.name}
+            <option value="">
+              {!filterServiceId
+                ? "Select service first"
+                : loadingFilterOptions
+                  ? "Loading configured brands..."
+                  : "All configured brands"}
+            </option>
+            {filterVehicleOptions.map((brand) => (
+              <option key={brand.value} value={brand.value}>
+                {brand.label} ({brand.rangeCount})
               </option>
             ))}
           </select>
@@ -1701,14 +1788,16 @@ export default function Revenue() {
           <select
             value={filterVehicleModel}
             onChange={(event) => setFilterVehicleModel(event.target.value)}
-            disabled={!filterVehicleBrand}
+            disabled={
+              !filterServiceId || !filterVehicleBrand || loadingFilterOptions
+            }
             className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink disabled:cursor-not-allowed disabled:bg-bg-soft disabled:text-muted"
-            aria-label="Filter price ranges by vehicle model"
+            aria-label="Filter price ranges by configured vehicle model"
           >
-            <option value="">All models</option>
+            <option value="">All configured models</option>
             {filterVehicleModels.map((model) => (
-              <option key={model.id || model.name} value={model.name}>
-                {model.name}
+              <option key={model.value} value={model.value}>
+                {model.label} ({model.rangeCount})
               </option>
             ))}
           </select>
@@ -1736,6 +1825,10 @@ export default function Revenue() {
             Search
           </button>
         </form>
+
+        <p className="mt-3 text-xs leading-5 text-muted">
+          {filterCoverageMessage}
+        </p>
       </section>
 
       <section className="card-soft overflow-hidden rounded-2xl shadow-sm">

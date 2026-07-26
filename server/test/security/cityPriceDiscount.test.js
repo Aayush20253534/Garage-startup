@@ -117,3 +117,17 @@ test("reference markup raises only the display comparison and preserves booking 
     else delete require.cache[servicePath];
   }
 });
+
+test("live price-range edits do not run city display-rule validation", () => {
+  const routes = read(
+    "server/src/admin/routes/cityServicePriceRange.routes.js",
+  );
+
+  const updateRoute = routes.match(
+    /router\.patch\(\s*"\/:id"[\s\S]*?controller\.updatePriceRange,\s*\);/,
+  )?.[0];
+
+  assert.ok(updateRoute, "price-range update route should exist");
+  assert.match(updateRoute, /updatePriceRangeSchema/);
+  assert.doesNotMatch(updateRoute, /upsertCityPriceDiscountSchema/);
+});

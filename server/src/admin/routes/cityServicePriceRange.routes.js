@@ -10,6 +10,7 @@ const {
   deletePriceRangeSubmissionsSchema,
   deletePriceRangesSchema,
   editPriceRangeSubmissionSchema,
+  priceRangeFilterOptionsQuerySchema,
   priceRangeIdSchema,
   priceRangeSubmissionIdSchema,
   priceRangeQuerySchema,
@@ -45,6 +46,12 @@ router.put(
 );
 
 router.get("/", priceRangeQuerySchema, validate, controller.listPriceRanges);
+router.get(
+  "/filter-options",
+  priceRangeFilterOptionsQuerySchema,
+  validate,
+  controller.listPriceRangeFilterOptions,
+);
 router.get(
   "/submissions",
   submissionQuerySchema,
@@ -96,7 +103,6 @@ router.patch(
   "/:id",
   authorizeRoles("ADMIN", "SUB_ADMIN"),
   updatePriceRangeSchema,
-  upsertCityPriceDiscountSchema,
   validate,
   controller.updatePriceRange,
 );

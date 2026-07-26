@@ -84,6 +84,13 @@ const deletePriceRangesSchema = [
   }),
 ];
 
+const priceRangeFilterOptionsQuerySchema = [
+  query("city").optional({ nullable: true, checkFalsy: true }).trim(),
+  query("serviceId").optional({ nullable: true, checkFalsy: true }).isUUID(),
+  query("fuelType").optional({ nullable: true, checkFalsy: true }).isIn(fuelTypes),
+  query("isActive").optional({ nullable: true, checkFalsy: true }).isBoolean(),
+];
+
 const priceRangeQuerySchema = [
   query("city").optional({ nullable: true, checkFalsy: true }).trim(),
   query("serviceId").optional({ nullable: true, checkFalsy: true }).isUUID(),
@@ -136,6 +143,7 @@ module.exports = {
   deletePriceRangeSubmissionsSchema,
   deletePriceRangesSchema,
   editPriceRangeSubmissionSchema,
+  priceRangeFilterOptionsQuerySchema,
   priceRangeIdSchema,
   priceRangeSubmissionIdSchema,
   priceRangeQuerySchema,

@@ -242,6 +242,12 @@ export const adminApi = {
     );
   },
 
+  async getPriceRangeFilterOptions(params = {}) {
+    return unwrap(
+      await api.get("/admin/city-service-price-ranges/filter-options", { params }),
+    );
+  },
+
   async getPriceRangeSubmissions(params = {}) {
     return unwrap(
       await api.get("/admin/city-service-price-ranges/submissions", { params }),

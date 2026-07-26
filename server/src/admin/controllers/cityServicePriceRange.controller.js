@@ -33,6 +33,19 @@ const listPriceRanges = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Price ranges fetched successfully", ranges));
 });
 
+const listPriceRangeFilterOptions = asyncHandler(async (req, res) => {
+  const options = await service.listPriceRangeFilterOptions(req.query);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Price range filter options fetched successfully",
+        options,
+      ),
+    );
+});
+
 const getPriceRange = asyncHandler(async (req, res) => {
   const range = await service.getPriceRange(req.params.id);
   return res.status(200).json(new ApiResponse(200, "Price range fetched successfully", range));
@@ -161,6 +174,7 @@ module.exports = {
   deletePriceRangeSubmissions,
   editPriceRangeSubmission,
   getPriceRange,
+  listPriceRangeFilterOptions,
   listPriceRangeSubmissions,
   listPriceRanges,
   reviewPriceRangeSubmission,

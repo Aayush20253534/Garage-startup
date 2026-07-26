@@ -181,6 +181,77 @@ const listPriceRanges = async (query = {}) => {
   };
 };
 
+const compareFilterValues = (left, right) => {
+  if (left === "ALL") return right === "ALL" ? 0 : -1;
+  if (right === "ALL") return 1;
+  return left.localeCompare(right, undefined, { sensitivity: "base" });
+};
+
+const buildPriceRangeVehicleFilterOptions = (rows = []) => {
+  const brands = new Map();
+
+  for (const row of rows) {
+    const brandValue = normalizeScopeValue(row.vehicleBrand) || "ALL";
+    const modelValue = normalizeScopeValue(row.vehicleModel) || "ALL";
+    const current = brands.get(brandValue) || {
+      value: brandValue,
+      label: brandValue === "ALL" ? "All brands" : brandValue,
+      rangeCount: 0,
+      models: new Map(),
+    };
+
+    current.rangeCount += 1;
+    current.models.set(
+      modelValue,
+      (current.models.get(modelValue) || 0) + 1,
+    );
+    brands.set(brandValue, current);
+  }
+
+  return [...brands.values()]
+    .sort((left, right) => compareFilterValues(left.value, right.value))
+    .map((brand) => ({
+      value: brand.value,
+      label: brand.label,
+      rangeCount: brand.rangeCount,
+      models: [...brand.models.entries()]
+        .sort(([left], [right]) => compareFilterValues(left, right))
+        .map(([value, rangeCount]) => ({
+          value,
+          label: value === "ALL" ? "All models" : value,
+          rangeCount,
+        })),
+    }));
+};
+
+const listPriceRangeFilterOptions = async (query = {}) => {
+  if (!query.serviceId) {
+    return { serviceId: null, vehicleBrands: [], rangeCount: 0 };
+  }
+
+  const where = {
+    serviceId: query.serviceId,
+    ...(query.city && { city: normalizeCity(query.city) }),
+    ...(query.fuelType && { fuelType: query.fuelType }),
+    ...(query.isActive !== undefined && { isActive: query.isActive === "true" }),
+  };
+
+  const rows = await prisma.cityServicePriceRange.findMany({
+    where,
+    select: {
+      vehicleBrand: true,
+      vehicleModel: true,
+    },
+    orderBy: [{ vehicleBrand: "asc" }, { vehicleModel: "asc" }],
+  });
+
+  return {
+    serviceId: query.serviceId,
+    rangeCount: rows.length,
+    vehicleBrands: buildPriceRangeVehicleFilterOptions(rows),
+  };
+};
+
 const getPriceRange = async (id) => {
   const priceRange = await prisma.cityServicePriceRange.findUnique({
     where: { id },
@@ -733,6 +804,7 @@ module.exports = {
   findBestPriceRangesForBooking,
   getPriceRange,
   invalidatePriceRangeCaches,
+  listPriceRangeFilterOptions,
   listPriceRanges,
   listPriceRangeSubmissions,
   reviewPriceRangeSubmission,
@@ -743,4 +815,5 @@ module.exports = {
   scopeWhere,
   upsertLivePriceRange,
   validatePriceRangePayload,
+  buildPriceRangeVehicleFilterOptions,
 };
