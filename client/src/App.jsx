@@ -778,6 +778,10 @@ const AdminRevenue = lazyPage(
   () => import("@/pages/admin/Revenue"),
   "AdminRevenue",
 );
+const AdminPricingOperations = lazyPage(
+  () => import("@/pages/admin/PricingOperations"),
+  "AdminPricingOperations",
+);
 const AdminPayments = lazyPage(
   () => import("@/pages/admin/Payments"),
   "Payments",
@@ -867,6 +871,7 @@ import {
   FiUsers,
   FiSettings,
   FiDollarSign,
+  FiSliders,
   FiHome,
   FiMail,
   FiHelpCircle,
@@ -1018,6 +1023,11 @@ const adminItems = [
   { to: "/admin/services", label: "Services", icon: FiBriefcase },
   { to: "/admin/garages", label: "Garages", icon: FiHome },
   { to: "/admin/revenue", label: "Price Ranges", icon: FiDollarSign },
+  {
+    to: "/admin/pricing-operations",
+    label: "Pricing Operations",
+    icon: FiSliders,
+  },
   { to: "/admin/payments", label: "Payments", icon: FiCreditCard },
   { to: "/admin/customers", label: "Customers", icon: FiUsers },
   { to: "/admin/bookings", label: "Bookings", icon: FiCalendar },
@@ -1436,6 +1446,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminRevenue />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/pricing-operations"
+            element={
+              <ProtectedRoute>
+                <AdminPricingOperations />
               </ProtectedRoute>
             }
           />

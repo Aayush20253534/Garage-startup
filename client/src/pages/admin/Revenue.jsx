@@ -118,9 +118,13 @@ function SubmissionStatusBadge({ status }) {
   );
 }
 
-export default function Revenue() {
+export default function Revenue({ pageMode = "ranges" }) {
   const { user } = useApp();
   const isIntern = user?.role === "INTERN";
+  const isOperationsPage = !isIntern && pageMode === "operations";
+  const showCityDisplayPricing = isOperationsPage;
+  const showSubmissionSection = isIntern || isOperationsPage;
+  const showLivePriceManagement = !isOperationsPage;
   const [ranges, setRanges] = useState([]);
   const [totalRangeCount, setTotalRangeCount] = useState(0);
   const [nextRangeCursor, setNextRangeCursor] = useState(null);
@@ -198,10 +202,16 @@ export default function Revenue() {
       };
       const [rangeList, serviceList, submissionList, discountList] =
         await Promise.all([
-          adminApi.getPriceRanges({ ...priceRangeFilters, limit: 100 }),
+          showLivePriceManagement
+            ? adminApi.getPriceRanges({ ...priceRangeFilters, limit: 100 })
+            : Promise.resolve({ items: [], total: 0, nextCursor: null }),
           adminApi.getAssignableServices(),
-          adminApi.getPriceRangeSubmissions(),
-          adminApi.getCityPriceDiscounts(),
+          showSubmissionSection
+            ? adminApi.getPriceRangeSubmissions()
+            : Promise.resolve([]),
+          showCityDisplayPricing
+            ? adminApi.getCityPriceDiscounts()
+            : Promise.resolve([]),
         ]);
 
       const loadedRanges = Array.isArray(rangeList?.items)
@@ -258,7 +268,7 @@ export default function Revenue() {
   useEffect(() => {
     let active = true;
 
-    if (!filterServiceId) {
+    if (!showLivePriceManagement || !filterServiceId) {
       setFilterVehicleOptions([]);
       setFilterOptionRangeCount(0);
       setLoadingFilterOptions(false);
@@ -290,7 +300,12 @@ export default function Revenue() {
     return () => {
       active = false;
     };
-  }, [filterServiceId, filterCity, filterOptionsRevision]);
+  }, [
+    filterServiceId,
+    filterCity,
+    filterOptionsRevision,
+    showLivePriceManagement,
+  ]);
 
   useEffect(() => {
     adminApi
@@ -940,10 +955,14 @@ export default function Revenue() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-ink">
-            Price Ranges
+            {isOperationsPage ? "Pricing Operations" : "Price Ranges"}
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Manage live pricing and review intern-submitted estimates.
+            {isOperationsPage
+              ? "Manage city display rules and review intern-submitted price ranges."
+              : isIntern
+                ? "Submit vehicle-specific price ranges and track their review status."
+                : "Create, search, edit, and manage live vehicle price ranges."}
           </p>
         </div>
 
@@ -980,6 +999,7 @@ export default function Revenue() {
         </div>
       )}
 
+      {showCityDisplayPricing && (
       <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]">
         <div className="flex flex-col gap-4 border-b border-line px-4 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
           <div className="flex min-w-0 items-start gap-3">
@@ -1209,7 +1229,9 @@ export default function Revenue() {
           </div>
         )}
       </section>
+      )}
 
+      {showSubmissionSection && (
       <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
         <div className="border-b border-line p-4 sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1523,7 +1545,10 @@ export default function Revenue() {
           )}
         </div>
       </section>
+      )}
 
+      {showLivePriceManagement && (
+        <>
       <form
         onSubmit={submit}
         className="card-soft rounded-2xl p-4 shadow-sm"
@@ -2046,6 +2071,8 @@ export default function Revenue() {
           </div>
         )}
       </section>
+        </>
+      )}
 
       {editSubmissionTarget && (
         <div
