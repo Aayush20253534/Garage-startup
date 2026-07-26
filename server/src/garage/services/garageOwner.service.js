@@ -8,6 +8,12 @@ const {
 } = require("../constants");
 const geocodingService = require("../../customer/services/geocoding.service");
 const invalidatePublicCache = require("../../utils/invalidatePublicCache");
+const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
+const {
+  assignmentExcludesVehicle,
+  assignmentMatchesVehicle,
+  garageSupportsVehicleBrand,
+} = require("../../utils/garageCapabilities");
 const {
   createDeleteAccountOtp,
   verifyDeleteAccountOtp,
@@ -114,10 +120,99 @@ const getGarageOwnerProfile = async (userId) => {
 
 const serializeGarageService = (garageService) => garageService;
 
-const getGarageOwnerServices = async (userId) => {
-  const garage = await getGarageForOwner(userId);
+const GARAGE_SERVICE_FUEL_TYPES = new Set([
+  "PETROL",
+  "DIESEL",
+  "ELECTRIC",
+  "HYBRID",
+  "CNG",
+  "OTHER",
+]);
 
-  const services = await prisma.garageService.findMany({
+const normalizeGarageServiceFilter = (value) =>
+  String(value || "").trim();
+
+const normalizeGarageServiceFuelType = (value) => {
+  const normalized = normalizeGarageServiceFilter(value).toUpperCase();
+  return GARAGE_SERVICE_FUEL_TYPES.has(normalized) ? normalized : undefined;
+};
+
+const groupGarageServicesByServiceId = (assignments = []) => {
+  const grouped = new Map();
+
+  assignments.forEach((assignment) => {
+    if (!assignment?.serviceId) return;
+    const current = grouped.get(assignment.serviceId) || [];
+    current.push(assignment);
+    grouped.set(assignment.serviceId, current);
+  });
+
+  return grouped;
+};
+
+const normalizeGarageServiceComparable = (value) =>
+  normalizeGarageServiceFilter(value).toLowerCase();
+
+const assignmentBrandMatchesFilter = (assignment, vehicle) => {
+  const assignedBrand = normalizeGarageServiceComparable(
+    assignment?.vehicleBrand || "ALL",
+  );
+  const vehicleBrand = normalizeGarageServiceComparable(vehicle?.brand);
+
+  return assignedBrand === "all" || assignedBrand === vehicleBrand;
+};
+
+const assignmentRelevantToVehicleFilter = (assignment, vehicle) => {
+  if (!assignmentBrandMatchesFilter(assignment, vehicle)) return false;
+  if (!vehicle?.model) return true;
+
+  const assignedModel = normalizeGarageServiceComparable(
+    assignment?.vehicleModel || "ALL",
+  );
+  const vehicleModel = normalizeGarageServiceComparable(vehicle.model);
+  return assignedModel === "all" || assignedModel === vehicleModel;
+};
+
+const serviceMatchesVehicleFilter = (serviceAssignments, vehicle) => {
+  if (vehicle?.model) {
+    const isIncluded = serviceAssignments.some((assignment) =>
+      assignmentMatchesVehicle(assignment, vehicle),
+    );
+    const isExcluded = serviceAssignments.some((assignment) =>
+      assignmentExcludesVehicle(assignment, vehicle),
+    );
+    return isIncluded && !isExcluded;
+  }
+
+  const isIncluded = serviceAssignments.some(
+    (assignment) =>
+      assignment?.isExcluded !== true &&
+      assignmentBrandMatchesFilter(assignment, vehicle),
+  );
+  const hasWholeBrandExclusion = serviceAssignments.some((assignment) => {
+    const assignedModel = normalizeGarageServiceComparable(
+      assignment?.vehicleModel || "ALL",
+    );
+    return (
+      assignment?.isExcluded === true &&
+      assignedModel === "all" &&
+      assignmentBrandMatchesFilter(assignment, vehicle)
+    );
+  });
+
+  return isIncluded && !hasWholeBrandExclusion;
+};
+
+const getGarageOwnerServices = async (userId, filters = {}) => {
+  const garage = await getGarageForOwner(userId);
+  const vehicle = {
+    brand: normalizeGarageServiceFilter(filters.vehicleBrand),
+    model: normalizeGarageServiceFilter(filters.vehicleModel),
+    fuelType: normalizeGarageServiceFuelType(filters.fuelType),
+  };
+  const hasVehicleFilter = Boolean(vehicle.brand);
+
+  const assignments = await prisma.garageService.findMany({
     where: {
       garageId: garage.id,
       isActive: true,
@@ -139,7 +234,76 @@ const getGarageOwnerServices = async (userId) => {
     orderBy: { createdAt: "desc" },
   });
 
-  return services.map(serializeGarageService);
+  if (!hasVehicleFilter) {
+    return assignments.map((assignment) => ({
+      ...serializeGarageService(assignment),
+      service: {
+        ...assignment.service,
+        pricingStatus: "VEHICLE_REQUIRED",
+        priceUnavailableMessage: "Select a vehicle to view the customer price range",
+      },
+    }));
+  }
+
+  if (!garageSupportsVehicleBrand(garage, vehicle)) return [];
+
+  const groupedAssignments = groupGarageServicesByServiceId(assignments);
+  const eligibleServiceIds = new Set();
+
+  groupedAssignments.forEach((serviceAssignments, serviceId) => {
+    if (serviceMatchesVehicleFilter(serviceAssignments, vehicle)) {
+      eligibleServiceIds.add(serviceId);
+    }
+  });
+
+  const eligibleAssignments = assignments.filter(
+    (assignment) =>
+      eligibleServiceIds.has(assignment.serviceId) &&
+      assignmentRelevantToVehicleFilter(assignment, vehicle),
+  );
+  const uniqueServices = [
+    ...new Map(
+      eligibleAssignments.map((assignment) => [
+        assignment.serviceId,
+        assignment.service,
+      ]),
+    ).values(),
+  ];
+  const priceRanges = await cityServicePriceRangeService.findBestPriceRangesForBooking({
+    city: garage.city,
+    services: uniqueServices,
+    vehicle,
+  });
+
+  return eligibleAssignments.map((assignment) => {
+    const range = priceRanges.get(assignment.serviceId);
+
+    return {
+      ...serializeGarageService(assignment),
+      service: {
+        ...assignment.service,
+        ...(range
+          ? {
+              priceRange: {
+                min: Number(range.minPrice) || 0,
+                max: Number(range.maxPrice) || Number(range.minPrice) || 0,
+              },
+              pricingStatus: "AVAILABLE",
+              priceUnavailableMessage: null,
+            }
+          : {
+              pricingStatus: "NOT_ALLOCATED",
+              priceUnavailableMessage:
+                "No active price range is allocated for this vehicle in your city",
+            }),
+      },
+      matchedVehicle: {
+        brand: vehicle.brand,
+        model: vehicle.model || null,
+        fuelType: vehicle.fuelType || null,
+      },
+    };
+  });
 };
 
 const normalizeGarageType = (value) =>

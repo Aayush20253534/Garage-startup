@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   FiAlertCircle,
   FiCheckCircle,
+  FiFilter,
   FiLayers,
   FiLock,
   FiRefreshCw,
@@ -14,7 +15,17 @@ import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import { CATEGORY_UI } from "@/data/services";
 import { setServices } from "@/store/garageSlice";
 import { getServiceThumbnailUrl } from "@/utils/imageCache";
-import { formatServicePriceRange } from "@/utils/priceRange";
+import { formatRupeeRange } from "@/utils/priceRange";
+
+const FUEL_TYPES = [
+  { value: "", label: "Any fuel type" },
+  { value: "PETROL", label: "Petrol" },
+  { value: "DIESEL", label: "Diesel" },
+  { value: "ELECTRIC", label: "Electric" },
+  { value: "HYBRID", label: "Hybrid" },
+  { value: "CNG", label: "CNG" },
+  { value: "OTHER", label: "Other" },
+];
 
 const toBoolean = (value) =>
   value === true ||
@@ -39,21 +50,70 @@ const normalizeBrands = (value) => {
     .filter(Boolean);
 };
 
+const normalizeComparable = (value) => String(value || "").trim().toLowerCase();
+
+const assignmentScopeMatches = (assignment, brand, model) => {
+  const assignmentBrand = normalizeComparable(assignment?.vehicleBrand || "ALL");
+  const assignmentModel = normalizeComparable(assignment?.vehicleModel || "ALL");
+  const normalizedBrand = normalizeComparable(brand);
+  const normalizedModel = normalizeComparable(model);
+
+  return (
+    (assignmentBrand === "all" || assignmentBrand === normalizedBrand) &&
+    (assignmentModel === "all" || assignmentModel === normalizedModel)
+  );
+};
+
+const garageServesVehicleModel = (assignments, brand, model) => {
+  const grouped = new Map();
+
+  assignments.forEach((assignment) => {
+    if (!assignment?.serviceId) return;
+    const current = grouped.get(assignment.serviceId) || [];
+    current.push(assignment);
+    grouped.set(assignment.serviceId, current);
+  });
+
+  return [...grouped.values()].some((serviceAssignments) => {
+    const included = serviceAssignments.some(
+      (assignment) =>
+        assignment.isExcluded !== true &&
+        assignmentScopeMatches(assignment, brand, model),
+    );
+    const excluded = serviceAssignments.some(
+      (assignment) =>
+        assignment.isExcluded === true &&
+        assignmentScopeMatches(assignment, brand, model),
+    );
+    return included && !excluded;
+  });
+};
+
 const getAssignmentLabel = ({ vehicleBrand, vehicleModel }) => {
-  const brand = vehicleBrand && vehicleBrand !== "ALL"
-    ? vehicleBrand
-    : "All supported brands";
+  const brand =
+    vehicleBrand && vehicleBrand !== "ALL"
+      ? vehicleBrand
+      : "All supported brands";
 
   return vehicleModel && vehicleModel !== "ALL"
     ? `${brand} · ${vehicleModel}`
     : brand;
 };
 
+const fieldClass =
+  "h-11 w-full rounded-lg border border-line bg-white px-3 text-sm font-semibold text-ink outline-none transition focus:border-ink/30 focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-bg-soft disabled:text-muted";
+
 export default function GarageServices() {
   const { services, garage } = useSelector((state) => state.garage);
   const dispatch = useDispatch();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [vehicleCatalog, setVehicleCatalog] = useState([]);
+  const [coverageAssignments, setCoverageAssignments] = useState([]);
+  const [selectedBrand, setSelectedBrand] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [selectedFuelType, setSelectedFuelType] = useState("");
 
   const safeAssignments = useMemo(
     () => (Array.isArray(services) ? services : []),
@@ -68,6 +128,80 @@ export default function GarageServices() {
     [garage?.excludedServiceBrands],
   );
 
+  const cateredBrandOptions = useMemo(() => {
+    const supportedSet = new Set(supportedBrands.map(normalizeComparable));
+    const excludedSet = new Set(excludedServiceBrands.map(normalizeComparable));
+    const supportsAll = supportedSet.has("all");
+    const catalogByName = new Map(
+      vehicleCatalog.map((brand) => [normalizeComparable(brand.name), brand]),
+    );
+
+    const fromCatalog = vehicleCatalog.filter((brand) => {
+      const normalizedName = normalizeComparable(brand.name);
+      return (
+        !excludedSet.has(normalizedName) &&
+        (supportsAll || supportedSet.has(normalizedName))
+      );
+    });
+
+    const missingConfiguredBrands = supportedBrands
+      .filter((brand) => normalizeComparable(brand) !== "all")
+      .filter((brand) => !excludedSet.has(normalizeComparable(brand)))
+      .filter((brand) => !catalogByName.has(normalizeComparable(brand)))
+      .map((brand) => ({ id: `configured:${brand}`, name: brand, models: [] }));
+
+    return [...fromCatalog, ...missingConfiguredBrands].sort((left, right) =>
+      left.name.localeCompare(right.name),
+    );
+  }, [vehicleCatalog, supportedBrands, excludedServiceBrands]);
+
+  const selectedBrandRecord = useMemo(
+    () =>
+      cateredBrandOptions.find(
+        (brand) => normalizeComparable(brand.name) === normalizeComparable(selectedBrand),
+      ) || null,
+    [cateredBrandOptions, selectedBrand],
+  );
+
+  const modelOptions = useMemo(() => {
+    if (!selectedBrand) return [];
+
+    const catalogModels = Array.isArray(selectedBrandRecord?.models)
+      ? selectedBrandRecord.models
+      : [];
+    const configuredModelNames = coverageAssignments
+      .filter(
+        (assignment) =>
+          normalizeComparable(assignment?.vehicleBrand || "ALL") === "all" ||
+          normalizeComparable(assignment?.vehicleBrand) ===
+            normalizeComparable(selectedBrand),
+      )
+      .map((assignment) => assignment?.vehicleModel)
+      .filter((model) => model && normalizeComparable(model) !== "all");
+    const candidateByName = new Map(
+      catalogModels.map((model) => [normalizeComparable(model.name), model]),
+    );
+    configuredModelNames.forEach((name) => {
+      const key = normalizeComparable(name);
+      if (!candidateByName.has(key)) {
+        candidateByName.set(key, {
+          id: `configured:${selectedBrand}:${name}`,
+          name,
+        });
+      }
+    });
+
+    return [...candidateByName.values()]
+      .filter((model) =>
+        garageServesVehicleModel(
+          coverageAssignments,
+          selectedBrand,
+          model.name,
+        ),
+      )
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [coverageAssignments, selectedBrand, selectedBrandRecord]);
+
   const assignedServices = useMemo(() => {
     const grouped = new Map();
 
@@ -76,7 +210,11 @@ export default function GarageServices() {
       if (!assignment?.id || !service?.id) return;
 
       if (!grouped.has(service.id)) {
-        grouped.set(service.id, { service, assignments: [] });
+        grouped.set(service.id, {
+          service,
+          assignments: [],
+          matchedVehicle: assignment.matchedVehicle || null,
+        });
       }
 
       const vehicleBrand = assignment.vehicleBrand || "ALL";
@@ -105,6 +243,44 @@ export default function GarageServices() {
     });
   }, [safeAssignments]);
 
+  const loadVehicleCatalog = useCallback(async () => {
+    setCatalogLoading(true);
+    try {
+      const response = await api.get("/vehicle-meta/brands");
+      setVehicleCatalog(
+        Array.isArray(response.data?.data) ? response.data.data : [],
+      );
+    } catch (err) {
+      setVehicleCatalog([]);
+      setError(
+        err.response?.data?.message || "Unable to load vehicle brand filters",
+      );
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+
+  const loadCoverageAssignments = useCallback(async () => {
+    if (!garage?.id) {
+      setCoverageAssignments([]);
+      return;
+    }
+
+    try {
+      const response = await api.get("/garages/me/services");
+      setCoverageAssignments(
+        Array.isArray(response.data?.data) ? response.data.data : [],
+      );
+    } catch (err) {
+      setCoverageAssignments([]);
+      if (err.response?.status !== 404 && err.response?.status !== 403) {
+        setError(
+          err.response?.data?.message || "Unable to load vehicle coverage rules",
+        );
+      }
+    }
+  }, [garage?.id]);
+
   const loadServices = useCallback(async () => {
     if (!garage?.id) {
       dispatch(setServices([]));
@@ -116,7 +292,13 @@ export default function GarageServices() {
     setError("");
 
     try {
-      const response = await api.get("/garages/me/services");
+      const response = await api.get("/garages/me/services", {
+        params: {
+          ...(selectedBrand ? { vehicleBrand: selectedBrand } : {}),
+          ...(selectedModel ? { vehicleModel: selectedModel } : {}),
+          ...(selectedFuelType ? { fuelType: selectedFuelType } : {}),
+        },
+      });
       dispatch(
         setServices(Array.isArray(response.data?.data) ? response.data.data : []),
       );
@@ -130,11 +312,46 @@ export default function GarageServices() {
     } finally {
       setLoading(false);
     }
-  }, [garage?.id, dispatch]);
+  }, [garage?.id, dispatch, selectedBrand, selectedModel, selectedFuelType]);
+
+  useEffect(() => {
+    loadVehicleCatalog();
+  }, [loadVehicleCatalog]);
+
+  useEffect(() => {
+    loadCoverageAssignments();
+  }, [loadCoverageAssignments]);
+
+  useEffect(() => {
+    if (!selectedBrand && cateredBrandOptions.length > 0) {
+      setSelectedBrand(cateredBrandOptions[0].name);
+    }
+  }, [cateredBrandOptions, selectedBrand]);
+
+  useEffect(() => {
+    if (
+      selectedModel &&
+      !modelOptions.some(
+        (model) => normalizeComparable(model.name) === normalizeComparable(selectedModel),
+      )
+    ) {
+      setSelectedModel("");
+    }
+  }, [modelOptions, selectedModel]);
 
   useEffect(() => {
     loadServices();
   }, [loadServices]);
+
+  const selectedVehicleLabel = [
+    selectedBrand,
+    selectedModel || (selectedBrand ? "All models" : ""),
+    selectedFuelType
+      ? FUEL_TYPES.find((item) => item.value === selectedFuelType)?.label
+      : "Any fuel",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="min-h-screen bg-bg-soft/30">
@@ -146,15 +363,15 @@ export default function GarageServices() {
                 <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
                   Assigned services
                 </h1>
-                <span className="inline-flex items-center gap-1 rounded-full border border-line bg-bg-soft px-2.5 py-1 text-xs font-semibold text-muted">
+                <span className="inline-flex items-center gap-1 rounded-md border border-line bg-bg-soft px-2.5 py-1 text-xs font-semibold text-muted">
                   <FiLock className="h-3 w-3" />
                   Managed by admin
                 </span>
               </div>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-                These are the service rules allocated to your garage. Excluded
-                brands or models override broader coverage when booking alerts
-                are matched.
+                Select a vehicle your garage caters to. The list then shows only
+                matching service allocations and the active customer price range
+                for your garage city.
               </p>
             </div>
 
@@ -190,47 +407,107 @@ export default function GarageServices() {
           </div>
         )}
 
+        <section className="rounded-xl border border-line bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-line bg-bg-soft text-ink">
+              <FiFilter />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-bold text-ink">Vehicle coverage filter</h2>
+              <p className="mt-1 text-sm leading-5 text-muted">
+                Brands are limited to this garage&apos;s configured coverage. Model
+                and fuel type are used to resolve the exact active price range.
+              </p>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                  Brand
+                  <select
+                    value={selectedBrand}
+                    onChange={(event) => {
+                      setSelectedBrand(event.target.value);
+                      setSelectedModel("");
+                    }}
+                    disabled={catalogLoading || cateredBrandOptions.length === 0}
+                    className={fieldClass}
+                  >
+                    {cateredBrandOptions.length === 0 && (
+                      <option value="">No catered brands configured</option>
+                    )}
+                    {cateredBrandOptions.map((brand) => (
+                      <option key={brand.id || brand.name} value={brand.name}>
+                        {brand.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                  Model
+                  <select
+                    value={selectedModel}
+                    onChange={(event) => setSelectedModel(event.target.value)}
+                    disabled={!selectedBrand || catalogLoading}
+                    className={fieldClass}
+                  >
+                    <option value="">All catered models</option>
+                    {modelOptions.map((model) => (
+                      <option key={model.id || model.name} value={model.name}>
+                        {model.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                  Fuel type
+                  <select
+                    value={selectedFuelType}
+                    onChange={(event) => setSelectedFuelType(event.target.value)}
+                    disabled={!selectedBrand}
+                    className={fieldClass}
+                  >
+                    {FUEL_TYPES.map((fuel) => (
+                      <option key={fuel.value || "ANY"} value={fuel.value}>
+                        {fuel.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {selectedVehicleLabel && (
+                <p className="mt-3 rounded-lg border border-line bg-bg-soft px-3 py-2 text-xs font-semibold text-ink">
+                  Showing eligibility and pricing for {selectedVehicleLabel}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <div className="rounded-xl border border-line bg-white p-4 shadow-sm">
             <span className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-bg-soft text-ink">
               <FiTool />
             </span>
             <p className="mt-4 text-2xl font-bold text-ink">{assignedServices.length}</p>
-            <p className="mt-1 text-xs font-semibold text-muted">Assigned services</p>
+            <p className="mt-1 text-xs font-semibold text-muted">Matching services</p>
           </div>
           <div className="rounded-xl border border-line bg-white p-4 shadow-sm">
             <span className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-bg-soft text-ink">
               <FiLayers />
             </span>
             <p className="mt-4 text-2xl font-bold text-ink">{safeAssignments.length}</p>
-            <p className="mt-1 text-xs font-semibold text-muted">Vehicle scopes</p>
+            <p className="mt-1 text-xs font-semibold text-muted">Allocation rules</p>
           </div>
           <div className="col-span-2 rounded-xl border border-line bg-white p-4 shadow-sm sm:col-span-1">
             <span className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-bg-soft text-ink">
               <FiTag />
             </span>
-            <p className="mt-4 text-2xl font-bold text-ink">{supportedBrands.length}</p>
-            <p className="mt-1 text-xs font-semibold text-muted">Supported brands</p>
+            <p className="mt-4 text-2xl font-bold text-ink">{cateredBrandOptions.length}</p>
+            <p className="mt-1 text-xs font-semibold text-muted">Catered brands</p>
           </div>
         </section>
-
-        {supportedBrands.length > 0 && (
-          <section className="rounded-xl border border-line bg-white p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
-              Your brand coverage
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {supportedBrands.map((brand) => (
-                <span
-                  key={brand}
-                  className="rounded-lg border border-line bg-bg-soft px-2.5 py-1.5 text-xs font-semibold text-ink"
-                >
-                  {brand}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
 
         {excludedServiceBrands.length > 0 && (
           <section className="rounded-xl border border-line bg-white p-4 shadow-sm">
@@ -241,13 +518,14 @@ export default function GarageServices() {
               <div className="min-w-0">
                 <p className="text-sm font-bold text-ink">Garage-wide excluded brands</p>
                 <p className="mt-1 text-sm leading-6 text-muted">
-                  No service request or booking notification is sent to this garage for these brands, even when a service rule covers all vehicles.
+                  These brands never receive service requests or booking alerts
+                  for this garage, even when an allocation covers all vehicles.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {excludedServiceBrands.map((brand) => (
                     <span
                       key={brand}
-                      className="rounded-lg border border-line bg-bg-soft px-2.5 py-1.5 text-xs font-semibold text-ink"
+                      className="rounded-md border border-line bg-bg-soft px-2.5 py-1.5 text-xs font-semibold text-ink"
                     >
                       {brand}
                     </span>
@@ -262,11 +540,11 @@ export default function GarageServices() {
           {loading ? (
             <div className="flex items-center gap-2 rounded-xl border border-line bg-white p-4 text-sm text-muted shadow-sm">
               <FiRefreshCw className="h-4 w-4 animate-spin" />
-              Loading assigned services...
+              Loading matching services and price ranges...
             </div>
           ) : assignedServices.length > 0 ? (
             <div className="grid gap-4 lg:grid-cols-2">
-              {assignedServices.map(({ service, assignments }) => {
+              {assignedServices.map(({ service, assignments, matchedVehicle }) => {
                 const categoryName = service.category?.name || "General";
                 const categoryUi = CATEGORY_UI[categoryName] || {};
                 const Icon = categoryUi.icon || FiTool;
@@ -274,6 +552,17 @@ export default function GarageServices() {
                 const comingSoon =
                   toBoolean(service.isComingSoon) ||
                   toBoolean(service.category?.isComingSoon);
+                const hasPrice =
+                  service.pricingStatus === "AVAILABLE" &&
+                  Number.isFinite(Number(service.priceRange?.min)) &&
+                  Number.isFinite(Number(service.priceRange?.max));
+                const matchLabel = [
+                  matchedVehicle?.brand || selectedBrand,
+                  matchedVehicle?.model || selectedModel || "All models",
+                  matchedVehicle?.fuelType || selectedFuelType || "Any fuel",
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
 
                 return (
                   <article
@@ -302,42 +591,68 @@ export default function GarageServices() {
                             <span className="text-xs font-semibold text-muted">{categoryName}</span>
                             <h2 className="mt-1 text-base font-bold text-ink">{service.name}</h2>
                           </div>
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-1 text-[11px] font-semibold text-green-700">
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-green-200 bg-green-50 px-2 py-1 text-[11px] font-semibold text-green-700">
                             <FiCheckCircle className="h-3 w-3" />
                             Configured
                           </span>
                         </div>
 
                         <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted">
-                          {service.description || "Service details are managed by the Rovauto admin team."}
+                          {service.description ||
+                            "Service details are managed by the Rovauto admin team."}
                         </p>
 
                         <div className="mt-4 rounded-lg border border-line bg-bg-soft/60 p-3">
                           <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
-                            Allocated vehicle coverage
+                            Matching vehicle
                           </p>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {assignments.map((assignment) => (
-                              <span
-                                key={assignment.scopeKey}
-                                className={`rounded-md border px-2 py-1 text-xs font-semibold ${
-                                  assignment.isExcluded
-                                    ? "border-red-200 bg-red-50 text-red-700"
-                                    : "border-line bg-white text-ink"
-                                }`}
-                              >
-                                {assignment.isExcluded ? "Excluded: " : ""}
-                                {getAssignmentLabel(assignment)}
-                              </span>
-                            ))}
+                          <p className="mt-2 text-sm font-bold text-ink">{matchLabel}</p>
+                          <div className="mt-3 border-t border-line pt-3">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                              Admin allocation rules
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {assignments.map((assignment) => (
+                                <span
+                                  key={assignment.scopeKey}
+                                  className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                                    assignment.isExcluded
+                                      ? "border-red-200 bg-red-50 text-red-700"
+                                      : "border-line bg-white text-ink"
+                                  }`}
+                                >
+                                  {assignment.isExcluded ? "Excluded: " : ""}
+                                  {getAssignmentLabel(assignment)}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-3">
-                          <span className="text-xs text-muted">Customer estimate</span>
-                          <span className="text-sm font-bold text-ink">
-                            {comingSoon ? "Coming soon" : formatServicePriceRange(service)}
-                          </span>
+                        <div className="mt-4 border-t border-line pt-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="text-xs text-muted">Customer price range</span>
+                            <span
+                              className={`text-right text-sm font-bold ${
+                                hasPrice ? "text-ink" : "text-amber-700"
+                              }`}
+                            >
+                              {comingSoon
+                                ? "Coming soon"
+                                : hasPrice
+                                  ? formatRupeeRange(
+                                      service.priceRange.min,
+                                      service.priceRange.max,
+                                    )
+                                  : "Not allocated"}
+                            </span>
+                          </div>
+                          {!comingSoon && !hasPrice && (
+                            <p className="mt-2 text-xs leading-5 text-muted">
+                              {service.priceUnavailableMessage ||
+                                "No active price range matches this city and vehicle."}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -350,10 +665,12 @@ export default function GarageServices() {
               <span className="grid h-12 w-12 place-items-center rounded-xl border border-line bg-bg-soft text-muted">
                 <FiTool className="h-6 w-6" />
               </span>
-              <h3 className="mt-4 text-base font-bold text-ink">No services assigned yet</h3>
+              <h3 className="mt-4 text-base font-bold text-ink">
+                No matching services for this vehicle
+              </h3>
               <p className="mt-2 max-w-md text-sm leading-6 text-muted">
-                Services will appear here after an administrator assigns them
-                to this garage. Unassigned catalogue services are never shown.
+                Change the brand or model filter, or ask an administrator to
+                update this garage&apos;s vehicle-specific service allocations.
               </p>
             </div>
           )}

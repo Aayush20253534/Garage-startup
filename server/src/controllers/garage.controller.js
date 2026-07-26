@@ -39,7 +39,10 @@ const getMyGarageServices = asyncHandler(async (req, res) => {
     ownerId = record?.ownerId;
     if (!ownerId) throw new ApiError(404, "Garage owner not found");
   }
-  const services = await garageOwnerService.getGarageOwnerServices(ownerId);
+  const services = await garageOwnerService.getGarageOwnerServices(
+    ownerId,
+    req.query || {},
+  );
 
   return res
     .status(200)

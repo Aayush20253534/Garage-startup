@@ -530,13 +530,13 @@ export default function GarageProfile() {
 
               <span
                 className={[
-                  "inline-flex items-center gap-1.5 w-fit rounded-full px-3 py-1 text-xs font-bold tracking-wide uppercase border",
+                  "inline-flex w-fit items-center gap-2 rounded-md border px-3 py-2 text-xs font-bold uppercase tracking-wide",
                   garage?.isActive
                     ? "bg-green-50 border-green-200 text-green-700"
                     : "bg-amber-50 border-amber-200 text-amber-700",
                 ].join(" ")}
               >
-                <span className={["h-1.5 w-1.5 rounded-full", garage?.isActive ? "bg-green-500" : "bg-amber-500 animate-pulse"].join(" ")} />
+                <span className={["h-2 w-2 rounded-sm", garage?.isActive ? "bg-green-500" : "bg-amber-500 animate-pulse"].join(" ")} />
                 {garage?.isActive ? "Active" : "Activation Pending"}
               </span>
             </div>
