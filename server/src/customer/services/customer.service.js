@@ -8,7 +8,10 @@ const cityService = require("../../services/city.service");
 const {
   deleteCloudinaryImagesIfUnreferenced,
 } = require("../../utils/cloudinaryCleanup");
-const { uploadToCloudinary } = require("../../utils/cloudinaryUpload");
+const {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} = require("../../utils/cloudinaryUpload");
 
 const PROFILE_CACHE_TTL = 5 * 60;
 const AVATAR_MAX_BYTES = 7 * 1024 * 1024;
@@ -342,7 +345,7 @@ const deleteAccount = async (userId, { password }) => {
       },
       bookings: {
         select: {
-          inspectionImages: { select: { publicId: true } },
+          inspectionImages: { select: { publicId: true, mediaType: true } },
         },
       },
       complaints: {
@@ -364,11 +367,14 @@ const deleteAccount = async (userId, { password }) => {
     throw new ApiError(401, "Password is incorrect");
   }
 
+  const inspectionMedia = user.bookings.flatMap(
+    (booking) => booking.inspectionImages,
+  );
   const publicIds = [
     user.customerProfile?.avatarPublicId,
-    ...user.bookings.flatMap((booking) =>
-      booking.inspectionImages.map((image) => image.publicId),
-    ),
+    ...inspectionMedia
+      .filter((item) => item.mediaType !== "VIDEO")
+      .map((item) => item.publicId),
     ...user.complaints.flatMap((complaint) =>
       complaint.images.map((image) => image.publicId),
     ),
@@ -376,6 +382,10 @@ const deleteAccount = async (userId, { password }) => {
       ticket.attachments.map((attachment) => attachment.publicId),
     ),
   ].filter(Boolean);
+  const inspectionVideoPublicIds = inspectionMedia
+    .filter((item) => item.mediaType === "VIDEO")
+    .map((item) => item.publicId)
+    .filter(Boolean);
 
   await prisma.$transaction(async (tx) => {
     // These records intentionally have no User foreign key, so remove them
@@ -405,7 +415,14 @@ const deleteAccount = async (userId, { password }) => {
   });
 
   await invalidateProfileCaches(userId);
-  await deleteCloudinaryImagesIfUnreferenced(publicIds);
+  await Promise.all([
+    deleteCloudinaryImagesIfUnreferenced(publicIds),
+    Promise.allSettled(
+      [...new Set(inspectionVideoPublicIds)].map((publicId) =>
+        deleteFromCloudinary(publicId, "video"),
+      ),
+    ),
+  ]);
 
   return {
     deleted: true,

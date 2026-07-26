@@ -917,22 +917,24 @@ model BookingReassignment {
 }
 
 model BookingInspectionImage {
-  id        String            @id @default(uuid())
+  id        String                     @id @default(uuid())
   bookingId String
   garageId  String
   phase     BookingPhotoPhase
+  mediaType BookingInspectionMediaType @default(IMAGE)
   imageUrl  String
   publicId  String
-  order     Int               @default(0)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  booking   Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  garage    Garage            @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  order     Int                        @default(0)
+  createdAt DateTime                   @default(now())
+  updatedAt DateTime                   @updatedAt
+  booking   Booking                    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  garage    Garage                     @relation(fields: [garageId], references: [id], onDelete: Cascade)
 
-  @@unique([bookingId, phase, order])
+  @@unique([bookingId, phase, mediaType, order])
   @@index([bookingId])
   @@index([garageId])
   @@index([phase])
+  @@index([mediaType])
 }
 
 model BookingService {
@@ -1865,4 +1867,9 @@ enum TrackingSource {
 enum BookingPhotoPhase {
   PICKUP
   DELIVERY
+}
+
+enum BookingInspectionMediaType {
+  IMAGE
+  VIDEO
 }

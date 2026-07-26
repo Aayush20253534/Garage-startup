@@ -111,7 +111,7 @@ const bookingInclude = {
   review: true,
   complaints: true,
   inspectionImages: {
-    orderBy: [{ phase: "asc" }, { order: "asc" }],
+    orderBy: [{ phase: "asc" }, { mediaType: "asc" }, { order: "asc" }],
   },
 };
 

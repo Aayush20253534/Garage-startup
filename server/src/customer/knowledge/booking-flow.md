@@ -52,9 +52,9 @@ Garage eligibility depends on operational and verification state, supported serv
 
 The customer receives the assigned garage details and a handover OTP. Keep the OTP private and share it only during physical vehicle handover. The OTP can be regenerated from the booking tracker before service starts when the app allows it.
 
-For **pickup & delivery**, the customer follows the normal live garage route and handover process. Share the OTP only when the assigned garage owner or assigned controller physically receives the vehicle. The garage records the required pickup inspection photos before work begins.
+For **pickup & delivery**, the customer follows the normal live garage route and handover process. Share the OTP only when the assigned garage owner or assigned controller physically receives the vehicle. The garage records the required pickup inspection photos and video before work begins.
 
-For **self drop-off & pickup**, the tracker shows the garage address, directions, contact details, and a reminder that no pickup vehicle will arrive. Take the vehicle to the assigned garage, then share the OTP with garage staff after reaching the garage. The garage records the required drop-off inspection photos before work begins.
+For **self drop-off & pickup**, the tracker shows the garage address, directions, contact details, and a reminder that no pickup vehicle will arrive. Take the vehicle to the assigned garage, then share the OTP with garage staff after reaching the garage. The garage records the required drop-off inspection photos and video before work begins.
 
 ## Tracking And Completion
 
@@ -62,7 +62,7 @@ Customers can open the active booking tracker to see search radius, assigned gar
 
 For pickup-and-delivery bookings, live road distance and ETA may be shown when route information is available, but they are estimates and can change with traffic or provider availability. After the garage marks the vehicle delivered, the customer reviews the delivery information, enters or confirms the final service amount, and accepts delivery.
 
-For self drop-off bookings, the tracker does not show a garage pickup route. After service, the garage marks the vehicle **Ready for customer pickup** and uploads post-service inspection photos. The customer returns to the garage, inspects the vehicle, enters the final amount paid, and selects **Confirm Vehicle Collection**.
+For self drop-off bookings, the tracker does not show a garage pickup route. After service, the garage marks the vehicle **Ready for customer pickup** and uploads post-service inspection photos and video. The customer returns to the garage, inspects the vehicle, enters the final amount paid, and selects **Confirm Vehicle Collection**.
 
 After delivery acceptance or collection confirmation, the booking appears in service history and its Rovauto warranty becomes available.
 

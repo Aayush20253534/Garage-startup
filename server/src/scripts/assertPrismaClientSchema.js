@@ -25,12 +25,16 @@ const garageModel = Prisma.dmmf.datamodel.models.find(
 const bookingModel = Prisma.dmmf.datamodel.models.find(
   (model) => model.name === "Booking",
 );
+const bookingInspectionModel = Prisma.dmmf.datamodel.models.find(
+  (model) => model.name === "BookingInspectionImage",
+);
 
-if (!serviceModel || !garageModel || !bookingModel) {
+if (!serviceModel || !garageModel || !bookingModel || !bookingInspectionModel) {
   const missingModels = [
     !serviceModel ? "Service" : null,
     !garageModel ? "Garage" : null,
     !bookingModel ? "Booking" : null,
+    !bookingInspectionModel ? "BookingInspectionImage" : null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -49,6 +53,12 @@ const missingFields = REQUIRED_SERVICE_FIELDS.filter(
 );
 const missingGarageFields = ["fulfillmentMode"].filter(
   (field) => !generatedGarageFields.has(field),
+);
+const generatedInspectionFields = new Set(
+  bookingInspectionModel.fields.map((field) => field.name),
+);
+const missingInspectionFields = ["mediaType"].filter(
+  (field) => !generatedInspectionFields.has(field),
 );
 const staleFields = REMOVED_SERVICE_PRICE_FIELDS.filter((field) =>
   generatedFields.has(field),
@@ -94,6 +104,30 @@ const requiredFulfillmentValues = [
 const missingFulfillmentValues = requiredFulfillmentValues.filter(
   (value) => !generatedFulfillmentValues.has(value),
 );
+
+const inspectionMediaField = bookingInspectionModel.fields.find(
+  (field) => field.name === "mediaType",
+);
+const inspectionMediaEnum = Prisma.dmmf.datamodel.enums?.find(
+  (item) => item.name === "BookingInspectionMediaType",
+);
+const generatedInspectionMediaValues = new Set([
+  ...enumValues(prismaClient.BookingInspectionMediaType),
+  ...enumValues(prismaClient.$Enums?.BookingInspectionMediaType),
+  ...enumValues(Prisma.BookingInspectionMediaType),
+  ...enumValues(inspectionMediaEnum?.values),
+]);
+const missingInspectionMediaValues = ["IMAGE", "VIDEO"].filter(
+  (value) => !generatedInspectionMediaValues.has(value),
+);
+const inspectionMediaErrors = [
+  inspectionMediaField?.type !== "BookingInspectionMediaType"
+    ? `BookingInspectionImage.mediaType uses ${inspectionMediaField?.type || "no enum"}`
+    : null,
+  missingInspectionMediaValues.length > 0
+    ? `BookingInspectionMediaType is missing: ${missingInspectionMediaValues.join(", ")}`
+    : null,
+].filter(Boolean);
 const fulfillmentTypeErrors = [
   serviceFulfillmentField?.type !== "ServiceFulfillmentType"
     ? `Service.fulfillmentType uses ${serviceFulfillmentField?.type || "no enum"}`
@@ -109,8 +143,10 @@ const fulfillmentTypeErrors = [
 if (
   missingFields.length > 0 ||
   missingGarageFields.length > 0 ||
+  missingInspectionFields.length > 0 ||
   staleFields.length > 0 ||
-  fulfillmentTypeErrors.length > 0
+  fulfillmentTypeErrors.length > 0 ||
+  inspectionMediaErrors.length > 0
 ) {
   const details = [
     missingFields.length > 0
@@ -119,11 +155,17 @@ if (
     missingGarageFields.length > 0
       ? `Garage is missing current fields: ${missingGarageFields.join(", ")}`
       : null,
+    missingInspectionFields.length > 0
+      ? `BookingInspectionImage is missing current fields: ${missingInspectionFields.join(", ")}`
+      : null,
     staleFields.length > 0
       ? `still contains removed fields: ${staleFields.join(", ")}`
       : null,
     fulfillmentTypeErrors.length > 0
       ? fulfillmentTypeErrors.join("; ")
+      : null,
+    inspectionMediaErrors.length > 0
+      ? inspectionMediaErrors.join("; ")
       : null,
   ]
     .filter(Boolean)

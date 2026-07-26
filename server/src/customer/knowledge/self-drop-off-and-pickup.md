@@ -24,7 +24,7 @@ The customer should travel only to the garage shown in the confirmed booking. Th
 
 Take the vehicle to the assigned garage and follow the handover steps shown in the booking. Share the handover OTP only with the assigned garage owner or authorised garage staff after physically reaching the garage.
 
-Do not paste an OTP, password, payment credential, or private contact detail into the chatbot. The garage records the required drop-off inspection images before service begins.
+Do not paste an OTP, password, payment credential, or private contact detail into the chatbot. The garage records the required drop-off inspection images and video before service begins.
 
 ## During Service
 
@@ -32,7 +32,7 @@ The booking tracker shows the current service status and available updates. The 
 
 ## Collecting The Vehicle
 
-After service, the garage marks the vehicle **Ready for customer pickup** and records the required post-service inspection images. This status means the customer should return to the assigned garage; it does not complete the booking automatically.
+After service, the garage marks the vehicle **Ready for customer pickup** and records the required post-service inspection images and video. This status means the customer should return to the assigned garage; it does not complete the booking automatically.
 
 At the garage, inspect the vehicle and service details, record the final amount paid where the app requests it, and select **Confirm Vehicle Collection**. After collection is confirmed, the booking moves to service history and any eligible review and Rovauto warranty options become available.
 

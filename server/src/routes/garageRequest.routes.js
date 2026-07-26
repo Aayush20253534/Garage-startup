@@ -15,11 +15,20 @@ const {
 
 const router = express.Router();
 
-const inspectionPhotoUpload = upload.createUpload({
-  fileSize: 1024 * 1024,
-  files: 5,
-  allowedMimeTypes: upload.IMAGE_MIME_TYPES,
+const inspectionMediaUpload = upload.createDiskUpload({
+  fileSize: 50 * 1024 * 1024,
+  files: 16,
+  fields: 20,
+  allowedMimeTypes: [
+    ...upload.IMAGE_MIME_TYPES,
+    ...upload.VIDEO_MIME_TYPES,
+  ],
 });
+
+const inspectionMediaFields = inspectionMediaUpload.fields([
+  { name: "images", maxCount: 15 },
+  { name: "video", maxCount: 1 },
+]);
 
 router.use(protect);
 router.use(authorizeRoles("GARAGE_OWNER", "GARAGE_CONTROLLER"));
@@ -37,7 +46,8 @@ router.post(
 
 router.post(
   "/:requestId/verify-handover-otp",
-  inspectionPhotoUpload.array("images", 5),
+  inspectionMediaFields,
+  upload.registerUploadCleanup,
   upload.validateUploadedFiles,
   verifyHandoverOtpSchema,
   validate,
@@ -46,7 +56,8 @@ router.post(
 
 router.post(
   "/:requestId/mark-delivered",
-  inspectionPhotoUpload.array("images", 5),
+  inspectionMediaFields,
+  upload.registerUploadCleanup,
   upload.validateUploadedFiles,
   markDeliveredSchema,
   validate,

@@ -66,7 +66,7 @@ const garageDetailInclude = {
             },
           },
           inspectionImages: {
-            orderBy: [{ phase: "asc" }, { order: "asc" }],
+            orderBy: [{ phase: "asc" }, { mediaType: "asc" }, { order: "asc" }],
           },
         },
       },

@@ -656,13 +656,13 @@ const sendCustomerVehicleDeliveredWhatsapp = async ({
   const message = isSelfDropOff
     ? [
         `Rovauto booking ${booking.bookingCode} is ready for self pickup.`,
-        `${garage.name} has completed the service and uploaded the post-service inspection photos.`,
+        `${garage.name} has completed the service and uploaded the post-service inspection photos and video.`,
         "Visit the garage, inspect the vehicle, enter the final amount paid, and confirm collection.",
         `Review and confirm here: ${trackingUrl}`,
       ].join("\n")
     : [
         `Rovauto booking ${booking.bookingCode} is ready for delivery.`,
-        `${garage.name} has uploaded the post-service inspection photos and marked your vehicle delivered.`,
+        `${garage.name} has uploaded the post-service inspection photos and video and marked your vehicle delivered.`,
         "Accept delivery only after receiving and checking the vehicle.",
         `Review and accept here: ${trackingUrl}`,
       ].join("\n");

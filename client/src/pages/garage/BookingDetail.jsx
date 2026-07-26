@@ -10,6 +10,7 @@ import {
   FiNavigation,
 } from "react-icons/fi";
 import ImageUpload from "@/components/garage/ImageUpload";
+import VideoUpload from "@/components/garage/VideoUpload";
 import InspectionGallery from "@/components/booking/InspectionGallery";
 import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
 import MapPanel from "@/components/maps/MapPanel";
@@ -81,7 +82,9 @@ export default function GarageBookingDetail() {
   const { garageToken } = useApp();
   const { bookings } = useSelector((state) => state.garage);
   const [preServiceImages, setPreServiceImages] = useState([]);
+  const [preServiceVideo, setPreServiceVideo] = useState(null);
   const [postServiceImages, setPostServiceImages] = useState([]);
+  const [postServiceVideo, setPostServiceVideo] = useState(null);
   const [otp, setOtp] = useState("");
   const [trackingSummary, setTrackingSummary] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -263,7 +266,16 @@ export default function GarageBookingDetail() {
   };
 
   const verifyHandover = async () => {
-    if ((!isSelfDropOff && !isNearCustomer) || preServiceImages.length !== 5 || !otp.trim()) return;
+    const validImageCount =
+      preServiceImages.length >= 5 && preServiceImages.length <= 15;
+    if (
+      (!isSelfDropOff && !isNearCustomer) ||
+      !validImageCount ||
+      !preServiceVideo ||
+      !otp.trim()
+    ) {
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -275,6 +287,7 @@ export default function GarageBookingDetail() {
         booking.requestId || booking.id,
         otp.trim(),
         preServiceImages,
+        preServiceVideo,
       );
 
       updateLocalBooking({
@@ -284,6 +297,7 @@ export default function GarageBookingDetail() {
       });
       setOtp("");
       setPreServiceImages([]);
+      setPreServiceVideo(null);
       setSuccess(
         isSelfDropOff
           ? "Customer drop-off verified and service started."
@@ -297,7 +311,9 @@ export default function GarageBookingDetail() {
   };
 
   const markDelivered = async () => {
-    if (postServiceImages.length !== 5) return;
+    const validImageCount =
+      postServiceImages.length >= 5 && postServiceImages.length <= 15;
+    if (!validImageCount || !postServiceVideo) return;
 
     setLoading(true);
     setError("");
@@ -308,6 +324,7 @@ export default function GarageBookingDetail() {
         garageToken,
         booking.requestId || booking.id,
         postServiceImages,
+        postServiceVideo,
       );
 
       updateLocalBooking({
@@ -321,6 +338,7 @@ export default function GarageBookingDetail() {
           result?.booking?.inspectionImages || booking.inspectionImages || [],
       });
       setPostServiceImages([]);
+      setPostServiceVideo(null);
       setSuccess(
         isSelfDropOff
           ? "Vehicle marked ready for customer pickup. The customer must visit the garage, inspect it, enter the final amount and confirm collection."
@@ -493,7 +511,7 @@ export default function GarageBookingDetail() {
                 <div>
                   <p className="font-bold">Wait for the customer at your garage</p>
                   <p className="mt-1">
-                    This is a self drop-off booking. Do not travel to the customer. When they arrive, verify their OTP and capture five drop-off inspection photos.
+                    This is a self drop-off booking. Do not travel to the customer. When they arrive, verify their OTP and capture 5–15 drop-off inspection photos plus one video.
                   </p>
                 </div>
               </div>
@@ -587,14 +605,20 @@ export default function GarageBookingDetail() {
                     {hasCompleteOtp && (
                       <div className="mt-5">
                         <p className="mb-3 text-sm leading-6 text-muted">
-                          Upload exactly five {isSelfDropOff ? "drop-off" : "pickup"} photos after entering the OTP. Each photo must be 1 MB or less.
+                          Upload 5–15 {isSelfDropOff ? "drop-off" : "pickup"} photos and exactly one video after entering the OTP. Each photo must be 1 MB or less; the video must be 50 MB or less.
                         </p>
-                        <ImageUpload
-                          min={5}
-                          max={5}
-                          value={preServiceImages}
-                          onChange={setPreServiceImages}
-                        />
+                        <div className="space-y-4">
+                          <ImageUpload
+                            min={5}
+                            max={15}
+                            value={preServiceImages}
+                            onChange={setPreServiceImages}
+                          />
+                          <VideoUpload
+                            value={preServiceVideo}
+                            onChange={setPreServiceVideo}
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -603,7 +627,9 @@ export default function GarageBookingDetail() {
                       disabled={
                         loading ||
                         !hasCompleteOtp ||
-                        preServiceImages.length !== 5
+                        preServiceImages.length < 5 ||
+                        preServiceImages.length > 15 ||
+                        !preServiceVideo
                       }
                       className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -623,22 +649,29 @@ export default function GarageBookingDetail() {
             <div className="card-soft p-6">
               <h3 className="mb-2 text-xl font-bold">Complete Service</h3>
               <p className="mb-4 text-muted">
-                Upload exactly five post-service photos, each 1 MB or less.
-                {isSelfDropOff
+                Upload 5–15 post-service photos and exactly one video. Each photo must be 1 MB or less and the video must be 50 MB or less. {isSelfDropOff
                   ? "The customer enters the final amount when confirming collection at your garage."
                   : "The customer enters the final amount while accepting delivery."}
               </p>
-              <ImageUpload
-                min={5}
-                max={5}
-                value={postServiceImages}
-                onChange={setPostServiceImages}
-              />
+              <div className="space-y-4">
+                <ImageUpload
+                  min={5}
+                  max={15}
+                  value={postServiceImages}
+                  onChange={setPostServiceImages}
+                />
+                <VideoUpload
+                  value={postServiceVideo}
+                  onChange={setPostServiceVideo}
+                />
+              </div>
               <button
                 onClick={markDelivered}
                 disabled={
                   loading ||
-                  postServiceImages.length !== 5
+                  postServiceImages.length < 5 ||
+                  postServiceImages.length > 15 ||
+                  !postServiceVideo
                 }
                 className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -663,7 +696,7 @@ export default function GarageBookingDetail() {
             <InspectionGallery
               images={inspectionImages}
               phase="PICKUP"
-              title={isSelfDropOff ? "Drop-off inspection photos" : "Pickup inspection photos"}
+              title={isSelfDropOff ? "Drop-off inspection evidence" : "Pickup inspection evidence"}
               description={
                 isSelfDropOff
                   ? "Evidence recorded when the customer handed over the vehicle at the garage."
@@ -676,7 +709,7 @@ export default function GarageBookingDetail() {
             <InspectionGallery
               images={inspectionImages}
               phase="DELIVERY"
-              title={isSelfDropOff ? "Post-service inspection photos" : "Delivery inspection photos"}
+              title={isSelfDropOff ? "Post-service inspection evidence" : "Delivery inspection evidence"}
               description="Evidence recorded after the service was completed."
             />
           )}

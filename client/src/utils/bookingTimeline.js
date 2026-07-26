@@ -60,7 +60,7 @@ export const SELF_DROP_OFF_TIMELINE_STEPS = [
     ...BOOKING_TIMELINE_STEPS[2],
     label: "Drop Vehicle at Garage",
     shortLabel: "Drop-off",
-    description: "At the garage, share the handover OTP and complete the drop-off inspection photos.",
+    description: "At the garage, share the handover OTP and complete the drop-off inspection photos and video.",
   },
   {
     ...BOOKING_TIMELINE_STEPS[3],

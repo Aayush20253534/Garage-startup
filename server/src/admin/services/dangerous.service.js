@@ -232,6 +232,14 @@ const asVideoAssets = (rows = []) =>
     .filter(Boolean)
     .map((publicId) => ({ publicId, resourceType: "video" }));
 
+const asInspectionAssets = (rows = []) =>
+  rows
+    .filter((row) => row?.publicId)
+    .map((row) => ({
+      publicId: row.publicId,
+      resourceType: row.mediaType === "VIDEO" ? "video" : "image",
+    }));
+
 const dedupeAssets = (assets = []) => {
   const seen = new Set();
   return assets.filter((asset) => {
@@ -883,7 +891,7 @@ const collectGarageMedia = async (garageIds = [], applicationWhere = null) => {
       ids.length
         ? prisma.bookingInspectionImage.findMany({
             where: { garageId: { in: ids } },
-            select: { publicId: true },
+            select: { publicId: true, mediaType: true },
           })
         : [],
       applicationWhere
@@ -897,7 +905,7 @@ const collectGarageMedia = async (garageIds = [], applicationWhere = null) => {
   return [
     ...asImageAssets(garageImages),
     ...asVideoAssets(garageVideos),
-    ...asImageAssets(inspectionImages),
+    ...asInspectionAssets(inspectionImages),
     ...asImageAssets(applicationImages),
   ];
 };
@@ -927,7 +935,7 @@ const collectUserMedia = async (userIds = [], { includeOwnedGarages = false } = 
       }),
       prisma.bookingInspectionImage.findMany({
         where: { booking: { is: { userId: { in: ids } } } },
-        select: { publicId: true },
+        select: { publicId: true, mediaType: true },
       }),
       prisma.supportTicketAttachment.findMany({
         where: {
@@ -975,7 +983,7 @@ const collectUserMedia = async (userIds = [], { includeOwnedGarages = false } = 
   return [
     ...profileAssets,
     ...asImageAssets(complaintImages),
-    ...asImageAssets(inspectionImages),
+    ...asInspectionAssets(inspectionImages),
     ...asImageAssets(supportAttachments),
     ...garageAssets,
   ];
@@ -995,7 +1003,7 @@ const collectAllDbMedia = async () => {
   ] = await Promise.all([
     prisma.customerProfile.findMany({ select: { avatarPublicId: true } }),
     prisma.complaintImage.findMany({ select: { publicId: true } }),
-    prisma.bookingInspectionImage.findMany({ select: { publicId: true } }),
+    prisma.bookingInspectionImage.findMany({ select: { publicId: true, mediaType: true } }),
     prisma.garageImage.findMany({ select: { publicId: true } }),
     prisma.garageVideo.findMany({ select: { publicId: true } }),
     prisma.serviceMedia.findMany({ select: { publicId: true, mediaType: true } }),
@@ -1010,7 +1018,7 @@ const collectAllDbMedia = async () => {
       .filter(Boolean)
       .map((publicId) => ({ publicId, resourceType: "image" })),
     ...asImageAssets(complaintImages),
-    ...asImageAssets(inspectionImages),
+    ...asInspectionAssets(inspectionImages),
     ...asImageAssets(garageImages),
     ...asVideoAssets(garageVideos),
     ...serviceMedia
@@ -1333,7 +1341,7 @@ const deleteCustomerBookings = async ({ payload = {}, scope }) => {
   const imageRecords = bookingIds.length
     ? await prisma.bookingInspectionImage.findMany({
         where: { bookingId: { in: bookingIds } },
-        select: { publicId: true },
+        select: { publicId: true, mediaType: true },
       })
     : [];
 
@@ -1356,7 +1364,7 @@ const deleteCustomerBookings = async ({ payload = {}, scope }) => {
   });
 
   await Promise.allSettled([deletePattern("customer:*")]);
-  const cloudinary = await deleteCloudinaryAssets(asImageAssets(imageRecords));
+  const cloudinary = await deleteCloudinaryAssets(asInspectionAssets(imageRecords));
 
   return {
     customer,
@@ -1402,7 +1410,7 @@ const deleteCustomerPayments = async ({ payload = {} } = {}) => {
 
 const deleteAllBookings = async () => {
   const imageRecords = await prisma.bookingInspectionImage.findMany({
-    select: { publicId: true },
+    select: { publicId: true, mediaType: true },
   });
   const [bookingCount, paymentCount, reviewCount, broadcastCount] =
     await Promise.all([
@@ -1433,7 +1441,7 @@ const deleteAllBookings = async () => {
     deletePattern("garages:*"),
     deletePattern("support:*"),
   ]);
-  const cloudinary = await deleteCloudinaryAssets(asImageAssets(imageRecords));
+  const cloudinary = await deleteCloudinaryAssets(asInspectionAssets(imageRecords));
 
   return {
     matched: {

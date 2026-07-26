@@ -420,8 +420,8 @@ export const garageApi = {
   },
 
   async verifyHandoverOtp(...args) {
-    // New: verifyHandoverOtp(requestId, otp, images)
-    const [requestId, otp, images = []] = args.slice(-3);
+    // New: verifyHandoverOtp(requestId, otp, images, video)
+    const [requestId, otp, images = [], video = null] = args.slice(-4);
 
     const formData = new FormData();
     formData.append("otp", otp);
@@ -430,6 +430,9 @@ export const garageApi = {
       .map((item) => item.file || item)
       .filter(Boolean)
       .forEach((file) => formData.append("images", file));
+
+    const videoFile = video?.file || video;
+    if (videoFile) formData.append("video", videoFile);
 
     return unwrap(
       await api.post(
@@ -440,10 +443,10 @@ export const garageApi = {
   },
 
   async markDelivered(...args) {
-    // New: markDelivered(requestId, images)
-    // Compatibility: markDelivered(token, requestId, images)
+    // New: markDelivered(requestId, images, video)
+    // Compatibility: markDelivered(token, requestId, images, video)
     const normalizedArgs = args[0] === "cookie-session" ? args.slice(1) : args;
-    const [requestId, images = []] = normalizedArgs.slice(-2);
+    const [requestId, images = [], video = null] = normalizedArgs.slice(-3);
 
     const formData = new FormData();
 
@@ -451,6 +454,9 @@ export const garageApi = {
       .map((item) => item.file || item)
       .filter(Boolean)
       .forEach((file) => formData.append("images", file));
+
+    const videoFile = video?.file || video;
+    if (videoFile) formData.append("video", videoFile);
 
     return unwrap(
       await api.post(

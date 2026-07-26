@@ -5,7 +5,6 @@ const IMAGE_REFERENCE_MODELS = [
   "garageImage",
   "garageApplicationImage",
   "serviceMedia",
-  "bookingInspectionImage",
   "supportTicketAttachment",
   "complaintImage",
 ];
@@ -13,11 +12,14 @@ const IMAGE_REFERENCE_MODELS = [
 const isCloudinaryImageReferenced = async (publicId) => {
   if (!publicId) return false;
 
-  const counts = await Promise.all(
-    IMAGE_REFERENCE_MODELS.map((model) =>
+  const counts = await Promise.all([
+    ...IMAGE_REFERENCE_MODELS.map((model) =>
       prisma[model].count({ where: { publicId } }),
     ),
-  );
+    prisma.bookingInspectionImage.count({
+      where: { publicId, mediaType: "IMAGE" },
+    }),
+  ]);
 
   return counts.some((count) => count > 0);
 };

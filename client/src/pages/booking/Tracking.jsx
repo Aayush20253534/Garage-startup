@@ -650,11 +650,11 @@ function Tracking() {
   const bookingCode =
     booking.bookingCode || location.state?.bookingCode || "Booking";
   const inspectionImages = booking.inspectionImages || [];
-  const pickupImages = inspectionImages.filter(
-    (image) => image.phase === "PICKUP",
+  const pickupMedia = inspectionImages.filter(
+    (item) => item.phase === "PICKUP",
   );
-  const deliveryImages = inspectionImages.filter(
-    (image) => image.phase === "DELIVERY",
+  const deliveryMedia = inspectionImages.filter(
+    (item) => item.phase === "DELIVERY",
   );
 
   return (
@@ -821,28 +821,28 @@ function Tracking() {
           </div>
         </div>
 
-        {pickupImages.length > 0 && (
+        {pickupMedia.length > 0 && (
           <div className="mt-6">
             <InspectionGallery
-              images={pickupImages}
+              images={pickupMedia}
               phase="PICKUP"
-              title={isSelfDropOff ? "Drop-off inspection photos" : "Pickup inspection photos"}
+              title={isSelfDropOff ? "Drop-off inspection evidence" : "Pickup inspection evidence"}
               description={
                 isSelfDropOff
-                  ? "These photos were recorded when you handed the vehicle over at the garage."
-                  : "These photos were recorded before the garage started working on your vehicle."
+                  ? "These photos and video were recorded when you handed the vehicle over at the garage."
+                  : "These photos and video were recorded before the garage started working on your vehicle."
               }
             />
           </div>
         )}
 
-        {deliveryImages.length > 0 && (
+        {deliveryMedia.length > 0 && (
           <div className="mt-6">
             <InspectionGallery
-              images={deliveryImages}
+              images={deliveryMedia}
               phase="DELIVERY"
-              title={isSelfDropOff ? "Post-service inspection photos" : "Delivery inspection photos"}
-              description="These photos were recorded after the garage completed the selected services."
+              title={isSelfDropOff ? "Post-service inspection evidence" : "Delivery inspection evidence"}
+              description="These photos and video were recorded after the garage completed the selected services."
             />
           </div>
         )}

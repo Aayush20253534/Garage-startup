@@ -579,7 +579,7 @@ const getBookingDetails = async (bookingId) => {
         orderBy: { createdAt: "desc" },
       },
       inspectionImages: {
-        orderBy: [{ phase: "asc" }, { order: "asc" }],
+        orderBy: [{ phase: "asc" }, { mediaType: "asc" }, { order: "asc" }],
       },
       review: true,
       adminEvents: {
@@ -2142,25 +2142,37 @@ const sendNotification = async ({
 const CLEAR_BOOKINGS_CONFIRMATION = "CLEAR ALL BOOKINGS";
 const CLOUDINARY_DELETE_BATCH_SIZE = 10;
 
-const deleteInspectionImagesFromCloudinary = async (publicIds = []) => {
-  const uniquePublicIds = [...new Set(publicIds.filter(Boolean))];
+const deleteInspectionImagesFromCloudinary = async (records = []) => {
+  const uniqueAssets = [
+    ...new Map(
+      records
+        .filter((record) => record?.publicId)
+        .map((record) => {
+          const resourceType = record.mediaType === "VIDEO" ? "video" : "image";
+          return [
+            `${resourceType}:${record.publicId}`,
+            { publicId: record.publicId, resourceType },
+          ];
+        }),
+    ).values(),
+  ];
 
   let deleted = 0;
   let failed = 0;
 
   for (
     let index = 0;
-    index < uniquePublicIds.length;
+    index < uniqueAssets.length;
     index += CLOUDINARY_DELETE_BATCH_SIZE
   ) {
-    const batch = uniquePublicIds.slice(
+    const batch = uniqueAssets.slice(
       index,
       index + CLOUDINARY_DELETE_BATCH_SIZE,
     );
 
     const results = await Promise.allSettled(
-      batch.map((publicId) =>
-        deleteFromCloudinary(publicId, "image"),
+      batch.map((asset) =>
+        deleteFromCloudinary(asset.publicId, asset.resourceType),
       ),
     );
 
@@ -2206,6 +2218,7 @@ const clearAllBookings = async ({
     prisma.bookingInspectionImage.findMany({
       select: {
         publicId: true,
+        mediaType: true,
       },
     }),
     prisma.review.count(),
@@ -2262,9 +2275,7 @@ const clearAllBookings = async ({
   ]);
 
   const cloudinaryInspectionImages =
-    await deleteInspectionImagesFromCloudinary(
-      inspectionImageRecords.map((image) => image.publicId),
-    );
+    await deleteInspectionImagesFromCloudinary(inspectionImageRecords);
 
   console.info("[admin] All bookings cleared", {
     requestedById,

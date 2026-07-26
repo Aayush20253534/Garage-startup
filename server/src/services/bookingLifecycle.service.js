@@ -17,7 +17,12 @@ const {
   deleteFromCloudinary,
   uploadToCloudinary,
 } = require("../utils/cloudinaryUpload");
-const { REQUIRED_BOOKING_INSPECTION_IMAGES } = require("../garage/constants");
+const {
+  MIN_BOOKING_INSPECTION_IMAGES,
+  MAX_BOOKING_INSPECTION_IMAGES,
+  REQUIRED_BOOKING_INSPECTION_VIDEOS,
+  MAX_BOOKING_INSPECTION_VIDEO_SIZE_BYTES,
+} = require("../garage/constants");
 const {
   bookingUsesSelfDropOff,
 } = require("../constants/serviceFulfillmentType");
@@ -28,9 +33,13 @@ const DEFAULT_HANDOVER_OTP_RESEND_COOLDOWN_SECONDS = 60;
 const HANDOVER_OTP_MAX_ATTEMPTS = 5;
 const HANDOVER_OTP_CLAIM_TIMEOUT_MS = 3 * 60 * 1000;
 const OTP_CONCURRENCY_RETRIES = 8;
-const REQUIRED_INSPECTION_PHOTO_COUNT = REQUIRED_BOOKING_INSPECTION_IMAGES;
+const MIN_INSPECTION_PHOTO_COUNT = MIN_BOOKING_INSPECTION_IMAGES;
+const MAX_INSPECTION_PHOTO_COUNT = MAX_BOOKING_INSPECTION_IMAGES;
+const REQUIRED_INSPECTION_VIDEO_COUNT = REQUIRED_BOOKING_INSPECTION_VIDEOS;
 const MAX_INSPECTION_PHOTO_SIZE_BYTES = 1024 * 1024;
+const MAX_INSPECTION_VIDEO_SIZE_BYTES = MAX_BOOKING_INSPECTION_VIDEO_SIZE_BYTES;
 const INSPECTION_IMAGE_FOLDER = "project-x/bookings/inspection-images";
+const INSPECTION_VIDEO_FOLDER = "project-x/bookings/inspection-videos";
 let resendClient = null;
 let activeResendApiKey = null;
 
@@ -201,11 +210,12 @@ const createHandoverOtp = (generatedAt = new Date()) => {
 const validateInspectionImages = (files) => {
   if (
     !Array.isArray(files) ||
-    files.length !== REQUIRED_INSPECTION_PHOTO_COUNT
+    files.length < MIN_INSPECTION_PHOTO_COUNT ||
+    files.length > MAX_INSPECTION_PHOTO_COUNT
   ) {
     throw new ApiError(
       400,
-      `Exactly ${REQUIRED_INSPECTION_PHOTO_COUNT} car inspection photos are required`,
+      `Upload between ${MIN_INSPECTION_PHOTO_COUNT} and ${MAX_INSPECTION_PHOTO_COUNT} car inspection photos`,
     );
   }
 
@@ -226,94 +236,150 @@ const validateInspectionImages = (files) => {
   }
 };
 
-const cleanupUploadedInspectionImages = async (uploadedImages = []) => {
-  if (uploadedImages.length === 0) return;
+const validateInspectionVideo = (video) => {
+  if (!video || REQUIRED_INSPECTION_VIDEO_COUNT !== 1) {
+    throw new ApiError(400, "Exactly one car inspection video is required");
+  }
+
+  if (!video.mimetype?.startsWith("video/")) {
+    throw new ApiError(400, "Only a video file is allowed for car inspection video");
+  }
+
+  if (video.size > MAX_INSPECTION_VIDEO_SIZE_BYTES) {
+    throw new ApiError(400, "The car inspection video must be 50 MB or less");
+  }
+};
+
+const getUploadSource = (file) => file?.path || file?.buffer;
+
+const cleanupUploadedInspectionMedia = async ({ images = [], video = null } = {}) => {
+  const assets = [
+    ...images.map((image) => ({ publicId: image.public_id, resourceType: "image" })),
+    ...(video ? [{ publicId: video.public_id, resourceType: "video" }] : []),
+  ].filter((asset) => asset.publicId);
+
+  if (assets.length === 0) return;
 
   const results = await Promise.allSettled(
-    uploadedImages.map((image) =>
-      deleteFromCloudinary(image.public_id, "image"),
+    assets.map((asset) =>
+      deleteFromCloudinary(asset.publicId, asset.resourceType),
     ),
   );
 
-  const failedCleanup = results.filter(
-    (result) => result.status === "rejected",
-  );
+  const failedCleanup = results.filter((result) => result.status === "rejected");
 
   if (failedCleanup.length > 0) {
     console.error(
-      `[inspection-upload] unable to cleanup ${failedCleanup.length} uploaded image(s)`,
+      `[inspection-upload] unable to cleanup ${failedCleanup.length} uploaded media file(s)`,
     );
   }
 };
 
-const uploadInspectionImages = async ({
+const getExistingInspectionMedia = async ({ bookingId, phase }) => {
+  const records = await prisma.bookingInspectionImage.findMany({
+    where: { bookingId, phase },
+    orderBy: [{ mediaType: "asc" }, { order: "asc" }],
+  });
+
+  return {
+    records,
+    images: records.filter((item) => item.mediaType !== "VIDEO"),
+    videos: records.filter((item) => item.mediaType === "VIDEO"),
+  };
+};
+
+const isCompleteInspectionMedia = ({ images, videos }) =>
+  images.length >= MIN_INSPECTION_PHOTO_COUNT &&
+  images.length <= MAX_INSPECTION_PHOTO_COUNT &&
+  videos.length === REQUIRED_INSPECTION_VIDEO_COUNT;
+
+const uploadInspectionMedia = async ({
   bookingId,
   garageId,
   phase,
-  files,
+  images,
+  video,
 }) => {
-  validateInspectionImages(files);
+  validateInspectionImages(images);
+  validateInspectionVideo(video);
 
-  const existingImages = await prisma.bookingInspectionImage.findMany({
-    where: { bookingId, phase },
-    orderBy: { order: "asc" },
-  });
+  const existingMedia = await getExistingInspectionMedia({ bookingId, phase });
 
-  if (existingImages.length > 0) {
-    if (existingImages.length === REQUIRED_INSPECTION_PHOTO_COUNT) {
-      return existingImages;
+  if (existingMedia.records.length > 0) {
+    if (isCompleteInspectionMedia(existingMedia)) {
+      return existingMedia.records;
     }
 
     throw new ApiError(
       400,
-      `Existing ${phase.toLowerCase()} inspection photos are incomplete`,
+      `Existing ${phase.toLowerCase()} inspection media is incomplete`,
     );
   }
 
   const uploadedImages = [];
+  let uploadedVideo = null;
 
   try {
-    for (const file of files) {
+    for (const file of images) {
       const uploaded = await uploadToCloudinary(
-        file.buffer,
+        getUploadSource(file),
         INSPECTION_IMAGE_FOLDER,
         "image",
       );
       uploadedImages.push(uploaded);
     }
 
-    await prisma.bookingInspectionImage.createMany({
-      data: uploadedImages.map((image, index) => ({
-        bookingId,
-        garageId,
-        phase,
-        imageUrl: image.secure_url,
-        publicId: image.public_id,
-        order: index,
-      })),
-    });
+    uploadedVideo = await uploadToCloudinary(
+      getUploadSource(video),
+      INSPECTION_VIDEO_FOLDER,
+      "video",
+    );
+
+    await prisma.$transaction([
+      prisma.bookingInspectionImage.createMany({
+        data: uploadedImages.map((image, index) => ({
+          bookingId,
+          garageId,
+          phase,
+          mediaType: "IMAGE",
+          imageUrl: image.secure_url,
+          publicId: image.public_id,
+          order: index,
+        })),
+      }),
+      prisma.bookingInspectionImage.create({
+        data: {
+          bookingId,
+          garageId,
+          phase,
+          mediaType: "VIDEO",
+          imageUrl: uploadedVideo.secure_url,
+          publicId: uploadedVideo.public_id,
+          order: 0,
+        },
+      }),
+    ]);
   } catch (error) {
-    await cleanupUploadedInspectionImages(uploadedImages);
+    await cleanupUploadedInspectionMedia({
+      images: uploadedImages,
+      video: uploadedVideo,
+    });
 
-    const existingImagesAfterRace =
-      await prisma.bookingInspectionImage.findMany({
-        where: { bookingId, phase },
-        orderBy: { order: "asc" },
-      });
+    const existingMediaAfterRace = await getExistingInspectionMedia({
+      bookingId,
+      phase,
+    });
 
-    if (
-      existingImagesAfterRace.length === REQUIRED_INSPECTION_PHOTO_COUNT
-    ) {
-      return existingImagesAfterRace;
+    if (isCompleteInspectionMedia(existingMediaAfterRace)) {
+      return existingMediaAfterRace.records;
     }
 
     throw error;
   }
 
-  return prisma.bookingInspectionImage.findMany({
-    where: { bookingId, phase },
-    orderBy: { order: "asc" },
-  });
+  return (
+    await getExistingInspectionMedia({ bookingId, phase })
+  ).records;
 };
 
 const bookingDetailInclude = {
@@ -323,7 +389,7 @@ const bookingDetailInclude = {
   services: { include: { service: true } },
   payment: true,
   inspectionImages: {
-    orderBy: [{ phase: "asc" }, { order: "asc" }],
+    orderBy: [{ phase: "asc" }, { mediaType: "asc" }, { order: "asc" }],
   },
 };
 
@@ -600,6 +666,7 @@ const verifyBookingHandoverOtp = async ({
   requestId,
   otp,
   images,
+  video,
 }) => {
   const request = await prisma.garageBroadcastRequest.findFirst({
     where: {
@@ -747,11 +814,12 @@ const verifyBookingHandoverOtp = async ({
   }
 
   try {
-    await uploadInspectionImages({
+    await uploadInspectionMedia({
       bookingId: request.bookingId,
       garageId,
       phase: "PICKUP",
-      files: images,
+      images,
+      video,
     });
 
     const verifiedAt = new Date();
@@ -824,6 +892,7 @@ const markBookingDeliveredByGarage = async ({
   garageId,
   requestId,
   images,
+  video,
 }) => {
   const request = await prisma.garageBroadcastRequest.findFirst({
     where: {
@@ -875,11 +944,12 @@ const markBookingDeliveredByGarage = async ({
     );
   }
 
-  await uploadInspectionImages({
+  await uploadInspectionMedia({
     bookingId: booking.id,
     garageId,
     phase: "DELIVERY",
-    files: images,
+    images,
+    video,
   });
 
   const updatedBooking = await prisma.booking.update({
@@ -971,7 +1041,7 @@ const acceptDeliveredBookingByCustomer = async ({
       payment: true,
       review: true,
       inspectionImages: {
-        orderBy: [{ phase: "asc" }, { order: "asc" }],
+        orderBy: [{ phase: "asc" }, { mediaType: "asc" }, { order: "asc" }],
       },
     },
   });

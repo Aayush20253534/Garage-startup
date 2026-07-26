@@ -143,8 +143,10 @@ function ReviewStars({ rating = 0 }) {
 
 function ReviewInspectionPhotos({ images = [], phase, label }) {
   const filtered = images
-    .filter((image) => image.phase === phase)
+    .filter((item) => item.phase === phase)
     .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+  const photos = filtered.filter((item) => item.mediaType !== "VIDEO");
+  const videos = filtered.filter((item) => item.mediaType === "VIDEO");
 
   if (!filtered.length) return null;
 
@@ -153,23 +155,34 @@ function ReviewInspectionPhotos({ images = [], phase, label }) {
       <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
         {label}
       </p>
-      <div className="grid grid-cols-5 gap-2">
-        {filtered.map((image, index) => (
-          <a
-            key={image.id || `${phase}-${index}`}
-            href={image.imageUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="overflow-hidden rounded-lg border border-line bg-bg-soft"
-          >
-            <img
-              src={image.imageUrl}
-              alt={`${label} ${index + 1}`}
-              className="aspect-square w-full object-cover"
-            />
-          </a>
-        ))}
-      </div>
+      {photos.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          {photos.map((image, index) => (
+            <a
+              key={image.id || `${phase}-photo-${index}`}
+              href={image.imageUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="overflow-hidden rounded-lg border border-line bg-bg-soft"
+            >
+              <img
+                src={image.imageUrl}
+                alt={`${label} photo ${index + 1}`}
+                className="aspect-square w-full object-cover"
+              />
+            </a>
+          ))}
+        </div>
+      )}
+      {videos.map((video, index) => (
+        <video
+          key={video.id || `${phase}-video-${index}`}
+          src={video.imageUrl}
+          controls
+          preload="metadata"
+          className="mt-3 max-h-72 w-full rounded-lg border border-line bg-black object-contain"
+        />
+      ))}
     </div>
   );
 }
@@ -1651,12 +1664,12 @@ export default function Garages() {
                                 <ReviewInspectionPhotos
                                   images={inspectionImages}
                                   phase="PICKUP"
-                                  label="Pickup photos"
+                                  label="Pickup evidence"
                                 />
                                 <ReviewInspectionPhotos
                                   images={inspectionImages}
                                   phase="DELIVERY"
-                                  label="Delivery photos"
+                                  label="Delivery evidence"
                                 />
                               </div>
                             )}

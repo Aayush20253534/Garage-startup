@@ -24,11 +24,11 @@ For a self drop-off booking, open the tracker for the assigned garage address, d
 
 ## In Progress
 
-The handover OTP has been verified, the required pickup or drop-off inspection photos were recorded, and service has started. Follow the tracker and garage updates. Normal cancellation is no longer available after service begins; use customer support if there is a problem.
+The handover OTP has been verified, the required pickup or drop-off inspection photos and video were recorded, and service has started. Follow the tracker and garage updates. Normal cancellation is no longer available after service begins; use customer support if there is a problem.
 
 ## Delivery Ready Or Ready For Customer Pickup
 
-The garage has completed the work, recorded post-service inspection photos, and is waiting for customer confirmation.
+The garage has completed the work, recorded post-service inspection photos and video, and is waiting for customer confirmation.
 
 For pickup-and-delivery bookings, review the delivered vehicle and photos, enter the final amount paid to the garage, and accept delivery.
 
