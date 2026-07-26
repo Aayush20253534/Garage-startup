@@ -1018,7 +1018,7 @@ const controllerItems = [
 
 const adminItems = [
   { to: "/admin", label: "Dashboard", icon: FiGrid },
-  { to: "/admin/control-center", label: "Control Center", icon: FiShield },
+  { to: "/admin/control-center", label: "Control Center", icon: FiSettings },
   { to: "/admin/cars", label: "Cars", icon: FiTruck },
   { to: "/admin/services", label: "Services", icon: FiBriefcase },
   { to: "/admin/garages", label: "Garages", icon: FiHome },
