@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
+import SafeImage from "@/components/common/SafeImage";
+import { getOptimizedImageUrl } from "@/utils/imageCache";
 import {
   FiAlertCircle,
   FiCheckCircle,
@@ -11,6 +13,14 @@ import {
   FiTruck,
 } from "react-icons/fi";
 
+const normalizeCatalogName = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const getCatalogKey = (brand, model) =>
+  `${normalizeCatalogName(brand)}::${normalizeCatalogName(model)}`;
+
 export default function MyVehicles() {
   const {
     vehicles,
@@ -19,6 +29,8 @@ export default function MyVehicles() {
     setVehicles,
     fetchVehicles,
     vehiclesCache,
+    vehicleMetaCache,
+    fetchVehicleMeta,
     clearDashboardCache,
     clearVehiclesCache,
   } = useApp();
@@ -31,6 +43,29 @@ export default function MyVehicles() {
   const [defaultLoadingId, setDefaultLoadingId] = useState(null);
 
   const safeVehicles = Array.isArray(vehicles) ? vehicles : [];
+  const modelImageByVehicle = useMemo(() => {
+    const catalog = Array.isArray(vehicleMetaCache) ? vehicleMetaCache : [];
+    const imageMap = new Map();
+
+    catalog.forEach((brand) => {
+      const models = Array.isArray(brand?.models) ? brand.models : [];
+
+      models.forEach((model) => {
+        if (!model?.imageUrl) return;
+        imageMap.set(getCatalogKey(brand?.name, model?.name), model.imageUrl);
+      });
+    });
+
+    return imageMap;
+  }, [vehicleMetaCache]);
+
+  const getVehicleModelImage = (savedVehicle) =>
+    savedVehicle?.modelImageUrl ||
+    savedVehicle?.vehicleModel?.imageUrl ||
+    modelImageByVehicle.get(
+      getCatalogKey(savedVehicle?.brand, savedVehicle?.model),
+    ) ||
+    "";
 
   const syncVehicleState = (list = []) => {
     const safeList = Array.isArray(list) ? list : [];
@@ -59,6 +94,7 @@ export default function MyVehicles() {
 
   useEffect(() => {
     loadVehicles();
+    fetchVehicleMeta?.({ force: true }).catch(() => null);
   }, []);
 
   const handleSetDefault = async (selectedVehicle) => {
@@ -132,7 +168,12 @@ export default function MyVehicles() {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => loadVehicles({ force: true })}
+            onClick={() => {
+              void Promise.allSettled([
+                loadVehicles({ force: true }),
+                fetchVehicleMeta?.({ force: true }),
+              ]);
+            }}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
           >
             <FiRefreshCw />
@@ -162,6 +203,7 @@ export default function MyVehicles() {
             const isActive = vehicle?.id === v.id || v.isDefault;
             const isSettingDefault = defaultLoadingId === v.id;
             const isDeleting = deletingId === v.id;
+            const modelImageUrl = getVehicleModelImage(v);
 
             return (
               <article
@@ -180,9 +222,20 @@ export default function MyVehicles() {
                   className="w-full text-left disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-xl text-black">
-                      <FiTruck />
-                    </span>
+                    <SafeImage
+                      src={getOptimizedImageUrl(modelImageUrl, { width: 360 })}
+                      alt={`${v.brand} ${v.model}`}
+                      width="360"
+                      height="240"
+                      loading="lazy"
+                      decoding="async"
+                      className="h-20 w-28 shrink-0 rounded-xl border border-line bg-white object-cover"
+                      fallback={
+                        <span className="flex h-20 w-28 shrink-0 items-center justify-center rounded-xl bg-brand text-2xl text-black">
+                          <FiTruck />
+                        </span>
+                      }
+                    />
 
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-bold text-ink">
