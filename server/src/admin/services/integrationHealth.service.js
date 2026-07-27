@@ -365,24 +365,35 @@ const checkWhatsapp = () =>
 
       const versionMatch = providerUrl.match(/graph\.facebook\.com\/(v\d+\.\d+)\//i);
       const graphVersion = versionMatch?.[1] || clean(process.env.WHATSAPP_GRAPH_VERSION) || "v25.0";
+      // Meta documents the single business-phone-number lookup without an
+      // explicit fields list. Forcing display_phone_number through Graph's
+      // generic `fields` parameter can return error #100 for some phone-number
+      // objects/API versions even though the token and sender ID are valid.
       const response = await axios.get(
         `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(phoneNumberId)}`,
         {
-          params: {
-            fields: "display_phone_number,verified_name,quality_rating",
-          },
           headers: { Authorization: `Bearer ${token}` },
           timeout: PROBE_TIMEOUT_MS,
         },
       );
 
+      const metadataAvailable = Boolean(
+        response.data?.display_phone_number ||
+          response.data?.verified_name ||
+          response.data?.quality_rating,
+      );
+
       return {
-        message: "Meta verified the WhatsApp phone-number credentials",
+        message: metadataAvailable
+          ? "Meta verified the WhatsApp phone-number credentials"
+          : "Meta verified access to the configured WhatsApp sender",
         details: {
           provider: "Meta Cloud API",
+          senderObjectId: response.data?.id ? String(response.data.id) : String(phoneNumberId),
           verifiedName: response.data?.verified_name || null,
           displayPhoneNumber: maskPhone(response.data?.display_phone_number),
           qualityRating: response.data?.quality_rating || null,
+          metadataAvailable,
           webhookVerificationConfigured: Boolean(
             clean(process.env.WHATSAPP_VERIFY_TOKEN || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN),
           ),

@@ -49,6 +49,12 @@ test("health checks cover core infrastructure and external providers with timeou
   assert.match(service, /redis\.ping\(\)/);
   assert.match(service, /cloudinary\.api\.ping\(\)/);
   assert.match(service, /graph\.facebook\.com/);
+  assert.match(service, /Meta documents the single business-phone-number lookup/);
+  assert.doesNotMatch(
+    service,
+    /fields:\s*["']display_phone_number,verified_name,quality_rating["']/,
+  );
+  assert.match(service, /metadataAvailable/);
   assert.match(service, /getCashfreeBaseUrl/);
   assert.match(service, /resend\.domains\.list\(\)/);
   assert.match(service, /auth\.listUsers\(1\)/);
