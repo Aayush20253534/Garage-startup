@@ -760,10 +760,6 @@ const AdminSystemHealth = lazyPage(
   () => import("@/pages/admin/SystemHealth"),
   "AdminSystemHealth",
 );
-const AdminSystemIssues = lazyPage(
-  () => import("@/pages/admin/SystemIssues"),
-  "AdminSystemIssues",
-);
 const AdminLogin = lazyPage(() => import("@/pages/admin/Login"), "AdminLogin");
 const AdminForgotPassword = lazyPage(() => import("@/pages/admin/ForgotPassword"), "AdminForgotPassword");
 const AdminCustomers = lazyPage(
@@ -1062,7 +1058,7 @@ const internItems = [
   { to: "/intern/customers", label: "Customers", icon: FiUsers },
   { to: "/intern/bookings", label: "Bookings", icon: FiCalendar },
   { to: "/intern/pending-bookings", label: "Pending Bookings", icon: FiClock },
-  { to: "/intern/system-issues", label: "System Issues", icon: FiAlertTriangle },
+  { to: "/intern/system-health", label: "System Health", icon: FiActivity },
 ];
 
 function GaragePortalLayout() {
@@ -1409,7 +1405,7 @@ function AppRoutes() {
           <Route
             path="/admin/integration-health"
             element={
-              <ProtectedRoute mainAdminOnly>
+              <ProtectedRoute>
                 <Navigate to="/admin/system-health?view=integrations" replace />
               </ProtectedRoute>
             }
@@ -1604,10 +1600,26 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/intern/system-health"
+            element={
+              <ProtectedRoute>
+                <AdminSystemHealth />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/intern/system-issues"
             element={
               <ProtectedRoute>
-                <AdminSystemIssues />
+                <Navigate to="/intern/system-health?view=issues" replace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/integration-health"
+            element={
+              <ProtectedRoute>
+                <Navigate to="/intern/system-health?view=integrations" replace />
               </ProtectedRoute>
             }
           />

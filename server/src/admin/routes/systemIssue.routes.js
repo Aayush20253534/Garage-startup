@@ -18,17 +18,21 @@ router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 router.get("/stats", controller.getIssueStats);
 router.get("/", issueQuerySchema, validate, controller.listIssues);
 router.get("/:issueId", issueIdSchema, validate, controller.getIssue);
-router.delete("/resolved", authorizeRoles("ADMIN", "SUB_ADMIN"), controller.clearResolvedIssues);
+router.delete(
+  "/resolved",
+  authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"),
+  controller.clearResolvedIssues,
+);
 router.patch(
   "/:issueId/status",
-  authorizeRoles("ADMIN", "SUB_ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"),
   updateIssueStatusSchema,
   validate,
   controller.updateIssueStatus,
 );
 router.delete(
   "/:issueId",
-  authorizeRoles("ADMIN", "SUB_ADMIN"),
+  authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"),
   issueIdSchema,
   validate,
   controller.deleteIssue,

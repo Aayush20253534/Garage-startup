@@ -158,7 +158,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   };
 
   const isSystemHealthItem = (item) =>
-    item.to.endsWith("/system-issues") || item.to === "/admin/system-health";
+    item.to.endsWith("/system-issues") || item.to.endsWith("/system-health");
 
   const badgeForItem = (item) => {
     if (item.to === "/dashboard/notifications") return unreadCount;

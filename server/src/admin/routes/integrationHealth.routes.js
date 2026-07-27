@@ -9,7 +9,7 @@ const validate = require("../../middlewares/validate.middleware");
 const router = express.Router();
 
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
+router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 
 router.get(
   "/",

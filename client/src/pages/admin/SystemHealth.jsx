@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FiActivity, FiAlertTriangle, FiServer } from "react-icons/fi";
-import { useApp } from "@/hooks/useApp";
 import IntegrationHealth from "@/pages/admin/IntegrationHealth";
 import SystemIssues from "@/pages/admin/SystemIssues";
 
@@ -9,24 +8,19 @@ const VIEW_ISSUES = "issues";
 const VIEW_INTEGRATIONS = "integrations";
 
 export default function SystemHealth() {
-  const { user } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isMainAdmin = user?.role === "ADMIN";
   const requestedView = searchParams.get("view");
   const activeView =
-    requestedView === VIEW_INTEGRATIONS && isMainAdmin
-      ? VIEW_INTEGRATIONS
-      : VIEW_ISSUES;
+    requestedView === VIEW_INTEGRATIONS ? VIEW_INTEGRATIONS : VIEW_ISSUES;
 
   useEffect(() => {
     const isValidView =
-      requestedView === VIEW_ISSUES ||
-      (requestedView === VIEW_INTEGRATIONS && isMainAdmin);
+      requestedView === VIEW_ISSUES || requestedView === VIEW_INTEGRATIONS;
 
     if (!isValidView) {
       setSearchParams({ view: VIEW_ISSUES }, { replace: true });
     }
-  }, [isMainAdmin, requestedView, setSearchParams]);
+  }, [requestedView, setSearchParams]);
 
   const selectView = (view) => {
     setSearchParams({ view });
@@ -39,16 +33,12 @@ export default function SystemHealth() {
       description: "Recorded frontend, backend and worker failures",
       icon: FiAlertTriangle,
     },
-    ...(isMainAdmin
-      ? [
-          {
-            key: VIEW_INTEGRATIONS,
-            label: "Integration Health",
-            description: "Live infrastructure and provider checks",
-            icon: FiServer,
-          },
-        ]
-      : []),
+    {
+      key: VIEW_INTEGRATIONS,
+      label: "Integration Health",
+      description: "Live infrastructure and provider checks",
+      icon: FiServer,
+    },
   ];
 
   return (

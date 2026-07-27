@@ -149,7 +149,7 @@ export default function AdminDashboard() {
       caption: `${stats.criticalSystemIssues || 0} critical issue(s)`,
       tone: "bg-red-50 text-red-700",
       to: isInternPortal
-        ? "/intern/system-issues"
+        ? "/intern/system-health?view=issues"
         : "/admin/system-health?view=issues",
     },
   ];

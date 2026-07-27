@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
 import { notifySystemIssuesUpdated } from "@/hooks/useOpenSystemIssueCount";
-import { useApp } from "@/hooks/useApp";
 import {
   FiActivity,
   FiAlertCircle,
@@ -54,8 +53,6 @@ const emptyStats = {
 };
 
 export default function SystemIssues({ embedded = false }) {
-  const { user } = useApp();
-  const isIntern = user?.role === "INTERN";
   const [issues, setIssues] = useState([]);
   const [stats, setStats] = useState(emptyStats);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
@@ -194,15 +191,13 @@ export default function SystemIssues({ embedded = false }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {!isIntern && (
-            <button
-              type="button"
-              onClick={clearResolved}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
-            >
-              <FiTrash2 /> Clear resolved
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={clearResolved}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+          >
+            <FiTrash2 /> Clear resolved
+          </button>
           <button
             type="button"
             onClick={() => load()}
@@ -217,12 +212,6 @@ export default function SystemIssues({ embedded = false }) {
       {error && (
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <FiAlertCircle className="shrink-0" /> {error}
-        </div>
-      )}
-
-      {isIntern && (
-        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
-          Intern access is read-only. Admins and Main Admins can change status, add notes, and delete issue records.
         </div>
       )}
 
@@ -346,16 +335,14 @@ export default function SystemIssues({ embedded = false }) {
                         >
                           <FiEye />
                         </button>
-                        {!isIntern && (
-                          <button
-                            type="button"
-                            onClick={() => deleteIssue(issue)}
-                            className="grid h-9 w-9 place-items-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
-                            aria-label="Delete issue"
-                          >
-                            <FiTrash2 />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => deleteIssue(issue)}
+                          className="grid h-9 w-9 place-items-center rounded-lg bg-red-50 text-red-700 transition hover:bg-red-100"
+                          aria-label="Delete issue"
+                        >
+                          <FiTrash2 />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -460,31 +447,23 @@ export default function SystemIssues({ embedded = false }) {
                   ))}
                 </div>
 
-                {isIntern ? (
-                  <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
-                    Read-only access. Resolution notes and status changes require an admin account.
-                  </div>
-                ) : (
-                  <>
-                    <label className="grid gap-2 text-sm">
-                      <span className="font-bold text-ink">Admin note</span>
-                      <textarea
-                        value={resolutionNote}
-                        onChange={(event) => setResolutionNote(event.target.value)}
-                        rows={4}
-                        placeholder="Investigation or resolution details"
-                        className="resize-none rounded-xl border border-line px-3 py-2 outline-none focus:border-ink"
-                      />
-                    </label>
+                <label className="grid gap-2 text-sm">
+                  <span className="font-bold text-ink">Staff note</span>
+                  <textarea
+                    value={resolutionNote}
+                    onChange={(event) => setResolutionNote(event.target.value)}
+                    rows={4}
+                    placeholder="Investigation or resolution details"
+                    className="resize-none rounded-xl border border-line px-3 py-2 outline-none focus:border-ink"
+                  />
+                </label>
 
-                    <div className="grid gap-2">
-                      <button type="button" disabled={updating} onClick={() => updateStatus(selectedIssue, "INVESTIGATING")} className="rounded-xl bg-amber-100 px-4 py-3 text-sm font-bold text-amber-900 disabled:opacity-50">Mark investigating</button>
-                      <button type="button" disabled={updating} onClick={() => updateStatus(selectedIssue, "RESOLVED")} className="rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">Mark resolved</button>
-                      <button type="button" disabled={updating} onClick={() => updateStatus(selectedIssue, "OPEN")} className="rounded-xl border border-line px-4 py-3 text-sm font-bold text-ink disabled:opacity-50">Reopen</button>
-                      <button type="button" disabled={updating} onClick={() => updateStatus(selectedIssue, "IGNORED")} className="rounded-xl bg-bg-soft px-4 py-3 text-sm font-bold text-muted disabled:opacity-50">Ignore issue</button>
-                    </div>
-                  </>
-                )}
+                <div className="grid gap-2">
+                  <button type="button" disabled={updating} onClick={() => updateStatus(selectedIssue, "INVESTIGATING")} className="rounded-xl bg-amber-100 px-4 py-3 text-sm font-bold text-amber-900 disabled:opacity-50">Mark investigating</button>
+                  <button type="button" disabled={updating} onClick={() => updateStatus(selectedIssue, "RESOLVED")} className="rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">Mark resolved</button>
+                  <button type="button" disabled={updating} onClick={() => updateStatus(selectedIssue, "OPEN")} className="rounded-xl border border-line px-4 py-3 text-sm font-bold text-ink disabled:opacity-50">Reopen</button>
+                  <button type="button" disabled={updating} onClick={() => updateStatus(selectedIssue, "IGNORED")} className="rounded-xl bg-bg-soft px-4 py-3 text-sm font-bold text-muted disabled:opacity-50">Ignore issue</button>
+                </div>
               </aside>
             </div>
           </div>
