@@ -8,6 +8,8 @@ const {
 
 const LOGO_MAX_SIZE = 2 * 1024 * 1024;
 const LOGO_FOLDER = "rovauto/vehicle-brands";
+const MODEL_PHOTO_MAX_SIZE = 2 * 1024 * 1024;
+const MODEL_PHOTO_FOLDER = "rovauto/vehicle-models";
 
 const normalizeName = (value) => String(value || "").trim();
 
@@ -42,6 +44,34 @@ const uploadLogo = async (file) => {
 const deleteUploadedLogo = async (logo) => {
   if (!logo?.logoPublicId) return;
   await deleteFromCloudinary(logo.logoPublicId, "image").catch(() => null);
+};
+
+const uploadModelPhoto = async (file) => {
+  if (!file) return null;
+
+  if (!file.mimetype?.startsWith("image/")) {
+    throw new ApiError(400, "Car model photo must be an image");
+  }
+
+  if (file.size > MODEL_PHOTO_MAX_SIZE) {
+    throw new ApiError(400, "Car model photo must be under 2 MB");
+  }
+
+  const result = await uploadToCloudinary(
+    file.buffer,
+    MODEL_PHOTO_FOLDER,
+    "image",
+  );
+
+  return {
+    imageUrl: result.secure_url,
+    imagePublicId: result.public_id,
+  };
+};
+
+const deleteUploadedModelPhoto = async (photo) => {
+  if (!photo?.imagePublicId) return;
+  await deleteFromCloudinary(photo.imagePublicId, "image").catch(() => null);
 };
 
 const getBrand = async (brandId) => {
@@ -208,17 +238,21 @@ const deactivateBrand = async (brandId) => {
   return brand;
 };
 
-const createModel = async (brandId, payload) => {
+const createModel = async (brandId, payload, file) => {
   await getBrand(brandId);
 
   const name = normalizeName(payload.name);
   if (!name) throw new ApiError(400, "Car model name is required");
+
+  const photo = await uploadModelPhoto(file);
 
   try {
     const model = await prisma.vehicleModel.create({
       data: {
         brandId,
         name,
+        imageUrl: photo?.imageUrl || null,
+        imagePublicId: photo?.imagePublicId || null,
         isActive:
           payload.isActive === undefined ||
           payload.isActive === true ||
@@ -229,6 +263,7 @@ const createModel = async (brandId, payload) => {
     await invalidateVehicleMetaCache();
     return model;
   } catch (error) {
+    await deleteUploadedModelPhoto(photo);
     if (error.code === "P2002") {
       throw new ApiError(409, "This car model already exists under the brand");
     }
@@ -236,8 +271,8 @@ const createModel = async (brandId, payload) => {
   }
 };
 
-const updateModel = async (modelId, payload) => {
-  await getModel(modelId);
+const updateModel = async (modelId, payload, file) => {
+  const existingModel = await getModel(modelId);
 
   const data = {};
   if (payload.name !== undefined) {
@@ -250,15 +285,33 @@ const updateModel = async (modelId, payload) => {
     data.isActive = payload.isActive === true || payload.isActive === "true";
   }
 
+  const photo = await uploadModelPhoto(file);
+
+  if (photo) {
+    data.imageUrl = photo.imageUrl;
+    data.imagePublicId = photo.imagePublicId;
+  }
+
   try {
     const model = await prisma.vehicleModel.update({
       where: { id: modelId },
       data,
     });
 
+    if (
+      photo?.imagePublicId &&
+      existingModel.imagePublicId &&
+      existingModel.imagePublicId !== photo.imagePublicId
+    ) {
+      await deleteFromCloudinary(existingModel.imagePublicId, "image").catch(
+        () => null,
+      );
+    }
+
     await invalidateVehicleMetaCache();
     return model;
   } catch (error) {
+    await deleteUploadedModelPhoto(photo);
     if (error.code === "P2002") {
       throw new ApiError(409, "This car model already exists under the brand");
     }
@@ -267,11 +320,17 @@ const updateModel = async (modelId, payload) => {
 };
 
 const deleteModel = async (modelId) => {
-  await getModel(modelId);
+  const existingModel = await getModel(modelId);
 
   const model = await prisma.vehicleModel.delete({
     where: { id: modelId },
   });
+
+  if (existingModel.imagePublicId) {
+    await deleteFromCloudinary(existingModel.imagePublicId, "image").catch(
+      () => null,
+    );
+  }
 
   await invalidateVehicleMetaCache();
   return model;

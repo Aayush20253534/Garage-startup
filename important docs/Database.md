@@ -104,7 +104,7 @@ A vehicle may have only one nonterminal active booking through the database guar
 | `CityServicePriceRange` | Approved live price range by normalized scope |
 | `PriceRangeSubmission` | Pending/edited/reviewed moderation history |
 | `VehicleBrand` | Active brand and optional logo asset |
-| `VehicleModel` | Unique brand/model pair |
+| `VehicleModel` | Unique brand/model pair with optional 2 MB Cloudinary image asset |
 
 `CityServicePriceRange.scopeKey` is the canonical unique identity for normalized city, service, vehicle brand/model, and fuel type. A database check requires `minPrice >= 0` and `maxPrice >= minPrice`. Live checkout reads only the approved range table; submissions do not become live until moderation succeeds.
 

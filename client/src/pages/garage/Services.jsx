@@ -11,10 +11,14 @@ import {
   FiTool,
 } from "react-icons/fi";
 import api from "@/api/axios";
+import SafeImage from "@/components/common/SafeImage";
 import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import { CATEGORY_UI } from "@/data/services";
 import { setServices } from "@/store/garageSlice";
-import { getServiceThumbnailUrl } from "@/utils/imageCache";
+import {
+  getOptimizedImageUrl,
+  getServiceThumbnailUrl,
+} from "@/utils/imageCache";
 import { formatRupeeRange } from "@/utils/priceRange";
 
 const FUEL_TYPES = [
@@ -201,6 +205,15 @@ export default function GarageServices() {
       )
       .sort((left, right) => left.name.localeCompare(right.name));
   }, [coverageAssignments, selectedBrand, selectedBrandRecord]);
+
+  const selectedModelRecord = useMemo(
+    () =>
+      modelOptions.find(
+        (model) =>
+          normalizeComparable(model.name) === normalizeComparable(selectedModel),
+      ) || null,
+    [modelOptions, selectedModel],
+  );
 
   const assignedServices = useMemo(() => {
     const grouped = new Map();
@@ -477,9 +490,28 @@ export default function GarageServices() {
               </div>
 
               {selectedVehicleLabel && (
-                <p className="mt-3 rounded-lg border border-line bg-bg-soft px-3 py-2 text-xs font-semibold text-ink">
-                  Showing eligibility and pricing for {selectedVehicleLabel}
-                </p>
+                <div className="mt-3 flex items-center gap-3 rounded-lg border border-line bg-bg-soft p-2.5">
+                  {selectedModelRecord && (
+                    <SafeImage
+                      src={getOptimizedImageUrl(selectedModelRecord.imageUrl, {
+                        width: 180,
+                      })}
+                      alt={`${selectedBrand} ${selectedModelRecord.name}`}
+                      width="180"
+                      height="112"
+                      loading="lazy"
+                      className="h-14 w-20 shrink-0 rounded-md bg-white object-cover"
+                      fallback={
+                        <div className="grid h-14 w-20 shrink-0 place-items-center rounded-md bg-white text-xl text-muted">
+                          <FiTag />
+                        </div>
+                      }
+                    />
+                  )}
+                  <p className="min-w-0 text-xs font-semibold text-ink">
+                    Showing eligibility and pricing for {selectedVehicleLabel}
+                  </p>
+                </div>
               )}
             </div>
           </div>

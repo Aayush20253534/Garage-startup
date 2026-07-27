@@ -100,7 +100,10 @@ export default function VehicleSelect() {
         ...item,
         icon: null,
         image: getOptimizedImageUrl(item.logoUrl, { width: 192 }),
-        models: item.models || [],
+        models: (item.models || []).map((catalogModel) => ({
+          ...catalogModel,
+          image: getOptimizedImageUrl(catalogModel.imageUrl, { width: 480 }),
+        })),
       }));
 
       setBrands(mappedBrands);
@@ -119,16 +122,16 @@ export default function VehicleSelect() {
       const list = fetchVehicles ? await fetchVehicles({ force: true }) : [];
       const safeList = syncVehicleState(list || []);
 
+      await loadVehicleBrands();
+
       if (safeList.length > 0) {
         setShowForm(false);
       } else {
         setShowForm(true);
-        await loadVehicleBrands();
       }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load vehicles");
       setShowForm(true);
-      await loadVehicleBrands();
     } finally {
       setLoading(false);
     }
@@ -228,6 +231,22 @@ export default function VehicleSelect() {
   const selectFuel = (selectedFuel) => {
     setFuel(selectedFuel);
     scrollToNextSection(detailsSectionRef);
+  };
+
+  const getCatalogModelForVehicle = (savedVehicle) => {
+    const savedBrandName = String(savedVehicle?.brand || "")
+      .trim()
+      .toLowerCase();
+    const savedModelName = String(savedVehicle?.model || "")
+      .trim()
+      .toLowerCase();
+    const catalogBrand = brands.find(
+      (item) => String(item.name || "").trim().toLowerCase() === savedBrandName,
+    );
+
+    return catalogBrand?.models?.find(
+      (item) => String(item.name || "").trim().toLowerCase() === savedModelName,
+    );
   };
 
   const handleSetDefault = async (selectedVehicle) => {
@@ -397,6 +416,7 @@ export default function VehicleSelect() {
               const isActive = vehicle?.id === item.id || item.isDefault;
               const isSelecting = defaultLoadingId === item.id;
               const activeBooking = activeBookingsByVehicleId[item.id];
+              const catalogModel = getCatalogModelForVehicle(item);
 
               return (
                 <button
@@ -414,9 +434,19 @@ export default function VehicleSelect() {
                   ].join(" ")}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-xl text-black">
-                      <FiTruck />
-                    </span>
+                    <SafeImage
+                      src={catalogModel?.image}
+                      alt={`${item.brand} ${item.model}`}
+                      width="160"
+                      height="112"
+                      loading="lazy"
+                      className="h-14 w-20 shrink-0 rounded-xl border border-line bg-white object-cover"
+                      fallback={
+                        <span className="flex h-14 w-20 shrink-0 items-center justify-center rounded-xl bg-brand text-xl text-black">
+                          <FiTruck />
+                        </span>
+                      }
+                    />
 
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-bold text-ink">
@@ -587,13 +617,33 @@ export default function VehicleSelect() {
                       type="button"
                       onClick={() => selectModel(m)}
                       className={[
-                        "rounded-xl border px-4 py-3 text-left text-sm transition",
+                        "overflow-hidden rounded-xl border text-left text-sm transition",
                         model?.id === m.id
                           ? "border-ink bg-ink text-white"
                           : "border-line bg-white text-ink hover:border-ink",
                       ].join(" ")}
                     >
-                      <div className="font-bold">
+                      <SafeImage
+                        src={m.image}
+                        alt={`${brand.name} ${m.name}`}
+                        width="480"
+                        height="270"
+                        loading="lazy"
+                        className="aspect-[16/9] w-full object-cover"
+                        fallback={
+                          <div
+                            className={[
+                              "grid aspect-[16/9] w-full place-items-center text-3xl",
+                              model?.id === m.id
+                                ? "bg-white/10 text-white"
+                                : "bg-bg-soft text-muted",
+                            ].join(" ")}
+                          >
+                            <FiTruck />
+                          </div>
+                        }
+                      />
+                      <div className="p-3 font-bold">
                         {brand.name} {m.name}
                       </div>
                     </button>
@@ -670,22 +720,16 @@ export default function VehicleSelect() {
                 className="card-soft rounded-2xl border border-brand bg-brand-soft/30 p-4 shadow-sm"
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand p-2">
+                  <span className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white">
                     <SafeImage
-                      src={brand.image}
-                      alt={brand.name}
-                      width="128"
-                      height="128"
+                      src={model.image || brand.image}
+                      alt={`${brand.name} ${model.name}`}
+                      width="240"
+                      height="160"
                       decoding="async"
-                      className="h-8 w-8 object-contain"
+                      className="h-full w-full object-cover"
                       fallback={
-                        brand.icon ? (
-                          <brand.icon className="h-8 w-8 text-ink" />
-                        ) : (
-                          <span className="font-bold text-ink">
-                            {brand.name.charAt(0)}
-                          </span>
-                        )
+                        <FiTruck className="h-8 w-8 text-ink" />
                       }
                     />
                   </span>

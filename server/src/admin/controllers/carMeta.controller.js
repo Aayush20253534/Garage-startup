@@ -57,14 +57,14 @@ const deactivateBrand = asyncHandler(async (req, res) => {
 });
 
 const createModel = asyncHandler(async (req, res) => {
-  const model = await service.createModel(req.params.brandId, req.body);
+  const model = await service.createModel(req.params.brandId, req.body, req.file);
   return res
     .status(201)
     .json(new ApiResponse(201, "Car model created successfully", model));
 });
 
 const updateModel = asyncHandler(async (req, res) => {
-  const model = await service.updateModel(req.params.modelId, req.body);
+  const model = await service.updateModel(req.params.modelId, req.body, req.file);
   return res
     .status(200)
     .json(new ApiResponse(200, "Car model updated successfully", model));

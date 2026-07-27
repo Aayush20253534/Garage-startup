@@ -1147,13 +1147,15 @@ model VehicleBrand {
 }
 
 model VehicleModel {
-  id        String       @id @default(uuid())
-  brandId   String
-  name      String
-  isActive  Boolean      @default(true)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  brand     VehicleBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  id            String       @id @default(uuid())
+  brandId       String
+  name          String
+  imageUrl      String?
+  imagePublicId String?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  brand         VehicleBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
   @@unique([brandId, name])
   @@index([brandId])

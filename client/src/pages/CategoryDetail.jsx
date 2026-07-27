@@ -36,6 +36,7 @@ import {
 } from "@/utils/priceRange";
 import {
   getCategoryThumbnailUrl,
+  getOptimizedImageUrl,
   getServiceImageUrls,
   getServiceThumbnailUrl,
   warmImageCache,
@@ -124,6 +125,9 @@ export default function CategoryDetail() {
   const availableModels = Array.isArray(draftBrand?.models)
     ? draftBrand.models
     : [];
+  const draftSelectedModel = availableModels.find(
+    (model) => model.id === guestFilterDraft.model,
+  );
   const allModelsSelected = guestModelId.toUpperCase() === "ALL";
   const guestFiltersActive = Boolean(
     !user && (guestCity || guestBrandId || guestModelId || guestFuelType),
@@ -536,6 +540,34 @@ export default function CategoryDetail() {
                   </option>
                 ))}
               </select>
+
+              {draftSelectedModel && (
+                <div className="mt-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2.5">
+                  <SafeImage
+                    src={getOptimizedImageUrl(draftSelectedModel.imageUrl, {
+                      width: 180,
+                    })}
+                    alt={`${draftBrand?.name || "Vehicle"} ${draftSelectedModel.name}`}
+                    width="180"
+                    height="112"
+                    loading="lazy"
+                    className="h-14 w-20 shrink-0 rounded-md bg-white object-cover"
+                    fallback={
+                      <div className="grid h-14 w-20 shrink-0 place-items-center rounded-md bg-white text-xl text-gray-500">
+                        <FiTruck />
+                      </div>
+                    }
+                  />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-bold text-gray-950">
+                      {draftBrand?.name} {draftSelectedModel.name}
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      Selected model
+                    </div>
+                  </div>
+                </div>
+              )}
             </label>
 
             <label className="block min-w-0">

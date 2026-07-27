@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
+import SafeImage from "@/components/common/SafeImage";
+import { getOptimizedImageUrl } from "@/utils/imageCache";
 import {
   FiAlertCircle,
   FiCheckCircle,
@@ -13,6 +15,7 @@ import {
 } from "react-icons/fi";
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+const MAX_MODEL_PHOTO_BYTES = 2 * 1024 * 1024;
 
 const emptyBrandForm = {
   id: "",
@@ -98,6 +101,39 @@ export default function Cars() {
     }
 
     setBrandForm((current) => ({ ...current, logo: file }));
+  };
+
+  const setModelPhoto = (brandId, file) => {
+    setError("");
+
+    if (!file) {
+      setModelForms((current) => ({
+        ...current,
+        [brandId]: {
+          ...(current[brandId] || {}),
+          photo: null,
+        },
+      }));
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setError("Car model photo must be an image file.");
+      return;
+    }
+
+    if (file.size > MAX_MODEL_PHOTO_BYTES) {
+      setError("Car model photo must be under 2 MB.");
+      return;
+    }
+
+    setModelForms((current) => ({
+      ...current,
+      [brandId]: {
+        ...(current[brandId] || {}),
+        photo: file,
+      },
+    }));
   };
 
   const buildBrandPayload = () => {
@@ -197,19 +233,21 @@ export default function Cars() {
 
     try {
       let savedModel;
+      const payload = new FormData();
+
+      payload.append("name", modelName);
+      payload.append("isActive", String(modelForm.isActive !== false));
+
+      if (modelForm.photo) {
+        payload.append("photo", modelForm.photo);
+      }
 
       if (modelForm.id) {
-        savedModel = await adminApi.updateCarModel(modelForm.id, {
-          name: modelName,
-          isActive: modelForm.isActive !== false,
-        });
+        savedModel = await adminApi.updateCarModel(modelForm.id, payload);
 
         setSuccess("Car model updated.");
       } else {
-        savedModel = await adminApi.createCarModel(brand.id, {
-          name: modelName,
-          isActive: true,
-        });
+        savedModel = await adminApi.createCarModel(brand.id, payload);
 
         setSuccess("Car model added.");
       }
@@ -243,6 +281,8 @@ export default function Cars() {
           name: "",
           id: "",
           isActive: true,
+          photo: null,
+          existingImageUrl: "",
         },
       }));
     } catch (err) {
@@ -257,6 +297,8 @@ export default function Cars() {
         id: model.id,
         name: model.name,
         isActive: Boolean(model.isActive),
+        photo: null,
+        existingImageUrl: model.imageUrl || "",
       },
     }));
   };
@@ -268,6 +310,8 @@ export default function Cars() {
         name: "",
         id: "",
         isActive: true,
+        photo: null,
+        existingImageUrl: "",
       },
     }));
   };
@@ -299,7 +343,13 @@ export default function Cars() {
         current[brandId]?.id === model.id
           ? {
               ...current,
-              [brandId]: { name: "", id: "", isActive: true },
+              [brandId]: {
+                name: "",
+                id: "",
+                isActive: true,
+                photo: null,
+                existingImageUrl: "",
+              },
             }
           : current
       );
@@ -486,6 +536,8 @@ export default function Cars() {
               name: "",
               id: "",
               isActive: true,
+              photo: null,
+              existingImageUrl: "",
             };
 
             return (
@@ -552,7 +604,7 @@ export default function Cars() {
                 </div>
 
                 <div className="grid gap-3 p-4">
-                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_220px_auto_auto]">
                     <input
                       value={modelForm.name}
                       onChange={(event) =>
@@ -567,6 +619,36 @@ export default function Cars() {
                       placeholder="Add or edit model"
                       className={fieldClass}
                     />
+
+                    <label className={fileClass}>
+                      {modelForm.existingImageUrl && !modelForm.photo ? (
+                        <SafeImage
+                          src={getOptimizedImageUrl(
+                            modelForm.existingImageUrl,
+                            { width: 80 },
+                          )}
+                          alt="Current model"
+                          className="h-7 w-10 shrink-0 rounded-md object-cover"
+                          fallback={<FiImage className="shrink-0" />}
+                        />
+                      ) : (
+                        <FiImage className="shrink-0" />
+                      )}
+                      <span className="truncate">
+                        {modelForm.photo?.name ||
+                          (modelForm.existingImageUrl
+                            ? "Replace photo"
+                            : "Upload photo")}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        onChange={(event) =>
+                          setModelPhoto(brand.id, event.target.files?.[0])
+                        }
+                        className="hidden"
+                      />
+                    </label>
 
                     <button
                       type="button"
@@ -589,48 +671,75 @@ export default function Cars() {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {(brand.models || []).length ? (
                       brand.models.map((model) => (
-                        <span
+                        <article
                           key={model.id}
                           className={[
-                            "inline-flex max-w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-sm",
+                            "overflow-hidden rounded-xl border text-sm",
                             model.isActive
                               ? "border-line bg-white text-ink"
                               : "border-line bg-bg-soft text-muted",
                           ].join(" ")}
                         >
-                          <span className="truncate">{model.name}</span>
-
-                          <button
-                            type="button"
-                            onClick={() => editModel(brand, model)}
-                            className="text-ink"
-                            aria-label={`Edit ${model.name}`}
-                          >
-                            <FiEdit3 />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => deleteModel(brand.id, model)}
-                            disabled={deletingModelIds.includes(model.id)}
-                            className="text-red-600 transition hover:text-red-700 disabled:cursor-wait disabled:opacity-40"
-                            aria-label={`Delete ${model.name}`}
-                          >
-                            <FiTrash2
-                              className={
-                                deletingModelIds.includes(model.id)
-                                  ? "animate-pulse"
-                                  : ""
+                          <div className="aspect-[16/9] border-b border-line bg-bg-soft">
+                            <SafeImage
+                              src={getOptimizedImageUrl(model.imageUrl, {
+                                width: 480,
+                              })}
+                              alt={`${brand.name} ${model.name}`}
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                              fallback={
+                                <div className="grid h-full place-items-center text-3xl text-muted">
+                                  <FiImage />
+                                </div>
                               }
                             />
-                          </button>
-                        </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 p-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-bold text-ink">
+                                {model.name}
+                              </div>
+                              <div className="mt-0.5 text-xs text-muted">
+                                {model.imageUrl
+                                  ? "Photo configured"
+                                  : "Photo not added"}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => editModel(brand, model)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-line text-ink transition hover:border-ink hover:bg-bg-soft"
+                              aria-label={`Edit ${model.name}`}
+                            >
+                              <FiEdit3 />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => deleteModel(brand.id, model)}
+                              disabled={deletingModelIds.includes(model.id)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 transition hover:bg-red-100 hover:text-red-700 disabled:cursor-wait disabled:opacity-40"
+                              aria-label={`Delete ${model.name}`}
+                            >
+                              <FiTrash2
+                                className={
+                                  deletingModelIds.includes(model.id)
+                                    ? "animate-pulse"
+                                    : ""
+                                }
+                              />
+                            </button>
+                          </div>
+                        </article>
                       ))
                     ) : (
-                      <span className="text-sm text-muted">
+                      <span className="text-sm text-muted sm:col-span-2 lg:col-span-3">
                         No models yet.
                       </span>
                     )}
