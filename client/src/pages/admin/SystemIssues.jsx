@@ -53,7 +53,7 @@ const emptyStats = {
   recent24h: 0,
 };
 
-export default function SystemIssues() {
+export default function SystemIssues({ embedded = false }) {
   const { user } = useApp();
   const isIntern = user?.role === "INTERN";
   const [issues, setIssues] = useState([]);
@@ -180,7 +180,14 @@ export default function SystemIssues() {
     <div className="mx-auto max-w-7xl space-y-5 overflow-x-hidden">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-ink">System Issues</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
+            {embedded ? "Recorded Incidents" : "Engineering Operations"}
+          </p>
+          {embedded ? (
+            <h2 className="mt-2 text-2xl font-extrabold text-ink">System Issues</h2>
+          ) : (
+            <h1 className="mt-2 text-3xl font-extrabold text-ink">System Issues</h1>
+          )}
           <p className="mt-1 text-sm text-muted">
             Customer, garage, browser, API, and background-worker disturbances grouped by cause.
           </p>

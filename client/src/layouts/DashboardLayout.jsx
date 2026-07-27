@@ -157,10 +157,13 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     navigate("/", { replace: true });
   };
 
+  const isSystemHealthItem = (item) =>
+    item.to.endsWith("/system-issues") || item.to === "/admin/system-health";
+
   const badgeForItem = (item) => {
     if (item.to === "/dashboard/notifications") return unreadCount;
     if (item.to === "/support/notify") return supportUnreadCount;
-    if (item.to.endsWith("/system-issues")) return openIssueCount;
+    if (isSystemHealthItem(item)) return openIssueCount;
     return 0;
   };
 
@@ -213,7 +216,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           <span
             className={[
               "ml-auto rounded-full px-2 py-0.5 text-xs font-bold",
-              item.to.endsWith("/system-issues")
+              isSystemHealthItem(item)
                 ? "bg-red-600 text-white"
                 : "bg-brand text-black",
             ].join(" ")}

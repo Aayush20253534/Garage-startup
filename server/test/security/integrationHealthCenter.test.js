@@ -7,23 +7,36 @@ const projectRoot = path.resolve(__dirname, "../../..");
 const read = (relativePath) =>
   fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 
-test("integration health center is restricted to the main admin and wired end to end", () => {
+test("system health combines integration checks and recorded issues without weakening provider access", () => {
   const routes = read("server/src/admin/routes/integrationHealth.routes.js");
   const indexRoutes = read("server/src/routes/index.routes.js");
   const app = read("client/src/App.jsx");
+  const layout = read("client/src/layouts/DashboardLayout.jsx");
+  const dashboard = read("client/src/pages/admin/Dashboard.jsx");
   const api = read("client/src/api/admin.js");
-  const page = read("client/src/pages/admin/IntegrationHealth.jsx");
+  const combinedPage = read("client/src/pages/admin/SystemHealth.jsx");
+  const integrationPage = read("client/src/pages/admin/IntegrationHealth.jsx");
+  const issuePage = read("client/src/pages/admin/SystemIssues.jsx");
 
   assert.match(routes, /router\.use\(protect\)/);
   assert.match(routes, /router\.use\(authorizeRoles\("ADMIN"\)\)/);
   assert.match(indexRoutes, /"\/admin\/integration-health"/);
-  assert.match(app, /label: "Integration Health"/);
-  assert.match(app, /mainAdminOnly: true/);
-  assert.match(app, /path="\/admin\/integration-health"/);
-  assert.match(app, /<ProtectedRoute mainAdminOnly>/);
+  assert.match(app, /label: "System Health"/);
+  assert.match(app, /path="\/admin\/system-health"/);
+  assert.match(app, /system-health\?view=integrations/);
+  assert.match(app, /system-health\?view=issues/);
+  assert.doesNotMatch(app, /label: "Integration Health"/);
+  assert.doesNotMatch(app, /label: "System Issues"[^\n]*admin/);
+  assert.match(layout, /item\.to === "\/admin\/system-health"/);
+  assert.match(dashboard, /admin\/system-health\?view=issues/);
   assert.match(api, /getIntegrationHealth/);
-  assert.match(page, /Integration Health Center/);
-  assert.match(page, /Run all checks/);
+  assert.match(combinedPage, /System Health/);
+  assert.match(combinedPage, /<IntegrationHealth embedded \/>/);
+  assert.match(combinedPage, /<SystemIssues embedded \/>/);
+  assert.match(combinedPage, /user\?\.role === "ADMIN"/);
+  assert.match(integrationPage, /Integration Health Center/);
+  assert.match(integrationPage, /Run all checks/);
+  assert.match(issuePage, /embedded = false/);
 });
 
 test("health checks cover core infrastructure and external providers with timeouts and caching", () => {

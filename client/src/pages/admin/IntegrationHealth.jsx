@@ -258,7 +258,7 @@ function LoadingState() {
   );
 }
 
-export default function IntegrationHealth() {
+export default function IntegrationHealth({ embedded = false }) {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -320,11 +320,17 @@ export default function IntegrationHealth() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
-              Platform Operations
+              {embedded ? "Live Provider Checks" : "Platform Operations"}
             </p>
-            <h1 className="mt-2 text-3xl font-extrabold text-ink">
-              Integration Health Center
-            </h1>
+            {embedded ? (
+              <h2 className="mt-2 text-2xl font-extrabold text-ink">
+                Integration Health
+              </h2>
+            ) : (
+              <h1 className="mt-2 text-3xl font-extrabold text-ink">
+                Integration Health Center
+              </h1>
+            )}
             <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
               Read-only checks for Rovauto infrastructure and external providers. These probes do not send messages, create payments or upload files.
             </p>

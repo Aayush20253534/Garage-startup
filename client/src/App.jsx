@@ -756,9 +756,13 @@ const AdminControlCenter = lazyPage(
   () => import("@/pages/admin/ControlCenter"),
   "AdminControlCenter",
 );
-const AdminIntegrationHealth = lazyPage(
-  () => import("@/pages/admin/IntegrationHealth"),
-  "AdminIntegrationHealth",
+const AdminSystemHealth = lazyPage(
+  () => import("@/pages/admin/SystemHealth"),
+  "AdminSystemHealth",
+);
+const AdminSystemIssues = lazyPage(
+  () => import("@/pages/admin/SystemIssues"),
+  "AdminSystemIssues",
 );
 const AdminLogin = lazyPage(() => import("@/pages/admin/Login"), "AdminLogin");
 const AdminForgotPassword = lazyPage(() => import("@/pages/admin/ForgotPassword"), "AdminForgotPassword");
@@ -794,10 +798,6 @@ const AdminCars = lazyPage(() => import("@/pages/admin/Cars"), "AdminCars");
 const AdminServices = lazyPage(
   () => import("@/pages/admin/Services"),
   "AdminServices",
-);
-const AdminSystemIssues = lazyPage(
-  () => import("@/pages/admin/SystemIssues"),
-  "AdminSystemIssues",
 );
 const AdminSubAdminAccounts = lazyPage(
   () => import("@/pages/admin/SubAdminAccounts"),
@@ -858,6 +858,7 @@ import {
   FiArrowLeft,
   FiAlertTriangle,
   FiAlertOctagon,
+  FiActivity,
   FiGrid,
   FiTruck,
   FiPlusCircle,
@@ -874,7 +875,6 @@ import {
   FiStar,
   FiUsers,
   FiSettings,
-  FiServer,
   FiDollarSign,
   FiSliders,
   FiHome,
@@ -1024,12 +1024,6 @@ const controllerItems = [
 const adminItems = [
   { to: "/admin", label: "Dashboard", icon: FiGrid },
   { to: "/admin/control-center", label: "Control Center", icon: FiSettings },
-  {
-    to: "/admin/integration-health",
-    label: "Integration Health",
-    icon: FiServer,
-    mainAdminOnly: true,
-  },
   { to: "/admin/cars", label: "Cars", icon: FiTruck },
   { to: "/admin/services", label: "Services", icon: FiBriefcase },
   { to: "/admin/garages", label: "Garages", icon: FiHome },
@@ -1043,7 +1037,7 @@ const adminItems = [
   { to: "/admin/customers", label: "Customers", icon: FiUsers },
   { to: "/admin/bookings", label: "Bookings", icon: FiCalendar },
   { to: "/admin/pending-bookings", label: "Pending Bookings", icon: FiClock },
-  { to: "/admin/system-issues", label: "System Issues", icon: FiAlertTriangle },
+  { to: "/admin/system-health", label: "System Health", icon: FiActivity },
   { to: "/admin/support-tickets", label: "Support & Disputes", icon: FiHelpCircle },
   { to: "/admin/customer-support-accounts", label: "Support Accounts", icon: FiHeadphones },
   { to: "/admin/garage-controllers", label: "Garage Controllers", icon: FiUserCheck },
@@ -1405,10 +1399,18 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/admin/system-health"
+            element={
+              <ProtectedRoute>
+                <AdminSystemHealth />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/integration-health"
             element={
               <ProtectedRoute mainAdminOnly>
-                <AdminIntegrationHealth />
+                <Navigate to="/admin/system-health?view=integrations" replace />
               </ProtectedRoute>
             }
           />
@@ -1488,7 +1490,7 @@ function AppRoutes() {
             path="/admin/system-issues"
             element={
               <ProtectedRoute>
-                <AdminSystemIssues />
+                <Navigate to="/admin/system-health?view=issues" replace />
               </ProtectedRoute>
             }
           />

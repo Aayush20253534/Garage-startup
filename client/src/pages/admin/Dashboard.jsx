@@ -148,7 +148,9 @@ export default function AdminDashboard() {
       label: "System issues",
       caption: `${stats.criticalSystemIssues || 0} critical issue(s)`,
       tone: "bg-red-50 text-red-700",
-      to: `${portalRoot}/system-issues`,
+      to: isInternPortal
+        ? "/intern/system-issues"
+        : "/admin/system-health?view=issues",
     },
   ];
 
