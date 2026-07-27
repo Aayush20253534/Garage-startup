@@ -55,6 +55,10 @@ export const adminApi = {
     return unwrap(await api.get("/admin/control-center/overview"));
   },
 
+  async getIntegrationHealth(params = {}) {
+    return unwrap(await api.get("/admin/integration-health", { params }));
+  },
+
   async getAuditLogs(params = {}) {
     return unwrap(await api.get("/admin/control-center/audit-logs", { params }));
   },

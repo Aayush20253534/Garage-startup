@@ -756,6 +756,10 @@ const AdminControlCenter = lazyPage(
   () => import("@/pages/admin/ControlCenter"),
   "AdminControlCenter",
 );
+const AdminIntegrationHealth = lazyPage(
+  () => import("@/pages/admin/IntegrationHealth"),
+  "AdminIntegrationHealth",
+);
 const AdminLogin = lazyPage(() => import("@/pages/admin/Login"), "AdminLogin");
 const AdminForgotPassword = lazyPage(() => import("@/pages/admin/ForgotPassword"), "AdminForgotPassword");
 const AdminCustomers = lazyPage(
@@ -870,6 +874,7 @@ import {
   FiStar,
   FiUsers,
   FiSettings,
+  FiServer,
   FiDollarSign,
   FiSliders,
   FiHome,
@@ -1019,6 +1024,12 @@ const controllerItems = [
 const adminItems = [
   { to: "/admin", label: "Dashboard", icon: FiGrid },
   { to: "/admin/control-center", label: "Control Center", icon: FiSettings },
+  {
+    to: "/admin/integration-health",
+    label: "Integration Health",
+    icon: FiServer,
+    mainAdminOnly: true,
+  },
   { to: "/admin/cars", label: "Cars", icon: FiTruck },
   { to: "/admin/services", label: "Services", icon: FiBriefcase },
   { to: "/admin/garages", label: "Garages", icon: FiHome },
@@ -1390,6 +1401,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminControlCenter />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/integration-health"
+            element={
+              <ProtectedRoute mainAdminOnly>
+                <AdminIntegrationHealth />
               </ProtectedRoute>
             }
           />

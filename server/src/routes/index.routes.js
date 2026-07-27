@@ -47,6 +47,7 @@ const subAdminAccountRoutes = require("../admin/routes/subAdminAccount.routes");
 const garageControllerAdminRoutes = require("../admin/routes/garageController.routes");
 const adminAuditMiddleware = require("../admin/middlewares/adminAudit.middleware");
 const adminControlCenterRoutes = require("../admin/routes/adminControlCenter.routes");
+const integrationHealthRoutes = require("../admin/routes/integrationHealth.routes");
 const garageControllerManagementRoutes = require("../garage/routes/controllerManagement.routes");
 const garageControllerSelfRoutes = require("../garage/routes/controllerSelf.routes");
 const customerSupportRoutes = require("../customerSupport/routes/customerSupport.routes");
@@ -151,6 +152,7 @@ router.use("/garage/controller", garageControllerSelfRoutes);
  * protect now resolves staff accounts from StaffAccount.
  */
 router.use("/admin/control-center", adminControlCenterRoutes);
+router.use("/admin/integration-health", integrationHealthRoutes);
 router.use(
   "/admin/garage-applications",
   adminGarageApplicationRoutes,
