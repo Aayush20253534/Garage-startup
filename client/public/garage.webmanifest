@@ -6,11 +6,19 @@
   "start_url": "/garage?pwa=garage",
   "scope": "/garage",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#f8fafc",
   "theme_color": "#0f172a",
-  "categories": ["business", "productivity", "automotive"],
+  "categories": [
+    "business",
+    "productivity",
+    "automotive"
+  ],
   "icons": [
     {
       "src": "/garage-icon-192.png",
@@ -48,25 +56,48 @@
       "name": "Garage dashboard",
       "short_name": "Dashboard",
       "url": "/garage",
-      "icons": [{ "src": "/garage-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/garage-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Manage jobs",
       "short_name": "Jobs",
       "url": "/garage/bookings",
-      "icons": [{ "src": "/garage-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/garage-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Garage services",
       "short_name": "Services",
       "url": "/garage/services",
-      "icons": [{ "src": "/garage-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/garage-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Garage wallet",
       "short_name": "Wallet",
       "url": "/garage/wallet",
-      "icons": [{ "src": "/garage-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/garage-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
-  ]
+  ],
+  "lang": "en-IN",
+  "dir": "ltr",
+  "prefer_related_applications": false
 }

@@ -6,11 +6,18 @@
   "start_url": "/admin?pwa=admin",
   "scope": "/admin",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#f8fafc",
   "theme_color": "#0f172a",
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/admin-icon-192.png",
@@ -48,25 +55,48 @@
       "name": "Admin dashboard",
       "short_name": "Dashboard",
       "url": "/admin",
-      "icons": [{ "src": "/admin-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/admin-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Manage bookings",
       "short_name": "Bookings",
       "url": "/admin/bookings",
-      "icons": [{ "src": "/admin-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/admin-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Support and disputes",
       "short_name": "Support",
       "url": "/admin/support-tickets",
-      "icons": [{ "src": "/admin-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/admin-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "System issues",
       "short_name": "Issues",
       "url": "/admin/system-issues",
-      "icons": [{ "src": "/admin-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/admin-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
-  ]
+  ],
+  "lang": "en-IN",
+  "dir": "ltr",
+  "prefer_related_applications": false
 }

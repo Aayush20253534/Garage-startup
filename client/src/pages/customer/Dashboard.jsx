@@ -395,7 +395,7 @@ function Dashboard() {
                 </div>
               </div>
 
-              <div className="mt-3 line-clamp-2 text-xs font-medium leading-5 text-slate-600 sm:text-sm">
+              <div className="mt-3 min-h-10 break-words text-xs font-medium leading-5 text-slate-600 [overflow-wrap:anywhere] sm:text-sm">
                 {item.sub}
               </div>
             </div>

@@ -172,21 +172,24 @@ const waitForWorkerActivation = async (registration) => {
   const worker = registration.installing || registration.waiting;
   if (!worker) return registration;
 
-  await new Promise((resolve) => {
-    if (worker.state === "activated") {
-      resolve();
-      return;
-    }
-
-    const handleStateChange = () => {
+  await Promise.race([
+    new Promise((resolve) => {
       if (worker.state === "activated" || worker.state === "redundant") {
-        worker.removeEventListener("statechange", handleStateChange);
         resolve();
+        return;
       }
-    };
 
-    worker.addEventListener("statechange", handleStateChange);
-  });
+      const handleStateChange = () => {
+        if (worker.state === "activated" || worker.state === "redundant") {
+          worker.removeEventListener("statechange", handleStateChange);
+          resolve();
+        }
+      };
+
+      worker.addEventListener("statechange", handleStateChange);
+    }),
+    new Promise((resolve) => window.setTimeout(resolve, 12000)),
+  ]);
 
   return registration;
 };
@@ -236,7 +239,7 @@ export const registerImageCacheWorker = () => {
     return;
   }
 
-  window.addEventListener("load", async () => {
+  const register = async () => {
     const hadController = Boolean(navigator.serviceWorker.controller);
     let reloadingForUpdate = false;
 
@@ -254,14 +257,28 @@ export const registerImageCacheWorker = () => {
 
     try {
       await getRovautoServiceWorkerRegistration();
+      window.dispatchEvent(new Event("rovauto-service-worker-ready"));
     } catch (error) {
       navigator.serviceWorker.removeEventListener(
         "controllerchange",
         reloadOnControllerChange,
       );
       console.warn("Service worker registration failed:", error);
+      window.dispatchEvent(
+        new CustomEvent("rovauto-service-worker-error", {
+          detail: { message: error?.message || "Service worker registration failed" },
+        }),
+      );
     }
-  });
+  };
+
+  // Register as soon as the document is interactive. Waiting for every image,
+  // font, and third-party resource delays installability on slower phones.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", register, { once: true });
+  } else {
+    void register();
+  }
 };
 
 export const warmImageCache = (urls = []) => {

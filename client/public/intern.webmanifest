@@ -6,11 +6,18 @@
   "start_url": "/intern?pwa=intern",
   "scope": "/intern",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#f8fafc",
   "theme_color": "#0f172a",
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/intern-icon-192.png",
@@ -48,25 +55,48 @@
       "name": "Intern dashboard",
       "short_name": "Dashboard",
       "url": "/intern",
-      "icons": [{ "src": "/intern-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/intern-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Manage bookings",
       "short_name": "Bookings",
       "url": "/intern/bookings",
-      "icons": [{ "src": "/intern-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/intern-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Garages",
       "short_name": "Garages",
       "url": "/intern/garages",
-      "icons": [{ "src": "/intern-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/intern-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "System issues",
       "short_name": "Issues",
       "url": "/intern/system-issues",
-      "icons": [{ "src": "/intern-icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/intern-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
-  ]
+  ],
+  "lang": "en-IN",
+  "dir": "ltr",
+  "prefer_related_applications": false
 }

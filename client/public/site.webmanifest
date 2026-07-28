@@ -3,14 +3,22 @@
   "name": "Rovauto",
   "short_name": "Rovauto",
   "description": "Verified vehicle service and garage booking platform.",
-  "start_url": "/",
+  "start_url": "/?pwa=customer",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#111111",
-  "categories": ["automotive", "business", "lifestyle"],
+  "categories": [
+    "automotive",
+    "business",
+    "lifestyle"
+  ],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -48,19 +56,37 @@
       "name": "Book a service",
       "short_name": "Book service",
       "url": "/booking/vehicle",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "My bookings",
       "short_name": "Bookings",
       "url": "/dashboard/bookings",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Notifications",
       "short_name": "Notifications",
       "url": "/dashboard/notifications",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
-  ]
+  ],
+  "lang": "en-IN",
+  "dir": "ltr",
+  "prefer_related_applications": false
 }

@@ -1,7 +1,18 @@
 const GARAGE_IMAGE_CACHE_PREFIX = "rovauto-garage-cloudinary-images-";
+const OFFLINE_URL = "/offline.html";
+const SHELL_CACHE_PREFIX = "rovauto-garage-shell-";
+const SHELL_CACHE = "rovauto-garage-shell-v1";
 
-self.addEventListener("install", () => {
-  self.skipWaiting();
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) =>
+        cache.add(new Request(OFFLINE_URL, { cache: "reload" })),
+      )
+      .catch(() => null)
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -11,7 +22,11 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith(GARAGE_IMAGE_CACHE_PREFIX))
+            .filter(
+              (key) =>
+                key.startsWith(GARAGE_IMAGE_CACHE_PREFIX) ||
+                (key.startsWith(SHELL_CACHE_PREFIX) && key !== SHELL_CACHE),
+            )
             .map((key) => caches.delete(key)),
         ),
       )
@@ -37,6 +52,29 @@ self.addEventListener("message", (event) => {
           .map((key) => caches.delete(key)),
       ),
     ),
+  );
+});
+
+// A small navigation fetch handler keeps the PWA installable on older mobile
+// browsers and provides a safe offline page without caching authenticated data.
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+
+  if (request.method !== "GET" || request.mode !== "navigate") {
+    return;
+  }
+
+  event.respondWith(
+    fetch(request).catch(async () => {
+      const fallback = await caches.match(OFFLINE_URL);
+      return (
+        fallback ||
+        new Response("Rovauto is offline.", {
+          status: 503,
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        })
+      );
+    }),
   );
 });
 

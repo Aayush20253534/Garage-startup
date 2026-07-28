@@ -9,6 +9,7 @@ export default function CustomerPwaInstall({ compact = false }) {
       promptKey="__ROVAUTO_INSTALL_PROMPT__"
       promptEvent="rovauto-install-ready"
       installedStorageKey="rovauto_customer_pwa_installed"
+      pwaId="customer"
       compact={compact}
       dark={false}
     />
