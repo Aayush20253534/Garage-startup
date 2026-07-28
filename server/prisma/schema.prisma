@@ -509,7 +509,8 @@ model Garage {
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
   ownerId               String?
-  controllerLimit       Int                       @default(3)
+  controllerLimit           Int                   @default(3)
+  controllerAccountsEnabled Boolean               @default(true)
   applicationId         String?                   @unique
   bookings              Booking[]
   inspectionImages      BookingInspectionImage[]
@@ -524,6 +525,7 @@ model Garage {
   reviews               Review[]
   trackingPoints        BookingTrackingPoint[]
   availabilityRules     ServiceAvailabilityRule[]
+  workerTasks           GarageWorkerTask[]
 
   operationalStatus     GarageOperationalStatus @default(ACTIVE)
   suspensionReason      String?
@@ -847,6 +849,7 @@ model Booking {
   supportTickets        SupportTicket[]
   walletTransactions    WalletTransaction[]
   escalations           BookingEscalation[]
+  workerTasks           GarageWorkerTask[]
 
   @@index([userId])
   @@index([garageId])
@@ -974,6 +977,7 @@ model GarageBroadcastRequest {
   booking              Booking                    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   garage               Garage                     @relation(fields: [garageId], references: [id], onDelete: Cascade)
   controllerDispatches GarageControllerDispatch[]
+  workerTasks          GarageWorkerTask[]
 
   @@unique([bookingId, garageId])
   @@index([bookingId])
@@ -1002,6 +1006,38 @@ model GarageControllerDispatch {
   @@map("garage_controller_dispatches")
 }
 
+model GarageWorkerTask {
+  id            String                 @id @default(uuid())
+  garageId      String
+  bookingId     String
+  requestId     String
+  taskType      GarageWorkerTaskType
+  status        GarageWorkerTaskStatus @default(ACTIVE)
+  workerName    String
+  workerPhone   String
+  tokenHash     String                 @unique
+  expiresAt     DateTime
+  openedAt      DateTime?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  revokedAt     DateTime?
+  lastLocationAt  DateTime?
+  createdByType String
+  createdById   String
+  createdByName String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  garage        Garage                 @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  booking       Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  request       GarageBroadcastRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  trackingPoints  BookingTrackingPoint[]
+
+  @@index([garageId, status, expiresAt])
+  @@index([bookingId, taskType, status])
+  @@index([requestId])
+  @@map("garage_worker_tasks")
+}
+
 model BookingTrackingPoint {
   id                 String            @id @default(uuid())
   bookingId          String
@@ -1009,6 +1045,7 @@ model BookingTrackingPoint {
   userId             String?
   garageOwnerId      String?
   garageControllerId String?
+  workerTaskId       String?
   source             TrackingSource    @default(GARAGE)
   latitude           Float
   longitude          Float
@@ -1025,12 +1062,14 @@ model BookingTrackingPoint {
   user               User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   garageOwner        GarageOwner?      @relation(fields: [garageOwnerId], references: [id], onDelete: SetNull)
   garageController   GarageController? @relation(fields: [garageControllerId], references: [id], onDelete: SetNull)
+  workerTask         GarageWorkerTask?  @relation(fields: [workerTaskId], references: [id], onDelete: SetNull)
 
   @@index([bookingId, recordedAt])
   @@index([garageId, recordedAt])
   @@index([userId, recordedAt])
   @@index([garageOwnerId, recordedAt])
   @@index([garageControllerId, recordedAt])
+  @@index([workerTaskId, recordedAt])
   @@map("booking_tracking_points")
 }
 
@@ -1858,6 +1897,19 @@ enum GarageFulfillmentMode {
   BOTH
   PICKUP_DELIVERY
   SELF_DROP_OFF
+}
+
+enum GarageWorkerTaskType {
+  HANDOVER
+  DELIVERY
+}
+
+enum GarageWorkerTaskStatus {
+  ACTIVE
+  IN_PROGRESS
+  COMPLETED
+  REVOKED
+  EXPIRED
 }
 
 enum TrackingSource {

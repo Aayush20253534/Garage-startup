@@ -104,13 +104,41 @@ const assertCanView = async (account, booking) => {
   throw new ApiError(403, "You cannot view tracking for this booking");
 };
 
-const resolveTrackingActor = async (account, booking) => {
+const resolveTrackingActor = async (account, booking, workerTask = null) => {
+  if (workerTask) {
+    const activeStatuses = new Set(["ACTIVE", "IN_PROGRESS"]);
+    if (
+      workerTask.bookingId !== booking.id ||
+      workerTask.garageId !== booking.garageId ||
+      !activeStatuses.has(workerTask.status) ||
+      workerTask.revokedAt ||
+      new Date(workerTask.expiresAt).getTime() <= Date.now()
+    ) {
+      throw new ApiError(403, "This worker task cannot share location for the booking");
+    }
+
+    return {
+      source: "GARAGE",
+      garageId: workerTask.garageId,
+      userId: null,
+      garageControllerId: null,
+      garageOwnerId: null,
+      workerTaskId: workerTask.id,
+    };
+  }
+
+  if (!account) {
+    throw new ApiError(401, "Authentication is required");
+  }
+
   if (account.accountType === "STAFF") {
     return {
       source: "ADMIN",
       garageId: booking.garageId,
       userId: null,
       garageOwnerId: null,
+      garageControllerId: null,
+      workerTaskId: null,
     };
   }
 
@@ -139,6 +167,7 @@ const resolveTrackingActor = async (account, booking) => {
     garageControllerId:
       account.role === "GARAGE_CONTROLLER" ? account.id : null,
     garageOwnerId: account.role === "GARAGE_OWNER" ? account.id : null,
+    workerTaskId: null,
   };
 };
 
@@ -223,9 +252,9 @@ const assertLiveTrackingEnabledForBooking = (booking) => {
   }
 };
 
-const startTracking = async ({ bookingId, account }) => {
+const startTracking = async ({ bookingId, account, workerTask = null }) => {
   const booking = await loadBooking(bookingId);
-  await resolveTrackingActor(account, booking);
+  await resolveTrackingActor(account, booking, workerTask);
   assertLiveTrackingEnabledForBooking(booking);
 
   if (!TRACKABLE_STATUSES.has(booking.status)) {
@@ -246,9 +275,9 @@ const startTracking = async ({ bookingId, account }) => {
   });
 };
 
-const addTrackingPoint = async ({ bookingId, account, data }) => {
+const addTrackingPoint = async ({ bookingId, account, workerTask = null, data }) => {
   const booking = await loadBooking(bookingId);
-  const actor = await resolveTrackingActor(account, booking);
+  const actor = await resolveTrackingActor(account, booking, workerTask);
   assertLiveTrackingEnabledForBooking(booking);
 
   if (!TRACKABLE_STATUSES.has(booking.status)) {
@@ -299,6 +328,7 @@ const addTrackingPoint = async ({ bookingId, account, data }) => {
         userId: actor.userId,
         garageOwnerId: actor.garageOwnerId,
         garageControllerId: actor.garageControllerId,
+        workerTaskId: actor.workerTaskId,
         source: actor.source,
         latitude: rawLocation.latitude,
         longitude: rawLocation.longitude,
@@ -376,9 +406,9 @@ const addTrackingPoint = async ({ bookingId, account, data }) => {
   };
 };
 
-const stopTracking = async ({ bookingId, account }) => {
+const stopTracking = async ({ bookingId, account, workerTask = null }) => {
   const booking = await loadBooking(bookingId);
-  await resolveTrackingActor(account, booking);
+  await resolveTrackingActor(account, booking, workerTask);
   assertLiveTrackingEnabledForBooking(booking);
 
   return prisma.booking.update({
@@ -399,6 +429,11 @@ const getTracking = async ({ bookingId, account }) => {
 
   const points = await prisma.bookingTrackingPoint.findMany({
     where: { bookingId },
+    include: {
+      workerTask: {
+        select: { id: true, workerName: true, taskType: true },
+      },
+    },
     orderBy: { recordedAt: "desc" },
     take: 100,
   });
@@ -450,6 +485,7 @@ const getTracking = async ({ bookingId, account }) => {
       speedKph: point.speedKph,
       accuracyM: point.accuracyM,
       roadPlaceId: point.roadPlaceId,
+      workerTask: point.workerTask,
       recordedAt: point.recordedAt,
     })),
   };

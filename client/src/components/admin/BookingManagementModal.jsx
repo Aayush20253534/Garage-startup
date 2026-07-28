@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
 import { formatRupees } from "@/utils/priceRange";
+import WorkerTaskManager from "@/components/garage/WorkerTaskManager";
 import {
   FiAlertCircle,
   FiCalendar,
@@ -295,6 +296,10 @@ export default function BookingManagementModal({ bookingId, isAdmin, onClose, on
                     ))}
                   </div>
                 </article>
+
+                {isAdmin && booking.garage?.controllerAccountsEnabled === false && (
+                  <WorkerTaskManager booking={booking} garage={booking.garage} />
+                )}
 
                 <article className="rounded-2xl border border-line bg-white p-4">
                   <h4 className="font-bold text-ink">Payment and scheduling</h4>

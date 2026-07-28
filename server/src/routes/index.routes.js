@@ -50,6 +50,8 @@ const adminControlCenterRoutes = require("../admin/routes/adminControlCenter.rou
 const integrationHealthRoutes = require("../admin/routes/integrationHealth.routes");
 const garageControllerManagementRoutes = require("../garage/routes/controllerManagement.routes");
 const garageControllerSelfRoutes = require("../garage/routes/controllerSelf.routes");
+const garageWorkerTaskRoutes = require("./garageWorkerTask.routes");
+const publicWorkerTaskRoutes = require("./publicWorkerTask.routes");
 const customerSupportRoutes = require("../customerSupport/routes/customerSupport.routes");
 const authController = require("../customer/controllers/auth.controller");
 const validate = require("../middlewares/validate.middleware");
@@ -89,6 +91,7 @@ router.use("/maps", mapsRoutes);
 router.use("/locations", locationRoutes);
 router.use("/push", pushRoutes);
 router.use("/customer-support", customerSupportRoutes);
+router.use("/worker-tasks", publicWorkerTaskRoutes);
 
 router.post(
   "/send-otp",
@@ -146,6 +149,7 @@ router.use("/garage/wallet-legacy", garageWalletRoutes);
 router.use("/garage/requests", garageRequestRoutes);
 router.use("/garage/controllers", garageControllerManagementRoutes);
 router.use("/garage/controller", garageControllerSelfRoutes);
+router.use("/garage/worker-tasks", garageWorkerTaskRoutes);
 
 /*
  * Admin and intern route modules already use protect plus role authorization.

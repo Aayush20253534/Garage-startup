@@ -747,6 +747,10 @@ const GarageWallet = lazyPage(
   "GarageWallet",
 );
 const MagicLink = lazyPage(() => import("@/pages/garage/MagicLink"), "MagicLink");
+const WorkerTask = lazyPage(
+  () => import("@/pages/worker/WorkerTask"),
+  "WorkerTask",
+);
 
 const AdminDashboard = lazyPage(
   () => import("@/pages/admin/Dashboard"),
@@ -1063,7 +1067,24 @@ const internItems = [
 
 function GaragePortalLayout() {
   const { garage } = useApp();
-  return <DashboardLayout items={garage?.isControllerSession ? controllerItems : garageItems} title={garage?.isControllerSession ? "Controller Portal" : "Garage Portal"} />;
+  const ownerItems =
+    garage?.controllerAccountsEnabled === false
+      ? garageItems.filter((item) => item.to !== "/garage/controllers")
+      : garageItems;
+  return (
+    <DashboardLayout
+      items={garage?.isControllerSession ? controllerItems : ownerItems}
+      title={garage?.isControllerSession ? "Controller Portal" : "Garage Portal"}
+    />
+  );
+}
+
+function GarageControllerAccountsRoute({ children }) {
+  const { garage } = useApp();
+  if (garage?.controllerAccountsEnabled === false) {
+    return <Navigate to="/garage" replace />;
+  }
+  return <GaragePortalRoute ownerOnly>{children}</GaragePortalRoute>;
 }
 
 function GaragePortalHome() {
@@ -1110,6 +1131,7 @@ function AppRoutes() {
             </SOSAvailabilityGuard>
           }
         />
+        <Route path="/worker-task/:token" element={<WorkerTask />} />
         <Route path="/support/login" element={<CustomerSupportLogin />} />
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
@@ -1372,7 +1394,7 @@ function AppRoutes() {
               </GaragePortalRoute>
             }
           />
-          <Route path="/garage/controllers" element={<GaragePortalRoute ownerOnly><GarageControllers /></GaragePortalRoute>} />
+          <Route path="/garage/controllers" element={<GarageControllerAccountsRoute><GarageControllers /></GarageControllerAccountsRoute>} />
         </Route>
 
         <Route

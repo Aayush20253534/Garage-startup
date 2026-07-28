@@ -86,9 +86,13 @@ const getActiveAccount = async (accountId, accountType, role = null) => {
         lastActiveAt: true,
         deletedAt: true,
         createdAt: true,
+        garage: { select: { controllerAccountsEnabled: true, isActive: true } },
       },
     });
-    return controller && !controller.deletedAt
+    return controller &&
+      !controller.deletedAt &&
+      controller.garage?.isActive !== false &&
+      controller.garage?.controllerAccountsEnabled !== false
       ? { ...controller, accountType: "GARAGE_CONTROLLER" }
       : null;
   }

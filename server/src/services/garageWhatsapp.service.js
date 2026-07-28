@@ -54,6 +54,11 @@ const CUSTOMER_BOOKING_CONFIRMED_TEMPLATE =
   "customer_booking_confirmed";
 const CUSTOMER_BOOKING_CONFIRMED_LANGUAGE =
   process.env.WHATSAPP_CUSTOMER_BOOKING_CONFIRMED_LANGUAGE || "en";
+const WORKER_TASK_TEMPLATE =
+  process.env.WHATSAPP_WORKER_TASK_TEMPLATE ||
+  "garage_worker_task_assignment";
+const WORKER_TASK_TEMPLATE_LANGUAGE =
+  process.env.WHATSAPP_WORKER_TASK_TEMPLATE_LANGUAGE || "en";
 
 const shouldUseTemplates = () => {
   const value = String(process.env.WHATSAPP_USE_TEMPLATES || "true").toLowerCase();
@@ -565,6 +570,69 @@ const sendGarageCustomerLocationWhatsapp = async ({ garage, booking, to = null }
   });
 };
 
+const sendGarageWorkerTaskWhatsapp = async ({ task, taskUrl, rawToken }) => {
+  const booking = task.booking || {};
+  const vehicle = booking.vehicle || {};
+  const workerName = task.workerName || "Worker";
+  const isSelfDropOff = bookingUsesSelfDropOff(booking);
+  const taskLabel =
+    task.taskType === "DELIVERY"
+      ? isSelfDropOff
+        ? "ready-for-self-pickup evidence"
+        : "vehicle delivery"
+      : isSelfDropOff
+        ? "vehicle handover at garage"
+        : "vehicle pickup and handover";
+  const vehicleLabel =
+    [vehicle.brand, vehicle.model].filter(Boolean).join(" ") || "Assigned vehicle";
+  const bookingCode = booking.bookingCode || booking.id || "Rovauto booking";
+  const locationLabel = !isSelfDropOff
+    ? booking.customerAddress ||
+      task.garage?.area ||
+      task.garage?.city ||
+      "See task page"
+    : task.garage?.address ||
+      task.garage?.area ||
+      task.garage?.city ||
+      "Assigned garage";
+  const fallbackMessage = [
+    `Hello ${workerName},`,
+    `You have been assigned a Rovauto ${taskLabel} task.`,
+    `Vehicle: ${vehicleLabel}`,
+    `Booking: ${bookingCode}`,
+    `Location: ${locationLabel}`,
+    "",
+    `Open task: ${taskUrl}`,
+    "No worker login or worker OTP is required.",
+    "For Hindi instructions, tap हिंदी and then 🔊 सुनें on the task page.",
+    "The customer handover OTP is required only when physically receiving the vehicle.",
+  ].join("\n");
+
+  return sendWhatsappTemplateMessage({
+    to: task.workerPhone,
+    templateName: WORKER_TASK_TEMPLATE,
+    languageCode: WORKER_TASK_TEMPLATE_LANGUAGE,
+    parameters: [workerName, taskLabel, vehicleLabel, bookingCode, locationLabel],
+    buttons: [
+      {
+        subType: "url",
+        index: 0,
+        // Approved URL prefix: https://www.rovauto.com/worker-task/{{1}}
+        parameters: [rawToken],
+      },
+    ],
+    fallbackMessage,
+    context: {
+      type: "garage_worker_task_assignment",
+      garageId: task.garageId,
+      bookingId: task.bookingId,
+      bookingCode,
+      workerTaskId: task.id,
+      workerTaskType: task.taskType,
+    },
+  });
+};
+
 const sendCustomerGarageDetailsWhatsapp = async ({
   customer,
   garage,
@@ -692,6 +760,7 @@ module.exports = {
   sendCustomerGarageDetailsWhatsapp,
   sendCustomerVehicleDeliveredWhatsapp,
   sendGarageBookingRequestWhatsapp,
+  sendGarageWorkerTaskWhatsapp,
   sendGarageCustomerLocationWhatsapp,
   sendWhatsappMessage,
   sendWhatsappTemplateMessage,

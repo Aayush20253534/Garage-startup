@@ -145,7 +145,7 @@ const invalidateGarageAdminChanges = async (garageId) => Promise.allSettled([
 
 const updateGarageDetails = async (garageId, payload = {}) => {
   const existingGarage = await getGarage(garageId);
-  const allowed = ["name", "description", "phone", "whatsappNo", "email", "address", "city", "area", "latitude", "longitude", "workingRadiusKm", "fulfillmentMode", "garageType", "supportedBrands", "excludedServiceBrands", "openingTime", "closingTime", "isVerified"];
+  const allowed = ["name", "description", "phone", "whatsappNo", "email", "address", "city", "area", "latitude", "longitude", "workingRadiusKm", "fulfillmentMode", "controllerAccountsEnabled", "garageType", "supportedBrands", "excludedServiceBrands", "openingTime", "closingTime", "isVerified"];
   const data = Object.fromEntries(allowed.filter((key) => payload[key] !== undefined).map((key) => [key, payload[key]]));
 
   if (Array.isArray(data.excludedServiceBrands)) {
@@ -180,6 +180,27 @@ const updateGarageDetails = async (garageId, payload = {}) => {
   await prisma.$transaction(async (tx) => {
     if (Object.keys(data).length) {
       await tx.garage.update({ where: { id: garageId }, data });
+
+      if (data.controllerAccountsEnabled === false) {
+        const controllerIds = await tx.garageController.findMany({
+          where: { garageId, deletedAt: null },
+          select: { id: true },
+        });
+        const ids = controllerIds.map((item) => item.id);
+        if (ids.length) {
+          await tx.garageControllerSession.updateMany({
+            where: { garageControllerId: { in: ids }, revokedAt: null },
+            data: { revokedAt: new Date() },
+          });
+        }
+      }
+
+      if (data.controllerAccountsEnabled === true) {
+        await tx.garageWorkerTask.updateMany({
+          where: { garageId, status: { in: ["ACTIVE", "IN_PROGRESS"] } },
+          data: { status: "REVOKED", revokedAt: new Date() },
+        });
+      }
     }
     if (Object.keys(ownerData).length) {
       await tx.garageOwner.update({

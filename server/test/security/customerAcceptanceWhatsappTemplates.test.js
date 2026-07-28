@@ -26,7 +26,7 @@ const extractFunction = (name, nextName) => {
   return whatsappServiceSource.slice(start, end);
 };
 
-test("customer garage details use the single approved customer WhatsApp template", () => {
+test("pickup garage details use the approved template while self-drop uses explicit instructions", () => {
   const source = extractFunction(
     "sendCustomerGarageDetailsWhatsapp",
     "sendCustomerVehicleDeliveredWhatsapp",
@@ -60,7 +60,8 @@ test("customer garage details use the single approved customer WhatsApp template
   assert.match(source, /subType:\s*"url"/);
   assert.match(source, /parameters:\s*\[mapButtonParameter\]/);
   assert.match(source, /registered email address/);
-  assert.doesNotMatch(source, /return sendWhatsappMessage\s*\(/);
+  assert.match(source, /if \(isSelfDropOff\)/);
+  assert.match(source, /return sendWhatsappMessage\s*\(/);
 });
 
 test("customer booking confirmation uses its own plain-English language code", () => {
@@ -127,14 +128,15 @@ test("garage acceptance sends one customer WhatsApp and logs OTP email delivery"
   assert.doesNotMatch(garageRequestSource, /handoverOtpWhatsapp/i);
 });
 
-test("WhatsApp environment exposes exactly the three required template names", () => {
+test("WhatsApp environment exposes the required customer, garage, and worker templates", () => {
   const templateVariables = envExampleSource
     .split(/\r?\n/)
     .filter((line) => /^WHATSAPP_.+_TEMPLATE=/.test(line));
 
-  assert.deepEqual(templateVariables, [
+  assert.deepEqual(templateVariables.sort(), [
     "WHATSAPP_GARAGE_REQUEST_TEMPLATE=garage_booking_request",
     "WHATSAPP_GARAGE_ACCEPTED_DETAILS_TEMPLATE=garage_booking_accepted_details",
     "WHATSAPP_CUSTOMER_BOOKING_CONFIRMED_TEMPLATE=customer_booking_confirmed",
-  ]);
+    "WHATSAPP_WORKER_TASK_TEMPLATE=garage_worker_task_assignment",
+  ].sort());
 });

@@ -752,9 +752,18 @@ const login = async (
         deletedAt: null,
         OR: [{ email: cleanEmail }, ...(cleanPhone ? [{ phone: cleanPhone }] : [])],
       },
+      include: {
+        garage: { select: { controllerAccountsEnabled: true, isActive: true } },
+      },
     });
     const isPasswordValid = await verifyLoginPassword(controller?.password, password);
-    if (!controller || !controller.isActive || !isPasswordValid) {
+    if (
+      !controller ||
+      !controller.isActive ||
+      controller.garage?.isActive === false ||
+      controller.garage?.controllerAccountsEnabled === false ||
+      !isPasswordValid
+    ) {
       throw new ApiError(401, INVALID_LOGIN_MESSAGE, "INVALID_CREDENTIALS");
     }
     return createGarageControllerAuthResult(controller, sessionMetadata);

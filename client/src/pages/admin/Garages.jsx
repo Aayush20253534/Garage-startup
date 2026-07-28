@@ -524,7 +524,7 @@ export default function Garages() {
       phone: selectedGarage.phone || "", whatsappNo: selectedGarage.whatsappNo || "", email: selectedGarage.email || "",
       address: selectedGarage.address || "", city: selectedGarage.city || "", area: selectedGarage.area || "",
       latitude: selectedGarage.latitude ?? "", longitude: selectedGarage.longitude ?? "", workingRadiusKm: selectedGarage.workingRadiusKm || 15,
-      garageType: selectedGarage.garageType || "MULTI_BRAND", fulfillmentMode: selectedGarage.fulfillmentMode || "BOTH", supportedBrands: getGarageBrands(selectedGarage).join(", "),
+      garageType: selectedGarage.garageType || "MULTI_BRAND", fulfillmentMode: selectedGarage.fulfillmentMode === "SELF_DROP_OFF" ? "SELF_DROP_OFF" : "BOTH", controllerAccountsEnabled: selectedGarage.controllerAccountsEnabled !== false, supportedBrands: getGarageBrands(selectedGarage).join(", "),
       openingTime: selectedGarage.openingTime || "", closingTime: selectedGarage.closingTime || "", isVerified: Boolean(selectedGarage.isVerified),
     });
     setEditingGarage(true);
@@ -1194,11 +1194,14 @@ export default function Garages() {
                             ) : (
                               <FiTruck />
                             )}
-                            {garage.fulfillmentMode === "PICKUP_DELIVERY"
-                              ? "Pickup only"
-                              : garage.fulfillmentMode === "SELF_DROP_OFF"
-                                ? "Self drop-off only"
-                                : "Pickup + self drop-off"}
+                            {garage.fulfillmentMode === "SELF_DROP_OFF"
+                              ? "Self drop only"
+                              : "Pickup + self drop"}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-md border border-violet-100 bg-violet-50 px-1.5 py-0.5 font-bold text-violet-700">
+                            {garage.controllerAccountsEnabled === false
+                              ? "Task links"
+                              : "Controllers"}
                           </span>
                         </div>
                       </button>
@@ -1336,7 +1339,8 @@ export default function Garages() {
                     {["name", "ownerName", "ownerEmail", "ownerPhone", "phone", "whatsappNo", "email", "address", "area", "latitude", "longitude", "workingRadiusKm", "openingTime", "closingTime"].map((key) => <label key={key} className={`grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted ${key === "address" ? "sm:col-span-2" : ""}`}>{key.replace(/([A-Z])/g, " $1")}<input required={["name", "ownerName", "ownerPhone", "phone", "address", "area", "latitude", "longitude", "workingRadiusKm"].includes(key)} type={["latitude", "longitude", "workingRadiusKm"].includes(key) ? "number" : ["openingTime", "closingTime"].includes(key) ? "time" : ["email", "ownerEmail"].includes(key) ? "email" : "text"} step={["latitude", "longitude"].includes(key) ? "any" : undefined} value={garageEditForm[key]} onChange={(event) => setGarageEditForm({ ...garageEditForm, [key]: event.target.value })} className={fieldClass} /></label>)}
                     <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">City<CitySelect required value={garageEditForm.city} onChange={(city) => setGarageEditForm({ ...garageEditForm, city })} className={fieldClass} /></label>
                     <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">Garage type<select value={garageEditForm.garageType} onChange={(event) => setGarageEditForm({ ...garageEditForm, garageType: event.target.value })} className={fieldClass}><option value="MULTI_BRAND">Multi-brand</option><option value="AUTHORIZED">Authorized</option></select></label>
-                    <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">Booking handover<select value={garageEditForm.fulfillmentMode} onChange={(event) => setGarageEditForm({ ...garageEditForm, fulfillmentMode: event.target.value })} className={fieldClass}><option value="BOTH">Pickup and self drop-off</option><option value="PICKUP_DELIVERY">Pickup & delivery only</option><option value="SELF_DROP_OFF">Self drop-off only</option></select></label>
+                    <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">Customer fulfilment<select value={garageEditForm.fulfillmentMode} onChange={(event) => setGarageEditForm({ ...garageEditForm, fulfillmentMode: event.target.value })} className={fieldClass}><option value="BOTH">Pickup + self drop</option><option value="SELF_DROP_OFF">Self drop only</option></select><span className="text-[11px] font-normal normal-case tracking-normal text-muted">Pickup bookings are never broadcast to self-drop-only garages.</span></label>
+                    <label className="flex items-start gap-3 rounded-lg border border-line bg-white px-3 py-3 text-sm text-ink"><input type="checkbox" checked={garageEditForm.controllerAccountsEnabled} onChange={(event) => setGarageEditForm({ ...garageEditForm, controllerAccountsEnabled: event.target.checked })} className="mt-1" /><span><strong className="block">Controller accounts active</strong><span className="mt-1 block text-xs font-normal leading-5 text-muted">Enabled keeps controller login and controller notifications. Disabled uses no-login WhatsApp worker task links.</span></span></label>
                     <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted sm:col-span-2">Supported brands (comma separated)<input value={garageEditForm.supportedBrands} onChange={(event) => setGarageEditForm({ ...garageEditForm, supportedBrands: event.target.value })} className={fieldClass} /></label>
                     <label className="flex items-center gap-2 self-end rounded-lg border border-line bg-white px-3 py-3 text-sm font-semibold text-ink"><input type="checkbox" checked={garageEditForm.isVerified} onChange={(event) => setGarageEditForm({ ...garageEditForm, isVerified: event.target.checked })} /> Verified garage</label>
                     <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wide text-muted sm:col-span-2 lg:col-span-3">Description<textarea rows={4} value={garageEditForm.description} onChange={(event) => setGarageEditForm({ ...garageEditForm, description: event.target.value })} className="rounded-lg border border-line bg-white p-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-ink" /></label>
@@ -1356,11 +1360,15 @@ export default function Garages() {
                   </span>
                   <span>
                     <strong className="text-ink">Booking handover:</strong>{" "}
-                    {selectedGarage.fulfillmentMode === "PICKUP_DELIVERY"
-                      ? "Pickup & delivery only"
-                      : selectedGarage.fulfillmentMode === "SELF_DROP_OFF"
-                        ? "Self drop-off only"
-                        : "Pickup and self drop-off"}
+                    {selectedGarage.fulfillmentMode === "SELF_DROP_OFF"
+                      ? "Self drop only"
+                      : "Pickup + self drop"}
+                  </span>
+                  <span>
+                    <strong className="text-ink">Worker access:</strong>{" "}
+                    {selectedGarage.controllerAccountsEnabled === false
+                      ? "WhatsApp task links (no account)"
+                      : "Controller accounts"}
                   </span>
                   <span>
                     <strong className="text-ink">Brands catered:</strong>{" "}

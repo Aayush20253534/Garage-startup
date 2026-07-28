@@ -392,9 +392,12 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
       : "Pickup & delivery";
 
   for (const request of activeRequests) {
-    const availableControllers = await garageControllerService.getAvailableControllers(
-      request.garage.id,
-    );
+    const availableControllers =
+      request.garage.controllerAccountsEnabled === false
+        ? []
+        : await garageControllerService.getAvailableControllers(
+            request.garage.id,
+          );
     const controllerMessage = `${fulfillmentLabel}. ${booking.vehicle?.brand || "Vehicle"} ${
       booking.vehicle?.model || ""
     } needs ${booking.services

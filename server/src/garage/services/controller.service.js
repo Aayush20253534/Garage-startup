@@ -48,7 +48,7 @@ const cleanName = (value) => String(value || "").trim().slice(0, 120);
 const resolveOwnerGarage = async (ownerId) => {
   const garage = await prisma.garage.findFirst({
     where: { ownerId },
-    select: { id: true, name: true, controllerLimit: true },
+    select: { id: true, name: true, controllerLimit: true, controllerAccountsEnabled: true },
   });
   if (!garage) throw new ApiError(404, "Garage not found for this owner");
   return garage;
@@ -59,7 +59,7 @@ const resolveManagedGarage = async (actor, requestedGarageId = null) => {
     if (!requestedGarageId) throw new ApiError(400, "Garage ID is required");
     const garage = await prisma.garage.findUnique({
       where: { id: requestedGarageId },
-      select: { id: true, name: true, controllerLimit: true },
+      select: { id: true, name: true, controllerLimit: true, controllerAccountsEnabled: true },
     });
     if (!garage) throw new ApiError(404, "Garage not found");
     return garage;
@@ -127,6 +127,9 @@ const getControllerActivity = async (actor, requestedGarageId, controllerId) => 
 
 const createController = async (actor, requestedGarageId, input) => {
   const garage = await resolveManagedGarage(actor, requestedGarageId);
+  if (garage.controllerAccountsEnabled === false) {
+    throw new ApiError(409, "Controller accounts are disabled for this garage");
+  }
   const name = cleanName(input.name);
   const email = normalizeEmail(input.email);
   const phone = normalizePhone(input.phone);
@@ -292,7 +295,7 @@ const setControllerLimit = async (actor, garageId, limit) => {
   return prisma.garage.update({
     where: { id: garageId },
     data: { controllerLimit: value },
-    select: { id: true, name: true, controllerLimit: true },
+    select: { id: true, name: true, controllerLimit: true, controllerAccountsEnabled: true },
   });
 };
 
@@ -327,6 +330,7 @@ const getAvailableControllers = (garageId) =>
   prisma.garageController.findMany({
     where: {
       garageId,
+      garage: { controllerAccountsEnabled: true },
       isActive: true,
       deletedAt: null,
       availability: "AVAILABLE",

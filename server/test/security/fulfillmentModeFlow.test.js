@@ -55,9 +55,9 @@ test("admin garage mode and notification eligibility include handover and vehicl
   const whatsappService = read("server/src/services/garageWhatsapp.service.js");
   const prismaSchemaCheck = read("server/src/scripts/assertPrismaClientSchema.js");
 
-  assert.match(garageAdmin, /Pickup and self drop-off/);
-  assert.match(garageAdmin, /Pickup & delivery only/);
-  assert.match(garageAdmin, /Self drop-off only/);
+  assert.match(garageAdmin, /Pickup \+ self drop/);
+  assert.match(garageAdmin, /Self drop only/);
+  assert.doesNotMatch(garageAdmin, /<option value="PICKUP_DELIVERY">/);
   assert.match(garageValidation, /body\("fulfillmentMode"\)/);
   assert.match(requestService, /fulfillmentType: bookingFulfillmentType/);
   assert.match(requestService, /supportedBrands: true/);

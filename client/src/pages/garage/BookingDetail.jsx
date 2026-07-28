@@ -20,6 +20,7 @@ import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
 import { getBookingTimelineState } from "@/utils/bookingTimeline";
 import { isSelfDropOffService } from "@/utils/serviceFulfillment";
+import WorkerTaskManager from "@/components/garage/WorkerTaskManager";
 
 
 
@@ -79,7 +80,7 @@ export default function GarageBookingDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { garageToken } = useApp();
+  const { garageToken, garage } = useApp();
   const { bookings } = useSelector((state) => state.garage);
   const [preServiceImages, setPreServiceImages] = useState([]);
   const [preServiceVideo, setPreServiceVideo] = useState(null);
@@ -418,6 +419,8 @@ export default function GarageBookingDetail() {
           {success}
         </div>
       )}
+
+      <WorkerTaskManager booking={booking} garage={garage} />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">

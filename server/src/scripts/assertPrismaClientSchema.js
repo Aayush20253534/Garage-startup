@@ -28,13 +28,23 @@ const bookingModel = Prisma.dmmf.datamodel.models.find(
 const bookingInspectionModel = Prisma.dmmf.datamodel.models.find(
   (model) => model.name === "BookingInspectionImage",
 );
+const garageWorkerTaskModel = Prisma.dmmf.datamodel.models.find(
+  (model) => model.name === "GarageWorkerTask",
+);
 
-if (!serviceModel || !garageModel || !bookingModel || !bookingInspectionModel) {
+if (
+  !serviceModel ||
+  !garageModel ||
+  !bookingModel ||
+  !bookingInspectionModel ||
+  !garageWorkerTaskModel
+) {
   const missingModels = [
     !serviceModel ? "Service" : null,
     !garageModel ? "Garage" : null,
     !bookingModel ? "Booking" : null,
     !bookingInspectionModel ? "BookingInspectionImage" : null,
+    !garageWorkerTaskModel ? "GarageWorkerTask" : null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -51,7 +61,10 @@ const generatedGarageFields = new Set(
 const missingFields = REQUIRED_SERVICE_FIELDS.filter(
   (field) => !generatedFields.has(field),
 );
-const missingGarageFields = ["fulfillmentMode"].filter(
+const missingGarageFields = [
+  "fulfillmentMode",
+  "controllerAccountsEnabled",
+].filter(
   (field) => !generatedGarageFields.has(field),
 );
 const generatedInspectionFields = new Set(
@@ -63,6 +76,19 @@ const missingInspectionFields = ["mediaType"].filter(
 const staleFields = REMOVED_SERVICE_PRICE_FIELDS.filter((field) =>
   generatedFields.has(field),
 );
+const generatedWorkerTaskFields = new Set(
+  garageWorkerTaskModel.fields.map((field) => field.name),
+);
+const missingWorkerTaskFields = [
+  "bookingId",
+  "garageId",
+  "requestId",
+  "taskType",
+  "status",
+  "workerPhone",
+  "tokenHash",
+  "expiresAt",
+].filter((field) => !generatedWorkerTaskFields.has(field));
 
 const serviceFulfillmentField = serviceModel.fields.find(
   (field) => field.name === "fulfillmentType",
@@ -144,6 +170,7 @@ if (
   missingFields.length > 0 ||
   missingGarageFields.length > 0 ||
   missingInspectionFields.length > 0 ||
+  missingWorkerTaskFields.length > 0 ||
   staleFields.length > 0 ||
   fulfillmentTypeErrors.length > 0 ||
   inspectionMediaErrors.length > 0
@@ -157,6 +184,9 @@ if (
       : null,
     missingInspectionFields.length > 0
       ? `BookingInspectionImage is missing current fields: ${missingInspectionFields.join(", ")}`
+      : null,
+    missingWorkerTaskFields.length > 0
+      ? `GarageWorkerTask is missing current fields: ${missingWorkerTaskFields.join(", ")}`
       : null,
     staleFields.length > 0
       ? `still contains removed fields: ${staleFields.join(", ")}`

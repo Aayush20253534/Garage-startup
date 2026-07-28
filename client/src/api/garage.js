@@ -105,6 +105,7 @@ export const mapGarageRequestToBooking = (request) => {
     review: booking.review || null,
     customerLocationLink: request.customerLocationLink,
     handoverOtpExpiresAt: booking.handoverOtpExpiresAt,
+    handoverOtpVerifiedAt: booking.handoverOtpVerifiedAt,
     deliveredAt: booking.deliveredAt,
     customerAcceptedAt: booking.customerAcceptedAt,
     inspectionImages: Array.isArray(booking.inspectionImages)
