@@ -1,240 +1,232 @@
-# Rovauto Error Handling And Resilience
+# Rovauto Error Handling and Resilience
 
-> Canonical error policy, verified against the source on 23 July 2026.
+> Error policy synchronized with the codebase on 28 July 2026.
 
 ## 1. Goals
 
-- Give users a clear next action without exposing internals.
-- Preserve a correlation/reference ID for every failed request.
-- Distinguish validation/auth/conflict/provider/server failures.
-- Retry only safe or idempotent work.
-- Keep booking and financial state consistent through partial failures.
-- Persist actionable server/background issues without creating recursive failure loops.
+- Return useful, stable client errors without leaking internals.
+- Correlate every unexpected failure with a request/reference ID.
+- Preserve idempotency for payments, wallet entries, garage acceptance, OTPs, and task lifecycle changes.
+- Degrade optional providers without corrupting booking state.
+- Capture recurring frontend/backend failures in System Issues.
+- Make operational recovery possible without direct production database edits.
 
-## 2. Standard HTTP response
+## 2. Standard response shape
 
-Operational failures use `ApiError(statusCode, message, code?)`. The central middleware returns:
-
-```json
-{
-  "success": false,
-  "statusCode": 409,
-  "message": "The booking changed. Refresh and try again.",
-  "code": "OPTIONAL_SAFE_CODE",
-  "referenceId": "request-correlation-id"
-}
-```
-
-In development only, `stack` may be included. For unexpected or `5xx` failures, the public message becomes:
-
-```text
-Request could not be completed. Please try again. Reference: <referenceId>
-```
-
-Only operational non-5xx codes matching `^[A-Z][A-Z0-9_]{2,63}$` are exposed.
-
-Success responses commonly use:
+Successful responses generally use `ApiResponse`:
 
 ```json
 {
-  "success": true,
   "statusCode": 200,
-  "message": "Human-readable result",
-  "data": {}
+  "message": "...",
+  "data": {},
+  "success": true
 }
 ```
+
+Operational errors use `ApiError` and centralized error middleware. Unexpected 5xx responses should expose a generic message and a reference ID rather than stack, SQL, provider secret, or raw payload.
 
 ## 3. Request correlation
 
-- Accept `X-Request-ID` only when it is 8–64 characters of letters, numbers, `_`, or `-`.
-- Otherwise generate a UUID.
-- Return it in the `X-Request-ID` response header.
-- Attach the same value to system-issue evidence and relevant structured logs.
-- Client/support should show or capture the reference ID, not the stack trace.
+Every request receives `X-Request-ID`.
+
+- A valid incoming ID may be preserved.
+- Otherwise the API creates a UUID.
+- The response exposes the same ID.
+- Browser issue reports and support escalation should include it.
+- Do not include worker tokens, OTPs, cookies, or provider secrets in correlated metadata.
 
 ## 4. Status-code policy
 
-| Status | Use |
-| ---: | --- |
-| `400` | Invalid syntax/validation/domain input that can be corrected |
-| `401` | Missing/invalid/expired/revoked authentication |
-| `403` | Authenticated but forbidden role/ownership, invalid CSRF, blocked origin |
-| `404` | Resource not found within the actor's allowed scope |
-| `409` | Concurrency/state/idempotency conflict; refresh/retry may be appropriate |
-| `413` | Request/upload exceeds configured limit when emitted by parser/upload stack |
-| `429` | Rate/attempt limit; return `Retry-After` where available |
-| `500` | Unexpected internal failure |
-| `502` | Upstream provider failed or returned unusable response |
-| `503` | Dependency/readiness unavailable or temporary service incapacity |
-| `504` | Upstream timeout when explicitly mapped |
+| Code | Use |
+| --- | --- |
+| `400` | Invalid input, malformed state-independent request |
+| `401` | Missing/invalid/expired authentication |
+| `403` | Authenticated but not authorised |
+| `404` | Resource/token intentionally not found |
+| `409` | State conflict or invariant violation |
+| `410` | Expired or revoked worker-task link |
+| `413` | Body/upload too large where surfaced by middleware |
+| `422` | Provider/domain validation where explicitly used |
+| `429` | Rate limit or OTP/task attempt limit |
+| `500` | Unexpected application failure |
+| `502` | Upstream provider/proxy failure |
+| `503` | Readiness dependency unavailable |
+| `504` | Explicit upstream timeout where translated |
 
-Avoid revealing whether a cross-owner resource exists; an ownership-bound `404` is often safer than `403`.
+A 502 is not automatically a frontend problem. Trace proxy, API, database, and provider logs using the request ID.
 
-## 5. Validation and controller pattern
+## 5. Validation pattern
 
-1. Route applies authentication/roles/limits.
-2. Express Validator checks params/query/body.
-3. Upload middleware checks count, size, MIME, and signatures.
-4. Controller delegates through `asyncHandler`.
-5. Service enforces ownership, state, and transaction rules.
-6. Service throws `ApiError` for expected failures.
-7. Central middleware sanitizes and responds.
+Routes should validate before controllers. Services must still enforce:
 
-Do not catch an error only to return an ad-hoc JSON shape. Catch only when translating provider errors, compensating partial work, or adding safe context, then rethrow/forward.
+- ownership
+- actor role
+- booking/garage state
+- capability and scope
+- idempotency/concurrency
+- provider response validity
 
-## 6. Client behavior
+Client validation improves UX but never replaces server enforcement.
 
-The shared Axios layer should:
+## 6. Client behaviour
 
-- Send cookies and CSRF automatically.
-- Use configured timeouts.
-- Retry safe GET/network failures only, with a small bounded count/delay.
-- Never automatically replay an unsafe mutation unless it has a stable idempotency key and the domain explicitly supports replay.
-- Preserve server `message`, `code`, and `referenceId`.
-- Treat `401` as session loss and refresh/redirect appropriately.
-- Treat `403` as permission/CSRF failure, not generic login failure.
-- Respect `Retry-After` on `429`.
-- Show retry UI for recoverable network/provider failures.
-- Avoid duplicate toasts and infinite refresh/chunk-recovery loops.
+The shared Axios client:
+
+- sends cookies and CSRF for unsafe browser requests;
+- uses a configurable timeout;
+- retries only safe eligible requests;
+- records `ERR_BAD_RESPONSE`, timeout, status, and retry metadata;
+- reports eligible failures to System Issues;
+- avoids automatic POST retries that could duplicate OTPs, payments, or task mutations.
+
+Every page should implement loading, empty, retry, permission-denied, and offline/network states.
 
 ## 7. Domain error matrix
 
-| Domain | Recoverable user action | Server requirement |
+| Domain | Examples | Expected handling |
 | --- | --- | --- |
-| Authentication | Re-login, verify OTP, wait for retry window | Revoke invalid cookie/session; generic credential errors |
-| CSRF | Refresh CSRF token/page and retry once | Never bypass for browser mutation |
-| Pricing | Select supported vehicle/service/city or wait for approval | Never invent/fallback to stale arbitrary price |
-| Payment pending/timeout | Check current order state, then retry | Verify provider; preserve idempotency |
-| Wallet changed | Retry checkout after reconciliation | Credit late provider success exactly once |
-| Garage not found yet | Continue automatic search | Advance 5/10/20 km rounds safely |
-| Garage wallet insufficient | Recharge then accept | Do not debit or assign partially |
-| Acceptance conflict | Refresh request | One atomic winner |
-| OTP invalid/expired | Retry within limits or regenerate | Hash, attempts, expiry, claim, no partial `IN_PROGRESS` |
-| Media upload failed | Retry upload | Clean temporary/provider partials; do not advance evidence-dependent state |
-| Delivery conflict | Refresh current booking | Require delivered checkpoint and correct owner |
+| Authentication | wrong password, expired session, 2FA email failure | `401` for credentials/session; provider failure translated without exposing provider secret |
+| Pricing | no approved range | `409`/domain error; block checkout |
+| Payment | order mismatch, failed verification, provider timeout | preserve pending state, allow safe recovery, never mark paid from redirect alone |
+| Dispatch | no eligible garage, stale capability | continue/expire search; reject stale acceptance |
+| Handover | wrong/expired OTP, missing media | bounded attempts; no state transition |
+| Worker task | invalid token, expired, revoked, wrong stage, controllers enabled | `404`, `410`, or `409` as appropriate |
+| Tracking | permission denied, stale token, invalid coordinates | clear worker message; preserve booking destination |
+| Warranty | no completed bookings | successful empty list, not an error |
+| Provider health | not configured/degraded/outage | report status without secrets; do not mutate provider state |
 
 ## 8. Payment resilience
 
-Payment is the highest-risk failure domain.
+- Cashfree order creation and finalization must be idempotent.
+- Webhook signatures and order/amount ownership must be verified.
+- Duplicate webhooks must not duplicate wallet or booking mutations.
+- Redirect success is not payment truth.
+- Provider timeouts should leave recoverable state and a request ID.
+- Refunds must reconcile provider and both relevant ledgers.
 
-### Rules
+## 9. Booking and concurrency
 
-- Creating an order is not payment success.
-- Browser callback is not payment success.
-- Verify Cashfree server-side or through the signed webhook.
-- Compare order, amount, currency, booking ownership, and expected state.
-- Use unique provider IDs and financial idempotency keys.
-- Place balance, ledger, payment, and booking transition in a transaction.
-- If response delivery fails after commit, a retry must return/reconstruct the committed result.
-- If cancellation races with late provider success, credit wallet once and tell the customer what happened.
+Critical transitions must be transactional or compare-and-set guarded:
 
-### Timeout policy
+- first garage acceptance wins;
+- garage eligibility is recalculated in acceptance;
+- wallet acceptance fee is charged once;
+- handover OTP is consumed atomically;
+- inspection evidence is complete before transition;
+- delivery/customer acceptance does not complete twice;
+- task creation revokes prior active same-type task.
 
-Timeout means “unknown”, not “failed”. Query provider/order state before creating a replacement order or refund. Never double charge because the first response was lost.
+## 10. Worker-task failures
 
-## 9. Booking and concurrency resilience
+### Link errors
 
-Use conditional updates/transactions for:
+- malformed or unknown token: `404` with generic invalid-link message;
+- expired token: `410`;
+- revoked token: `410`;
+- controller mode re-enabled: `410`;
+- stage already completed or booking moved: `409`.
 
-- One active booking per vehicle.
-- One accepted garage per booking.
-- One acceptance-fee debit.
-- One OTP verifier claim/use.
-- One customer delivery acceptance/completion.
-- One live price row per normalized scope.
+### WhatsApp delivery
 
-Return `409` when another actor won the race. Clients should refresh rather than blindly retry the same mutation.
+Task creation and link delivery are separate outcomes. If WhatsApp fails:
 
-## 10. Provider failure policy
+- keep the task record and generated URL;
+- show manager/admin the copy/manual-share option;
+- record provider failure without exposing access token;
+- do not create duplicate tasks merely to retry delivery;
+- use resend to rotate the token when a new link is required.
 
-| Provider | Timeout/retry | Fallback |
-| --- | --- | --- |
-| Cashfree | Bounded timeout; reconcile before retry | Keep pending; never synthesize paid |
-| Google Maps | Bounded calls; safe lookup retry | Preserve confirmed stored destination; omit route enhancement |
-| Cloudinary | Retry only before state transition; clean partial objects | Block required-evidence transition |
-| Resend/WhatsApp/SMS/Push | Best-effort or outbox where implemented | In-app/database state remains authoritative |
-| Redis | Bounded commands | Database reads and bounded stricter in-memory rate limit; production readiness fails |
-| Groq | Bounded timeout/rate | Friendly chatbot unavailable message; core product unaffected |
+### Tracking
 
-Use exponential backoff with jitter for background retries. Cap attempts and preserve final failure reason; introduce dead-letter handling when jobs move to a durable queue.
+- Location permission denial is a recoverable worker UX error.
+- Browser background suspension is an operational limitation, not a server crash.
+- Reject invalid coordinates and unauthorised task state.
+- Stop tracking on completion/revoke where possible.
 
-## 11. Background errors
+### Media
 
-`server.js` handles startup failure, unhandled rejection, uncaught exception, HTTP server error, and shutdown signals.
+- Enforce 5-15 images, one video, MIME/type/size limits.
+- Clean temporary files after success or failure.
+- Preserve task/booking state when provider upload fails part-way.
 
-- Background failures are reported through `systemIssueReporter`.
-- Failure reporting itself has a timeout and must not prevent shutdown.
-- Workers stop before HTTP/database/Redis close.
-- Shutdown has a forced timeout.
-- A failing issue-report route must not recursively report itself.
+## 11. Warranty behaviour
 
-Each worker iteration should isolate one job failure, preserve retryable state, and continue with later jobs where safe.
+Warranty calculation is a read projection. Errors reading completed bookings return a normal server error with request ID. An empty list is valid. The frontend recalculates remaining days from `expiresAt`; it must not write daily countdown values back to the database.
 
-## 12. Logging
+## 12. Provider failure policy
 
-Log structured fields where possible:
+| Provider | Failure behaviour |
+| --- | --- |
+| PostgreSQL | readiness `503`; core API unavailable |
+| Redis | readiness `503` in current production contract; bounded local rate fallback where implemented |
+| Cashfree | payment remains recoverable/pending |
+| Resend | authentication/OTP operation fails clearly; do not pretend email was sent |
+| WhatsApp | retain task/notification fallback where possible |
+| Cloudinary | reject media transition and clean temp files |
+| Maps | preserve saved coordinates; show route/geocode fallback |
+| Firebase | reject Google sign-in verification |
+| Web Push | notification may continue through other channels |
+| Groq | chatbot uses local retrieval/fallback response path |
 
-- Timestamp, level, component, action.
-- Request/reference ID.
-- Actor type and opaque actor ID.
-- Booking/payment/provider IDs where needed.
-- Error class/code and sanitized message.
-- Duration, retry attempt, dependency.
+## 13. Background errors
+
+Background jobs must:
+
+- claim work safely;
+- be idempotent;
+- use bounded retries/backoff;
+- record final failure or issue;
+- avoid crashing the entire API for one item;
+- expose overdue/pending counts in operational views where supported.
+
+The current in-process design needs stronger distributed claiming before multi-replica scale.
+
+## 14. Logging
+
+Log structured fields such as request ID, route, actor type, resource ID, provider, status, duration, and safe error code.
 
 Never log:
 
-- Password/OTP/token/cookie/authorization values.
-- Full provider secrets or signed URLs.
-- Full card/payment credentials.
-- Raw personal address/contact unless strictly required and protected.
-- Firebase private keys, database URLs, Cloudinary/Cashfree/WhatsApp tokens.
+- passwords or hashes
+- OTPs or OTP hashes
+- raw worker-task tokens or full URLs
+- cookies/JWTs/session tokens
+- Cashfree/WhatsApp/Resend/Cloudinary secrets
+- raw signed webhook bodies
+- complete customer contact/location unless strictly required and protected
 
-Development Morgan logs are enabled only in development. Production needs centralized structured logs and retention/access controls.
+## 15. System Issues
 
-## 13. System-issue reporting
+Frontend/backend reporters fingerprint recurring issues into `SystemIssue`. Staff can view, investigate, resolve, ignore, or delete through System Health.
 
-- Eligible frontend/backend failures can create `SystemIssue`.
-- Actor attribution is resolved by server rules, not blindly trusted from public input.
-- Metadata must be sanitized.
-- Auto-resolve probes are restricted to the configured base origin/path, remove query/fragment, and reject credentials or unsupported protocols.
-- Quiet-window and protected-status policies prevent unsafe automatic closure.
+Actor and route metadata must be privacy-minimised. Auto-resolution probes are restricted by policy to prevent SSRF or arbitrary network access.
 
-System issues support diagnosis; they do not replace metrics, logs, traces, or provider dashboards.
+## 16. Integration Health
 
-## 14. Health and degradation
+Integration Health is read-only and available to `ADMIN`, `SUB_ADMIN`, and `INTERN`. Checks return operational/degraded/outage/not-configured states. Secrets and tokens are redacted; phone numbers and optional metadata are masked.
 
-| Endpoint | Expected behavior |
-| --- | --- |
-| `/health/live` | `200` when Node process can answer |
-| `/health` | `200` only when PostgreSQL and Redis checks succeed; otherwise `503` |
-| `/health/ready` | Same readiness behavior |
+Health probes must not send customer messages, create payments, mutate provider resources, or expose configuration values.
 
-Load balancers should use readiness to stop routing to a dependency-isolated instance and liveness to decide process restart.
+## 17. Testing checklist
 
-## 15. Error testing checklist
+- Expected 4xx message/code is stable.
+- Unexpected error returns reference ID and no stack.
+- Duplicate payment/webhook/acceptance is safe.
+- Stale garage capability prevents acceptance.
+- Worker invalid/expired/revoked/mode-changed links fail correctly.
+- Worker resend invalidates previous token.
+- Upload failures clean temporary files and preserve state.
+- Warranty empty/active/expired calculations pass.
+- System Health redacts secrets and permits all intended staff roles.
+- Client does not retry unsafe mutations automatically.
 
-For every changed mutation, test:
+## 18. Escalation
 
-1. Valid success.
-2. Validation failure.
-3. Unauthenticated and wrong role.
-4. Wrong owner/cross-garage ID.
-5. Duplicate/replayed request.
-6. Concurrent request.
-7. Provider timeout and provider failure.
-8. Database failure before and after critical write.
-9. Client response loss followed by retry.
-10. Production response contains no stack/secret.
-11. Reference ID is present.
-12. Compensation/cleanup preserves state.
-
-Run `npm test`, Prisma validation/client checks, client build, staging smoke tests, and the critical manual lifecycle before release.
-
-## 16. Operational escalation
-
-- P0: financial corruption, cross-account exposure, auth bypass, destructive data loss.
-- P1: booking/garage assignment unavailable, provider-wide payment failure, database/Redis readiness failure.
-- P2: degraded maps/messaging/chatbot/support with core booking intact.
-- P3: isolated UI/content defect.
-
-For P0/P1, freeze risky mutations, preserve evidence, assign incident command, reconcile database/provider state, and follow [`../server/docs/RECOVERY_RUNBOOK.md`](../server/docs/RECOVERY_RUNBOOK.md).
+1. Capture time, actor, route, request ID, release, and visible message.
+2. Check System Issues and server/proxy logs.
+3. Check Integration Health and provider dashboard.
+4. Determine whether data state changed.
+5. Apply reversible mitigation first.
+6. Roll back code only if it remains compatible with the deployed schema.
+7. Record root cause, customer impact, repair, and prevention.

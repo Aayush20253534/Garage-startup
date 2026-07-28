@@ -1,71 +1,78 @@
-# Booking A Vehicle Service
+# Booking Flow
 
-> Customer-assistant knowledge verified on 25 July 2026.
+> Customer-help knowledge updated on 28 July 2026.
 
-Rovauto helps customers book vehicle services from verified garages in supported Indian cities. The assistant should explain what customers can do in the app, but it must not promise that a particular garage will accept, quote a final repair price, or claim that help has been dispatched before the app confirms it.
+## Before booking
 
-## Before Booking
+You need to be signed in, have a saved service location, and have at least one vehicle in My Vehicles. Choose the correct city and vehicle before adding services because availability and estimated price ranges can depend on them.
 
-Sign in with a customer account and add at least one vehicle. Select the services you need and review the available price range for your city and vehicle. A vehicle can have only one active booking at a time, so complete or cancel the current booking before creating another booking for the same vehicle.
+Vehicle model photos may appear in My Vehicles when Rovauto has an image for the saved brand and model. A missing image does not affect booking eligibility.
 
-Most services support both vehicle-handover options. At checkout, choose one option for the booking:
+## Selecting services
 
-- **Pickup & delivery:** the assigned garage follows Rovauto's normal vehicle pickup and return process.
-- **Self drop-off & pickup:** the customer takes the vehicle to the assigned garage and collects it from the garage after service.
+1. Open Services.
+2. Choose a category and service.
+3. Select the saved vehicle you want serviced.
+4. Check that an approved price range is available.
+5. Add the service to the booking.
 
-A service marked **Self drop-off only** disables pickup and automatically requires self drop-off for the booking. Rovauto sends the request only to garages that support the selected handover mode, serve the selected vehicle brand and model, and are assigned every selected service.
+When no approved price range exists for the vehicle/city, Rovauto may show the service but will not allow checkout with an invented price.
 
-## Which Location Is Used
+## Pickup or self drop-off
 
-At checkout, Rovauto uses the customer's selected saved service location. It does not request the customer's current browser GPS or silently replace the service destination with the device's current position.
+Rovauto may offer:
 
-For a pickup-and-delivery booking, the confirmed address is the destination used by the assigned garage. If the vehicle needs service at a different address, the customer can explicitly edit, confirm, and save the service address at checkout before paying. The confirmed address and coordinates are stored on the booking so the assigned garage navigates to that destination even when the customer or their device is somewhere else.
+- **Pickup and delivery** — the assigned garage arranges vehicle collection and return.
+- **Self drop-off** — you take the vehicle to the assigned garage and collect it later.
 
-For a self drop-off booking, the saved location is still used to confirm the supported city and find suitable nearby garages, but the garage does not collect or return the vehicle. After a garage accepts, the customer uses the garage address and directions shown in the booking tracker.
+Some services require self drop-off. Some garages support only one method. Rovauto searches only garages compatible with the method saved on your booking.
 
-During a normal pickup-and-delivery job, live location sharing belongs to the assigned garage and helps show its route or arrival progress. Garage live tracking does not change the customer's stored booking destination. Live pickup tracking is not used for self drop-off bookings.
+## Checkout and payment
 
-## Vehicle And Service Selection
+The checkout summary shows selected services, estimated ranges, the platform/handling amount, wallet use where available, and the fulfilment method. Complete payment through the supported payment flow. A payment page or redirect alone does not prove payment; wait for Rovauto to confirm it.
 
-Choose a saved vehicle, then select one or more active services. At checkout, choose pickup or self drop-off unless one of the selected services is self drop-off only. Some services may be unavailable or marked coming soon in a particular city. Prices shown before booking are estimated ranges based on the configured city, service, and vehicle details. The garage confirms the final service amount after inspecting and completing the work.
+A pending payment booking may be resumed instead of creating repeated bookings.
 
-## Checkout And Platform Fee
+## Garage search
 
-The amount paid online at checkout is the Rovauto platform fee, not the final garage service bill. Customers may apply available Rovauto wallet balance first. If wallet balance does not cover the full platform fee, the remaining amount is paid through Cashfree. If the wallet covers the full amount, no external payment page is needed.
+After payment confirmation, Rovauto searches eligible nearby garages. A garage must support your fulfilment choice, vehicle brand/model scope, and every selected service. Search may expand through larger distance rounds.
 
-The final service amount is paid directly to the garage after the work is completed and the customer reviews the delivery or collection details.
+You will receive an update when a garage accepts or when the search needs attention.
 
-## Progressive Garage Search
+## Vehicle handover
 
-After the platform fee is confirmed, the booking enters garage search. This matching process applies to both pickup-and-delivery and self drop-off bookings:
+For pickup:
 
-1. Rovauto searches for eligible verified garages within 5 km.
-2. If nobody accepts, the search expands to 10 km.
-3. If nobody accepts, the search expands to 20 km.
-4. If the 20 km round also ends without acceptance, Rovauto shows a clear retry message and automatically starts a new cycle from 5 km.
+1. Track the assigned worker/controller where available.
+2. Give the handover OTP only when the person is physically receiving your vehicle.
+3. Pickup inspection photos and one video are recorded.
+4. The vehicle is taken to the garage.
 
-Each radius round normally lasts 2 minutes 30 seconds. Garages already contacted in the same 5 km, 10 km, and 20 km cycle are not repeatedly notified in every round. Their original request remains available while the booking is still unassigned. A restarted cycle does not require another platform-fee payment or any action from the customer.
+For self drop-off:
 
-Garage eligibility depends on operational and verification state, supported services, vehicle capabilities and exclusions, coordinates, and service radius. The assistant must not guarantee that a garage will be found or accepted within a specific time.
+1. Use the assigned garage address/map.
+2. Take the vehicle to the garage.
+3. Give the handover OTP only at the garage during physical handover.
+4. Inspection evidence is recorded there.
 
-## After A Garage Accepts
+Never share a handover OTP over an unsolicited call before the vehicle handover.
 
-The customer receives the assigned garage details and a handover OTP. Keep the OTP private and share it only during physical vehicle handover. The OTP can be regenerated from the booking tracker before service starts when the app allows it.
+## During service
 
-For **pickup & delivery**, the customer follows the normal live garage route and handover process. Share the OTP only when the assigned garage owner or assigned controller physically receives the vehicle. The garage records the required pickup inspection photos and video before work begins.
+The booking becomes in progress after handover verification. Use booking tracking/status, notifications, and support for updates. Additional work or amount changes should be confirmed through the approved booking flow, not informal messages alone.
 
-For **self drop-off & pickup**, the tracker shows the garage address, directions, contact details, and a reminder that no pickup vehicle will arrive. Take the vehicle to the assigned garage, then share the OTP with garage staff after reaching the garage. The garage records the required drop-off inspection photos and video before work begins.
+## Delivery and completion
 
-## Tracking And Completion
+For pickup/delivery, the garage records delivery evidence and returns the vehicle. For self drop-off, the garage records that the vehicle is ready and you collect it.
 
-Customers can open the active booking tracker to see search radius, assigned garage information, booking progress, inspection images, notifications, and the actions available for that booking type.
+Check the vehicle before accepting completion. Customer acceptance completes the booking and adds it to service history.
 
-For pickup-and-delivery bookings, live road distance and ETA may be shown when route information is available, but they are estimates and can change with traffic or provider availability. After the garage marks the vehicle delivered, the customer reviews the delivery information, enters or confirms the final service amount, and accepts delivery.
+## Warranty Center
 
-For self drop-off bookings, the tracker does not show a garage pickup route. After service, the garage marks the vehicle **Ready for customer pickup** and uploads post-service inspection photos and video. The customer returns to the garage, inspects the vehicle, enters the final amount paid, and selects **Confirm Vehicle Collection**.
+Every completed booking with an assigned garage appears in **Dashboard → Warranty Center**. The card shows selected services, vehicle, garage, activation date, expiry date, and remaining days.
 
-After delivery acceptance or collection confirmation, the booking appears in service history and its Rovauto warranty becomes available.
+The service warranty is active for 30 days from completion/acceptance and then remains visible as expired. The public Warranty page is only a general design/information page and does not show your personal bookings.
 
-## Cancelling A Booking
+## Help
 
-A customer can cancel while the booking is pending payment, searching for a garage, assigned, or confirmed, as long as service has not started. When an eligible paid booking is cancelled, the paid platform-fee amount is credited to the customer's Rovauto wallet. Once the booking is in progress or completed, normal cancellation is not available; use support or a dispute ticket when help is needed.
+Use Support from your customer dashboard and include the booking code. For payment or technical errors, include the reference/request ID shown on screen. Do not send passwords, OTPs, or payment credentials in a support message.

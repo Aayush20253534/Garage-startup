@@ -1,250 +1,175 @@
 # Rovauto Delivery Phases
 
-> Product and engineering plan aligned to the implementation on 23 July 2026. Advance by exit criteria, not calendar optimism.
+> Roadmap synchronized with the repository on 28 July 2026. The planned launch date referenced by the team is 1 August 2026.
 
-## Design principles
+## Guiding principles
 
-1. Protect booking correctness, payments, wallets, location privacy, and garage assignment before adding breadth.
-2. Launch one city with measurable operational quality before expanding.
-3. Keep PostgreSQL/PostGIS as the source of truth until measured limits justify architectural change.
-4. Automate repetitive operations only after the manual workflow and ownership are clear.
-5. Every phase includes product, operations, reliability, security, data, and exit criteria.
+- Protect booking, payment, handover, and customer data before adding breadth.
+- Prefer a small operationally reliable launch over a large feature-complete launch.
+- Keep physical garage workflows realistic: permanent controller accounts are optional, not mandatory.
+- Every production feature requires permissions, failure states, auditability, documentation, and rollback.
+- Do not introduce Kubernetes, microservices, or a vector database until measured constraints justify them.
 
-## Phase 0 — Implemented platform baseline
+## Phase 0 — Implemented baseline
 
-### Scope present in the current codebase
+Current code includes:
 
-- Multi-surface React client for public/customer, garage owner/controller, admin, intern, and support.
-- Separate identities/sessions for customers, garage owners, garage controllers, staff, and support.
-- City/category/service restrictions and moderated city/service/vehicle price ranges.
-- Saved vehicles/locations, platform-fee checkout, customer wallet/Cashfree split.
-- Progressive 5/10/20 km PostGIS garage search and first-winner acceptance.
-- Garage wallet acceptance fees.
-- Garage-wise controller limits, controller availability, dispatch, assignment, transfer, and privacy filtering.
-- Handover OTP, pickup/delivery evidence, live tracking, customer completion.
-- Reviews, complaints, tickets/disputes, notifications, messaging integrations, chatbot.
-- Admin/intern/support operations, system issues, backup/recovery/smoke scripts.
-- Focused 50-file security/regression suite and CI build checks.
+- Public/customer, garage, controller, admin, intern, and support web portals.
+- Customer authentication, onboarding, vehicles, locations, service selection, checkout, wallet, Cashfree, garage search, tracking, support, and chatbot.
+- Garage applications, profiles, service/vehicle scopes, media, wallet, dispatch, controllers, and operational controls.
+- Pickup and self-drop fulfilment with garage eligibility enforcement.
+- Controller enable/disable setting and no-account WhatsApp worker tasks.
+- Worker live tracking, Hindi/English instructions, browser voice, handover OTP, and structured inspection image/video evidence.
+- Vehicle model catalogue photos shown in customer My Vehicles.
+- Combined System Health for admin, sub-admin, and intern.
+- Customer real Warranty Center derived from completed bookings with a 30-day countdown.
+- Prisma migrations, security/regression tests, backup/recovery scripts, and deployment smoke checks.
 
-### Baseline gaps that block confident scale
-
-- No complete browser E2E suite.
-- Background jobs remain inside the web process.
-- Limited production observability/alerting is encoded in the repository.
-- Full data-retention and privileged audit policy is not yet automated.
-- `seed:intern` path is broken.
-- Multi-replica worker safety is not an explicit platform contract.
-
-## Phase 1 — Launch hardening
+## Phase 1 — Launch gate
 
 ### Product
 
-- Freeze critical booking/payment/status semantics.
-- Verify customer mobile flow from signup through completed booking.
-- Verify owner/controller login, lead visibility, acceptance-fee blocking, assignment, OTP, and delivery.
-- Ensure unsupported/missing price combinations clearly block checkout.
-- Verify all legal consent, privacy, cancellation, fee, and warranty text against policy.
+- Confirm every launch garage has the correct fulfilment mode.
+- Confirm supported brands and `GarageService` scopes match real capability.
+- Confirm controller mode per garage:
+  - organised garage: controller accounts enabled;
+  - low-digital-literacy garage: controller accounts disabled and worker-task mode tested.
+- Confirm each launch service has approved price ranges for supported vehicles.
+- Confirm public mock warranty and customer real warranty routes are intentionally separate.
 
 ### Engineering
 
-- Add browser E2E for customer booking/payment recovery and garage owner/controller lifecycle.
-- Add provider sandbox contract tests for Cashfree webhooks, WhatsApp, Maps, Cloudinary, and email.
-- Fix broken seed scripts or remove misleading commands.
-- Add structured production logs and stable application version/commit tagging.
-- Add database migration check and deployment smoke to the release pipeline.
-
-### Security
-
-- Complete threat-model review of auth, IDOR, controller privacy, uploads, webhooks, and dangerous admin commands.
-- Add step-up authentication/confirmation and immutable audit for destructive commands.
-- Enable dependency, secret, and container scanning.
-- Restrict Google/Firebase/Cashfree/Cloudinary/provider keys by environment and least privilege.
+- Apply all production migrations through `20260728090000_add_garage_worker_task_mode`.
+- Build all frontend shells and test direct URL refresh.
+- Run the 70 security/regression tests.
+- Validate Cashfree, Resend, Cloudinary, WhatsApp, Maps, Firebase, Web Push, Redis, and PostgreSQL in System Health.
+- Test one end-to-end pickup booking and one end-to-end self-drop booking.
+- Test both controller-enabled and controller-disabled garages.
+- Verify 5-15 photos plus one video on pickup and delivery.
+- Verify customer Warranty Center after booking completion.
 
 ### Operations
 
-- Document support escalation and garage onboarding SOPs.
-- Establish on-call owner for booking, payment, and provider incidents.
-- Run backup restore drill and record RPO/RTO.
-- Prepare manual reconciliation queries for booking/payment/wallet/garage wallet.
-- Confirm one active worker-bearing server process.
+- Train managers on accepting requests, wallet fees, worker-link creation, resend, revoke, and evidence review.
+- Train workers with a one-page Hindi flow and a shared Android phone where needed.
+- Prepare manual fallbacks for WhatsApp template approval or delivery failure.
+- Define launch-day owners for payment, garage dispatch, support, infrastructure, and customer communication.
+- Keep a verified database backup before launch-day migration/deployment.
 
 ### Exit criteria
 
-- Zero open P0/P1 defects in the critical lifecycle.
-- Staging E2E passes repeatedly.
-- Production configuration validation passes without debug bypasses.
-- Backup restore and rollback rehearsal succeed.
-- Readiness, logs, alerts, and provider dashboards are monitored.
-- A real end-to-end pilot booking completes with reconciled ledgers and evidence.
+- No unresolved critical security or payment blocker.
+- Readiness is green and System Health has no unexplained outage.
+- Successful staging smoke flow for payment → dispatch → handover → tracking → delivery → warranty.
+- Every launch garage has verified operational configuration and contact details.
+- Rollback and incident contacts are written and available.
 
 ## Phase 2 — Controlled single-city launch
 
 ### Rollout
 
-- Launch to a limited customer cohort and verified garage cohort in the primary city.
-- Use feature flags/operational controls for SOS, chatbot, wallet recharge, and new services.
-- Expand daily only when service levels remain inside thresholds.
+- Begin with a limited service area and a verified garage cohort.
+- Use gradual customer acquisition rather than opening all campaigns simultaneously.
+- Review failed searches, rejected requests, response time, price gaps, and worker evidence daily.
 
 ### Metrics
 
-| Funnel | Metrics |
-| --- | --- |
-| Acquisition | Visitor → signup, signup → onboarding |
-| Booking | Service view → checkout, checkout → paid |
-| Dispatch | Eligible garages, notification delivery, acceptance rate by radius/round, median time to accept |
-| Fulfilment | OTP success, in-progress → delivery, completion rate, cancellation rate |
-| Quality | Rating, complaint/ticket rate, repeat booking, warranty claims |
-| Financial | Platform fee, garage acceptance fee, Cashfree success, refund/reconciliation, ledger imbalance |
-| Reliability | p50/p95/p99 latency, 4xx/5xx, readiness failures, worker lag, provider error rate |
+Track at minimum:
 
-### Operations
-
-- Review unmatched searches and garage eligibility daily.
-- Track insufficient garage-wallet acceptance attempts and recharge friction.
-- Sample pickup/delivery evidence and controller access behavior.
-- Reconcile Cashfree and both wallets daily.
-- Maintain a launch issue board with severity, owner, and due date.
+- Registration-to-first-booking conversion
+- Payment creation/paid/failure rates
+- Garage search success and time to acceptance
+- Garage notification delivery and response
+- Controller versus worker-task usage
+- Tracking freshness and permission failure
+- Handover OTP failure/attempt rate
+- Evidence upload failure and median size
+- Completion and customer acceptance rate
+- Warranty cards created and support claims
+- Support tickets, complaints, cancellations, and refunds
+- System issues by severity and route
 
 ### Exit criteria
 
-- Stable completion and acceptance performance over several operating weeks.
-- No unexplained financial differences.
-- Support response and garage SLA meet agreed targets.
-- Unit economics and retention show the service is worth expanding.
-- Incident rate is declining, not merely hidden by manual intervention.
+- Stable payment and dispatch success over a sustained period.
+- Operational staff can resolve routine failures without direct database edits.
+- Garage capability data accurately predicts acceptance.
+- No repeated high-severity privacy or worker-token incident.
 
 ## Phase 3 — Operational maturity
 
-### Platform
-
-- Move garage search, messaging, email outbox, issue probes, and cleanup to a durable job queue.
-- Separate API and worker deployments.
-- Add idempotent job keys, leases, bounded retries, dead-letter queue, and replay tooling.
-- Add OpenTelemetry-style traces, metrics, dashboards, and SLO alerts.
-- Add feature flags and safe maintenance mode for money/booking mutations.
-
-### Data
-
-- Create an analytics pipeline/read model rather than running heavy dashboards on transactional paths.
-- Define data dictionary, event ownership, retention, and deletion schedules.
-- Automate daily financial/booking reconciliation and anomaly detection.
-- Add query performance review with real data and slow-query capture.
-
-### Security and compliance
-
-- Centralize secrets and rotation.
-- Establish access reviews, audit retention, incident and privacy-response procedures.
-- Add upload scanning/re-encoding for public evidence.
-- Perform an independent penetration test before major expansion.
-
-### Exit criteria
-
-- API can scale horizontally without duplicate worker effects.
-- Worker lag/retry/dead-letter state is observable.
-- Privileged actions and financial state are auditable.
-- SLOs and recovery objectives are measured and achieved.
+- Move important background work to durable jobs with retries and dead-letter handling.
+- Add structured logs, metrics, tracing, and alert routing.
+- Add explicit worker-task retention and audit reports.
+- Add warranty claim workflow if business policy requires claim decisions rather than support tickets.
+- Add a garage worker directory without passwords for reusable names/phones.
+- Improve task-device binding and media retry/offline behaviour.
+- Add automated staging E2E tests for core booking variants.
+- Formalise SLOs for API, payment, dispatch, and notifications.
 
 ## Phase 4 — Multi-zone city expansion
 
-### Expansion design
+- Model service zones and operating hours explicitly.
+- Use city/zone launch configuration and capacity limits.
+- Add garage performance, acceptance reliability, and service quality scoring.
+- Add marketing attribution, coupon, referral, and lead-management modules.
+- Introduce a city launch command centre and repeatable onboarding checklist.
+- Separate heavy reporting from transactional API queries.
 
-- Treat each city as configuration and operational capacity, not a code fork.
-- Require city registry, coordinates, price coverage, service/category restrictions, garage supply, support hours, and provider readiness.
-- Add city launch checklist and rollback/disable control.
-- Segment metrics and incidents by city.
+Exit only after the first city has reproducible unit economics and an operational playbook.
 
-### Product
+## Phase 5 — Native worker and customer maturity
 
-- City-specific catalogue/availability and controlled pricing moderation.
-- Garage density maps and supply onboarding.
-- Clear outside-service-area behavior.
-- Localized operations/support while preserving one product and data model.
+### Worker
 
-### Data and infrastructure
+Build a lightweight Android worker mode when browser tracking limitations become material:
 
-- Keep one PostgreSQL/PostGIS cluster initially.
-- Use connection pooling, query/index tuning, caching, and background queues.
-- Consider read replicas for reporting only.
-- Do not introduce geo-sharding solely because more cities are added.
+- Task-link deep linking without account creation
+- Reliable background location
+- Camera-only mandatory evidence
+- Offline upload queue
+- Hindi voice and icon-led flow
+- Device registration/revocation
 
-### Exit criteria
+### Customer mobile
 
-- The first city operates without founder-only intervention.
-- New-city setup is repeatable from documented configuration/SOPs.
-- City-level supply, acceptance, completion, quality, and economics meet gates.
-- Failure in one city can be contained without disabling every city.
+Complete the Expo customer application only after the backend bearer-token contract is defined and tested. Reach web parity in phases rather than copying all screens at once.
 
-## Phase 5 — National scale
+## Phase 6 — National scale
 
-### Platform evolution
+Potential evolution:
 
-- Capacity-test API, PostGIS queries, queue throughput, websocket/tracking behavior, and provider quotas.
-- Partition high-volume tracking/activity/notification/audit tables when measurements justify it.
-- Add regional caches/workers and traffic routing.
-- Define provider failover and quota strategies.
-- Build anti-fraud/risk systems for accounts, wallets, payments, garages, and reviews.
+- Multi-region CDN/WAF and load-balanced API
+- Managed container platform and autoscaling
+- Durable event/queue infrastructure
+- Read replicas and analytics warehouse
+- Managed PostgreSQL/Redis capacity planning
+- Provider failover for critical communication
+- Formal privacy, retention, audit, and incident programmes
 
-### Organization
-
-- Dedicated owners for marketplace, payments, identity/security, garage operations, support, and data.
-- Formal change management for migrations, pricing, dangerous operations, and incidents.
-- Continuous security review, disaster recovery exercises, and vendor risk management.
-
-### Sharding decision gate
-
-Consider database sharding only if verified tuning, pooling, replicas, partitioning, and vertical scaling cannot meet SLO/cost requirements. Before sharding, answer:
-
-- Is load geographically separable?
-- Which data must remain global: identity, financial ledger, provider idempotency, fraud, support?
-- How are cross-shard admin/reporting queries served?
-- How are bookings moved or customers travelling between cities handled?
-- What is the recovery and resharding plan?
-
-Potential future split:
-
-- Global control plane: identities, staff, provider idempotency, financial/audit references, city registry.
-- Regional/city data plane: garage discovery, bookings, tracking, local catalogue projections.
-- Analytics plane: append-only events and reporting warehouse.
-
-### Exit criteria
-
-- Regional failure isolation and tested disaster recovery.
-- Financial reconciliation remains exact across scale.
-- SLOs, fraud loss, support quality, and unit economics remain within target.
-
-## Phase 6 — Platform ecosystem
-
-Only after the marketplace core is reliable:
-
-- Garage partner APIs and webhooks.
-- Fleet/corporate accounts.
-- Parts/inventory integration.
-- Predictive maintenance and service reminders.
-- Controlled external developer access with scoped OAuth/service accounts.
-- Advanced routing/dispatch optimization.
-
-Each new domain should have an owner, threat model, data model, API contract, audit trail, and sunset plan.
+Sharding is a measured decision, not a default. Consider it only after vertical scaling, indexes, query design, caching, partitioning, and read replicas are insufficient.
 
 ## Cross-phase release checklist
 
-For every release:
-
-1. Scope and rollback are documented.
-2. Database migration is forward-compatible and reviewed.
-3. Auth/ownership/idempotency/cache invalidation are tested.
-4. `npm test`, Prisma checks, client build, and `git diff --check` pass.
-5. Staging smoke and the affected critical flow pass.
-6. Metrics/logs/alerts exist for the change.
-7. Documentation and customer knowledge are updated.
-8. Post-deploy verification and rollback owner are assigned.
+1. Product requirements and role permissions approved.
+2. Schema migration reviewed and backup taken.
+3. Server validation/tests pass.
+4. Client production build passes.
+5. Staging smoke and provider callbacks pass.
+6. Mobile/desktop permission and responsive states checked.
+7. System Health reviewed.
+8. Documentation and customer knowledge updated.
+9. Rollback version and owner identified.
+10. Post-deploy booking/payment smoke completed.
 
 ## Architecture decision triggers
 
-| Decision | Trigger |
+| Trigger | Likely decision |
 | --- | --- |
-| Durable queue | Before multi-replica workers or when retries/lag need guarantees |
-| Read replica | Reporting/read load measurably harms transactional SLO |
-| Table partitioning | High-volume table maintenance/query cost shows a measured threshold |
-| Service split | Independent scaling/ownership/failure boundary outweighs distributed complexity |
-| GraphQL | Multiple clients have measured aggregation/versioning pain not solved cleanly by REST |
-| Geo-sharding | Tuned single-cluster design cannot meet SLO/cost and regional ownership is well defined |
+| Browser worker tracking repeatedly stops | Native worker app |
+| In-process jobs duplicate or are lost | Durable queue and worker service |
+| API CPU/memory saturates | Container autoscaling and workload separation |
+| Reporting affects bookings | Analytics warehouse/read replica |
+| Keyword chatbot retrieval misses many questions | Hybrid full-text + embeddings, potentially pgvector |
+| Multiple city rules become unmanageable | Explicit zone/capacity/configuration domain |
+| Warranty support becomes high volume | Warranty claim models and workflow |

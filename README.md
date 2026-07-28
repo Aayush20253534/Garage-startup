@@ -1,78 +1,108 @@
 # Rovauto
 
-> Implementation reference verified against the repository on 23 July 2026.
+> Repository documentation verified against the codebase on 28 July 2026.
 
-Rovauto is a full-stack vehicle-service marketplace for customers, garage owners, garage controllers/staff, customer-support agents, interns, and administrators. The platform combines service discovery, city/vehicle-aware estimates, online platform-fee collection, progressive nearby-garage dispatch, garage wallet fees, pickup and delivery evidence, live tracking, support, and operational administration.
+Rovauto is a multi-surface vehicle-service marketplace for customers, garage owners, garage controllers, no-account garage workers, customer-support agents, interns, sub-admins, and main administrators. The system combines city- and vehicle-aware service discovery, Cashfree payments, progressive garage dispatch, garage wallet fees, pickup/self-drop fulfilment, live tracking, inspection evidence, operational health monitoring, and customer support.
 
-## Current product surfaces
+## Product surfaces
 
-| Surface | Main capabilities |
+| Surface | Current capabilities |
 | --- | --- |
-| Public | Marketing pages, service catalogue, supported cities, public statistics, contact form, garage-partner application, legal pages, and maps-assisted address lookup |
-| Customer | Password/OTP/Google authentication, onboarding, profile/avatar, vehicles, saved locations, service checkout, wallet/Cashfree payment, garage search, handover OTP, tracking, delivery acceptance, history, reviews, complaints, tickets, notifications, SOS, and chatbot |
-| Garage owner | Owner login, profile/services, booking leads, accept/reject, wallet recharge, pickup/delivery evidence, tracking, account deletion, and garage-wise controller management |
-| Garage controller/staff | Login from the garage login screen, availability, assigned work, limited customer-data access, booking acceptance/handling, and combined garage history with privacy filtering |
-| Customer support | Separate session cookie and PWA, ticket claim/release/reply, notifications, push subscriptions, customer notifications, and outbound email history |
-| Intern | Read-oriented operational views plus moderated price-range submission workflows |
-| Admin | Catalogues, cities, price moderation, garages/applications, garage controllers and per-garage limits, customers, bookings, revenue/payments, support, staff accounts, system issues, and protected maintenance commands |
+| Public | Marketing pages, service catalogue, supported cities, garage discovery, public warranty mock page, contact, legal pages, garage-partner application, and the public worker-task route |
+| Customer | Authentication, onboarding, saved locations, vehicles with model photos, service selection, pickup/self-drop choice, wallet/Cashfree payment, garage search, handover OTP, live tracking, inspection media, delivery acceptance, real 30-day warranty cards, history, reviews, complaints, tickets, notifications, SOS, and chatbot |
+| Garage owner | Garage profile and media, services and vehicle scopes, booking requests, wallet, controller management when enabled, no-account worker task assignment when controllers are disabled, tracking, inspection media, and booking completion |
+| Garage controller | Garage-scoped login, availability, assigned bookings, limited customer data, booking handling, tracking, evidence, and history |
+| No-account worker | Secure booking-specific WhatsApp task link, Hindi/English instructions, browser voice guidance, pickup/delivery tracking, handover OTP, and required photo/video evidence without a Rovauto account |
+| Customer support | Separate authentication/session, ticket claim/release/reply, outbound notifications and email history, and push subscriptions |
+| Intern | Price-range operations, staff-authorised operational pages, and the same System Health centre used by admins |
+| Admin/Sub-admin | Customers, bookings, garages, fulfilment and controller settings, services, cities, price operations, support, worker-task intervention, System Health, and permitted staff administration |
+| Main admin | All admin capabilities plus main-admin-only account and dangerous-operation controls |
 
-## Architecture at a glance
+## Architecture
 
 ```mermaid
 flowchart TD
-    UI["React/Vite multi-surface client"] -->|"HTTPS + cookies + CSRF"| API["Express 5 API /api/v1"]
-    API --> Domain["Controllers and domain services"]
-    Domain --> Prisma["Prisma 7 / pg adapter"]
-    Prisma --> DB[("PostgreSQL + PostGIS")]
-    Domain --> Redis[("Redis cache and distributed limits")]
-    Domain --> Providers["Cashfree, Google Maps, Cloudinary, Firebase, Resend, WhatsApp, SMS, Web Push, Groq"]
-    Workers["In-process workers"] --> Domain
+    Browser["React/Vite web client"] -->|HTTPS, cookies, CSRF| API["Express API /api/v1"]
+    Mobile["Expo customer app - early implementation"] -->|Bearer token target| API
+    Worker["Temporary worker task page"] -->|Secure task token| API
+    API --> Services["Domain services and controllers"]
+    Services --> Prisma["Prisma 7"]
+    Prisma --> DB[(PostgreSQL/PostGIS)]
+    Services --> Redis[(Redis)]
+    Services --> Providers["Cashfree, Cloudinary, Google Maps, Firebase, Resend, WhatsApp, Web Push, Groq"]
+    Jobs["In-process workers"] --> Services
 ```
 
-PostgreSQL is the source of truth. Redis accelerates reads and rate limits but is not a queue or system of record. The API process also runs the garage-search worker, garage-application email outbox worker, system-issue auto-resolver, and session-retention cleanup.
+PostgreSQL is the source of truth. Redis is used for cache, rate limits, and operational coordination, but not as the durable record for bookings, payments, tasks, or warranties. Customer warranties are derived from completed bookings rather than stored in a separate warranty table.
 
-The detailed, code-verified design is in [`important/Architecture.md`](important/Architecture.md). Database ownership is in [`important/Database.md`](important/Database.md), security controls in [`important/security.md`](important/security.md), error policy in [`important/error handling.md`](important/error%20handling.md), and the delivery roadmap in [`important/Phases.md`](important/Phases.md).
+## Current operational rules
+
+- Garage matching validates fulfilment mode, brand coverage, model/service scopes, exclusions, active status, distance, and availability.
+- A self-drop-only garage does not receive pickup requests.
+- A garage that supports `BMW` with an active `BMW / ALL` or `ALL / ALL` service scope can receive a BMW X1 request unless an exclusion blocks it.
+- `controllerAccountsEnabled=true` keeps the existing controller workflow.
+- `controllerAccountsEnabled=false` revokes controller sessions and enables secure WhatsApp worker-task links.
+- Worker links are booking- and stage-specific, expire automatically, and never expose wallet, payment, or unrelated customer data.
+- Inspection evidence requires 5-15 images and exactly one video for each pickup/delivery phase.
+- Vehicle model photos are managed in Admin Cars and shown on customer vehicle cards when a brand/model match exists.
+- Customer warranty cards appear for completed bookings for 30 days, then remain visible as expired.
+- System Health combines System Issues and Integration Health for main admin, sub-admin, and intern roles.
 
 ## Technology
 
-### Client
+### Web client
 
 - React 18.3, React Router 6, Redux Toolkit, Axios, and Vite 5
 - Tailwind CSS 4, Framer Motion, React Icons, and React Helmet Async
-- Five HTML/PWA shells: customer/public, garage, admin, intern, and customer support
-- Firebase client authentication for Google sign-in
+- Five role-aware HTML/PWA shells: public/customer, garage, admin, intern, and customer support
+- Firebase browser authentication for Google sign-in
 - Vercel Analytics and Speed Insights
 
 ### Server
 
-- Node.js 22+, Express 5, Prisma 7, and PostgreSQL/PostGIS
-- HttpOnly JWT cookies backed by revocable database sessions
-- Argon2 passwords, staff two-factor challenges, OTP hardening, CSRF, Helmet, strict CORS, rate and concurrency limits
-- Cashfree, Cloudinary, Firebase Admin, Google Maps, Groq, Resend, WhatsApp, SMS, and Web Push
-- Node's built-in test runner with 50 security/regression test files
+- Node.js 22+, Express 5, Prisma 7, PostgreSQL/PostGIS, and Redis
+- HttpOnly browser sessions backed by revocable database session records
+- Argon2 passwords, staff two-factor challenges, OTP attempt controls, CSRF, CORS, Helmet, rate limits, and request correlation IDs
+- Cashfree, Cloudinary, Firebase Admin, Google Maps, Groq, Resend, WhatsApp Cloud API, web push, and optional SMS providers
+- 70 Node security/regression tests under `server/test/security`
+
+### Mobile
+
+- Expo SDK 57, Expo Router, React Native 0.86, React Query, Axios, SecureStore, Zustand, React Hook Form, and Zod
+- The mobile customer application is an early implementation: the route structure and API/storage foundations exist, while many screens remain placeholders
 
 ## Repository layout
 
 ```text
 /
-|-- client/                         React/Vite application
-|-- server/                         Express API, Prisma schema, migrations, tests, and scripts
-|-- important/                      Canonical architecture and engineering guides
-|-- garage-partner-flow.md          Current garage and booking lifecycle
-|-- docker-compose.yml              Client/server containers; no database or Redis container
-|-- firebase.json                   Firebase hosting rules
+|-- client/                         React/Vite web application
+|-- server/                         Express API, Prisma schema, migrations, tests, scripts
+|-- mobile/apps/customer/           Expo customer application
+|-- important docs/                 Canonical architecture and operational documentation
+|-- docker-compose.yml              Optional container composition
+|-- firebase.json                   Firebase hosting configuration
 `-- README.md                       Full-stack entry point
 ```
 
-`client/AGENTS.md` is an agent/tooling instruction file and is intentionally not product documentation.
+Canonical documentation:
+
+- [Architecture](important%20docs/Architecture.md)
+- [Database](important%20docs/Database.md)
+- [Security](important%20docs/security.md)
+- [Error handling](important%20docs/error%20handling.md)
+- [Delivery phases](important%20docs/Phases.md)
+- [Garage partner flow](important%20docs/garage-partner-flow.md)
+- [Pickup and self-drop rules](important%20docs/Self%20drop%20off%20system.md)
+- [WhatsApp worker template](important%20docs/WHATSAPP_WORKER_TASK_TEMPLATE.md)
+- [Recovery runbook](server/docs/RECOVERY_RUNBOOK.md)
 
 ## Prerequisites
 
 - Node.js 22 or newer
 - npm 10 or newer
-- PostgreSQL with PostGIS available
-- Redis for production and production-equivalent testing
-- Provider credentials for the integrations being exercised
+- PostgreSQL with PostGIS
+- Redis for production-equivalent operation
+- Provider credentials only for integrations being exercised
 
 ## Local development
 
@@ -88,7 +118,7 @@ npm run seed:admin
 npm run dev
 ```
 
-Minimum development variables:
+Minimum local variables:
 
 ```env
 NODE_ENV=development
@@ -102,9 +132,9 @@ ALLOWED_ORIGINS=http://127.0.0.1:8080,http://localhost:8080
 CASHFREE_ENV=sandbox
 ```
 
-For `npm run seed:admin`, also set `ADMIN_LOGIN_ID`, `ADMIN_NAME`, and `ADMIN_PASSWORD`.
+For the worker-task flow, configure the WhatsApp template variables in `server/.env.example`. The secure task is still created when automatic WhatsApp delivery fails, allowing the manager to copy the URL manually.
 
-### Client
+### Web client
 
 ```bash
 cd client
@@ -113,7 +143,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Typical client configuration:
+Typical local configuration:
 
 ```env
 VITE_API_URL=http://localhost:5000/api/v1
@@ -127,49 +157,58 @@ VITE_GOOGLE_MAPS_MAP_ID=
 
 Open `http://127.0.0.1:8080`.
 
+### Mobile customer app
+
+```bash
+cd mobile/apps/customer
+npm ci
+# Create .env manually with EXPO_PUBLIC_API_URL when needed
+npm run start
+```
+
+The current API fallback is `https://api.rovauto.com/api/v1`. Set `EXPO_PUBLIC_API_URL` for local or staging work.
+
 ## Health endpoints
 
-| Endpoint | Meaning |
+| Endpoint | Purpose |
 | --- | --- |
-| `GET /health/live` | Process liveness only |
-| `GET /health` | Readiness; checks PostgreSQL and Redis with two-second timeouts |
-| `GET /health/ready` | Alias of readiness |
-| `GET /api/v1/csrf-token` | Seeds/returns the browser double-submit CSRF token |
+| `GET /health/live` | Process liveness |
+| `GET /health` | PostgreSQL and Redis readiness |
+| `GET /health/ready` | Readiness alias |
+| `GET /api/v1/csrf-token` | Issue/read the browser CSRF token |
+| `GET /api/v1/admin/integration-health` | Staff-authenticated provider/infrastructure checks |
+| `GET /api/v1/admin/system-issues` | Staff-authenticated issue queue |
 
-Readiness returns HTTP `503` when either PostgreSQL or Redis is unavailable.
+Readiness returns HTTP `503` if PostgreSQL or Redis is unavailable. Integration Health can return `OPERATIONAL`, `DEGRADED`, `OUTAGE`, or `NOT_CONFIGURED` per provider without changing the public readiness response.
 
-## Commands
+## Important commands
 
 ### Client
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Vite development server |
-| `npm run build` | Production multi-entry build |
-| `npm run build:dev` | Development-mode build |
-| `npm run preview` | Preview `dist/` |
+```bash
+npm run dev
+npm run build
+npm run build:dev
+npm run preview
+```
 
 ### Server
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` / `npm start` | Development/production start |
-| `npm test` / `npm run test:security` | Run the security/regression suite |
-| `npm run prisma:generate` | Generate Prisma Client |
-| `npm run prisma:validate` | Validate the Prisma schema |
-| `npm run prisma:migrate` | Create/apply development migrations |
-| `npm run prisma:deploy` | Apply checked-in production migrations |
-| `npm run prisma:status` | Inspect migration status |
-| `npm run prisma:check-client` | Confirm generated client matches required models |
-| `npm run db:backup` | Create a PostgreSQL custom-format backup |
-| `npm run db:recovery-drill` | Restore and validate an isolated recovery database |
-| `npm run deploy:smoke` | Check frontend, API readiness, and CSRF issuance |
+```bash
+npm run prisma:validate
+npm run prisma:generate
+npm run prisma:deploy
+npm run prisma:status
+npm run prisma:check-client
+npm test
+npm run db:backup
+npm run db:recovery-drill
+npm run deploy:smoke
+```
 
-The `db:delete-*`, `db:nuke-users`, and admin cleanup commands are destructive. Read [`server/docs/RECOVERY_RUNBOOK.md`](server/docs/RECOVERY_RUNBOOK.md), take a verified backup, and confirm the target database before use.
+Destructive `db:delete-*` and `db:nuke-users` commands require a verified backup and explicit target confirmation. Follow the recovery runbook before running them.
 
-`seed:intern`, `seed:staff`, and `seed:all` currently reference the absent `src/seed/seedIntern.js`; use the admin UI for intern creation until that script is implemented.
-
-## Validation before merging or deployment
+## Release validation
 
 ```bash
 cd server
@@ -182,28 +221,31 @@ npm test
 cd ../client
 npm ci
 npm run build
+
+git diff --check
 ```
 
-Also run `git diff --check`. A production release must apply `npm run prisma:deploy` before starting application code that depends on a new schema.
+When a migration exists, apply `npm run prisma:deploy` before starting application code that depends on it. The current latest migration is `20260728090000_add_garage_worker_task_mode`.
 
 ## Deployment notes
 
-- Production startup validates critical secrets and provider configuration before connecting.
-- The backend container does not apply migrations automatically; the release workflow must do so.
-- Docker Compose does not provision PostgreSQL or Redis.
-- Vercel/Firebase/Nginx rewrites must preserve all five application shells.
-- Never place secrets in `VITE_*`; Vite values are public build-time configuration.
-- Keep Cashfree and WhatsApp webhook URLs outside browser authentication and CSRF, but always verify their provider signatures.
+- The frontend currently uses path-based portals such as `/admin`, `/intern`, `/garage`, `/support`, and `/dashboard`; they are not separate subdomains.
+- `rovauto.com` and `www.rovauto.com` belong to the frontend deployment. `api.rovauto.com` belongs to the backend/reverse proxy.
+- Preserve all five HTML/PWA shell rewrites when changing hosting providers.
+- Never place secrets in `VITE_*` or `EXPO_PUBLIC_*` variables.
+- Cashfree and WhatsApp webhooks bypass browser CSRF but require provider signature verification.
+- Browser live tracking depends on HTTPS, location permission, and the worker keeping the task page active. A future native worker app is the stronger background-tracking option.
 
 ## Documentation ownership
 
-When behavior changes, update the code and its owning document in the same patch:
+Update documentation in the same patch as behaviour changes:
 
-| Change | Update |
+| Change | Owning document |
 | --- | --- |
-| Route, auth, flow, worker, provider | `important/Architecture.md` |
-| Prisma model, index, constraint, migration | `important/Database.md` |
-| Auth, secrets, permissions, privacy | `important/security.md` |
-| Error code, retry, logging, recovery | `important/error handling.md` |
-| Product/scale milestone | `important/Phases.md` |
-| Customer-facing chatbot behavior | `server/src/customer/knowledge/*.md` |
+| Routes, flows, workers, providers | `important docs/Architecture.md` |
+| Models, constraints, migrations | `important docs/Database.md` |
+| Authentication, permissions, secrets, privacy | `important docs/security.md` |
+| Error codes, retries, logging, recovery | `important docs/error handling.md` |
+| Product delivery and scale milestones | `important docs/Phases.md` |
+| Garage operations and dispatch | `important docs/garage-partner-flow.md` |
+| Customer chatbot answers | `server/src/customer/knowledge/*.md` |

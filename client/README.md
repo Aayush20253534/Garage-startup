@@ -1,96 +1,137 @@
-# Rovauto Client
+# Rovauto Web Client
 
-> Frontend reference verified against the repository on 23 July 2026.
+> Frontend reference verified against the repository on 28 July 2026.
 
-The client is one React 18/Vite application serving public visitors, customers, garage owners, garage controllers, administrators, interns, and customer-support agents. Five HTML documents and role-specific manifests/service workers boot the same `src/main.jsx` and `src/App.jsx` route tree.
+The web client is one React/Vite application serving public visitors, customers, garage owners, garage controllers, no-account workers, administrators, interns, and customer-support agents. Role-specific HTML/PWA shells boot the same route tree from `src/main.jsx` and `src/App.jsx`.
 
-Use the root [`README.md`](../README.md) for full-stack setup and [`important/Architecture.md`](../important/Architecture.md) for the complete API and flow map.
+## Entry documents and routes
 
-## Entry documents
-
-| Shell | Entry | Typical routes |
+| Shell | Entry document | Main routes |
 | --- | --- | --- |
-| Public/customer | `index.html` | `/`, `/services`, `/login`, `/booking/*`, `/dashboard/*`, `/sos/*` |
+| Public/customer | `index.html` | `/`, `/services`, `/login`, `/booking/*`, `/dashboard/*`, `/warranty`, `/worker-task/:token` |
 | Garage | `garage.html` | `/garage/login`, `/garage/*` |
 | Admin | `admin.html` | `/admin/login`, `/admin/*` |
 | Intern | `intern.html` | `/intern/login`, `/intern/*` |
-| Support | `support.html` | `/support/login`, `/support/*` |
+| Customer support | `support.html` | `/support/login`, `/support/*` |
 
-Each deployment target must rewrite these paths to the correct HTML shell. Client-side route guards improve navigation but never replace backend authorization.
+Deployment rewrites must send each path family to its matching HTML document. Route guards improve navigation but do not replace server-side authorization.
 
 ## Implemented UI areas
 
-- Public marketing, service/category catalogue, how-it-works, partner application, contact, warranty, legal pages, and public stats.
-- Customer registration/login with password, OTP, and Firebase Google sign-in.
-- Customer onboarding, avatar/profile, saved locations, vehicle CRUD/default selection, and active-booking guard.
-- City/category/service restrictions and approved city/service/vehicle price ranges.
-- Checkout, wallet contribution, Cashfree SDK payment, payment recovery, and pending-payment continuation.
-- Progressive 5/10/20 km garage search, assigned garage details, handover OTP, route/tracking views, inspection galleries, delivery acceptance, reviews, complaints, support, and notifications.
-- Garage owner and controller/staff login from the same screen using an explicit role selector.
-- Owner controller management and controller availability/assignment workspace.
-- Admin, intern, and customer-support consoles with separate route guards and navigation.
-- Role-specific installable PWAs and push-notification controls.
+### Public and customer
 
-## Frontend architecture
+- Marketing, service/category catalogue, garage discovery, contact, partner application, legal pages, and the unchanged public mock warranty page.
+- Customer password, OTP, and Firebase Google authentication.
+- Profile, avatar, saved locations, vehicle management, default vehicle, and vehicle model photos.
+- City/category/service restrictions and approved vehicle-aware price ranges.
+- Checkout with pickup/self-drop selection, wallet contribution, Cashfree, pending-payment recovery, and progressive garage search.
+- Tracking, handover OTP, 5-15 image plus one-video inspection evidence, delivery acceptance, reviews, complaints, tickets, and notifications.
+- Protected customer Warranty Center at `/dashboard/warranty`, derived from completed bookings with a live 30-day countdown.
+- Customer chatbot backed by repository Markdown knowledge.
+
+### Garage and workers
+
+- Shared owner/controller login with an explicit account type.
+- Controller management, availability, assignment, privacy-limited controller workspace, and controller history.
+- Controller navigation is hidden when the assigned garage has controller accounts disabled.
+- Owner/admin Worker Task Manager for garages in no-account mode.
+- Public `/worker-task/:token` page with Hindi/English copy, browser speech synthesis, tracking, handover OTP, and structured media upload.
+
+### Staff and support
+
+- Admin and intern consoles with role-specific navigation.
+- Combined System Health page containing System Issues and Integration Health for `ADMIN`, `SUB_ADMIN`, and `INTERN`.
+- Customer-support console with a separate session and shell.
+
+## Source structure
 
 ```text
 src/
-|-- App.jsx                 Lazy route tree and role guards
-|-- main.jsx                React bootstrap
-|-- api/                    Shared Axios client and domain wrappers
-|-- hooks/useApp.jsx        Application context and orchestration
-|-- store/                  Redux state
-|-- pages/                  Route-level screens by actor
-|-- components/             Shared and domain UI
-|-- utils/                  Auth, cart, payment, maps, activity, PWA, and recovery helpers
-`-- data/                   Static presentation metadata/fallbacks
+|-- App.jsx                         Lazy route tree, shell routing, and guards
+|-- main.jsx                        React bootstrap
+|-- api/                            Axios client and domain wrappers
+|-- hooks/useApp.jsx                Shared application orchestration
+|-- store/                          Redux state
+|-- pages/                          Route-level pages by actor
+|-- components/                     Shared and domain components
+|-- utils/                          Auth, payment, maps, media, PWA, activity, recovery
+`-- data/                           Presentation metadata and safe fallbacks
 ```
 
-The shared Axios instance in `src/api/axios.js`:
+Relevant recent pages/components:
+
+- `pages/customer/WarrantyCenter.jsx`
+- `pages/worker/WorkerTask.jsx`
+- `pages/admin/SystemHealth.jsx`
+- `pages/admin/IntegrationHealth.jsx`
+- `pages/admin/SystemIssues.jsx`
+- `components/garage/WorkerTaskManager.jsx`
+- `components/booking/InspectionGallery.jsx`
+
+## API client rules
+
+`src/api/axios.js` is the default browser transport. It:
 
 - Sends cookies with `withCredentials`.
-- Gets/reads the double-submit CSRF cookie and sends `X-CSRF-Token` for unsafe requests.
-- Uses configured timeouts and safe GET retries.
-- Carries/request-correlates `X-Request-ID`.
-- Reports eligible failures to the system-issue endpoint when enabled.
+- Seeds/reads the double-submit CSRF token and sends `X-CSRF-Token` on unsafe requests.
+- Applies configured timeouts and bounded retries only where safe.
+- Sends and exposes `X-Request-ID` for incident correlation.
+- Reports eligible frontend failures to the System Issues endpoint.
 
-Use that client for authenticated API calls; do not create unconfigured Axios instances.
+The public worker-task wrapper in `src/api/workerTasks.js` sends the secure token in the URL. The token must never be written to logs, analytics metadata, or issue reports.
 
-## Authentication and routing
+## Authentication and privacy
 
-The browser does not store JWTs in local storage. The backend issues HttpOnly cookies:
+- Browser JWTs are HttpOnly cookies; they are not stored in local storage.
+- `accessToken` is used for customer, garage owner/controller, admin, sub-admin, and intern browser sessions.
+- `supportAccessToken` is isolated to the support portal.
+- `rovautoDeviceId` identifies browser sessions/devices.
+- `rovautoCsrf` is the readable CSRF half and is not an authentication credential.
+- The worker-task page has no general account session. Its authority is limited to the hashed, expiring booking task token.
 
-- `accessToken` for customer, garage owner, garage controller, admin, and intern sessions.
-- `supportAccessToken` for the customer-support portal.
-- `rovautoDeviceId` for stable session/device identity.
-- `rovautoCsrf` as the readable half of double-submit CSRF.
+## Booking and warranty states
 
-The garage login screen submits `GARAGE_OWNER` or `GARAGE_CONTROLLER`. Owner sessions route to the owner dashboard; controllers route to the controller workspace and see customer contact/location only for active assignments.
+- Missing approved pricing blocks checkout.
+- `PENDING_PAYMENT` can resume payment.
+- Successful payment moves a normal booking into garage search.
+- Garage acceptance normally writes `CONFIRMED`; `GARAGE_ASSIGNED` is compatibility state.
+- Verified handover with required media moves the booking to `IN_PROGRESS`.
+- Garage delivery followed by customer acceptance moves it to `COMPLETED`.
+- The Warranty Center reads completed bookings from `/api/v1/warranties`.
+- Warranty activation uses `customerAcceptedAt`, then `deliveredAt`, then `updatedAt` as a fallback.
+- A warranty is active for exactly 30 days and remains visible as expired afterwards.
 
-## Environment variables
+## Fulfilment and task-link UI rules
 
-All `VITE_*` values are included in browser bundles and must be treated as public configuration.
+- A cart containing a self-drop-only service must use self drop-off.
+- A garage receives only requests compatible with its `fulfillmentMode` and vehicle/service coverage.
+- Worker-task links are available only when `controllerAccountsEnabled` is false.
+- Pickup tasks can track from the garage/worker to the customer and then back to the garage after handover.
+- Self-drop tasks do not show pickup tracking.
+- Evidence requires 5-15 images, each at most 1 MB, plus exactly one video at most 50 MB.
+- Hindi voice is implemented with browser `speechSynthesis`; unsupported browsers show a clear error rather than silently failing.
+
+## Environment
+
+All `VITE_*` values are public build-time configuration.
 
 | Variable | Purpose |
 | --- | --- |
-| `VITE_API_URL` | Primary API root, normally ending in `/api/v1` |
+| `VITE_API_URL` | API root ending in `/api/v1` |
 | `VITE_API_FALLBACK_URL` | Optional fallback API root |
 | `VITE_USE_RELATIVE_API` | Prefer same-origin `/api/v1` |
 | `VITE_API_TIMEOUT_MS` | Axios timeout |
 | `VITE_API_NETWORK_RETRIES` | Safe network retry count |
 | `VITE_API_RETRY_DELAY_MS` | Retry delay |
-| `VITE_APP_VERSION` | Client version included with diagnostics |
-| `VITE_ERROR_REPORTING_ENABLED` | Enable client issue reporting |
-| `VITE_FIREBASE_API_KEY` | Firebase public browser key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | Firebase project |
-| `VITE_FIREBASE_APP_ID` | Firebase web app |
-| `VITE_GOOGLE_MAPS_BROWSER_KEY` | Maps JavaScript key; restrict by referrer/API |
-| `VITE_GOOGLE_MAPS_MAP_ID` | Optional Google map style ID |
+| `VITE_APP_VERSION` | Client release identifier |
+| `VITE_ERROR_REPORTING_ENABLED` | Frontend issue reporting toggle |
+| `VITE_FIREBASE_*` | Public Firebase web settings |
+| `VITE_GOOGLE_MAPS_BROWSER_KEY` | Browser Maps key, restricted by referrer/API |
+| `VITE_GOOGLE_MAPS_MAP_ID` | Optional map style ID |
 
-Never put Cashfree secret keys, JWT secrets, database URLs, Cloudinary secrets, Firebase private keys, provider tokens, or VAPID private keys in this file.
+Never expose provider secret keys, database URLs, JWT secrets, private Firebase credentials, WhatsApp tokens, or VAPID private keys.
 
-## Commands
+## Commands and validation
 
 ```bash
 npm ci
@@ -99,34 +140,12 @@ npm run build
 npm run preview
 ```
 
-Vite development and preview listen on `127.0.0.1:8080`.
+Vite development and preview bind to `127.0.0.1:8080`.
 
-## Booking-state rules
+There is no standalone frontend test command. A production change should include:
 
-- Cart selections must be revalidated when city, location, or vehicle changes.
-- The selected saved service location is the booking destination; garage live tracking must not overwrite it.
-- `PENDING_PAYMENT` bookings can resume payment.
-- Payment confirmation moves the booking to `SEARCHING_GARAGE`.
-- Current search rounds are 5 km, 10 km, and 20 km.
-- The current acceptance path writes `CONFIRMED`; `GARAGE_ASSIGNED` is compatibility state.
-- Pickup OTP/evidence moves the booking to `IN_PROGRESS`.
-- Garage delivery plus customer acceptance moves it to `COMPLETED`.
-- Missing approved pricing must block checkout rather than inventing a price.
-
-## UI and privacy rules
-
-- Do not expose exact customer location/contact to unassigned garages or controllers.
-- Never render provider secrets, session tokens, password hashes, OTP hashes, raw webhook data, or internal stack traces.
-- Preserve loading, empty, retry, offline, and permission-denied states on mobile and desktop.
-- Route-level lazy-loading failures use the chunk-recovery helper; avoid infinite refresh loops.
-- Use `SafeImage` and media helpers for remote assets.
-- Keep all five PWA manifests/service workers and deployment rewrites aligned after route changes.
-
-## Validation
-
-```bash
-npm ci
-npm run build
-```
-
-There is currently no client lint or standalone client test script. Relevant frontend regressions are covered by source-level Node tests in `server/test/security`; a production change still requires manual responsive and browser-flow testing.
+1. `npm run build`.
+2. Relevant Node source-regression tests in `server/test/security`.
+3. Manual mobile and desktop checks for all affected roles.
+4. Route refresh checks against the deployment rewrites.
+5. Browser permission checks for camera, location, notifications, and voice where relevant.

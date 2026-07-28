@@ -1,237 +1,214 @@
 # Rovauto Security Design
 
-> Security reference verified against the source and security tests on 23 July 2026.
+> Security reference synchronized with the codebase on 28 July 2026.
 
-## 1. Security objectives
+## 1. Objectives
 
-1. Prevent cross-account and cross-garage data access.
-2. Prevent session theft/reuse and login abuse.
-3. Prevent forged browser mutations and forged provider callbacks.
-4. Preserve exactly-once financial and booking assignment outcomes.
-5. Minimize exposure of location, contact, vehicle, credential, and payment data.
-6. Make destructive/admin behavior authenticated, authorized, limited, and auditable.
-7. Return safe errors while preserving enough server-side evidence to investigate.
-
-Security is defense in depth: route middleware, service ownership checks, database constraints/transactions, provider verification, and regression tests all participate.
+- Prevent cross-customer, cross-garage, and cross-role access.
+- Keep provider credentials, sessions, OTPs, and worker tokens secret.
+- Make payment, wallet, acceptance, handover, and completion mutations idempotent and auditable.
+- Minimise customer data exposed to garages, controllers, workers, and support.
+- Detect/report failures without turning diagnostics into a data leak or SSRF channel.
 
 ## 2. Threat model
 
-| Threat | Primary controls |
-| --- | --- |
-| Credential stuffing/brute force | Argon2, IP+identity limits, concurrency limits, OTP limits, staff 2FA |
-| Session replay | HttpOnly secure cookies, DB sessions, expiry/revocation, device ID, password-change invalidation |
-| CSRF/login CSRF | SameSite cookies plus double-submit token; session-establishing routes protected for browser requests |
-| XSS token theft | JWT inaccessible to JavaScript; Helmet/CSP defaults; React escaping; output/privacy sanitization |
-| Broken access control/IDOR | Account-type/role middleware, ownership queries, garage/controller scoping, dedicated tests |
-| Payment forgery/replay | Cashfree signatures/freshness, server verification, amount/order matching, unique provider IDs, idempotency |
-| Double garage acceptance | Conditional transaction, one booking assignment, idempotent garage-wallet fee |
-| Malicious upload | Count/size/MIME allow-list, file signature validation, random temp names, private temp directory |
-| SSRF through issue probes | Fixed base origin/path policy, stripped query/fragment, public actor restrictions |
-| Secret leakage | Production environment validation, no secrets in `VITE_*`, sanitized errors/log controls |
-| Destructive admin misuse | Admin-only routes, validation, stricter rate limits, backup download/run separation |
+Key threats:
+
+- credential stuffing and session theft;
+- CSRF against cookie-authenticated mutations;
+- IDOR across booking, garage, ticket, and media IDs;
+- stale or forged garage acceptance;
+- payment/webhook spoofing and duplicate financial writes;
+- OTP guessing/replay;
+- worker-task link guessing, forwarding, logging, or reuse;
+- malicious uploads;
+- provider/webhook signature bypass;
+- sensitive error/system-health disclosure;
+- insider misuse of admin/intern tools;
+- browser tracking/privacy overcollection.
 
 ## 3. Authentication
 
-### Passwords and identity
+### Passwords and sessions
 
-- Passwords use Argon2 hashes.
-- Customer, garage owner, garage controller, staff, and support accounts are separate persistent identities.
-- Login requests specify/resolve an expected role; generic error text avoids easy account enumeration.
-- Controller email/phone is unique and the controller is permanently tied to one garage.
-- Google login verifies Firebase identity server-side and records consent/auth-provider state.
-
-### Cookies
-
-| Cookie | Properties |
-| --- | --- |
-| `accessToken` | HttpOnly, Secure in production, SameSite `None` in production/`Lax` locally, path `/`, bounded age |
-| `supportAccessToken` | Same protections; separate support trust boundary |
-| `rovautoDeviceId` | HttpOnly stable device/session identifier |
-| `rovautoCsrf` | Secure in production, readable by JavaScript for double-submit CSRF |
-
-Production cross-site frontend/API deployment requires `SameSite=None; Secure`; HTTPS is mandatory.
-
-### Database sessions
-
-Every accepted JWT is resolved to a current account and session record. Requests fail when:
-
-- Token is missing, malformed, or expired.
-- Account type/role is invalid.
-- Account is disabled/deleted.
-- Session is expired or revoked.
-- Token predates `passwordChangedAt`.
-
-Password changes, admin reset, controller deactivation, logout, explicit revocation, and retention processes update/revoke the relevant session rows.
+- Passwords use Argon2.
+- Browser tokens are HttpOnly cookies backed by revocable session rows.
+- Session/device identity is tracked and retention cleanup runs periodically.
+- Customer support uses a separate session family/cookie.
 
 ### Staff two-factor
 
-Admin/intern/support login can require a short-lived email challenge. Challenge verification and resend are separately rate-limited. Production requires `ADMIN_2FA_EMAIL` and email OTP delivery.
+Admin/sub-admin/intern login uses staff login challenges and email OTP according to configuration. OTP hashes, expiry, resend cooldown, attempts, and consumption must remain bounded and atomic.
+
+### Garage controllers
+
+Controllers have garage-scoped accounts/sessions. They must never gain owner wallet, withdrawal, settings, or unrelated booking access.
+
+Disabling controller accounts revokes active controller sessions and blocks login.
+
+### Worker task links
+
+No-account workers do not authenticate as garage owners/controllers.
+
+Security properties:
+
+- 32 random bytes encoded as base64url;
+- SHA-256 hash stored in `GarageWorkerTask.tokenHash`;
+- raw token only exists in the generated URL/delivery response;
+- 1-48 hour expiry;
+- stage- and booking-scoped;
+- resend rotates token;
+- revoke/mode switch invalidates access;
+- rate limits on public read/mutation/evidence endpoints;
+- public projection hides customer phone and financial data.
+
+Current implementation does not bind the task to one device. Forwarded-link risk remains a residual risk and should be reduced later with optional device binding/PIN or a native worker app.
 
 ## 4. Authorization matrix
 
-| Resource | Customer | Owner | Controller | Support | Intern | Admin |
-| --- | --- | --- | --- | --- | --- | --- |
-| Own profile/vehicles/locations | Own | No | No | Limited support view | Read ops | Operational |
-| Own booking/payment/wallet | Own | Assigned garage view | Own assignment | Ticket context | Read ops | Operational mutation |
-| Garage profile/services | No | Own garage | Read own garage | No | Read ops | Manage |
-| Garage controllers | No | Own garage | Self only | No | Read where exposed | All garages + limits |
-| Customer details on lead | Own | After assignment | Active own assignment | Ticket need | Minimal/read ops | Operational |
-| Price ranges | View approved | View | View | No | Submit/edit per route | Approve/manage |
-| Dangerous commands | No | No | No | No | No | Admin only |
+| Capability | Customer | Garage owner | Controller | Worker link | Intern | Sub-admin | Main admin | Support |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Own customer booking | Yes | Assigned only | Assigned only | One task only | Operational scope | Operational scope | Yes | Ticket scope |
+| Garage wallet/settings | No | Own garage | No | No | No | Permitted admin views | Yes | No |
+| Controller management | No | Own garage if enabled | No | No | No | Admin scope | Yes | No |
+| Worker task manage | No | Assigned garage | No | No | No | Yes | Yes | No |
+| Worker task execute | No | Through normal account | Through normal account | Token stage only | No | No | No | No |
+| System Health | No | No | No | No | Yes | Yes | Yes | No |
+| Dangerous operations | No | No | No | No | No | No | Main-admin only | No |
+| Customer support tickets | Own | Limited booking context | Limited | No | Permitted views | Yes | Yes | Assigned support scope |
 
-Rules:
-
-- Never authorize only from an ID supplied by the browser.
-- Queries must bind IDs to the current actor (`userId`, `ownerId`, `garageId`, `garageControllerId`, or support assignment).
-- A controller cannot manage controllers, change the garage account, or cross garages.
-- Frontend hiding is not authorization.
+Backend service ownership is authoritative; UI visibility is not security.
 
 ## 5. CSRF and CORS
 
-The API seeds `rovautoCsrf`. Unsafe requests carrying an authentication cookie must send the same value in `X-CSRF-Token`; comparison is timing safe.
-
-Browser session-establishing endpoints are protected even before a login cookie exists:
-
-- `/api/v1/auth/login`
-- `/api/v1/auth/support/login`
-- `/api/v1/auth/google`
-- `/api/v1/auth/verify-otp`
-- `/api/v1/auth/staff/verify-otp`
-
-Webhook paths are excluded from CSRF because providers cannot supply the browser token. Their security comes from provider signatures.
-
-CORS:
-
-- Uses an explicit normalized allow-list and credentials.
-- Removes bearer `Authorization` from allowed browser headers because cookies are the intended auth mechanism.
-- Allows no-Origin requests for legitimate server-to-server/health clients; those requests still face authentication/signature requirements at the route.
-- Production filters local origins.
+- Cookie-authenticated unsafe browser requests require double-submit CSRF.
+- Allowed origins are explicit and production local origins are rejected.
+- Server-to-server/no-Origin requests are allowed where route security permits.
+- Cashfree/WhatsApp webhook routes bypass CSRF only with provider verification.
+- Public worker-task routes bypass account CSRF because they use token capability; they require strict token validation and rate limits.
 
 ## 6. Input and upload controls
 
-- Express JSON and URL-encoded bodies have configured size limits.
-- Express Validator is the active request validation framework.
-- Route-specific rate/concurrency limits protect expensive/auth/provider operations.
-- Multer uses bounded file counts/sizes/fields.
-- Allowed image/video MIME types are explicit.
-- Magic-byte/file-signature checks reject MIME spoofing.
-- Disk upload names are random UUIDs and the temp directory uses mode `0700`.
-- Temporary files are cleaned on response finish/close when disk upload flow is used.
+- Express Validator checks request shapes.
+- Services normalise phone, scopes, enums, TTL, and state.
+- JSON/urlencoded body limits are configured.
+- Upload middleware enforces MIME, file count, and size.
+- Worker evidence allows 5-15 images and one video, with server lifecycle checks.
+- Temporary files are registered for cleanup.
+- Cloudinary public IDs are stored for controlled deletion.
 
-Remaining hardening for high-risk public uploads should include malware scanning/image re-encoding and Cloudinary transformation restrictions.
+Client `accept` attributes are not security controls.
 
-## 7. Payment and financial security
+## 7. Payment and wallet security
 
 ### Cashfree
 
-- Production refuses to start without app credentials, strong webhook secret, HTTPS notify URL, production environment, and signature enforcement.
-- Raw body is retained for signature verification.
-- Webhook freshness/age and signature are checked.
-- Server verification compares booking/order/amount/currency/provider state.
-- Cashfree order and payment IDs are unique.
-- Financial idempotency keys prevent repeat wallet effects.
+- Verify webhook signature and provider order.
+- Verify amount, currency, booking ownership, and expected state.
+- Treat redirects as untrusted presentation.
+- Deduplicate callbacks and finalisation.
 
-### Customer and garage wallets
+### Wallets
 
-- Whole-rupee integer arithmetic.
-- Conditional balance updates prevent overdraft.
-- Balance and ledger entry change in one transaction.
-- Booking payment/refund and garage acceptance fee use stable idempotency identities.
-- Late provider success and cancellation races reconcile visibly rather than disappearing.
+- Ledger writes are transactional.
+- Garage acceptance fee must post once.
+- Refund/recharge operations need idempotency and audit metadata.
+- Controllers/workers never receive withdrawal access.
 
-Never trust a client-supplied “payment successful” flag.
+## 8. Garage eligibility and acceptance
 
-## 8. Booking, OTP, and controller security
+Security and correctness depend on capability revalidation:
 
-- Active-booking database guard prevents concurrent active bookings for one vehicle.
-- First-winner garage acceptance is transactional.
-- Controllers can accept/handle only requests for their garage and see sensitive customer data only for active assignment.
-- Handover OTP is six digits, hashed, expires after two hours, has bounded attempts, and uses a concurrency claim.
-- OTP is sent/viewed through secure account flows and must not enter chatbot/support free text.
-- Pickup and delivery evidence is required at the relevant state transition.
+- fulfilment mode;
+- brand/model/service scopes;
+- exclusions;
+- operational status;
+- distance/availability;
+- request validity;
+- booking unassigned state.
 
-## 9. Webhooks and messaging
+Notification-time filtering alone is insufficient because configuration may change before acceptance.
 
-| Endpoint | Required protection |
-| --- | --- |
-| Cashfree webhook | Signature, timestamp/freshness, raw-body verification, order/amount reconciliation, idempotency |
-| WhatsApp webhook | Meta app signature using raw body, verify token for challenge, payload validation |
+## 9. Handover, tracking, and evidence
 
-Notification delivery is not authorization and is not proof a booking changed. Every deep link must reauthenticate and reauthorize against current database state.
+- Handover OTP is sent to/confirmed by the customer, not used as worker login.
+- Attempt count, expiry, and atomic claim prevent replay/races.
+- Tracking updates require assigned account or valid worker task.
+- Worker task cannot track self-drop bookings.
+- Customer saved destination must not be overwritten by live garage/worker position.
+- Evidence is tied to booking, garage, phase, media type, and order.
+- Mandatory evidence should be immutable after completion except through explicit audited admin workflow.
 
-## 10. Privacy and data minimization
+## 10. WhatsApp and webhooks
 
-Sensitive data includes exact location, phone/email, registration number, OTP, password/token, payment identifiers, provider payloads, images, support messages, and internal IDs.
+- Verify Meta webhook signatures using the app secret/raw body.
+- Store tokens only in server environment.
+- Templates must not include secrets or unnecessary customer data.
+- Worker task button receives token suffix; raw token must not be logged.
+- When automatic delivery fails, manual sharing is allowed but the manager must protect the link.
 
-Controls:
+## 11. System Issues and Integration Health
 
-- Chatbot context is minimized and text is redacted for credentials, tokens, phone/email, and payment-number patterns.
-- Assistant output removes internal source paths and privileged route details.
-- Customer location/contact is withheld from unassigned garages/controllers.
-- Error responses hide internal server details in production.
-- Notification ownership uses explicit foreign keys.
-- Support/admin access should be limited to job need and audited.
+- Staff roles `ADMIN`, `SUB_ADMIN`, and `INTERN` can access System Health.
+- Diagnostics must redact tokens, credentials, signed payloads, and private URLs.
+- WhatsApp numbers/provider metadata are masked where exposed.
+- Integration checks are read-only.
+- System issue reporter metadata is minimised and fingerprints recurring failures.
+- Auto-resolver probe targets are restricted to avoid SSRF.
 
-The chatbot can explain navigation/state but cannot approve refunds, mutate bookings, reveal OTPs, or impersonate support.
+## 12. Warranty privacy
 
-## 11. Operational and infrastructure security
+The warranty endpoint is customer-authenticated and queries only `req.user.id`. It returns vehicle, selected services, assigned garage, and dates for the customer's own completed bookings. It does not expose internal garage financials or provider data.
 
-- Production environment validation is fail-closed for critical secrets/providers.
-- Helmet sets baseline browser security headers and disables `X-Powered-By`.
-- Reverse-proxy trust is fixed to one hop; deployment topology must match.
-- Readiness verifies PostgreSQL and Redis.
-- GitHub Actions uses read-only repository permissions and runs Node 22 Prisma validation, security tests, and client production build.
-- Backups must be encrypted, off-site, access-controlled, and restore-tested.
-- Database URLs and credentials must never be printed in support artifacts.
+The public `/warranty` route contains only mock/design data and must never load a customer's warranty list.
 
-Recommended additions:
+## 13. Client and mobile secrets
 
-1. Central secret manager with rotation ownership.
-2. Dependency/SCA and secret scanning in CI.
-3. Structured audit events for every privileged mutation.
-4. WAF/bot controls at the edge.
-5. Cloud/provider IAM least privilege and key restrictions.
-6. Central logs/metrics/traces with alerting.
-7. Regular restore drills and access reviews.
+- `VITE_*` and `EXPO_PUBLIC_*` are public.
+- Web JWTs remain HttpOnly; do not copy them into local storage.
+- Mobile SecureStore is better than plain storage but still requires backend revocation/refresh design.
+- Google Maps browser keys must be API/referrer restricted.
+- Firebase public configuration is not a server credential.
 
-## 12. Known residual risks
+## 14. Operational security
 
-| Risk | Current status | Required action |
-| --- | --- | --- |
-| In-process workers under horizontal scaling | Possible duplicate execution unless claims are universally safe | Move to durable queue or enforce leader/lease |
-| Process-local rate-limit fallback | Not global across replicas | Keep Redis healthy; edge-limit auth/webhooks |
-| Dangerous admin commands | Admin-only and limited, still high impact | Require re-auth/step-up confirmation and immutable audit |
-| JSON capability/exclusion fields | Application validated, weak DB shape constraints | Normalize into relational tables if complexity grows |
-| Upload malware/polyglots | Signature check only | Scan/re-encode high-risk uploads |
-| No full browser E2E suite | Source/security regression coverage only | Add staging E2E for money and booking lifecycle |
-| Personal-data retention | Session cleanup exists; full table policy not encoded | Define and automate retention/deletion policy |
+- Apply security updates and pin/review dependencies.
+- Run behind HTTPS and a reverse proxy/CDN/WAF.
+- Restrict database/Redis network access.
+- Back up and test restore.
+- Rotate provider secrets and revoke old credentials.
+- Use least-privilege cloud/provider accounts.
+- Protect production environment files and CI secrets.
+- Review admin audit logs for consequential changes such as controller-mode switches.
 
-## 13. Security testing and release gate
+## 15. Residual risks
 
-Run:
+- Browser worker tracking may stop in background.
+- Worker links are bearer capabilities and are not device-bound.
+- In-process workers need stronger multi-replica coordination.
+- Full E2E security coverage is incomplete.
+- Mobile bearer-token backend contract is not yet production-final.
+- Warranty claims currently route through support rather than a dedicated adjudication model.
 
-```bash
-cd server
-npm ci
-npm run prisma:validate
-npm run prisma:generate
-npm run prisma:check-client
-npm run test:security
+## 16. Release security gate
 
-cd ../client
-npm ci
-npm run build
-```
+- Prisma validation/generation and all migrations pass.
+- 70 regression tests pass.
+- Client build passes.
+- Role/IDOR checks for changed routes pass.
+- Provider webhook signatures are enabled.
+- Worker token never appears in logs/issue reports.
+- Controller mode switch revokes correct sessions/tasks.
+- Upload limits and cleanup tested.
+- System Health shows no unexplained outage and no secret disclosure.
+- Backup and rollback are ready.
 
-For every auth, ownership, payment, booking, upload, or admin change, add positive, unauthenticated, wrong-role, wrong-owner/cross-garage, replay/concurrency, and sanitized-error tests as applicable.
+## 17. Incident response
 
-## 14. Incident response
-
-1. Preserve request/reference IDs, actor, time, commit, provider IDs, and affected records.
-2. Revoke sessions/keys or disable the affected route/provider when containment requires it.
-3. Do not destroy evidence or overwrite the only database.
-4. Reconcile booking and financial ledgers after containment.
-5. Notify affected users/regulators according to the applicable privacy policy/law.
-6. Add a regression test and control owner before closure.
-
-Recovery details: [`../server/docs/RECOVERY_RUNBOOK.md`](../server/docs/RECOVERY_RUNBOOK.md).
+1. Preserve request IDs, timestamps, audit logs, and relevant provider event IDs.
+2. Revoke sessions/task links/credentials where exposure is possible.
+3. Contain affected route/provider without destructive cleanup.
+4. Assess customer/garage/payment impact.
+5. Repair and test the root cause.
+6. Notify affected parties according to legal/business requirements.
+7. Record preventive tests, monitoring, and documentation changes.

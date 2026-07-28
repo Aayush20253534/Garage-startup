@@ -1,146 +1,215 @@
-# Garage Partner, Controller, And Booking Flow
+# Garage Partner, Controller, Worker Task, and Booking Flow
 
-> Verified against the implementation on 23 July 2026.
+> Operational flow verified against the repository on 28 July 2026.
 
 ## 1. Partner application and approval
 
-```mermaid
-flowchart TD
-    Apply["Public partner application"] --> Pending["GarageApplication: PENDING"]
-    Pending --> Decision{"Admin decision"}
-    Decision -->|"Request changes"| Changes["CHANGES_REQUESTED + email outbox"]
-    Changes --> Apply
-    Decision -->|"Deny"| Denied["DENIED + email outbox"]
-    Decision -->|"Approve"| Approved["APPROVED"]
-    Approved --> Owner["Separate GarageOwner account"]
-    Approved --> Garage["Garage profile + wallet"]
-    Owner --> Login["Garage owner login"]
+1. Garage submits partner application and media.
+2. Admin reviews identity, address, location, services, and documents.
+3. Approved application creates/links the garage and owner account.
+4. Admin configures operational status, fulfilment, brands, service scopes, exclusions, and controller mode.
+5. Garage must be active and verified before normal marketplace participation.
+
+## 2. Garage configuration
+
+Admin Garage Details owns:
+
+- contact/address/location/radius
+- `fulfillmentMode`
+- garage type
+- supported brands
+- garage-wide brand exclusions
+- service/brand/model scopes
+- service exclusions
+- controller limit
+- `controllerAccountsEnabled`
+- verification and operational status
+
+Incorrect capability configuration directly affects which booking notifications the garage receives.
+
+## 3. Fulfilment choices
+
+Garage modes:
+
+```text
+BOTH
+PICKUP_DELIVERY
+SELF_DROP_OFF
 ```
 
-The application accepts garage identity, owner/contact details, address/coordinates, service radius, capabilities, terms acceptance, and optional media/email fields. Approval creates or links the separate `GarageOwner`, creates the `Garage`, and establishes the operational wallet/profile. Application emails are delivered asynchronously through `GarageApplicationEmailOutbox`.
+- Self-drop-only garages never receive pickup requests.
+- Pickup-only garages never receive self-drop requests.
+- Both-mode garages can receive either when all other capability checks pass.
 
-## 2. Garage login and controller accounts
+## 4. Brand/model/service eligibility
 
-The `/garage/login` screen has two explicit account modes:
+A garage must support the vehicle brand and every selected service.
 
-1. **Garage owner** — signs in with the approved owner phone/email and password.
-2. **Controller / staff** — signs in with the controller phone/email and password.
+Common configuration:
 
-Both use `POST /api/v1/auth/login` with an explicit requested role, but they receive different account types and database-backed sessions:
-
-- Owner: `role=GARAGE_OWNER`, `accountType=USER`, `GarageOwnerSession`.
-- Controller: `role=GARAGE_CONTROLLER`, `accountType=GARAGE_CONTROLLER`, `GarageControllerSession`.
-
-Garage controllers are always scoped to one garage. Owners manage controllers through `/garage/controllers`; administrators manage them through `/admin/garage-controllers`. The admin-set `Garage.controllerLimit` applies per garage. A controller cannot be created after that garage reaches its limit.
-
-Owners/admins can create, edit, activate/deactivate, reset passwords, revoke sessions, inspect activity, soft-delete controllers, and transfer bookings. Controllers can set `AVAILABLE` or `BUSY`.
-
-## 3. Garage configuration and eligibility
-
-A garage is dispatch-eligible only when the current booking and garage satisfy the checks in the booking/garage services. Important signals include:
-
-- Garage operational and verification state.
-- Location coordinates and distance radius.
-- Requested services and garage service assignments.
-- Vehicle/fuel/brand/model capability and exclusion rules.
-- Booking not already assigned or terminal.
-
-Customers see a ranked nearby-garage preview, but that preview does not reserve a garage.
-
-## 4. Customer checkout and payment
-
-```mermaid
-flowchart TD
-    Vehicle["Saved vehicle"] --> Services["Available services"]
-    Services --> Location["Confirmed saved service location"]
-    Location --> Checkout["Booking: PENDING_PAYMENT"]
-    Checkout --> Payment{"Platform fee"}
-    Payment -->|"Wallet only"| Paid["Atomic payment finalization"]
-    Payment -->|"Wallet + Cashfree"| Cashfree["Signed Cashfree verification/webhook"]
-    Cashfree --> Paid
-    Paid --> Search["Booking: SEARCHING_GARAGE"]
+```text
+Supported brand: BMW
+Service scope: BMW / ALL
 ```
 
-Service estimates are selected from approved city/service/vehicle price ranges. Missing pricing blocks checkout for that service/vehicle combination. The online amount is the platform fee; it can be paid from the customer wallet, Cashfree, or both. Financial operations use idempotency keys and transactional guards.
+This matches BMW X1, X3, and other BMW models. Garages do not need to list every model when they serve all models of a brand.
 
-## 5. Progressive garage search
+Specific positive or excluded scopes override broad assumptions. Eligibility is rechecked before notification and acceptance.
 
-The search worker processes paid `SEARCHING_GARAGE` bookings:
+## 5. Workforce access modes
 
-| Round | Radius | Default duration |
-| --- | ---: | ---: |
-| 1 | 5 km | 150 seconds |
-| 2 | 10 km | 150 seconds |
-| 3 | 20 km | 150 seconds |
+### Controller accounts enabled
 
-After round three, a new cycle starts again at 5 km without another customer payment. A garage is contacted at most once per cycle. Existing requests remain usable while the booking is unassigned.
+Use for organised garages with digitally capable supervisors/staff.
 
-Eligible garages receive in-app/push/WhatsApp delivery as configured. Available garage controllers can also receive dispatch records. Notification does not guarantee acceptance.
+- Owner creates/manages controllers within the garage limit.
+- Controllers log in from the garage login screen.
+- Controller sessions, availability, dispatch, assignment, and history are active.
+- Controller/customer data remains assignment-scoped.
+- Worker task links cannot be created.
 
-## 6. Acceptance and wallet fee
+### Controller accounts disabled
 
-```mermaid
-flowchart TD
-    Lead["Garage/request lead"] --> Choice{"Accept or reject"}
-    Choice -->|"Reject"| Rejected["Request REJECTED; search continues"]
-    Choice -->|"Accept"| Guard["Assignment + wallet checks"]
-    Guard -->|"Insufficient garage wallet"| Recharge["Acceptance blocked; recharge required"]
-    Guard -->|"Eligible"| Winner["Atomic first-winner assignment"]
-    Winner --> Fee["GARAGE_ACCEPT_FEE debit"]
-    Fee --> Confirmed["Booking CONFIRMED"]
-    Confirmed --> Dispatch["Controller assignment/transfer if used"]
+Use for garages where workers should not maintain accounts.
+
+- Active controller sessions are revoked.
+- Controller login/notifications are blocked.
+- The central owner account accepts and manages the booking.
+- Owner/admin assigns a no-account worker through a secure task link.
+- Garage controller navigation is hidden.
+
+Re-enabling controllers revokes active/in-progress worker links.
+
+## 6. Customer checkout and payment
+
+1. Customer selects city, vehicle, and services.
+2. Server validates restrictions and approved price ranges.
+3. Customer selects pickup/self-drop when allowed.
+4. Pending booking stores prices, fulfilment, and location snapshot.
+5. Customer wallet contribution and Cashfree payment are reconciled.
+6. Paid booking enters garage search.
+
+## 7. Progressive garage search
+
+Search expands through configured rounds/radii. For each candidate:
+
+- operational/verification/active checks
+- fulfilment compatibility
+- brand and exclusion checks
+- every selected service scope
+- service/category availability/restriction
+- distance/working radius
+
+A `GarageBroadcastRequest` is created only for an eligible garage.
+
+## 8. Acceptance and wallet fee
+
+- First valid acceptance wins.
+- Booking and request are revalidated transactionally.
+- Garage capability is recalculated.
+- Garage wallet fee is charged once.
+- Booking is assigned and normally becomes `CONFIRMED`.
+- Controller or owner notification path follows the garage workforce setting.
+
+## 9. Controller-enabled handover
+
+The existing controller/owner flow can:
+
+- start tracking;
+- reach the customer;
+- verify customer handover OTP;
+- upload pickup evidence;
+- return vehicle to garage;
+- upload delivery evidence;
+- complete assigned work.
+
+Controller availability moves between available and busy according to booking state.
+
+## 10. No-account worker handover
+
+Owner/admin creates a `HANDOVER` task with worker name, WhatsApp number, and TTL.
+
+```text
+WhatsApp template/manual link
+→ /worker-task/:token
+→ Hindi/English instructions
+→ optional voice playback
+→ live tracking for pickup
+→ 5-15 images + one video
+→ customer handover OTP
+→ return tracking to garage
+→ complete return journey
 ```
 
-All eligible nearby garages can receive the lead. A garage with insufficient wallet balance can view the lead but cannot accept until it can cover the acceptance fee. Acceptance is protected against concurrent winners; the successful garage is assigned and competing requests expire.
+The worker sees only task-relevant vehicle, services, destination, garage, and masked customer information. Wallet, payments, other bookings, and customer history are absent.
 
-Customer details are revealed only after assignment, and controller views further limit those details to active assignments.
+## 11. Self-drop handover
 
-## 7. Handover, service, and delivery
+- Customer takes the vehicle to the assigned garage.
+- No pickup tracking is available.
+- Controller/owner/worker verifies the handover OTP at the garage and uploads evidence.
+- The booking moves to `IN_PROGRESS`.
 
-Before dispatch, the garage must support the booking's pickup/self-drop-off mode, the vehicle brand, and every selected service for the vehicle scope. The same eligibility is checked again when the request is accepted.
+For a self-drop `DELIVERY` task, the worker uploads ready-for-self-pickup evidence rather than travelling to the customer.
 
-1. Assignment generates a six-digit handover OTP with a two-hour expiry.
-2. For pickup bookings, the garage collects and returns the vehicle. For self-drop-off bookings, the customer takes the vehicle to the garage and collects it there.
-3. The customer shares the OTP only during physical vehicle handover.
-4. Garage/controller submits the OTP plus the required handover inspection images.
-5. Verification uses hashed OTP storage, bounded attempts, a concurrency claim, and Cloudinary upload.
-6. Successful verification changes the booking from `CONFIRMED` to `IN_PROGRESS`.
-7. Garage/controller uploads delivery inspection images and marks the vehicle delivered.
-8. Customer reviews the delivery, supplies/confirms the final service amount, and accepts delivery.
-9. Booking becomes `COMPLETED`; review, service history, and warranty flows become available.
+## 12. Service work and evidence
 
-`deliveredAt` is a delivery checkpoint, not a separate `BookingStatus`.
+Required inspection media per pickup/delivery submission:
 
-## 8. Booking status model
+- 5-15 images, maximum 1 MB each
+- exactly one video, maximum 50 MB
 
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING_PAYMENT
-    PENDING_PAYMENT --> SEARCHING_GARAGE: payment confirmed
-    SEARCHING_GARAGE --> CONFIRMED: first garage accepts
-    CONFIRMED --> IN_PROGRESS: OTP + pickup evidence
-    IN_PROGRESS --> COMPLETED: delivery accepted
-    PENDING_PAYMENT --> CANCELLED
-    SEARCHING_GARAGE --> CANCELLED
-    CONFIRMED --> CANCELLED
-    SEARCHING_GARAGE --> EXPIRED: exceptional terminal expiry
-```
+The manager should review evidence quality. Physical mechanics do not need an account; a floor supervisor or shared garage phone can handle evidence.
 
-`GARAGE_ASSIGNED` remains in the enum and read compatibility paths, while the active acceptance implementation writes `CONFIRMED`.
+## 13. Delivery and completion
 
-## 9. Cancellation and refunds
+Pickup/delivery booking:
 
-Customer cancellation is available before service starts for supported pre-service statuses. Broadcast requests are expired and the booking is marked `CANCELLED`. Eligible paid platform-fee value is credited to the customer wallet using idempotent financial records. Late Cashfree success and wallet-balance races are reconciled to wallet credit instead of double charging or losing funds.
+1. Delivery task starts at garage.
+2. Worker/controller tracks to customer.
+3. Delivery evidence is uploaded.
+4. Garage marks delivered.
+5. Customer accepts delivery.
+6. Booking becomes `COMPLETED`.
 
-## 10. Operational ownership
+Self drop:
 
-| Actor | Authority |
+1. Garage uploads ready-for-pickup evidence.
+2. Customer collects and accepts.
+3. Booking becomes `COMPLETED`.
+
+## 14. Warranty and history
+
+Completed booking appears in:
+
+- customer service history;
+- protected Warranty Center;
+- garage/controller history according to role/privacy.
+
+The warranty card remains active for 30 days from customer acceptance/delivery fallback and then shows expired.
+
+## 15. Intervention controls
+
+Owner/admin can:
+
+- create task;
+- list task history;
+- resend/rotate link;
+- revoke link;
+- review open/start/location/completion timestamps;
+- switch workforce mode through garage settings.
+
+Changing mode is consequential because it revokes the incompatible session/link family.
+
+## 16. Operational ownership
+
+| Issue | Primary owner |
 | --- | --- |
-| Customer | Own vehicles, locations, booking, payment, delivery acceptance, complaints/tickets, and reviews |
-| Garage owner | Own garage profile/services, wallet, requests, controller roster, and garage work |
-| Garage controller | Assigned/allowed garage work and availability; no owner-level account administration |
-| Customer support | Ticket workflow and customer communications, not arbitrary booking/payment mutation |
-| Intern | Read-oriented operations and submission workflows |
-| Admin | Platform operations, moderation, garage/controller limits, transfers, protected maintenance |
-
-Backend authorization is authoritative. Frontend route guards are navigation controls only.
+| Garage configuration/capability | Admin operations |
+| Request acceptance/wallet | Garage manager + operations |
+| Controller account/session | Garage owner + admin |
+| Worker link delivery/expiry | Garage owner + operations |
+| Worker location/media permission | Garage manager training/support |
+| Payment/refund | Finance/tech operations |
+| Booking state incident | Tech operations using System Health/request ID |
+| Customer complaint/warranty claim | Customer support |

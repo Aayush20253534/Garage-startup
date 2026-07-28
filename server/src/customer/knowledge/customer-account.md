@@ -1,45 +1,39 @@
-# Customer Account And Setup
+# Customer Account, Vehicles, and Warranty
 
-> Customer-assistant knowledge verified on 25 July 2026.
+> Customer-help knowledge updated on 28 July 2026.
 
-## Registration And Login
+## Account access
 
-Customers can register with their name, email address, mobile number, and password, or use supported Google sign-in. Login accepts the registered email address or phone number with the account password. OTP verification is used for selected verification and password-recovery steps.
+Customers can use the available password, OTP, or Google sign-in flow. Keep your phone/email current so account and booking messages reach you. Never share login or handover OTPs with someone who is not completing the relevant action in person.
 
-Never share passwords, OTPs, payment credentials, session tokens, or recovery codes with the chatbot. Use only Rovauto's secure login, verification, and payment forms for those values.
+## Saved location
 
-## Customer, Garage Owner, And Controller Accounts
+Save and verify your service address once. Rovauto uses the selected saved location for booking and garage search. Live garage/worker tracking is separate and should not replace your saved address.
 
-Customer and garage-owner accounts are separate. Garage controllers or staff also have separate accounts tied to one garage. A customer account is used to manage vehicles, locations, bookings, payments, complaints, and support. Applying to become a garage partner uses the separate Partner flow and does not convert the customer dashboard into the garage portal.
+## My Vehicles
 
-## Required Customer Setup
+Add the correct:
 
-Before booking, add at least one vehicle and a usable saved location. A default vehicle and default location make checkout faster, but the customer can explicitly choose another saved vehicle or location. Checkout uses the confirmed saved service destination and must not silently substitute the device's current GPS position.
+- brand;
+- model;
+- year;
+- fuel type;
+- registration number where required.
 
-For pickup-and-delivery services, the selected location is the vehicle pickup and return destination. For self drop-off services, it is used to confirm service availability and find nearby garages; the customer later travels to the garage address shown after acceptance.
+Price ranges and garage eligibility may depend on this information. Mark the vehicle you use most as default when the option is available.
 
-## Vehicles
+A catalogue image may appear for the vehicle model. Image matching is based on brand/model names. The booking still works when no image is available.
 
-Customers can add, edit, delete, and choose a default vehicle. Vehicle details include brand, model, year, fuel type, and an optional registration number. A vehicle with an active booking cannot be used for another active booking until the first booking is completed or cancelled.
+## Changing vehicle or city
 
-## Saved Locations
+Changing the selected vehicle, city, or location can change service availability and price ranges. Review the cart again before checkout.
 
-Customers can save multiple locations and choose one as default. A manually entered address is validated and geocoded when saved. A GPS location stores the detected coordinates. If a location is outside Rovauto's supported cities, the app explains that service is not available there yet.
+## Warranty Center
 
-A self drop-off booking does not turn the saved customer location into a pickup destination. Once a garage accepts, use the assigned garage address and directions in the booking tracker.
+Open **Dashboard → Warranty Center** after a booking is completed. Each card shows the vehicle, selected services, assigned garage, activation/expiry dates, and days remaining.
 
-## Profile And Password
+The card is active for 30 days and then displays expired. Use the Claim button/support flow when you need help about work covered by a completed service. A warranty card does not automatically approve a refund or repair; support reviews the booking and evidence.
 
-Customers can update permitted profile details and avatar from account settings. Password changes and recovery should be completed through the secure account screens. The chatbot cannot reveal an existing password, OTP, session, or private account credential.
+## Account security
 
-## Wallet And Payment History
-
-The customer wallet can be viewed from the dashboard or wallet screen. Available wallet balance can be applied to the platform fee during checkout. Wallet and Cashfree portions are shown in payment records when both are used. Eligible booking cancellations and payment-reconciliation refunds may be credited to the Rovauto wallet.
-
-## Notifications And Activities
-
-Notifications can include garage-search updates, booking acceptance, handover instructions, payment events, delivery, vehicle-ready-for-pickup updates, warranty, support, and system messages. Customers can mark individual notifications or all notifications as read. Sensitive values such as handover OTPs should be viewed only in the secure booking flow and must not be copied into chatbot messages.
-
-## Chat Privacy
-
-The assistant may use limited account signals, such as whether a vehicle or location exists and the status of the latest booking, to give relevant navigation help. It should not expose exact saved addresses, vehicle registration numbers, contact details, OTP values, payment credentials, internal identifiers, or another person's information.
+Use a unique password, sign out on shared devices, and report unexpected login/session behaviour. Do not give garage workers access to your customer account.

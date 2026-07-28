@@ -1,113 +1,136 @@
 # Rovauto Server
 
-> Backend reference verified against the repository on 23 July 2026.
+> Backend reference verified against the repository on 28 July 2026.
 
-The server is a Node.js 22+/Express 5 API backed by PostgreSQL/PostGIS through Prisma 7. It owns authentication, authorization, marketplace state, financial reconciliation, garage dispatch, support operations, integrations, background workers, and operational recovery.
+The server is a Node.js 22+/Express 5 API backed by PostgreSQL/PostGIS through Prisma 7 and by Redis for cache, rate limits, and operational coordination. It owns authentication, authorization, bookings, payments, garage dispatch, tracking, evidence, worker-task links, customer warranty projections, support, integrations, and background jobs.
 
 ## Runtime structure
 
 ```text
 src/
-|-- app.js                         HTTP middleware, health, routes, errors
-|-- server.js                      startup, workers, signals, shutdown
-|-- config/                        Prisma, Redis, cookies, environment, providers
-|-- routes/                        public/mixed/garage platform routes
-|-- customer/                      customer controllers/services/routes/knowledge
-|-- garage/                        applications, owners, controllers, wallets
-|-- admin/                         staff administration and moderation
-|-- customerSupport/               separate support portal
-|-- maps/                          Google Maps and booking tracking
-|-- services/                      dispatch, lifecycle, notifications, issues
-|-- middlewares/                   auth, role, CSRF, validation, limits, upload
-|-- scripts/                       backup, recovery, smoke, cleanup
-`-- utils/                         response, errors, cache, distance, providers
+|-- app.js                          Express middleware, health, CSRF, route mount
+|-- server.js                       Startup, configuration validation, shutdown
+|-- routes/                         Shared/public/garage routes
+|-- customer/                       Customer controllers, routes, services, knowledge
+|-- garage/                         Garage application, controller, and wallet modules
+|-- admin/                          Staff operations, System Health, catalogues
+|-- customerSupport/                Separate support portal API
+|-- maps/                           Geocoding, routing, and tracking services
+|-- services/                       Cross-domain lifecycle, dispatch, worker-task services
+|-- middlewares/                    Auth, CSRF, upload, limits, validation, errors
+|-- config/                         Prisma, Redis, providers
+|-- scripts/                        Seed, backup, recovery, cleanup, smoke tests
+`-- utils/                          Errors, responses, phone, cache, security helpers
 ```
 
-Canonical design: [`../important/Architecture.md`](../important/Architecture.md). Schema guide: [`../important/Database.md`](../important/Database.md). Security: [`../important/security.md`](../important/security.md).
+## Startup and background work
 
-## Startup and workers
+Production startup generates/checks the Prisma client before launching `src/server.js`. Critical configuration is validated before normal traffic. In-process jobs currently include garage search, garage-application email outbox processing, session cleanup, issue auto-resolution, and scheduled operational work.
 
-`src/server.js` validates production configuration, connects to PostgreSQL, starts HTTP, and starts four in-process workers:
-
-1. Progressive garage search.
-2. System-issue auto-resolution when enabled.
-3. Garage-application email outbox.
-4. Session-retention cleanup.
-
-`SIGTERM`, `SIGINT`, uncaught exceptions, and unhandled rejections stop workers, close HTTP, disconnect Prisma/Redis, and enforce a shutdown timeout. Because workers are in-process, run only the intended API replica count until worker claiming/leader election is designed for multi-replica execution.
+Because workers share the web process, deployment with multiple replicas must preserve idempotency and distributed claiming. Redis is not a durable job queue.
 
 ## API and health
 
-```text
-Root:             GET /
-Liveness:         GET /health/live
-Readiness:        GET /health or /health/ready
-CSRF bootstrap:   GET /api/v1/csrf-token
-API base:         /api/v1
-```
+The API root is `/api/v1`.
 
-Readiness checks PostgreSQL and Redis and returns `503` when either fails. The complete route inventory is maintained in [`../important/Architecture.md`](../important/Architecture.md).
-
-## Authentication model
-
-| Actor | Account table | Session table | Role/account type |
-| --- | --- | --- | --- |
-| Customer | `User` | `UserSession` | `CUSTOMER` / `USER` |
-| Garage owner | `GarageOwner` | `GarageOwnerSession` | `GARAGE_OWNER` / `USER` |
-| Garage controller | `GarageController` | `GarageControllerSession` | `GARAGE_CONTROLLER` / `GARAGE_CONTROLLER` |
-| Admin/intern | `StaffAccount` | `StaffSession` | `ADMIN` or `INTERN` / `STAFF` |
-| Customer support | `CustomerSupportAccount` | `CustomerSupportSession` | `CUSTOMER_SUPPORT` / `CUSTOMER_SUPPORT` |
-
-JWTs are held in HttpOnly cookies and include a session ID. Password changes, deactivation, explicit revocation, expiry, and retention cleanup invalidate sessions. Staff/admin login uses a second-factor challenge where required.
-
-## Core marketplace flow
-
-1. Customer creates a `PENDING_PAYMENT` booking from a saved vehicle, confirmed location, and active/priced services.
-2. Customer wallet and Cashfree pay the platform fee with idempotent reservation/finalization.
-3. Confirmed payment changes the booking to `SEARCHING_GARAGE`.
-4. The worker broadcasts through 5 km, 10 km, and 20 km rounds and repeats cycles.
-5. The first eligible garage with sufficient acceptance-fee balance wins atomically.
-6. A garage controller may be assigned; unrelated controller/customer details remain hidden.
-7. Handover OTP plus pickup images changes the booking to `IN_PROGRESS`.
-8. Delivery images and garage delivery checkpoint precede customer acceptance.
-9. Customer acceptance records final service amount and changes the booking to `COMPLETED`.
-
-See [`../garage-partner-flow.md`](../garage-partner-flow.md).
-
-## Environment
-
-Production validation requires:
-
-- Strong `JWT_SECRET` and `CASHFREE_WEBHOOK_SECRET`.
-- `DATABASE_URL`, `REDIS_URL`, Cashfree credentials/notify URL, Cloudinary credentials.
-- Firebase Admin project/client/private key.
-- Resend API key and a configured sender.
-- `ADMIN_2FA_EMAIL`.
-- WhatsApp verify token and app secret.
-- Web Push public/private VAPID keys.
-- HTTPS client/frontend and Cashfree callback URLs.
-- `CASHFREE_ENV=production`, webhook signatures enabled, email OTP delivery enabled, and WhatsApp debug logs disabled.
-
-Active configuration families:
-
-| Family | Variables |
+| Endpoint | Purpose |
 | --- | --- |
-| Core | `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `JWT_COOKIE_MAX_AGE_MS` |
-| Origins/bodies | `CLIENT_URL`, `FRONTEND_URL`, `ALLOWED_ORIGINS`, `JSON_BODY_LIMIT`, `URLENCODED_BODY_LIMIT` |
-| Redis/cache | `REDIS_URL`, connect/command/cache timeouts, cache TTL variables, `RATE_LIMIT_*` |
-| Cashfree | `CASHFREE_APP_ID`, `CASHFREE_SECRET_KEY`, `CASHFREE_ENV`, API version, notify/webhook/signature/timeout settings |
-| Maps | `GOOGLE_MAPS_*`, geocoding, places, route matrix, roads, tracking, optimization settings |
-| Media | `CLOUDINARY_*`, `UPLOAD_TEMP_DIR`, complaint/support upload concurrency |
-| Email/OTP | `RESEND_*`, `EMAIL_FROM`, `EMAIL_OTP_DELIVERY`, OTP/cooldown variables |
-| WhatsApp/SMS | `WHATSAPP_*`, `META_APP_SECRET`, `SMS_*`, `FAST2SMS_API_KEY` |
-| Push/Firebase | Firebase Admin variables and `WEB_PUSH_VAPID_*` |
-| Search/workers | `GARAGE_SEARCH_*`, `GARAGE_GEO_LOOKUP_RADIUS_KM`, outbox, session cleanup, issue resolver |
-| AI | `GROQ_API_KEY`, `GROQ_MODEL`, `CHATBOT_GROQ_*`, rate/timeout settings |
-| Operations | `BACKUP_DIRECTORY`, `RECOVERY_TEST_DATABASE_URL`, `SMOKE_*`, shutdown/failure-report timeouts |
+| `GET /health/live` | Process liveness |
+| `GET /health` | PostgreSQL/Redis readiness |
+| `GET /health/ready` | Readiness alias |
+| `GET /api/v1/csrf-token` | Browser CSRF token |
+| `GET /api/v1/warranties` | Customer completed-booking warranty projection |
+| `GET /api/v1/worker-tasks/:token` | Public token-scoped worker task |
+| `GET /api/v1/admin/integration-health` | Staff integration checks |
+| `GET /api/v1/admin/system-issues` | Staff issue queue |
 
-Do not commit `.env` or provider credentials. `VITE_*` values are browser-visible and are not server secret storage.
+The public worker-task endpoints are rate-limited and token-scoped. Manager endpoints under `/api/v1/garage/worker-tasks` require `ADMIN`, `SUB_ADMIN`, or the assigned `GARAGE_OWNER`.
+
+## Identity and sessions
+
+- Customers, garage owners, and garage controllers use role-specific records and revocable sessions.
+- `StaffAccount` supports `ADMIN`, `SUB_ADMIN`, and `INTERN` with database sessions and two-factor login challenges.
+- Customer support has a separate account/session family and cookie.
+- Browser authentication is cookie-based and requires CSRF for unsafe requests.
+- The mobile client is being built around bearer tokens; production backend support for that contract must be explicitly completed and tested.
+- Worker-task links are not accounts. Their authority is the hash-matched, expiring token for one booking stage.
+
+## Marketplace flow
+
+1. Customer selects city, vehicle, services, and fulfilment type.
+2. The server validates service restrictions and approved price ranges.
+3. Payment/wallet reconciliation creates or confirms the booking.
+4. Progressive garage search checks distance, operational status, fulfilment, brand/model/service scopes, exclusions, and availability.
+5. A compatible garage accepts atomically and pays the garage acceptance fee.
+6. With controller accounts enabled, existing controller dispatch/assignment runs.
+7. With controller accounts disabled, the owner/admin can create a WhatsApp worker task for `HANDOVER` or `DELIVERY`.
+8. Handover OTP plus 5-15 images and exactly one video moves the booking to `IN_PROGRESS`.
+9. Delivery evidence is uploaded and the customer accepts delivery.
+10. `COMPLETED` bookings appear in the customer Warranty Center for a 30-day active period and remain visible as expired afterwards.
+
+## Garage capability rules
+
+A garage is eligible only when:
+
+- It is active, verified, operational, within the search radius, and available.
+- Its `fulfillmentMode` supports the booking choice.
+- Its supported brands contain the vehicle brand or `ALL`.
+- Garage-wide and service-specific exclusions do not block the vehicle.
+- Every selected service has an active matching `GarageService` scope.
+
+`BMW / ALL` matches BMW X1, X3, and other BMW models. A specific model scope matches only that model. The final capability check is repeated immediately before dispatch and inside acceptance to prevent stale eligibility.
+
+## Worker-task mode
+
+Worker links are enabled only when `Garage.controllerAccountsEnabled` is false.
+
+- Disabling controller accounts revokes active controller sessions.
+- Enabling controller accounts revokes active/in-progress worker tasks.
+- Creating a new task for the same booking and task type revokes the older active task.
+- Tokens are 32 random bytes encoded with base64url; only SHA-256 hashes are stored.
+- TTL is 1-48 hours; default is `WORKER_TASK_TTL_HOURS` or 12 hours.
+- Public responses hide the customer phone and financial data.
+- Pickup live tracking is disabled for self-drop bookings.
+- Browser tracking points are linked through `workerTaskId`.
+
+## Customer warranties
+
+There is no `Warranty` database model. `GET /api/v1/warranties` queries the authenticated customer's completed bookings with an assigned garage and derives:
+
+- `warrantyId` as `W-<bookingCode>`
+- selected services
+- vehicle and garage
+- activation time
+- expiry time
+- active/expired status
+- remaining days
+
+Activation prefers `customerAcceptedAt`, then `deliveredAt`, then `updatedAt`. Duration is 30 days.
+
+## Environment families
+
+| Family | Main variables |
+| --- | --- |
+| Core | `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET` |
+| Origins/bodies | `CLIENT_URL`, `FRONTEND_URL`, `ALLOWED_ORIGINS`, body limits |
+| Redis | `REDIS_URL`, connection/command/cache timeouts, rate-limit settings |
+| Cashfree | app ID, secret, environment, API version, webhook/signature settings |
+| Maps/tracking | Google Maps/geocoding/routes/roads/tracking settings |
+| Media | Cloudinary credentials, temp directory, upload concurrency |
+| Email/OTP | Resend credentials/sender, OTP limits and cooldowns |
+| WhatsApp | phone number ID, token, app secret, webhook, templates |
+| Worker task | `WHATSAPP_WORKER_TASK_TEMPLATE`, template language, `WORKER_TASK_TTL_HOURS` |
+| Push/Firebase | Firebase Admin and VAPID settings |
+| Search/jobs | garage search, outbox, session cleanup, issue resolver |
+| AI | Groq model, timeout, and chatbot rate settings |
+| Integration Health | check cache/timeout overrides where configured |
+| Recovery | backup directory, recovery database, deployment smoke variables |
+
+Do not commit `.env`. `VITE_*` and `EXPO_PUBLIC_*` are client-visible and are not server secret storage.
 
 ## Commands
+
+Development and validation:
 
 ```bash
 npm ci
@@ -134,29 +157,43 @@ npm run db:recovery-drill
 npm run deploy:smoke
 ```
 
-The `db:delete-*` and `db:nuke-users` scripts are destructive. Follow [`docs/RECOVERY_RUNBOOK.md`](docs/RECOVERY_RUNBOOK.md).
+The current schema contains 48 checked-in migrations. The latest migration adds garage worker-task mode:
+
+```text
+20260728090000_add_garage_worker_task_mode
+```
 
 ## Security and API conventions
 
-- All browser requests receive an `X-Request-ID`.
-- Unsafe cookie-authenticated requests require the CSRF cookie/header pair.
-- Cashfree and WhatsApp webhook paths bypass CSRF but require provider signature verification.
-- Express Validator is the active validation layer; Zod is installed but not used by current source.
-- Service methods enforce ownership and domain invariants; route guards alone are insufficient.
-- Redis-backed limits fall back to stricter bounded in-memory buckets.
-- Uploaded files have count/size/type constraints and are stored through Cloudinary.
-- Operational 4xx errors may expose an allow-listed code; unexpected/5xx errors return only a reference ID.
+- Every request receives an `X-Request-ID`.
+- Cookie-authenticated unsafe requests require CSRF.
+- Cashfree and WhatsApp webhooks bypass CSRF only because their signatures are verified separately.
+- Express Validator is the active route validation layer.
+- Ownership and state invariants are enforced in services, not only route middleware.
+- Redis-backed rate limits fall back to stricter bounded in-memory limits.
+- Uploads use explicit count, size, and MIME constraints and are cleaned up on failure.
+- Unexpected 5xx responses expose a reference ID, not a stack trace.
+- Worker tokens, OTPs, provider tokens, and signed webhook bodies must never be logged.
 
 ## Tests
 
-`npm test` runs 50 files under `test/security/` with Node's test runner. Coverage includes authorization/IDOR, CSRF, OTP/session revocation, Cashfree verification and idempotency, wallet split/refunds, price moderation, garage/controller access, city restrictions, uploads, operational logging, production hardening, and user-interface source regressions.
+`npm test` runs 70 security/regression files. Recent coverage includes:
 
-This is a focused regression suite, not complete integration/E2E coverage. Before release, also validate Prisma, build the client, apply migrations to a staging database, run the smoke script, and manually exercise login, booking, payment, dispatch, handover, and delivery.
+- Garage controller enable/disable behaviour
+- Worker task token hashing, access, lifecycle, evidence, and tracking
+- Fulfilment and vehicle/service eligibility
+- Inspection image/video requirements
+- Vehicle model photos
+- System Health access and provider probes
+- Customer warranty derivation
 
-## Known operational constraints
+The suite is focused source/regression coverage, not complete integration or E2E coverage. Before production, validate Prisma, apply migrations on staging, build the client, run smoke tests, and manually exercise login, payment, dispatch, handover, tracking, delivery, and warranty display.
 
-- Background workers share the web process; multi-replica safety needs explicit distributed claiming/leadership.
-- Redis is required by production validation and readiness.
-- The API has no external durable job queue.
-- `seed:intern`, `seed:staff`, and `seed:all` reference a missing seed file.
-- A code rollback should normally remain forward-compatible with the current database schema; do not down-migrate production casually.
+## Operational constraints
+
+- Background work runs in the API process.
+- Redis is required by production readiness/configuration.
+- There is no external durable job queue.
+- Browser live tracking may pause when the worker closes/backgrounds the page.
+- `seed:intern`, `seed:staff`, and `seed:all` depend on the presence and correctness of `src/seed/seedIntern.js`; verify before use.
+- Production rollback should normally keep the newer database schema and deploy forward-compatible code rather than down-migrating casually.
