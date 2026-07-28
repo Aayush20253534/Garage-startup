@@ -10,6 +10,7 @@ import {
   FiCheckCircle,
   FiClock,
   FiEdit3,
+  FiFilter,
   FiLock,
   FiPlus,
   FiPercent,
@@ -94,6 +95,56 @@ const formatSubmittedAt = (value) => {
   });
 };
 
+const normalizeSubmissionFilterValue = (value) =>
+  String(value || "").trim().toLowerCase();
+
+const compareSubmissionFilterValues = (left, right) => {
+  if (left === "ALL") return right === "ALL" ? 0 : -1;
+  if (right === "ALL") return 1;
+  return left.localeCompare(right, undefined, { sensitivity: "base" });
+};
+
+const buildSubmissionVehicleFilterOptions = (rows = []) => {
+  const brands = new Map();
+
+  rows.forEach((submission) => {
+    const brandValue = submission.vehicleBrand || "ALL";
+    const modelValue = submission.vehicleModel || "ALL";
+    const current = brands.get(brandValue) || {
+      value: brandValue,
+      label: brandValue === "ALL" ? "All brands" : brandValue,
+      submissionCount: 0,
+      models: new Map(),
+    };
+
+    current.submissionCount += 1;
+    current.models.set(
+      modelValue,
+      (current.models.get(modelValue) || 0) + 1,
+    );
+    brands.set(brandValue, current);
+  });
+
+  return [...brands.values()]
+    .sort((left, right) =>
+      compareSubmissionFilterValues(left.value, right.value),
+    )
+    .map((brand) => ({
+      value: brand.value,
+      label: brand.label,
+      submissionCount: brand.submissionCount,
+      models: [...brand.models.entries()]
+        .sort(([left], [right]) =>
+          compareSubmissionFilterValues(left, right),
+        )
+        .map(([value, submissionCount]) => ({
+          value,
+          label: value === "ALL" ? "All models" : value,
+          submissionCount,
+        })),
+    }));
+};
+
 function SubmissionStatusBadge({ status }) {
   const normalizedStatus = status || "PENDING";
   return (
@@ -147,6 +198,10 @@ export default function Revenue({ pageMode = "ranges" }) {
   const [submissionFilter, setSubmissionFilter] = useState(
     isIntern ? "ALL" : "PENDING",
   );
+  const [submissionServiceId, setSubmissionServiceId] = useState("");
+  const [submissionVehicleBrand, setSubmissionVehicleBrand] = useState("");
+  const [submissionVehicleModel, setSubmissionVehicleModel] = useState("");
+  const [submissionFuelType, setSubmissionFuelType] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reviewingId, setReviewingId] = useState("");
@@ -923,10 +978,65 @@ export default function Revenue({ pageMode = "ranges" }) {
     { PENDING: 0, EDITED: 0, APPROVED: 0, REJECTED: 0 },
   );
 
-  const visibleSubmissions = submissions.filter(
+  const statusFilteredSubmissions = submissions.filter(
     (submission) =>
       submissionFilter === "ALL" || submission.status === submissionFilter,
   );
+  const submissionVehicleOptions = buildSubmissionVehicleFilterOptions(
+    statusFilteredSubmissions.filter(
+      (submission) =>
+        !submissionServiceId || submission.serviceId === submissionServiceId,
+    ),
+  );
+  const selectedSubmissionVehicleBrand = submissionVehicleOptions.find(
+    (brand) => brand.value === submissionVehicleBrand,
+  );
+  const submissionVehicleModels =
+    selectedSubmissionVehicleBrand?.models || [];
+  const hasSubmissionFilters = Boolean(
+    submissionServiceId ||
+      submissionVehicleBrand ||
+      submissionVehicleModel ||
+      submissionFuelType,
+  );
+  const visibleSubmissions = statusFilteredSubmissions.filter((submission) => {
+    if (submissionServiceId && submission.serviceId !== submissionServiceId) {
+      return false;
+    }
+
+    if (submissionVehicleBrand) {
+      const brandValue = submission.vehicleBrand || "ALL";
+      if (
+        normalizeSubmissionFilterValue(brandValue) !==
+        normalizeSubmissionFilterValue(submissionVehicleBrand)
+      ) {
+        return false;
+      }
+    }
+
+    if (submissionVehicleModel) {
+      const modelValue = submission.vehicleModel || "ALL";
+      if (
+        normalizeSubmissionFilterValue(modelValue) !==
+        normalizeSubmissionFilterValue(submissionVehicleModel)
+      ) {
+        return false;
+      }
+    }
+
+    if (submissionFuelType) {
+      const fuelValue = submission.fuelType || "ANY";
+      if (fuelValue !== submissionFuelType) return false;
+    }
+
+    return true;
+  });
+  const clearSubmissionFilters = () => {
+    setSubmissionServiceId("");
+    setSubmissionVehicleBrand("");
+    setSubmissionVehicleModel("");
+    setSubmissionFuelType("");
+  };
   const bulkDeleteExpectedText =
     bulkDeleteTarget?.mode === "all"
       ? "DELETE ALL PRICE RANGES"
@@ -1341,19 +1451,141 @@ export default function Revenue({ pageMode = "ranges" }) {
                       approvingAll ||
                       Boolean(reviewingId) ||
                       Boolean(editingSubmissionId) ||
-                      Boolean(deletingSubmissionId)
+                      Boolean(deletingSubmissionId) ||
+                      hasSubmissionFilters
+                    }
+                    title={
+                      hasSubmissionFilters
+                        ? "Clear review filters before deleting submission history in bulk"
+                        : "Delete all submission history in the selected status"
                     }
                     className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-red-200 bg-white px-3 text-xs font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FiTrash2 />
                     {deletingAllSubmissions
                       ? "Deleting..."
-                      : `Delete all (${visibleSubmissions.length})`}
+                      : hasSubmissionFilters
+                        ? "Clear filters to delete all"
+                        : `Delete all (${visibleSubmissions.length})`}
                   </button>
                 )}
               </div>
             )}
           </div>
+
+          {isOperationsPage && (
+            <div className="mt-4 rounded-xl border border-line bg-bg-soft/60 p-3 sm:p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-white text-ink">
+                    <FiFilter />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-ink">
+                      Filter approval submissions
+                    </p>
+                    <p className="text-xs text-muted">
+                      Search the selected status by service, vehicle brand, model, and fuel type.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-xs font-semibold text-muted">
+                  Showing {visibleSubmissions.length} of{" "}
+                  {statusFilteredSubmissions.length}
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.85fr)_auto]">
+                <select
+                  value={submissionServiceId}
+                  onChange={(event) => {
+                    setSubmissionServiceId(event.target.value);
+                    setSubmissionVehicleBrand("");
+                    setSubmissionVehicleModel("");
+                  }}
+                  className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+                  aria-label="Filter submissions by service"
+                >
+                  <option value="">All services</option>
+                  {services.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {formatServiceLabel(service)}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={submissionVehicleBrand}
+                  onChange={(event) => {
+                    setSubmissionVehicleBrand(event.target.value);
+                    setSubmissionVehicleModel("");
+                  }}
+                  className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+                  aria-label="Filter submissions by vehicle brand"
+                >
+                  <option value="">All submitted brands</option>
+                  {submissionVehicleOptions.map((brand) => (
+                    <option key={brand.value} value={brand.value}>
+                      {brand.label} ({brand.submissionCount})
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={submissionVehicleModel}
+                  onChange={(event) =>
+                    setSubmissionVehicleModel(event.target.value)
+                  }
+                  disabled={!submissionVehicleBrand}
+                  className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-muted"
+                  aria-label="Filter submissions by vehicle model"
+                >
+                  <option value="">All submitted models</option>
+                  {submissionVehicleModels.map((model) => (
+                    <option key={model.value} value={model.value}>
+                      {model.label} ({model.submissionCount})
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={submissionFuelType}
+                  onChange={(event) =>
+                    setSubmissionFuelType(event.target.value)
+                  }
+                  className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink"
+                  aria-label="Filter submissions by fuel type"
+                >
+                  <option value="">All fuel types</option>
+                  <option value="ANY">Any fuel</option>
+                  {fuelTypes.filter(Boolean).map((fuelType) => (
+                    <option key={fuelType} value={fuelType}>
+                      {fuelType}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={clearSubmissionFilters}
+                  disabled={!hasSubmissionFilters}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-ink transition hover:border-ink hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FiX />
+                  Clear
+                </button>
+              </div>
+
+              {hasSubmissionFilters && (
+                <p className="mt-2 text-xs leading-5 text-muted">
+                  Filters affect the review list only. Approve all still processes
+                  every pending or edited submission. Clear filters before using
+                  bulk submission deletion.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="p-4 sm:p-5">
@@ -1534,12 +1766,16 @@ export default function Revenue({ pageMode = "ranges" }) {
             <div className="flex min-h-32 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-bg-soft/50 px-4 text-center">
               <FiClock className="text-xl text-muted" />
               <p className="mt-2 text-sm font-semibold text-ink">
-                No {submissionFilter.toLowerCase()} submissions
+                {hasSubmissionFilters
+                  ? "No submissions match these filters"
+                  : `No ${submissionFilter.toLowerCase()} submissions`}
               </p>
               <p className="mt-1 text-xs text-muted">
-                {isIntern
-                  ? "Your submitted price ranges and their decisions will appear here."
-                  : "New intern price ranges will appear here for review."}
+                {hasSubmissionFilters
+                  ? "Clear or change the service, vehicle, model, or fuel filters."
+                  : isIntern
+                    ? "Your submitted price ranges and their decisions will appear here."
+                    : "New intern price ranges will appear here for review."}
               </p>
             </div>
           )}
