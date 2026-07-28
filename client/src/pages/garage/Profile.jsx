@@ -240,6 +240,7 @@ export default function GarageProfile() {
     area: "",
     workingRadiusKm: 15,
     garageType: "MULTI_BRAND",
+    fulfillmentMode: "BOTH",
     supportedBrands: [],
   });
 
@@ -267,6 +268,8 @@ export default function GarageProfile() {
       area: garage.area || "",
       workingRadiusKm: garage.workingRadiusKm || 15,
       garageType: garage.garageType || "MULTI_BRAND",
+      fulfillmentMode:
+        garage.fulfillmentMode === "SELF_DROP_OFF" ? "SELF_DROP_OFF" : "BOTH",
       supportedBrands: getSupportedBrands(garage),
     });
   }, [garage, editingDetails]);
@@ -565,6 +568,15 @@ export default function GarageProfile() {
               <p className="flex min-w-0 items-center gap-3 text-muted">
                 <FiImage className="shrink-0 text-ink/40 w-4 h-4" />
                 <span className="font-medium text-ink/80">{uploadedImages.length} verified photos uploaded</span>
+              </p>
+
+              <p className="flex min-w-0 items-center gap-3 text-muted">
+                <FiBriefcase className="shrink-0 text-ink/40 w-4 h-4" />
+                <span className="font-medium text-ink/80">
+                  Booking handover: {garage?.fulfillmentMode === "SELF_DROP_OFF"
+                    ? "Self drop only"
+                    : "Pickup + self drop"}
+                </span>
               </p>
             </div>
 
@@ -867,6 +879,57 @@ export default function GarageProfile() {
                       {type === "MULTI_BRAND" ? "Multi-Brand Workshop" : "Authorized Single Hub"}
                     </button>
                   ))}
+                </div>
+
+                <div className="space-y-2 border-t border-line/70 pt-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted">Customer vehicle handover</p>
+                    <p className="mt-1 text-xs leading-5 text-muted">
+                      This controls which new booking requests your garage can receive. Existing accepted bookings are not changed.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      {
+                        value: "BOTH",
+                        title: "Pickup + self drop",
+                        description: "Receive pickup bookings and customers who bring the vehicle to the garage.",
+                      },
+                      {
+                        value: "SELF_DROP_OFF",
+                        title: "Self drop only",
+                        description: "Do not receive pickup requests. Customers must bring the vehicle to the garage.",
+                      },
+                    ].map((option) => {
+                      const selected = form.fulfillmentMode === option.value;
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setField("fulfillmentMode", option.value)}
+                          className={[
+                            "min-w-0 rounded-xl border p-4 text-left transition-all duration-200",
+                            selected
+                              ? "border-ink bg-ink text-white shadow-sm"
+                              : "border-line bg-white text-ink hover:border-ink/50",
+                          ].join(" ")}
+                          aria-pressed={selected}
+                        >
+                          <span className="block text-sm font-bold">{option.title}</span>
+                          <span
+                            className={[
+                              "mt-1.5 block text-xs leading-5",
+                              selected ? "text-white/75" : "text-muted",
+                            ].join(" ")}
+                          >
+                            {option.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="space-y-2">

@@ -311,6 +311,11 @@ const normalizeGarageType = (value) =>
     ? "AUTHORIZED"
     : "MULTI_BRAND";
 
+const normalizeGarageFulfillmentMode = (value) =>
+  String(value || "BOTH").trim().toUpperCase() === "SELF_DROP_OFF"
+    ? "SELF_DROP_OFF"
+    : "BOTH";
+
 const normalizeSupportedBrands = (value) => {
   if (Array.isArray(value)) {
     return value.map((item) => String(item || "").trim()).filter(Boolean);
@@ -427,6 +432,9 @@ const updateGarageOwnerProfile = async (userId, payload = {}) => {
   }
 
   const garageType = normalizeGarageType(payload.garageType ?? garage.garageType);
+  const fulfillmentMode = normalizeGarageFulfillmentMode(
+    payload.fulfillmentMode ?? garage.fulfillmentMode,
+  );
   const supportedBrands = [
     ...new Set(
       normalizeSupportedBrands(
@@ -458,6 +466,7 @@ const updateGarageOwnerProfile = async (userId, payload = {}) => {
       longitude,
       workingRadiusKm,
       garageType,
+      fulfillmentMode,
       supportedBrands,
     },
   });

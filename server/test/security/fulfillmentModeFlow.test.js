@@ -45,6 +45,25 @@ test("customer checkout selects one booking mode and backend validates service s
   assert.match(bookingService, /getRequiredServiceFulfillmentType/);
 });
 
+test("garage owners can select pickup plus self drop or self drop only from profile edit details", () => {
+  const garageProfile = read("client/src/pages/garage/Profile.jsx");
+  const garageValidation = read(
+    "server/src/validations/garageAccount.validation.js",
+  );
+  const garageOwnerService = read(
+    "server/src/garage/services/garageOwner.service.js",
+  );
+
+  assert.match(garageProfile, /Customer vehicle handover/);
+  assert.match(garageProfile, /setField\("fulfillmentMode", option\.value\)/);
+  assert.match(garageProfile, /Pickup \+ self drop/);
+  assert.match(garageProfile, /Self drop only/);
+  assert.match(garageValidation, /"fulfillmentMode"/);
+  assert.match(garageValidation, /body\("fulfillmentMode"\)/);
+  assert.match(garageOwnerService, /normalizeGarageFulfillmentMode/);
+  assert.match(garageOwnerService, /fulfillmentMode,/);
+});
+
 test("admin garage mode and notification eligibility include handover and vehicle brand checks", () => {
   const garageAdmin = read("client/src/pages/admin/Garages.jsx");
   const garageValidation = read(

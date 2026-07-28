@@ -14,6 +14,7 @@ const ALLOWED_UPDATE_FIELDS = new Set([
   "longitude",
   "workingRadiusKm",
   "garageType",
+  "fulfillmentMode",
   "supportedBrands",
 ]);
 
@@ -85,6 +86,10 @@ const updateGarageAccountValidation = [
     .optional()
     .isIn(["MULTI_BRAND", "AUTHORIZED"])
     .withMessage("Garage type must be MULTI_BRAND or AUTHORIZED"),
+  body("fulfillmentMode")
+    .optional()
+    .isIn(["BOTH", "SELF_DROP_OFF"])
+    .withMessage("Vehicle handover must be BOTH or SELF_DROP_OFF"),
   body("supportedBrands").optional().custom((value) => {
     const brands = parseSupportedBrands(value)
       .map((item) => String(item || "").trim())
