@@ -17,6 +17,7 @@ const complaintRoutes = require("../customer/routes/complaint.routes");
 const supportTicketRoutes = require("../customer/routes/supportTicket.routes");
 const garageMediaRoutes = require("./garageMedia.routes");
 const walletRoutes = require("../customer/routes/wallet.routes");
+const warrantyRoutes = require("../customer/routes/warranty.routes");
 const garageWalletRoutes = require("./garageWallet.routes");
 const newGarageWalletRoutes = require("../garage/routes/wallet.routes");
 const garageRequestRoutes = require("./garageRequest.routes");
@@ -128,6 +129,7 @@ router.use("/dashboard", protectUser, requireCustomer, dashboardRoutes);
 router.use("/chatbot", protectUser, requireCustomer, chatbotRoutes);
 router.use("/activities", protectUser, requireCustomer, activityRoutes);
 router.use("/wallet", protectUser, requireCustomer, walletRoutes);
+router.use("/warranties", protectUser, requireCustomer, warrantyRoutes);
 router.use("/sos", protectUser, requireCustomer, sosRoutes);
 
 /*

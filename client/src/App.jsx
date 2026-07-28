@@ -676,6 +676,10 @@ const ServiceHistory = lazyPage(
   () => import("@/pages/customer/ServiceHistory"),
   "ServiceHistory",
 );
+const CustomerWarrantyCenter = lazyPage(
+  () => import("@/pages/customer/WarrantyCenter"),
+  "CustomerWarrantyCenter",
+);
 const Profile = lazyPage(() => import("@/pages/customer/Profile"), "Profile");
 const Payments = lazyPage(
   () => import("@/pages/customer/Payments"),
@@ -998,7 +1002,7 @@ const customerItems = [
   { to: "/dashboard/bookings", label: "Active Bookings", icon: FiCalendar },
   { to: "/dashboard/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/dashboard/history", label: "Service History", icon: FiArchive },
-  { to: "/warranty", label: "Warranty Center", icon: FiShield },
+  { to: "/dashboard/warranty", label: "Warranty Center", icon: FiShield },
   { to: "/dashboard/payments", label: "Payments", icon: FiCreditCard },
   { to: "/dashboard/notifications", label: "Notifications", icon: FiBell },
   { to: "/dashboard/support", label: "Support", icon: FiHelpCircle },
@@ -1288,6 +1292,14 @@ function AppRoutes() {
                     <ServiceHistory />
                   </VehicleCheck>
                 </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/warranty"
+            element={
+              <ProtectedRoute>
+                <CustomerWarrantyCenter />
               </ProtectedRoute>
             }
           />
