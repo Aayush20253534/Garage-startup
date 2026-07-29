@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   FiCalendar,
+  FiClock,
   FiEdit3,
   FiRefreshCw,
   FiStar,
@@ -9,6 +10,7 @@ import {
 } from "react-icons/fi";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
+import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 
 const formatDate = (date) => {
   if (!date) return "-";
@@ -18,6 +20,92 @@ const formatDate = (date) => {
     month: "short",
     year: "numeric",
   });
+};
+
+const formatDateTime = (date) => {
+  if (!date) return "Not recorded";
+
+  return new Date(date).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatDuration = (start, end) => {
+  const startTime = start ? new Date(start).getTime() : NaN;
+  const endTime = end ? new Date(end).getTime() : NaN;
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) {
+    return "Not recorded";
+  }
+
+  const totalMinutes = Math.max(0, Math.round((endTime - startTime) / 60000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  return [
+    days ? `${days}d` : "",
+    hours ? `${hours}h` : "",
+    `${minutes}m`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+};
+
+const getTimingDetails = (booking) => {
+  const selfDropOff = isSelfDropOffService(booking);
+  const timings = selfDropOff
+    ? [
+        {
+          label: "Home to garage",
+          start: booking.acceptedAt,
+          end: booking.arrivedAtGarageAt,
+        },
+        {
+          label: "Service work",
+          start: booking.arrivedAtGarageAt,
+          end: booking.serviceCompletedAt,
+        },
+      ]
+    : [
+        {
+          label: "Garage to customer",
+          start: booking.acceptedAt,
+          end: booking.handoverOtpVerifiedAt,
+        },
+        {
+          label: "Return to garage",
+          start: booking.handoverOtpVerifiedAt,
+          end: booking.arrivedAtGarageAt,
+        },
+        {
+          label: "Service work",
+          start: booking.arrivedAtGarageAt,
+          end: booking.serviceCompletedAt,
+        },
+        {
+          label: "Delivery to customer",
+          start: booking.serviceCompletedAt,
+          end: booking.deliveredAt,
+        },
+      ];
+
+  timings.push(
+    {
+      label: "Payment confirmation",
+      start: booking.finalPaymentSubmittedAt,
+      end: booking.finalPaymentConfirmedAt,
+    },
+    {
+      label: "Total booking time",
+      start: booking.acceptedAt,
+      end: booking.finalPaymentConfirmedAt || booking.customerAcceptedAt,
+    },
+  );
+
+  return timings;
 };
 
 const getServicesText = (booking) => {
@@ -184,6 +272,8 @@ export default function ServiceHistory() {
               booking.updatedAt ||
               booking.createdAt,
           );
+          const timingDetails = getTimingDetails(booking);
+          const selfDropOff = isSelfDropOffService(booking);
 
           return (
             <article
@@ -243,6 +333,33 @@ export default function ServiceHistory() {
                       </div>
                     </div>
                   </div>
+
+                  <section className="mt-4 overflow-hidden rounded-lg border border-line">
+                    <div className="flex flex-col gap-1 border-b border-line bg-bg-soft px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted">
+                        <FiClock /> Service timing
+                      </p>
+                      <span className="text-xs font-semibold text-ink">
+                        {selfDropOff ? "Self drop-off" : "Pickup and delivery"}
+                      </span>
+                    </div>
+                    <div className="grid gap-px bg-line sm:grid-cols-2 xl:grid-cols-3">
+                      {timingDetails.map((item) => (
+                        <div key={item.label} className="min-w-0 bg-white p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                            {item.label}
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-ink">
+                            {formatDuration(item.start, item.end)}
+                          </p>
+                          <p className="mt-1 break-words text-[11px] leading-4 text-muted">
+                            {formatDateTime(item.start)}
+                            {item.end ? ` → ${formatDateTime(item.end)}` : ""}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
                 </div>
 
                 <aside className="flex flex-col justify-center border-t border-line bg-bg-soft/50 p-4 sm:p-5 lg:border-l lg:border-t-0">

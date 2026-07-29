@@ -25,7 +25,7 @@ Deployment rewrites must send each path family to its matching HTML document. Ro
 - Profile, avatar, saved locations, vehicle management, default vehicle, and vehicle model photos.
 - City/category/service restrictions and approved vehicle-aware price ranges.
 - Checkout with pickup/self-drop selection, wallet contribution, Cashfree, pending-payment recovery, and progressive garage search.
-- Tracking, handover OTP, 5-15 image plus one-video inspection evidence, delivery acceptance, reviews, complaints, tickets, and notifications.
+- Pickup handover OTP, pickup/return/delivery tracking, one-time customer-to-garage self-drop tracking, 5-15 image plus one-video inspection evidence, final-payment confirmation, detailed service timings, reviews, complaints, tickets, and notifications.
 - Protected customer Warranty Center at `/dashboard/warranty`, derived from completed bookings with a live 30-day countdown.
 - Customer chatbot backed by repository Markdown knowledge.
 
@@ -35,7 +35,7 @@ Deployment rewrites must send each path family to its matching HTML document. Ro
 - Controller management, availability, assignment, privacy-limited controller workspace, and controller history.
 - Controller navigation is hidden when the assigned garage has controller accounts disabled.
 - Owner/admin Worker Task Manager for garages in no-account mode.
-- Public `/worker-task/:token` page with Hindi/English copy, browser speech synthesis, tracking, handover OTP, and structured media upload.
+- Public `/worker-task/:token` page with Hindi/English copy, browser speech synthesis, pickup tracking/OTP, self-drop no-OTP arrival evidence, and structured media upload.
 
 ### Staff and support
 
@@ -96,7 +96,7 @@ The public worker-task wrapper in `src/api/workerTasks.js` sends the secure toke
 - Successful payment moves a normal booking into garage search.
 - Garage acceptance normally writes `CONFIRMED`; `GARAGE_ASSIGNED` is compatibility state.
 - Verified handover with required media moves the booking to `IN_PROGRESS`.
-- Garage delivery followed by customer acceptance moves it to `COMPLETED`.
+- Customer Cash/UPI submission remains pending until the garage confirms receipt; that confirmation moves the booking to `COMPLETED`.
 - The Warranty Center reads completed bookings from `/api/v1/warranties`.
 - Warranty activation uses `customerAcceptedAt`, then `deliveredAt`, then `updatedAt` as a fallback.
 - A warranty is active for exactly 30 days and remains visible as expired afterwards.
@@ -107,7 +107,7 @@ The public worker-task wrapper in `src/api/workerTasks.js` sends the secure toke
 - A garage receives only requests compatible with its `fulfillmentMode` and vehicle/service coverage.
 - Worker-task links are available only when `controllerAccountsEnabled` is false.
 - Pickup tasks can track from the garage/worker to the customer and then back to the garage after handover.
-- Self-drop tasks do not show pickup tracking.
+- Self-drop customers share one live route to the garage; garage/worker task pages observe that route and confirm arrival with before-service evidence, without OTP. No return or delivery route is opened for self-drop.
 - Evidence requires 5-15 images, each at most 1 MB, plus exactly one video at most 50 MB.
 - Hindi voice is implemented with browser `speechSynthesis`; unsupported browsers show a clear error rather than silently failing.
 

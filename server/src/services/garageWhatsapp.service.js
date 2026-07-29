@@ -657,9 +657,11 @@ const sendCustomerGarageDetailsWhatsapp = async ({
     `Address: ${garageAddress}`,
     `Garage location: ${mapsLink}`,
     isSelfDropOff
-      ? "This booking is self drop-off and self pickup. Take the vehicle to the garage; no pickup vehicle will arrive."
+      ? "This booking is self drop-off and self pickup. Open Rovauto to share the one-time route while taking the vehicle to the garage. No handover OTP is required."
       : "The garage will follow the normal pickup and delivery process.",
-    "Your vehicle handover OTP has been sent to your registered email address.",
+    ...(isSelfDropOff
+      ? []
+      : ["Your vehicle handover OTP has been sent to your registered email address."]),
   ].join("\n");
 
   if (isSelfDropOff) {
@@ -713,33 +715,32 @@ const sendCustomerGarageDetailsWhatsapp = async ({
   });
 };
 
-const sendCustomerVehicleDeliveredWhatsapp = async ({
+const sendCustomerServiceCompletedWhatsapp = async ({
   customer,
   garage,
   booking,
 }) => {
   const trackingUrl = `${getFrontendBaseUrl()}/tracking?bookingId=${booking.id}`;
-  const isSelfDropOff =
-    bookingUsesSelfDropOff(booking);
+  const isSelfDropOff = bookingUsesSelfDropOff(booking);
   const message = isSelfDropOff
     ? [
-        `Rovauto booking ${booking.bookingCode} is ready for self pickup.`,
-        `${garage.name} has completed the service and uploaded the post-service inspection photos and video.`,
-        "Visit the garage, inspect the vehicle, enter the final amount paid, and confirm collection.",
-        `Review and confirm here: ${trackingUrl}`,
+        `Rovauto booking ${booking.bookingCode} service is complete.`,
+        `${garage.name} has uploaded the post-service inspection photos and video.`,
+        "Your vehicle is ready for collection at the garage.",
+        `Review the evidence and status here: ${trackingUrl}`,
       ].join("\n")
     : [
-        `Rovauto booking ${booking.bookingCode} is ready for delivery.`,
-        `${garage.name} has uploaded the post-service inspection photos and video and marked your vehicle delivered.`,
-        "Accept delivery only after receiving and checking the vehicle.",
-        `Review and accept here: ${trackingUrl}`,
+        `Rovauto booking ${booking.bookingCode} service is complete.`,
+        `${garage.name} has uploaded the post-service inspection photos and video.`,
+        "Your vehicle is now on the way to your address. Keep the tracking page open for the live return route.",
+        `Track delivery here: ${trackingUrl}`,
       ].join("\n");
 
   return sendWhatsappMessage({
     to: customer.phone,
     message,
     context: {
-      type: "customer_vehicle_delivered",
+      type: "customer_service_completed",
       customerId: customer.id,
       garageId: garage.id,
       bookingId: booking.id,
@@ -747,6 +748,11 @@ const sendCustomerVehicleDeliveredWhatsapp = async ({
     },
   });
 };
+
+// Backward-compatible name for older callers while the booking flow transitions
+// from "marked delivered" to "service complete, then live delivery".
+const sendCustomerVehicleDeliveredWhatsapp =
+  sendCustomerServiceCompletedWhatsapp;
 
 module.exports = {
   getWhatsappAccessToken,
@@ -758,6 +764,7 @@ module.exports = {
   getWhatsappProviderUrl,
   isWhatsappConfigured,
   sendCustomerGarageDetailsWhatsapp,
+  sendCustomerServiceCompletedWhatsapp,
   sendCustomerVehicleDeliveredWhatsapp,
   sendGarageBookingRequestWhatsapp,
   sendGarageWorkerTaskWhatsapp,

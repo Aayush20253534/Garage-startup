@@ -12,6 +12,62 @@ const TRACKABLE_STATUSES = new Set([
   "IN_PROGRESS",
 ]);
 const ROUTE_MOVEMENT_REFRESH_METERS = 40;
+const TRACKING_PHASE = Object.freeze({
+  SELF_DROP_TO_GARAGE: "SELF_DROP_TO_GARAGE",
+  PICKUP_TO_CUSTOMER: "PICKUP_TO_CUSTOMER",
+  RETURN_TO_GARAGE: "RETURN_TO_GARAGE",
+  DELIVERY_TO_CUSTOMER: "DELIVERY_TO_CUSTOMER",
+});
+
+const getTrackingPhase = (booking) => {
+  if (bookingUsesSelfDropOff(booking)) {
+    return TRACKING_PHASE.SELF_DROP_TO_GARAGE;
+  }
+
+  if (booking?.serviceCompletedAt && !booking?.deliveredAt) {
+    return TRACKING_PHASE.DELIVERY_TO_CUSTOMER;
+  }
+
+  if (booking?.handoverOtpVerifiedAt && !booking?.serviceCompletedAt) {
+    return TRACKING_PHASE.RETURN_TO_GARAGE;
+  }
+
+  return TRACKING_PHASE.PICKUP_TO_CUSTOMER;
+};
+
+const getTrackingDestination = (booking, phase = getTrackingPhase(booking)) => {
+  if (
+    phase === TRACKING_PHASE.SELF_DROP_TO_GARAGE ||
+    phase === TRACKING_PHASE.RETURN_TO_GARAGE
+  ) {
+    if (booking?.garage?.latitude == null || booking?.garage?.longitude == null) {
+      return null;
+    }
+
+    return {
+      type: "GARAGE",
+      label: booking.garage.name || "Assigned garage",
+      address: null,
+      latitude: booking.garage.latitude,
+      longitude: booking.garage.longitude,
+    };
+  }
+
+  if (booking?.customerLatitude == null || booking?.customerLongitude == null) {
+    return null;
+  }
+
+  return {
+    type: "CUSTOMER",
+    label:
+      phase === TRACKING_PHASE.DELIVERY_TO_CUSTOMER
+        ? "Customer delivery address"
+        : "Customer pickup address",
+    address: booking.customerAddress || null,
+    latitude: booking.customerLatitude,
+    longitude: booking.customerLongitude,
+  };
+};
 
 const toRadians = (value) => (Number(value) * Math.PI) / 180;
 
@@ -131,6 +187,23 @@ const resolveTrackingActor = async (account, booking, workerTask = null) => {
     throw new ApiError(401, "Authentication is required");
   }
 
+  if (
+    account.role === "CUSTOMER" &&
+    bookingUsesSelfDropOff(booking) &&
+    booking.userId === account.id &&
+    booking.status === "CONFIRMED" &&
+    !booking.arrivedAtGarageAt
+  ) {
+    return {
+      source: "CUSTOMER",
+      garageId: booking.garageId,
+      userId: account.id,
+      garageOwnerId: null,
+      garageControllerId: null,
+      workerTaskId: null,
+    };
+  }
+
   if (account.accountType === "STAFF") {
     return {
       source: "ADMIN",
@@ -171,13 +244,13 @@ const resolveTrackingActor = async (account, booking, workerTask = null) => {
   };
 };
 
-const refreshRouteIfNeeded = async (booking, currentLocation) => {
-  if (
-    booking.customerLatitude === null ||
-    booking.customerLongitude === null
-  ) {
-    return null;
-  }
+const refreshRouteIfNeeded = async (
+  booking,
+  currentLocation,
+  phase = getTrackingPhase(booking),
+) => {
+  const destination = getTrackingDestination(booking, phase);
+  if (!destination) return null;
 
   const refreshSeconds = Math.max(
     30,
@@ -206,16 +279,16 @@ const refreshRouteIfNeeded = async (booking, currentLocation) => {
     return hasUsableRoute(cachedRoute) ? cachedRoute : null;
   }
 
-  const destination = {
-    latitude: booking.customerLatitude,
-    longitude: booking.customerLongitude,
+  const routeDestination = {
+    latitude: destination.latitude,
+    longitude: destination.longitude,
   };
   const trafficAware = process.env.GOOGLE_TRAFFIC_AWARE !== "false";
 
   try {
     const route = await googleMapsService.computeRoute({
       origin: currentLocation,
-      destination,
+      destination: routeDestination,
       trafficAware,
     });
 
@@ -226,7 +299,7 @@ const refreshRouteIfNeeded = async (booking, currentLocation) => {
       try {
         const fallbackRoute = await googleMapsService.computeRoute({
           origin: currentLocation,
-          destination,
+          destination: routeDestination,
           trafficAware: false,
         });
         if (hasUsableRoute(fallbackRoute)) return fallbackRoute;
@@ -243,19 +316,25 @@ const refreshRouteIfNeeded = async (booking, currentLocation) => {
   }
 };
 
-const assertLiveTrackingEnabledForBooking = (booking) => {
-  if (bookingUsesSelfDropOff(booking)) {
+const assertLiveTrackingEnabledForBooking = (booking, actor) => {
+  if (!bookingUsesSelfDropOff(booking)) return;
+
+  if (
+    actor?.source !== "CUSTOMER" ||
+    booking.status !== "CONFIRMED" ||
+    booking.arrivedAtGarageAt
+  ) {
     throw new ApiError(
       409,
-      "Live pickup tracking is not used for self drop-off bookings",
+      "Self drop-off live tracking is available only to the customer while travelling to the garage",
     );
   }
 };
 
 const startTracking = async ({ bookingId, account, workerTask = null }) => {
   const booking = await loadBooking(bookingId);
-  await resolveTrackingActor(account, booking, workerTask);
-  assertLiveTrackingEnabledForBooking(booking);
+  const actor = await resolveTrackingActor(account, booking, workerTask);
+  assertLiveTrackingEnabledForBooking(booking, actor);
 
   if (!TRACKABLE_STATUSES.has(booking.status)) {
     throw new ApiError(409, "Live tracking is not available for this booking status");
@@ -278,7 +357,7 @@ const startTracking = async ({ bookingId, account, workerTask = null }) => {
 const addTrackingPoint = async ({ bookingId, account, workerTask = null, data }) => {
   const booking = await loadBooking(bookingId);
   const actor = await resolveTrackingActor(account, booking, workerTask);
-  assertLiveTrackingEnabledForBooking(booking);
+  assertLiveTrackingEnabledForBooking(booking, actor);
 
   if (!TRACKABLE_STATUSES.has(booking.status)) {
     throw new ApiError(409, "Live tracking is not available for this booking status");
@@ -289,8 +368,9 @@ const addTrackingPoint = async ({ bookingId, account, workerTask = null, data })
     "live tracking",
   );
 
+  const journeyPhase = getTrackingPhase(booking);
   const recentPoints = await prisma.bookingTrackingPoint.findMany({
-    where: { bookingId },
+    where: { bookingId, journeyPhase },
     select: { latitude: true, longitude: true },
     orderBy: { recordedAt: "desc" },
     take: 15,
@@ -317,7 +397,11 @@ const addTrackingPoint = async ({ bookingId, account, workerTask = null, data })
   }
 
   const effectiveLocation = snapped?.location || rawLocation;
-  const route = await refreshRouteIfNeeded(booking, effectiveLocation);
+  const route = await refreshRouteIfNeeded(
+    booking,
+    effectiveLocation,
+    journeyPhase,
+  );
   const recordedAt = data.recordedAt ? new Date(data.recordedAt) : new Date();
 
   const result = await prisma.$transaction(async (tx) => {
@@ -330,6 +414,7 @@ const addTrackingPoint = async ({ bookingId, account, workerTask = null, data })
         garageControllerId: actor.garageControllerId,
         workerTaskId: actor.workerTaskId,
         source: actor.source,
+        journeyPhase,
         latitude: rawLocation.latitude,
         longitude: rawLocation.longitude,
         snappedLatitude: snapped?.location?.latitude ?? null,
@@ -408,8 +493,8 @@ const addTrackingPoint = async ({ bookingId, account, workerTask = null, data })
 
 const stopTracking = async ({ bookingId, account, workerTask = null }) => {
   const booking = await loadBooking(bookingId);
-  await resolveTrackingActor(account, booking, workerTask);
-  assertLiveTrackingEnabledForBooking(booking);
+  const actor = await resolveTrackingActor(account, booking, workerTask);
+  assertLiveTrackingEnabledForBooking(booking, actor);
 
   return prisma.booking.update({
     where: { id: bookingId },
@@ -425,10 +510,11 @@ const stopTracking = async ({ bookingId, account, workerTask = null }) => {
 const getTracking = async ({ bookingId, account }) => {
   const booking = await loadBooking(bookingId);
   await assertCanView(account, booking);
-  assertLiveTrackingEnabledForBooking(booking);
 
+  const journeyPhase = getTrackingPhase(booking);
+  const destination = getTrackingDestination(booking, journeyPhase);
   const points = await prisma.bookingTrackingPoint.findMany({
-    where: { bookingId },
+    where: { bookingId, journeyPhase },
     include: {
       workerTask: {
         select: { id: true, workerName: true, taskType: true },
@@ -442,10 +528,14 @@ const getTracking = async ({ bookingId, account }) => {
     bookingId: booking.id,
     status: booking.status,
     trackingActive: Boolean(
-      booking.trackingStartedAt && !booking.trackingEndedAt,
+      booking.trackingStartedAt &&
+        !booking.trackingEndedAt &&
+        !(bookingUsesSelfDropOff(booking) && booking.arrivedAtGarageAt),
     ),
     trackingStartedAt: booking.trackingStartedAt,
     trackingEndedAt: booking.trackingEndedAt,
+    journeyPhase,
+    destination,
     latestLocation:
       booking.lastGarageLatitude !== null &&
       booking.lastGarageLongitude !== null
@@ -486,14 +576,18 @@ const getTracking = async ({ bookingId, account }) => {
       accuracyM: point.accuracyM,
       roadPlaceId: point.roadPlaceId,
       workerTask: point.workerTask,
+      journeyPhase: point.journeyPhase,
       recordedAt: point.recordedAt,
     })),
   };
 };
 
 module.exports = {
+  TRACKING_PHASE,
   addTrackingPoint,
   getTracking,
+  getTrackingDestination,
+  getTrackingPhase,
   startTracking,
   stopTracking,
 };

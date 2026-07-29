@@ -480,7 +480,7 @@ function Dashboard() {
                     />
                   </div>
 
-                  <div className="mt-4 grid grid-cols-6 gap-1" aria-label="Booking progress timeline">
+                  <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-8 sm:gap-1" aria-label="Booking progress timeline">
                     {BOOKING_TIMELINE_STEPS.map((step, index) => {
                       const reached = index <= activeTimeline.currentIndex;
                       const current = index === activeTimeline.currentIndex;

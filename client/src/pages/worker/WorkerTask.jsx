@@ -45,16 +45,25 @@ const COPY = {
     otp: "Customer handover OTP",
     otpHelp: "Ask the customer for the handover OTP only when physically receiving the vehicle.",
     completeHandover: "Verify OTP and complete handover",
-    completeDelivery: "Upload evidence and mark delivered",
+    completeDelivery: "Complete service and start delivery",
     uploading: "Uploading…",
     completed: "This task is completed",
     completedHelp: "The evidence and activity are saved against the booking. This link no longer allows task actions.",
-    selfDrop: "This is a self-drop booking. Live pickup tracking is not required.",
+    selfDrop: "The customer shares the one-time route to the garage. Wait until they arrive, then upload before-service evidence. No OTP is required.",
     noLogin: "No worker login or worker OTP is required.",
     returnJourney: "Return the vehicle to the garage",
     returnJourneyHelp: "The customer handover is verified. Keep live tracking running while taking the vehicle to the garage.",
     reachedGarage: "Reached garage — complete task",
     returnJourneyStarted: "Handover verified. Continue live tracking until you reach the garage.",
+    arrivedCustomer: "Arrived at customer",
+    arrivedCustomerHelp: "Confirm arrival only after reaching the customer address.",
+    waitingPayment: "Waiting for customer payment",
+    waitingPaymentHelp: "The customer must choose Cash or UPI, enter the amount and send it. Garage staff will then confirm receipt.",
+    serviceDeliveryStarted: "Service evidence saved. Keep live tracking active while delivering the vehicle to the customer.",
+    confirmPayment: "Payment received — complete booking",
+    confirmingPayment: "Confirming payment…",
+    paymentReady: "Customer payment is ready for confirmation",
+    paymentReadyHelp: "Confirm only after you have received the Cash or UPI amount shown below.",
   },
   hi: {
     title: "रोवऑटो वर्कर टास्क",
@@ -86,7 +95,7 @@ const COPY = {
     otp: "ग्राहक का हैंडओवर ओटीपी",
     otpHelp: "गाड़ी लेते समय ही ग्राहक से हैंडओवर ओटीपी पूछें।",
     completeHandover: "ओटीपी जांचें और गाड़ी लेना पूरा करें",
-    completeDelivery: "सबूत अपलोड करके डिलीवरी पूरी करें",
+    completeDelivery: "सर्विस पूरी करके डिलीवरी शुरू करें",
     uploading: "अपलोड हो रहा है…",
     completed: "यह काम पूरा हो गया है",
     completedHelp: "फोटो, वीडियो और गतिविधि बुकिंग में सुरक्षित हैं। अब इस लिंक से कोई काम नहीं किया जा सकता।",
@@ -96,6 +105,15 @@ const COPY = {
     returnJourneyHelp: "ग्राहक का हैंडओवर पूरा हो गया है। गैरेज पहुंचने तक लाइव लोकेशन चालू रखें।",
     reachedGarage: "गैरेज पहुंच गए — काम पूरा करें",
     returnJourneyStarted: "हैंडओवर पूरा हो गया। गैरेज पहुंचने तक लाइव लोकेशन चालू रखें।",
+    arrivedCustomer: "ग्राहक के पास पहुंच गए",
+    arrivedCustomerHelp: "ग्राहक के पते पर पहुंचने के बाद ही आगमन की पुष्टि करें।",
+    waitingPayment: "ग्राहक के भुगतान की प्रतीक्षा",
+    waitingPaymentHelp: "ग्राहक कैश या यूपीआई चुनेगा, रकम भेजेगा और फिर गैरेज भुगतान मिलने की पुष्टि करेगा।",
+    serviceDeliveryStarted: "सर्विस के फोटो और वीडियो सुरक्षित हैं। ग्राहक तक गाड़ी पहुंचाते समय लाइव लोकेशन चालू रखें।",
+    confirmPayment: "भुगतान मिला — बुकिंग पूरी करें",
+    confirmingPayment: "भुगतान की पुष्टि हो रही है…",
+    paymentReady: "ग्राहक का भुगतान पुष्टि के लिए तैयार है",
+    paymentReadyHelp: "नीचे दिखाई गई कैश या यूपीआई रकम मिलने के बाद ही पुष्टि करें।",
   },
 };
 
@@ -166,6 +184,19 @@ export default function WorkerTask() {
     loadTask();
   }, [loadTask]);
 
+  useEffect(() => {
+    if (!task || task.status === "COMPLETED") return undefined;
+    if (!["WAITING_FOR_PAYMENT", "CONFIRM_PAYMENT", "READY_FOR_SELF_PICKUP"].includes(task.stage)) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => {
+      void loadTask();
+    }, 4000);
+
+    return () => window.clearInterval(interval);
+  }, [loadTask, task?.stage, task?.status]);
+
   const clearTrackingWatch = useCallback(() => {
     if (watchIdRef.current !== null && navigator.geolocation) {
       navigator.geolocation.clearWatch(watchIdRef.current);
@@ -203,8 +234,30 @@ export default function WorkerTask() {
       .join(" ");
     if (task.stage === "RETURN_TO_GARAGE") {
       return language === "hi"
-        ? `${task.workerName}, ग्राहक का हैंडओवर पूरा हो गया है। गाड़ी ${vehicle} को गैरेज वापस ले जाएं। लाइव लोकेशन चालू रखें और गैरेज पहुंचने पर काम पूरा करें।`
-        : `${task.workerName}, the customer handover is verified. Take ${vehicle} back to the garage, keep live tracking active, and complete the task after reaching the garage.`;
+        ? `${task.workerName}, ग्राहक का हैंडओवर पूरा हो गया है। गाड़ी ${vehicle} को गैरेज वापस ले जाएं। लाइव लोकेशन चालू रखें और गैरेज पहुंचने पर आगमन की पुष्टि करें।`
+        : `${task.workerName}, the customer handover is verified. Take ${vehicle} back to the garage, keep live tracking active, and confirm arrival after reaching the garage.`;
+    }
+    if (task.stage === "DELIVER_TO_CUSTOMER") {
+      return language === "hi"
+        ? `${task.workerName}, सर्विस पूरी हो चुकी है। गाड़ी ${vehicle} को ग्राहक के पते तक पहुंचाएं, लाइव लोकेशन चालू रखें और पहुंचने पर पुष्टि करें।`
+        : `${task.workerName}, service is complete. Deliver ${vehicle} to the customer, keep live tracking active, and confirm after reaching the address.`;
+    }
+    if (task.stage === "WAITING_FOR_PAYMENT") {
+      return language === "hi"
+        ? `${task.workerName}, गाड़ी ग्राहक तक पहुंच चुकी है। ग्राहक के कैश या यूपीआई भुगतान भेजने की प्रतीक्षा करें।`
+        : `${task.workerName}, the vehicle has reached the customer. Wait for the customer to submit Cash or UPI payment details.`;
+    }
+    if (task.stage === "CONFIRM_PAYMENT") {
+      const mode = task.booking?.finalPaymentMethod === "UPI" ? "UPI" : language === "hi" ? "कैश" : "Cash";
+      const amount = Number(task.booking?.finalPaymentAmount || 0).toLocaleString("en-IN");
+      return language === "hi"
+        ? `${task.workerName}, ग्राहक ने ${mode} से ${amount} रुपये भेजने की जानकारी दी है। रकम मिलने के बाद भुगतान की पुष्टि करके बुकिंग पूरी करें।`
+        : `${task.workerName}, the customer submitted ${mode} payment details for rupees ${amount}. Confirm only after receiving the amount, then complete the booking.`;
+    }
+    if (task.isSelfDropOff && task.taskType === "HANDOVER") {
+      return language === "hi"
+        ? `${task.workerName}, ग्राहक गाड़ी ${vehicle} लेकर गैरेज आ रहा है। उसके पहुंचने के बाद पांच से पंद्रह फोटो और एक वीडियो अपलोड करें। ओटीपी की जरूरत नहीं है।`
+        : `${task.workerName}, the customer is bringing ${vehicle} to the garage. After arrival, upload five to fifteen before-service photos and one video. No OTP is required.`;
     }
     return language === "hi"
       ? `${task.workerName}, आपको ${taskName} दिया गया है। गाड़ी ${vehicle} है। पहले निर्देश पढ़ें। रास्ते में लाइव लोकेशन शुरू करें और पेज खुला रखें। गाड़ी लेते या देते समय पांच से पंद्रह फोटो और एक वीडियो अपलोड करें। ग्राहक से गाड़ी लेते समय ही हैंडओवर ओटीपी पूछें।`
@@ -305,6 +358,44 @@ export default function WorkerTask() {
     }
   };
 
+  const confirmCustomerArrival = async () => {
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+    try {
+      await workerTaskApi.markArrivedAtCustomer(token);
+      clearTrackingWatch();
+      setSuccess(copy.waitingPaymentHelp);
+      await loadTask();
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Arrival at the customer address could not be confirmed.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const confirmPayment = async () => {
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+    try {
+      await workerTaskApi.confirmFinalPayment(token);
+      clearTrackingWatch();
+      setSuccess("Payment confirmed and booking completed.");
+      await loadTask();
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "The payment could not be confirmed.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const submitEvidence = async (event) => {
     event.preventDefault();
     setError("");
@@ -322,22 +413,26 @@ export default function WorkerTask() {
     const formData = new FormData();
     images.forEach((file) => formData.append("images", file));
     formData.append("video", video);
-    if (task.taskType === "HANDOVER") formData.append("otp", otp.trim());
+    if (task.taskType === "HANDOVER" && !task.isSelfDropOff) {
+      formData.append("otp", otp.trim());
+    }
 
     setSubmitting(true);
     try {
       if (task.taskType === "HANDOVER") {
         await workerTaskApi.verifyHandover(token, formData);
       } else {
-        await workerTaskApi.markDelivered(token, formData);
+        await workerTaskApi.markServiceComplete(token, formData);
       }
       const continuesToGarage =
         task.taskType === "HANDOVER" && !task.isSelfDropOff;
       if (continuesToGarage) {
         setSuccess(copy.returnJourneyStarted);
+      } else if (task.taskType === "DELIVERY" && !task.isSelfDropOff) {
+        setSuccess(copy.serviceDeliveryStarted);
       } else {
         clearTrackingWatch();
-        setSuccess("Task completed successfully.");
+        setSuccess("Evidence saved successfully.");
       }
       setImages([]);
       setVideo(null);
@@ -374,13 +469,21 @@ export default function WorkerTask() {
   const taskLabel =
     task.stage === "RETURN_TO_GARAGE"
       ? copy.returnJourney
-      : task.taskType === "DELIVERY"
-        ? task.isSelfDropOff
-          ? "Ready for customer self pickup"
-          : "Vehicle delivery"
-        : task.isSelfDropOff
-          ? "Vehicle handover at garage"
-          : "Vehicle pickup and handover";
+      : task.stage === "COMPLETE_SERVICE"
+        ? "Complete service evidence"
+        : task.stage === "DELIVER_TO_CUSTOMER"
+          ? "Deliver vehicle to customer"
+          : task.stage === "WAITING_FOR_PAYMENT"
+            ? copy.waitingPayment
+            : task.stage === "CONFIRM_PAYMENT"
+              ? copy.paymentReady
+              : task.taskType === "DELIVERY"
+              ? task.isSelfDropOff
+                ? "Ready for customer self pickup"
+                : "Vehicle delivery"
+              : task.isSelfDropOff
+                ? "Vehicle handover at garage"
+                : "Vehicle pickup and handover";
 
   return (
     <main className="min-h-screen bg-bg-soft px-3 py-5 sm:px-5 sm:py-8">
@@ -462,18 +565,68 @@ export default function WorkerTask() {
                       <FiCheckCircle /> {copy.reachedGarage}
                     </button>
                   )}
+                  {task.canConfirmCustomerArrival && (
+                    <>
+                      <p className="mt-3 text-sm leading-6 text-muted">
+                        {copy.arrivedCustomerHelp}
+                      </p>
+                      <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={confirmCustomerArrival}
+                        className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-base font-bold text-white disabled:opacity-50"
+                      >
+                        <FiCheckCircle /> {copy.arrivedCustomer}
+                      </button>
+                    </>
+                  )}
                 </>
               ) : (
                 <p className="mt-2 text-sm text-muted">Live tracking is not available for the current booking stage.</p>
               )}
             </section>
 
-            {!(task.taskType === "HANDOVER" && task.booking?.handoverOtpVerifiedAt) && (
+            {task.stage === "WAITING_FOR_PAYMENT" && (
+              <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
+                <h2 className="font-bold">{copy.waitingPayment}</h2>
+                <p className="mt-1 text-sm leading-6">{copy.waitingPaymentHelp}</p>
+              </section>
+            )}
+
+            {task.stage === "CONFIRM_PAYMENT" && (
+              <section className="overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm">
+                <div className="border-b border-amber-200 bg-amber-50 p-5 text-amber-900">
+                  <h2 className="font-bold">{copy.paymentReady}</h2>
+                  <p className="mt-1 text-sm leading-6">{copy.paymentReadyHelp}</p>
+                </div>
+                <div className="p-5">
+                  <div className="rounded-lg border border-line bg-bg-soft p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-muted">Payment submitted</p>
+                    <p className="mt-1 text-xl font-extrabold text-ink">
+                      {task.booking?.finalPaymentMethod === "UPI" ? "UPI" : "Cash"} · ₹{Number(task.booking?.finalPaymentAmount || 0).toLocaleString("en-IN")}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      {formatDateTime(task.booking?.finalPaymentSubmittedAt)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={submitting || !task.canConfirmFinalPayment}
+                    onClick={confirmPayment}
+                    className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-base font-bold text-white disabled:opacity-50"
+                  >
+                    <FiCheckCircle /> {submitting ? copy.confirmingPayment : copy.confirmPayment}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {task.requiresEvidence && (
             <form onSubmit={submitEvidence} className="rounded-xl border border-line bg-white p-4 shadow-sm">
               <h2 className="font-bold text-ink">{copy.evidence}</h2>
               <p className="mt-1 text-sm leading-6 text-muted">{copy.evidenceHelp}</p>
 
-              {task.taskType === "HANDOVER" && (
+              {task.taskType === "HANDOVER" && !task.isSelfDropOff && (
                 <label className="mt-4 grid gap-1.5 text-sm font-bold text-ink">
                   {copy.otp}
                   <input inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 8))} className="h-12 rounded-lg border border-line px-4 text-lg tracking-[0.25em] outline-none focus:border-ink" placeholder="000000" />
@@ -497,7 +650,13 @@ export default function WorkerTask() {
               </div>
 
               <button type="submit" disabled={submitting} className="mt-4 inline-flex h-13 min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-base font-bold text-white disabled:opacity-50">
-                <FiUploadCloud /> {submitting ? copy.uploading : task.taskType === "HANDOVER" ? copy.completeHandover : copy.completeDelivery}
+                <FiUploadCloud /> {submitting ? copy.uploading : task.taskType === "HANDOVER"
+                    ? task.isSelfDropOff
+                      ? language === "hi"
+                        ? "आगमन की पुष्टि करें और सर्विस शुरू करें"
+                        : "Confirm arrival and start service"
+                      : copy.completeHandover
+                    : copy.completeDelivery}
               </button>
             </form>
             )}

@@ -11,7 +11,7 @@ const notificationService = require("../customer/services/notification.service")
 const activityService = require("../customer/services/activity.service");
 const garageControllerService = require("../garage/services/controller.service");
 const {
-  sendCustomerVehicleDeliveredWhatsapp,
+  sendCustomerServiceCompletedWhatsapp,
 } = require("./garageWhatsapp.service");
 const {
   deleteFromCloudinary,
@@ -40,6 +40,14 @@ const MAX_INSPECTION_PHOTO_SIZE_BYTES = 1024 * 1024;
 const MAX_INSPECTION_VIDEO_SIZE_BYTES = MAX_BOOKING_INSPECTION_VIDEO_SIZE_BYTES;
 const INSPECTION_IMAGE_FOLDER = "project-x/bookings/inspection-images";
 const INSPECTION_VIDEO_FOLDER = "project-x/bookings/inspection-videos";
+const GARAGE_ARRIVAL_DISTANCE_METERS = Math.max(
+  100,
+  Number(process.env.GARAGE_ARRIVAL_DISTANCE_METERS || 300),
+);
+const CUSTOMER_DELIVERY_ARRIVAL_DISTANCE_METERS = Math.max(
+  100,
+  Number(process.env.CUSTOMER_DELIVERY_ARRIVAL_DISTANCE_METERS || 300),
+);
 let resendClient = null;
 let activeResendApiKey = null;
 
@@ -107,6 +115,10 @@ const sendCustomerHandoverOtpEmail = async ({
   otpExpiresAt,
   isRegenerated = false,
 }) => {
+  if (bookingUsesSelfDropOff(booking)) {
+    return { sent: false, reason: "not-required-for-self-drop" };
+  }
+
   const email = String(customer?.email || "").trim().toLowerCase();
   if (!email || !otp) return { sent: false, reason: "missing-recipient" };
 
@@ -139,10 +151,8 @@ const sendCustomerHandoverOtpEmail = async ({
   const safeBookingCode = escapeHtml(bookingCode);
   const safeExpiryText = escapeHtml(expiryText);
   const safeOtp = escapeHtml(otp);
-  const isSelfDropOff = bookingUsesSelfDropOff(booking);
-  const handoverInstruction = isSelfDropOff
-    ? `Take your vehicle to ${garageName} and share this OTP only after you arrive at the garage.`
-    : "Share this OTP only when physically handing over your vehicle.";
+  const handoverInstruction =
+    "Share this OTP only when physically handing over your vehicle.";
   const safeHandoverInstruction = escapeHtml(handoverInstruction);
   const text = [
     `Your Rovauto handover OTP is ${otp}.`,
@@ -175,6 +185,84 @@ const sendCustomerHandoverOtpEmail = async ({
 
   if (error) {
     throw new ApiError(502, error.message || "Unable to send handover OTP email");
+  }
+
+  return { sent: true, emailId: data?.id || null };
+};
+
+const sendCustomerServiceCompletedEmail = async ({
+  customer,
+  garage,
+  booking,
+}) => {
+  const email = String(customer?.email || "").trim().toLowerCase();
+  if (!email) return { sent: false, reason: "missing-recipient" };
+
+  const resend = getResendClient();
+  const from = getEmailSender();
+  if (!resend || !from) {
+    console.warn("[service-completed-email] skipped; Resend is not configured");
+    return { sent: false, reason: "email-not-configured" };
+  }
+
+  const selfDropOff = bookingUsesSelfDropOff(booking);
+  const bookingCode = booking?.bookingCode || booking?.id || "your booking";
+  const garageName = garage?.name || "your assigned garage";
+  const vehicleName = [booking?.vehicle?.brand, booking?.vehicle?.model]
+    .filter(Boolean)
+    .join(" ") || "your vehicle";
+  const trackingUrl = `${String(
+    process.env.FRONTEND_URL ||
+      process.env.CLIENT_URL ||
+      "https://www.rovauto.com",
+  ).replace(/\/+$/, "")}/tracking?bookingId=${encodeURIComponent(booking.id)}`;
+  const subject = selfDropOff
+    ? `Your Rovauto service is complete — ${bookingCode}`
+    : `Service complete: ${vehicleName} is on the way`;
+  const actionText = selfDropOff
+    ? `Your vehicle is ready for collection at ${garageName}.`
+    : `Your vehicle has left ${garageName} and is on the way to your address.`;
+  const nextStep = selfDropOff
+    ? "Visit the garage, inspect the vehicle, choose Cash or UPI, and submit the final amount from your Rovauto booking page."
+    : "Keep the Rovauto tracking page open to follow the return journey. After the vehicle arrives, choose Cash or UPI and submit the final amount.";
+  const text = [
+    `Service completed for ${vehicleName}.`,
+    `Booking: ${bookingCode}`,
+    `Garage: ${garageName}`,
+    actionText,
+    nextStep,
+    `Open booking: ${trackingUrl}`,
+  ].join("\n");
+  const html = `
+    <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6;max-width:620px;margin:auto">
+      <h2 style="margin-bottom:8px">Service completed</h2>
+      <p>The selected services for <strong>${escapeHtml(vehicleName)}</strong> are complete.</p>
+      <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:16px 0">
+        <p style="margin:0 0 6px"><strong>Booking:</strong> ${escapeHtml(bookingCode)}</p>
+        <p style="margin:0"><strong>Garage:</strong> ${escapeHtml(garageName)}</p>
+      </div>
+      <p><strong>${escapeHtml(actionText)}</strong></p>
+      <p>${escapeHtml(nextStep)}</p>
+      <p style="margin-top:24px">
+        <a href="${escapeHtml(trackingUrl)}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700">Open live booking</a>
+      </p>
+    </div>
+  `;
+
+  const { data, error } = await resend.emails.send({
+    from,
+    to: [email],
+    subject,
+    html,
+    text,
+    tags: [{ name: "type", value: "service_completed" }],
+  });
+
+  if (error) {
+    throw new ApiError(
+      502,
+      error.message || "Unable to send service-completed email",
+    );
   }
 
   return { sent: true, emailId: data?.id || null };
@@ -485,7 +573,9 @@ const notifyGarageAccepted = async ({
     title: isSelfDropOff
       ? "Garage assigned for self drop-off"
       : "Garage accepted your request",
-    message: `${garage.name} has accepted your service request.${etaText}${instruction} Your handover OTP has been sent to your registered email address.`,
+    message: isSelfDropOff
+      ? `${garage.name} has accepted your service request.${instruction} Open the booking to start the one-time route to the garage.`
+      : `${garage.name} has accepted your service request.${etaText} Your handover OTP has been sent to your registered email address.`,
     link: "/dashboard/bookings",
     metadata: {
       bookingId: booking.id,
@@ -503,7 +593,7 @@ const notifyVehicleHandoverOtp = async ({
   expiresAt,
   isRegenerated = false,
 }) => {
-  if (!otp) return null;
+  if (!otp || bookingUsesSelfDropOff(booking)) return null;
 
   return notificationService.createNotification({
     userId: booking.userId,
@@ -513,13 +603,9 @@ const notifyVehicleHandoverOtp = async ({
       : "Vehicle handover OTP",
     message: [
       `Your handover OTP is ${otp}.`,
-      bookingUsesSelfDropOff(booking)
-        ? garage?.name
-          ? `Share it only after you reach ${garage.name} and drop off your vehicle.`
-          : "Share it only after reaching the assigned garage."
-        : garage?.name
-          ? `Share it only when handing your vehicle to ${garage.name}.`
-          : "Share it only during physical vehicle handover.",
+      garage?.name
+        ? `Share it only when handing your vehicle to ${garage.name}.`
+        : "Share it only during physical vehicle handover.",
       "Do not share it early or with anyone else.",
     ].join(" "),
     link: `/tracking?bookingId=${booking.id}`,
@@ -535,27 +621,63 @@ const notifyVehicleHandoverOtp = async ({
   });
 };
 
-const notifyVehicleDelivered = async ({ booking, garage }) => {
-  const isSelfDropOff =
-    bookingUsesSelfDropOff(booking);
+const notifyServiceCompleted = async ({ booking, garage }) => {
+  const isSelfDropOff = bookingUsesSelfDropOff(booking);
 
   return notificationService.createNotification({
     userId: booking.userId,
     type: "BOOKING",
     title: isSelfDropOff
-      ? "Vehicle ready for self pickup"
-      : "Vehicle marked delivered",
+      ? "Service complete — vehicle ready"
+      : "Service complete — vehicle on the way",
     message: isSelfDropOff
-      ? `${garage.name} has finished the service. Visit the garage, inspect your vehicle, enter the final amount paid, and confirm collection.`
-      : `${garage.name} has marked your vehicle as delivered. Please review and accept delivery to move it to service history.`,
-    link: "/dashboard/bookings",
+      ? `${garage.name} completed the selected services and uploaded the post-service photos and video. Your vehicle is ready for collection.`
+      : `${garage.name} completed the selected services and uploaded the post-service photos and video. Your vehicle is now on the way to your address.`,
+    link: `/tracking?bookingId=${booking.id}`,
     metadata: {
       bookingId: booking.id,
       garageId: garage.id,
-      action: "ACCEPT_DELIVERY",
+      action: isSelfDropOff ? "COLLECT_AND_PAY" : "TRACK_DELIVERY",
     },
   });
 };
+
+const notifyVehicleArrived = async ({ booking, garage }) =>
+  notificationService.createNotification({
+    userId: booking.userId,
+    type: "BOOKING",
+    title: bookingUsesSelfDropOff(booking)
+      ? "Vehicle ready for collection"
+      : "Your vehicle has arrived",
+    message: bookingUsesSelfDropOff(booking)
+      ? `Inspect your vehicle at ${garage.name}, choose Cash or UPI, and submit the final amount.`
+      : `The ${garage.name} delivery person has reached your address. Inspect the vehicle, choose Cash or UPI, and submit the final amount.`,
+    link: `/tracking?bookingId=${booking.id}`,
+    metadata: {
+      bookingId: booking.id,
+      garageId: garage.id,
+      action: "SUBMIT_FINAL_PAYMENT",
+    },
+  });
+
+const notifyFinalPaymentConfirmed = async ({ booking, garage }) =>
+  notificationService.createNotification({
+    userId: booking.userId,
+    type: "PAYMENT",
+    title: "Payment confirmed — booking completed",
+    message: `${garage.name} confirmed your ${String(
+      booking.finalPaymentMethod || "payment",
+    ).toLowerCase()} payment of ₹${Number(
+      booking.finalPaymentAmount || 0,
+    ).toLocaleString("en-IN")}. Your warranty is now active.`,
+    link: "/dashboard/history",
+    metadata: {
+      bookingId: booking.id,
+      garageId: garage.id,
+      finalPaymentMethod: booking.finalPaymentMethod,
+      finalPaymentAmount: booking.finalPaymentAmount,
+    },
+  });
 
 const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
   const booking = await prisma.booking.findFirst({
@@ -579,6 +701,10 @@ const regenerateBookingHandoverOtp = async ({ userId, bookingId }) => {
       400,
       "A new handover OTP can be generated only before service starts",
     );
+  }
+
+  if (bookingUsesSelfDropOff(booking)) {
+    throw new ApiError(409, "Self drop-off bookings do not require a handover OTP");
   }
 
   if (booking.handoverOtpVerifiedAt) {
@@ -679,6 +805,10 @@ const verifyBookingHandoverOtp = async ({
 
   if (!request) {
     throw new ApiError(404, "Accepted garage request not found");
+  }
+
+  if (bookingUsesSelfDropOff(request.booking)) {
+    throw new ApiError(409, "Self drop-off bookings use arrival evidence and do not require an OTP");
   }
 
   const submittedOtp = String(otp || "").trim();
@@ -835,6 +965,15 @@ const verifyBookingHandoverOtp = async ({
         status: BOOKING_STATUS.IN_PROGRESS,
         handoverOtpVerifiedAt: verifiedAt,
         handoverOtpClaimedAt: null,
+        arrivedAtGarageAt: bookingUsesSelfDropOff(request.booking) ? verifiedAt : null,
+        trackingStartedAt: bookingUsesSelfDropOff(request.booking)
+          ? request.booking.trackingStartedAt
+          : verifiedAt,
+        trackingEndedAt: bookingUsesSelfDropOff(request.booking) ? verifiedAt : null,
+        routeDistanceMeters: null,
+        routeDurationSeconds: null,
+        routePolyline: null,
+        routeUpdatedAt: null,
       },
     });
 
@@ -888,12 +1027,32 @@ const verifyBookingHandoverOtp = async ({
   return { request, booking: updatedBooking };
 };
 
-const markBookingDeliveredByGarage = async ({
-  garageId,
-  requestId,
-  images,
-  video,
-}) => {
+const toRadians = (value) => (Number(value) * Math.PI) / 180;
+
+const getDistanceMeters = (origin, destination) => {
+  const lat1 = Number(origin?.latitude);
+  const lon1 = Number(origin?.longitude);
+  const lat2 = Number(destination?.latitude);
+  const lon2 = Number(destination?.longitude);
+  if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return null;
+
+  const earthRadiusMeters = 6371000;
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const value =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+  return Math.round(
+    earthRadiusMeters *
+      2 *
+      Math.atan2(Math.sqrt(value), Math.sqrt(1 - value)),
+  );
+};
+
+const loadAcceptedLifecycleRequest = async ({ garageId, requestId }) => {
   const request = await prisma.garageBroadcastRequest.findFirst({
     where: {
       id: requestId,
@@ -901,7 +1060,22 @@ const markBookingDeliveredByGarage = async ({
       status: BROADCAST_STATUS.ACCEPTED,
     },
     include: {
-      booking: { include: { user: true } },
+      booking: {
+        include: {
+          user: true,
+          vehicle: true,
+          garage: true,
+          payment: true,
+          services: { include: { service: true } },
+          inspectionImages: {
+            orderBy: [
+              { phase: "asc" },
+              { mediaType: "asc" },
+              { order: "asc" },
+            ],
+          },
+        },
+      },
       garage: true,
     },
   });
@@ -910,38 +1084,258 @@ const markBookingDeliveredByGarage = async ({
     throw new ApiError(404, "Accepted garage request not found");
   }
 
+  return request;
+};
+
+const assertGarageLocationNear = ({
+  booking,
+  destination,
+  maximumDistanceMeters,
+  message,
+}) => {
+  const distanceMeters = getDistanceMeters(
+    {
+      latitude: booking.lastGarageLatitude,
+      longitude: booking.lastGarageLongitude,
+    },
+    destination,
+  );
+
+  if (!Number.isFinite(distanceMeters)) {
+    throw new ApiError(
+      409,
+      "A recent live location is required. Start live tracking and try again.",
+    );
+  }
+
+  if (distanceMeters > maximumDistanceMeters) {
+    throw new ApiError(
+      409,
+      `${message} Current distance is approximately ${distanceMeters} metres.`,
+    );
+  }
+
+  return distanceMeters;
+};
+
+const confirmSelfDropArrivalByGarage = async ({
+  garageId,
+  requestId,
+  images,
+  video,
+}) => {
+  const request = await loadAcceptedLifecycleRequest({ garageId, requestId });
   const booking = request.booking;
 
-  if (!booking.handoverOtpVerifiedAt) {
+  if (!bookingUsesSelfDropOff(booking)) {
+    throw new ApiError(409, "This arrival action is only for self drop-off bookings");
+  }
+  if (booking.status !== BOOKING_STATUS.CONFIRMED) {
+    if (booking.arrivedAtGarageAt && booking.status === BOOKING_STATUS.IN_PROGRESS) {
+      return { request, booking };
+    }
+    throw new ApiError(409, "The self drop-off booking is not waiting for garage arrival");
+  }
+
+  const latestCustomerPoint = await prisma.bookingTrackingPoint.findFirst({
+    where: {
+      bookingId: booking.id,
+      source: "CUSTOMER",
+      journeyPhase: "SELF_DROP_TO_GARAGE",
+    },
+    orderBy: { recordedAt: "desc" },
+  });
+
+  const distanceMeters = getDistanceMeters(
+    latestCustomerPoint
+      ? {
+          latitude: latestCustomerPoint.latitude,
+          longitude: latestCustomerPoint.longitude,
+        }
+      : null,
+    {
+      latitude: request.garage.latitude,
+      longitude: request.garage.longitude,
+    },
+  );
+
+  if (!Number.isFinite(distanceMeters)) {
     throw new ApiError(
-      400,
-      bookingUsesSelfDropOff(booking)
-        ? "Verify the customer drop-off OTP before marking the vehicle ready"
-        : "Verify customer handover OTP before marking delivery",
+      409,
+      "Ask the customer to start the self drop-off route and share a recent location before confirming arrival",
+    );
+  }
+  if (distanceMeters > GARAGE_ARRIVAL_DISTANCE_METERS) {
+    throw new ApiError(
+      409,
+      `The customer must reach the garage before arrival can be confirmed. Current distance is approximately ${distanceMeters} metres.`,
     );
   }
 
-  if (
-    ![
-      BOOKING_STATUS.IN_PROGRESS,
-      BOOKING_STATUS.CONFIRMED,
-    ].includes(booking.status)
-  ) {
-    throw new ApiError(
-      400,
-      bookingUsesSelfDropOff(booking)
-        ? "Booking cannot be marked ready for pickup now"
-        : "Booking cannot be marked delivered now",
-    );
+  await uploadInspectionMedia({
+    bookingId: booking.id,
+    garageId,
+    phase: "PICKUP",
+    images,
+    video,
+  });
+
+  const arrivedAtGarageAt = new Date();
+  const claimed = await prisma.booking.updateMany({
+    where: {
+      id: booking.id,
+      garageId,
+      status: BOOKING_STATUS.CONFIRMED,
+      arrivedAtGarageAt: null,
+    },
+    data: {
+      status: BOOKING_STATUS.IN_PROGRESS,
+      arrivedAtGarageAt,
+      trackingEndedAt: arrivedAtGarageAt,
+      routeDistanceMeters: null,
+      routeDurationSeconds: null,
+      routePolyline: null,
+      routeUpdatedAt: null,
+      handoverOtpHash: null,
+      handoverOtpExpiresAt: null,
+      handoverOtpClaimedAt: null,
+      handoverOtpAttempts: 0,
+    },
+  });
+
+  const updatedBooking = await prisma.booking.findUnique({
+    where: { id: booking.id },
+    include: bookingDetailInclude,
+  });
+
+  if (claimed.count !== 1) {
+    if (updatedBooking?.arrivedAtGarageAt) return { request, booking: updatedBooking };
+    throw new ApiError(409, "The booking changed before self drop-off arrival was saved");
   }
 
-  if (booking.deliveredAt) {
+  await activityService.createActivitySafely(
+    updatedBooking.userId,
+    {
+      type: "VEHICLE_REACHED_GARAGE",
+      title: "Vehicle dropped off at the garage",
+      detail: `Booking ${updatedBooking.bookingCode || updatedBooking.id} reached ${request.garage.name}. The arrival journey timer stopped and service started.`,
+      path: `/tracking?bookingId=${updatedBooking.id}`,
+      metadata: {
+        bookingId: updatedBooking.id,
+        garageId,
+        distanceMeters,
+        arrivedAtGarageAt,
+      },
+    },
+    { eventKey: `booking:${updatedBooking.id}:self-drop-arrived` },
+  );
+
+  await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
+  return { request, booking: updatedBooking };
+};
+
+const markBookingArrivedAtGarageByGarage = async ({ garageId, requestId }) => {
+  const request = await loadAcceptedLifecycleRequest({ garageId, requestId });
+  const booking = request.booking;
+
+  if (bookingUsesSelfDropOff(booking)) {
+    throw new ApiError(409, "Self-drop bookings are already at the garage");
+  }
+  if (!booking.handoverOtpVerifiedAt || booking.status !== BOOKING_STATUS.IN_PROGRESS) {
+    throw new ApiError(409, "Verify the customer handover before reaching the garage");
+  }
+  if (booking.arrivedAtGarageAt) {
+    return { request, booking };
+  }
+
+  const distanceMeters = assertGarageLocationNear({
+    booking,
+    destination: {
+      latitude: request.garage.latitude,
+      longitude: request.garage.longitude,
+    },
+    maximumDistanceMeters: GARAGE_ARRIVAL_DISTANCE_METERS,
+    message: "Reach the assigned garage before ending the pickup return journey.",
+  });
+  const arrivedAtGarageAt = new Date();
+  const claimed = await prisma.booking.updateMany({
+    where: {
+      id: booking.id,
+      garageId,
+      status: BOOKING_STATUS.IN_PROGRESS,
+      arrivedAtGarageAt: null,
+    },
+    data: {
+      arrivedAtGarageAt,
+      trackingEndedAt: arrivedAtGarageAt,
+      routeDistanceMeters: null,
+      routeDurationSeconds: null,
+      routePolyline: null,
+      routeUpdatedAt: null,
+    },
+  });
+
+  const updatedBooking = await prisma.booking.findUnique({
+    where: { id: booking.id },
+    include: bookingDetailInclude,
+  });
+
+  if (claimed.count !== 1) {
+    if (updatedBooking?.arrivedAtGarageAt) {
+      return { request, booking: updatedBooking };
+    }
+    throw new ApiError(409, "The booking changed before garage arrival was saved");
+  }
+
+  await activityService.createActivitySafely(
+    updatedBooking.userId,
+    {
+      type: "VEHICLE_REACHED_GARAGE",
+      title: "Vehicle reached the garage",
+      detail: `Booking ${updatedBooking.bookingCode || updatedBooking.id} reached ${request.garage.name}.`,
+      path: `/tracking?bookingId=${updatedBooking.id}`,
+      metadata: {
+        bookingId: updatedBooking.id,
+        garageId,
+        distanceMeters,
+      },
+    },
+    { eventKey: `booking:${updatedBooking.id}:arrived-at-garage` },
+  );
+
+  await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
+  return { request, booking: updatedBooking };
+};
+
+const markBookingServiceCompletedByGarage = async ({
+  garageId,
+  requestId,
+  images,
+  video,
+}) => {
+  const request = await loadAcceptedLifecycleRequest({ garageId, requestId });
+  const booking = request.booking;
+  const selfDropOff = bookingUsesSelfDropOff(booking);
+
+  if (selfDropOff ? !booking.arrivedAtGarageAt : !booking.handoverOtpVerifiedAt) {
     throw new ApiError(
       400,
-      bookingUsesSelfDropOff(booking)
-        ? "Booking is already marked ready for pickup"
-        : "Booking is already marked delivered",
+      selfDropOff
+        ? "Confirm customer arrival and upload pre-service evidence before completing service"
+        : "Verify customer handover OTP before completing service",
     );
+  }
+  if (booking.status !== BOOKING_STATUS.IN_PROGRESS) {
+    throw new ApiError(409, "This booking is not in the service stage");
+  }
+  if (!selfDropOff && !booking.arrivedAtGarageAt) {
+    throw new ApiError(
+      409,
+      "Mark the vehicle as arrived at the garage before completing service",
+    );
+  }
+  if (booking.serviceCompletedAt) {
+    throw new ApiError(409, "Service completion evidence is already uploaded");
   }
 
   await uploadInspectionMedia({
@@ -952,135 +1346,352 @@ const markBookingDeliveredByGarage = async ({
     video,
   });
 
-  const updatedBooking = await prisma.booking.update({
-    where: { id: booking.id },
-    data: {
-      deliveredAt: new Date(),
+  const serviceCompletedAt = new Date();
+  const claimed = await prisma.booking.updateMany({
+    where: {
+      id: booking.id,
+      garageId,
+      status: BOOKING_STATUS.IN_PROGRESS,
+      serviceCompletedAt: null,
     },
+    data: {
+      serviceCompletedAt,
+      deliveryStartedAt: selfDropOff ? null : serviceCompletedAt,
+      deliveredAt: selfDropOff ? serviceCompletedAt : null,
+      trackingStartedAt: selfDropOff
+        ? booking.trackingStartedAt
+        : serviceCompletedAt,
+      trackingEndedAt: selfDropOff ? serviceCompletedAt : null,
+      routeDistanceMeters: null,
+      routeDurationSeconds: null,
+      routePolyline: null,
+      routeUpdatedAt: null,
+    },
+  });
+
+  const updatedBooking = await prisma.booking.findUnique({
+    where: { id: booking.id },
     include: bookingDetailInclude,
   });
 
+  if (claimed.count !== 1) {
+    if (updatedBooking?.serviceCompletedAt) {
+      return { request, booking: updatedBooking };
+    }
+    throw new ApiError(409, "The booking changed before service completion was saved");
+  }
+
   await Promise.allSettled([
-    notifyVehicleDelivered({
-      booking: updatedBooking,
-      garage: request.garage,
-    }),
-    sendCustomerVehicleDeliveredWhatsapp({
+    notifyServiceCompleted({ booking: updatedBooking, garage: request.garage }),
+    sendCustomerServiceCompletedWhatsapp({
       customer: request.booking.user,
       garage: request.garage,
       booking: updatedBooking,
     }),
+    sendCustomerServiceCompletedEmail({
+      customer: request.booking.user,
+      garage: request.garage,
+      booking: updatedBooking,
+    }),
+    selfDropOff
+      ? notifyVehicleArrived({ booking: updatedBooking, garage: request.garage })
+      : Promise.resolve(null),
   ]);
 
   await activityService.createActivitySafely(
     updatedBooking.userId,
     {
-      type: "READY_FOR_DELIVERY",
-      title:
-        bookingUsesSelfDropOff(updatedBooking)
-          ? "Vehicle ready for customer pickup"
-          : "Vehicle ready for acceptance",
-      detail:
-        bookingUsesSelfDropOff(updatedBooking)
-          ? `Booking ${updatedBooking.bookingCode || updatedBooking.id} is ready for customer collection at ${request.garage.name}.`
-          : `Booking ${updatedBooking.bookingCode || updatedBooking.id} was marked ready by ${request.garage.name}.`,
+      type: "SERVICE_COMPLETED",
+      title: selfDropOff
+        ? "Service completed — ready for collection"
+        : "Service completed — return delivery started",
+      detail: selfDropOff
+        ? `Booking ${updatedBooking.bookingCode || updatedBooking.id} is ready at ${request.garage.name}.`
+        : `Booking ${updatedBooking.bookingCode || updatedBooking.id} left ${request.garage.name} for customer delivery.`,
       path: `/tracking?bookingId=${updatedBooking.id}`,
       metadata: {
         bookingId: updatedBooking.id,
         bookingCode: updatedBooking.bookingCode,
         garageId,
+        serviceCompletedAt,
       },
     },
-    { eventKey: `booking:${updatedBooking.id}:delivered` },
+    { eventKey: `booking:${updatedBooking.id}:service-completed` },
   );
 
   await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
-
   return { request, booking: updatedBooking };
 };
 
-const acceptDeliveredBookingByCustomer = async ({
+const markBookingArrivedAtCustomerByGarage = async ({
+  garageId,
+  requestId,
+}) => {
+  const request = await loadAcceptedLifecycleRequest({ garageId, requestId });
+  const booking = request.booking;
+
+  if (bookingUsesSelfDropOff(booking)) {
+    throw new ApiError(409, "Self-drop bookings are collected at the garage");
+  }
+  if (!booking.serviceCompletedAt || booking.status !== BOOKING_STATUS.IN_PROGRESS) {
+    throw new ApiError(409, "Complete the service before confirming delivery arrival");
+  }
+  if (booking.deliveredAt) return { request, booking };
+
+  const distanceMeters = assertGarageLocationNear({
+    booking,
+    destination: {
+      latitude: booking.customerLatitude,
+      longitude: booking.customerLongitude,
+    },
+    maximumDistanceMeters: CUSTOMER_DELIVERY_ARRIVAL_DISTANCE_METERS,
+    message: "Reach the customer address before confirming arrival.",
+  });
+  const deliveredAt = new Date();
+  const claimed = await prisma.booking.updateMany({
+    where: {
+      id: booking.id,
+      garageId,
+      status: BOOKING_STATUS.IN_PROGRESS,
+      deliveredAt: null,
+    },
+    data: {
+      deliveredAt,
+      trackingEndedAt: deliveredAt,
+    },
+  });
+
+  const updatedBooking = await prisma.booking.findUnique({
+    where: { id: booking.id },
+    include: bookingDetailInclude,
+  });
+
+  if (claimed.count !== 1) {
+    if (updatedBooking?.deliveredAt) {
+      return { request, booking: updatedBooking };
+    }
+    throw new ApiError(409, "The booking changed before delivery arrival was saved");
+  }
+
+  await Promise.allSettled([
+    notifyVehicleArrived({ booking: updatedBooking, garage: request.garage }),
+    activityService.createActivitySafely(
+      updatedBooking.userId,
+      {
+        type: "VEHICLE_ARRIVED",
+        title: "Vehicle arrived at your address",
+        detail: `The ${request.garage.name} delivery person reached your booking address.`,
+        path: `/tracking?bookingId=${updatedBooking.id}`,
+        metadata: {
+          bookingId: updatedBooking.id,
+          garageId,
+          distanceMeters,
+        },
+      },
+      { eventKey: `booking:${updatedBooking.id}:arrived-at-customer` },
+    ),
+  ]);
+
+  await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
+  return { request, booking: updatedBooking };
+};
+
+const submitFinalPaymentByCustomer = async ({
   userId,
   bookingId,
   finalAmount,
+  paymentMethod,
 }) => {
   const parsedFinalAmount = Math.round(Number(finalAmount));
+  const normalizedPaymentMethod = String(paymentMethod || "").trim().toUpperCase();
 
   if (!Number.isFinite(parsedFinalAmount) || parsedFinalAmount <= 0) {
     throw new ApiError(400, "Final service amount is required");
+  }
+  if (!new Set(["CASH", "UPI"]).has(normalizedPaymentMethod)) {
+    throw new ApiError(400, "Choose Cash or UPI as the final payment mode");
   }
 
   const booking = await prisma.booking.findFirst({
     where: { id: bookingId, userId },
     include: { garage: true, payment: true },
   });
-
   if (!booking) throw new ApiError(404, "Booking not found");
-
   if (!booking.deliveredAt) {
     throw new ApiError(
-      400,
+      409,
       bookingUsesSelfDropOff(booking)
-        ? "Garage has not marked this booking ready for pickup yet"
-        : "Garage has not marked this booking delivered yet",
+        ? "The garage has not marked the vehicle ready for collection"
+        : "The delivery person has not confirmed arrival at your address",
+    );
+  }
+  if (booking.status === BOOKING_STATUS.COMPLETED || booking.finalPaymentConfirmedAt) {
+    throw new ApiError(409, "This booking is already completed");
+  }
+  if (booking.finalPaymentSubmittedAt) {
+    throw new ApiError(
+      409,
+      "Final payment is already pending garage confirmation",
     );
   }
 
-  const updatedBooking = await prisma.booking.update({
-    where: { id: bookingId },
+  const submittedAt = new Date();
+  const claimed = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      userId,
+      status: BOOKING_STATUS.IN_PROGRESS,
+      finalPaymentSubmittedAt: null,
+      finalPaymentConfirmedAt: null,
+    },
     data: {
-      status: BOOKING_STATUS.COMPLETED,
-      customerAcceptedAt: new Date(),
+      finalPaymentMethod: normalizedPaymentMethod,
+      finalPaymentAmount: parsedFinalAmount,
+      finalPaymentSubmittedAt: submittedAt,
       totalServiceAmount: parsedFinalAmount,
       totalServiceMaxAmount: parsedFinalAmount,
     },
-    include: {
-      garage: true,
-      vehicle: true,
-      services: { include: { service: true } },
-      payment: true,
-      review: true,
-      inspectionImages: {
-        orderBy: [{ phase: "asc" }, { mediaType: "asc" }, { order: "asc" }],
-      },
-    },
   });
+
+  const updatedBooking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: bookingDetailInclude,
+  });
+
+  if (claimed.count !== 1) {
+    if (updatedBooking?.finalPaymentSubmittedAt) {
+      throw new ApiError(
+        409,
+        "Final payment is already pending garage confirmation",
+      );
+    }
+    throw new ApiError(409, "The booking changed before payment was submitted");
+  }
 
   await activityService.createActivitySafely(
     updatedBooking.userId,
     {
-      type: "BOOKING_COMPLETED",
-      title: "Service completed",
-      detail:
-        bookingUsesSelfDropOff(updatedBooking)
-          ? `Booking ${updatedBooking.bookingCode || updatedBooking.id} was completed after customer collection.`
-          : `Booking ${updatedBooking.bookingCode || updatedBooking.id} was completed after delivery acceptance.`,
-      path: "/dashboard/history",
+      type: "FINAL_PAYMENT_SUBMITTED",
+      title: "Payment sent for garage confirmation",
+      detail: `You submitted ${normalizedPaymentMethod} payment of ₹${parsedFinalAmount.toLocaleString("en-IN")} for booking ${updatedBooking.bookingCode || updatedBooking.id}.`,
+      path: `/tracking?bookingId=${updatedBooking.id}`,
       metadata: {
         bookingId: updatedBooking.id,
-        bookingCode: updatedBooking.bookingCode,
+        garageId: updatedBooking.garageId,
+        paymentMethod: normalizedPaymentMethod,
         finalAmount: parsedFinalAmount,
       },
     },
-    { eventKey: `booking:${updatedBooking.id}:completed` },
+    { eventKey: `booking:${updatedBooking.id}:final-payment-submitted` },
   );
 
   await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
-
   return updatedBooking;
 };
 
+const confirmFinalPaymentByGarage = async ({ garageId, requestId }) => {
+  const request = await loadAcceptedLifecycleRequest({ garageId, requestId });
+  const booking = request.booking;
+
+  if (!booking.finalPaymentSubmittedAt || !booking.finalPaymentAmount) {
+    throw new ApiError(409, "The customer has not submitted the final payment yet");
+  }
+  if (booking.status === BOOKING_STATUS.COMPLETED || booking.finalPaymentConfirmedAt) {
+    return booking;
+  }
+
+  const confirmedAt = new Date();
+  const updatedBooking = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.booking.updateMany({
+      where: {
+        id: booking.id,
+        garageId,
+        status: BOOKING_STATUS.IN_PROGRESS,
+        finalPaymentSubmittedAt: { not: null },
+        finalPaymentConfirmedAt: null,
+      },
+      data: {
+        status: BOOKING_STATUS.COMPLETED,
+        finalPaymentConfirmedAt: confirmedAt,
+        customerAcceptedAt: confirmedAt,
+        totalServiceAmount: booking.finalPaymentAmount,
+        totalServiceMaxAmount: booking.finalPaymentAmount,
+        trackingEndedAt: confirmedAt,
+      },
+    });
+
+    if (claimed.count !== 1) {
+      throw new ApiError(
+        409,
+        "The payment or booking state changed. Refresh and try again.",
+      );
+    }
+
+    await tx.garageWorkerTask.updateMany({
+      where: {
+        bookingId: booking.id,
+        status: { in: ["ACTIVE", "IN_PROGRESS"] },
+      },
+      data: { status: "COMPLETED", completedAt: confirmedAt },
+    });
+
+    await garageControllerService.releaseController(
+      tx,
+      booking.garageControllerId,
+    );
+
+    return tx.booking.findUnique({
+      where: { id: booking.id },
+      include: bookingDetailInclude,
+    });
+  });
+
+  await Promise.allSettled([
+    notifyFinalPaymentConfirmed({ booking: updatedBooking, garage: request.garage }),
+    activityService.createActivitySafely(
+      updatedBooking.userId,
+      {
+        type: "BOOKING_COMPLETED",
+        title: "Service completed and payment confirmed",
+        detail: `Booking ${updatedBooking.bookingCode || updatedBooking.id} was completed after ${String(updatedBooking.finalPaymentMethod).toLowerCase()} payment confirmation.`,
+        path: "/dashboard/history",
+        metadata: {
+          bookingId: updatedBooking.id,
+          bookingCode: updatedBooking.bookingCode,
+          finalAmount: updatedBooking.finalPaymentAmount,
+          paymentMethod: updatedBooking.finalPaymentMethod,
+        },
+      },
+      { eventKey: `booking:${updatedBooking.id}:completed` },
+    ),
+  ]);
+
+  await invalidateBookingReadCaches(updatedBooking.userId, updatedBooking.id);
+  return updatedBooking;
+};
+
+// Compatibility wrappers retained for existing imports during deployment.
+const markBookingDeliveredByGarage = markBookingServiceCompletedByGarage;
+const acceptDeliveredBookingByCustomer = submitFinalPaymentByCustomer;
+
 module.exports = {
+  acceptDeliveredBookingByCustomer,
+  confirmFinalPaymentByGarage,
+  confirmSelfDropArrivalByGarage,
   createHandoverOtp,
   expireBookingSearch,
   expireStaleGarageSearchesForUser,
   getGarageSearchTimeoutMs,
   getSearchExpiresAt,
+  markBookingArrivedAtCustomerByGarage,
+  markBookingArrivedAtGarageByGarage,
+  markBookingDeliveredByGarage,
+  markBookingServiceCompletedByGarage,
   notifyGarageAccepted,
   notifyVehicleHandoverOtp,
-  sendCustomerHandoverOtpEmail,
   regenerateBookingHandoverOtp,
+  sendCustomerHandoverOtpEmail,
+  sendCustomerServiceCompletedEmail,
+  submitFinalPaymentByCustomer,
   verifyBookingHandoverOtp,
-  markBookingDeliveredByGarage,
-  acceptDeliveredBookingByCustomer,
 };

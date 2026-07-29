@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 import AcceptedGarageCard from "@/components/booking/AcceptedGarageCard";
+import BookingElapsedTimer from "@/components/booking/BookingElapsedTimer";
 import {
   FiNavigation,
   FiRefreshCw,
@@ -60,6 +61,25 @@ const ACTIVE_BOOKING_STATUSES = new Set([
 
 const formatStatus = (status) => {
   return status?.replaceAll("_", " ") || "UNKNOWN";
+};
+
+const getFlowStatus = (booking, isSelfDropOff) => {
+  if (booking.finalPaymentSubmittedAt && !booking.finalPaymentConfirmedAt) {
+    return "PAYMENT CONFIRMATION PENDING";
+  }
+  if (booking.deliveredAt) {
+    return isSelfDropOff ? "READY — SEND PAYMENT" : "ARRIVED — SEND PAYMENT";
+  }
+  if (booking.serviceCompletedAt) {
+    return isSelfDropOff ? "READY FOR PICKUP" : "OUT FOR DELIVERY";
+  }
+  if (booking.handoverOtpVerifiedAt && !booking.arrivedAtGarageAt) {
+    return "RETURNING TO GARAGE";
+  }
+  if (booking.arrivedAtGarageAt && booking.status === "IN_PROGRESS") {
+    return "SERVICE IN PROGRESS";
+  }
+  return formatStatus(booking.status);
 };
 
 export default function ActiveBookings() {
@@ -138,15 +158,11 @@ export default function ActiveBookings() {
 
       <div className="space-y-3">
         {bookings.map((booking) => {
-          const isAwaitingDeliveryAcceptance = Boolean(
-            booking.deliveredAt && !booking.customerAcceptedAt,
+          const isPaymentActionRequired = Boolean(
+            booking.deliveredAt && !booking.finalPaymentSubmittedAt,
           );
           const isSelfDropOff = isSelfDropOffService(booking);
-          const statusText = isAwaitingDeliveryAcceptance
-            ? isSelfDropOff
-              ? "READY FOR PICKUP"
-              : "DELIVERY READY"
-            : formatStatus(booking.status);
+          const statusText = getFlowStatus(booking, isSelfDropOff);
 
           return (
             <article
@@ -204,6 +220,14 @@ export default function ActiveBookings() {
                     </div>
                   </div>
 
+                  {booking.acceptedAt && (
+                    <BookingElapsedTimer
+                      booking={booking}
+                      compact
+                      className="mt-4"
+                    />
+                  )}
+
                   {booking.garage && (
                     <div className="mt-4">
                       <AcceptedGarageCard garage={booking.garage} />
@@ -221,14 +245,14 @@ export default function ActiveBookings() {
                     </p>
                   </div>
 
-                  {isAwaitingDeliveryAcceptance ? (
+                  {isPaymentActionRequired ? (
                     <Link
                       to="/tracking"
                       state={{ bookingId: booking.id }}
                       className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-brand px-3.5 text-sm font-semibold text-black shadow-sm transition hover:bg-brand-dark"
                     >
                       <FiNavigation />
-                      {isSelfDropOff ? "Confirm Collection" : "Review Delivery"}
+                      Send Payment
                     </Link>
                   ) : (
                     <Link

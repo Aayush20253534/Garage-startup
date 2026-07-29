@@ -817,9 +817,16 @@ model Booking {
   handoverOtpVerifiedAt DateTime?
   handoverOtpAttempts   Int                      @default(0)
   handoverOtpClaimedAt  DateTime?
-  deliveredAt           DateTime?
-  customerAcceptedAt    DateTime?
-  customerPlaceId       String?
+  arrivedAtGarageAt        DateTime?
+  serviceCompletedAt       DateTime?
+  deliveryStartedAt        DateTime?
+  deliveredAt              DateTime?
+  finalPaymentMethod       BookingFinalPaymentMethod?
+  finalPaymentAmount       Int?
+  finalPaymentSubmittedAt  DateTime?
+  finalPaymentConfirmedAt  DateTime?
+  customerAcceptedAt       DateTime?
+  customerPlaceId          String?
   routeDistanceMeters   Int?
   routeDurationSeconds  Int?
   routePolyline         String?
@@ -1046,7 +1053,8 @@ model BookingTrackingPoint {
   garageOwnerId      String?
   garageControllerId String?
   workerTaskId       String?
-  source             TrackingSource    @default(GARAGE)
+  source             TrackingSource       @default(GARAGE)
+  journeyPhase       BookingTrackingPhase @default(PICKUP_TO_CUSTOMER)
   latitude           Float
   longitude          Float
   snappedLatitude    Float?
@@ -1070,6 +1078,7 @@ model BookingTrackingPoint {
   @@index([garageOwnerId, recordedAt])
   @@index([garageControllerId, recordedAt])
   @@index([workerTaskId, recordedAt])
+  @@index([bookingId, journeyPhase, recordedAt])
   @@map("booking_tracking_points")
 }
 
@@ -1916,6 +1925,18 @@ enum TrackingSource {
   GARAGE
   CUSTOMER
   ADMIN
+}
+
+enum BookingTrackingPhase {
+  SELF_DROP_TO_GARAGE
+  PICKUP_TO_CUSTOMER
+  RETURN_TO_GARAGE
+  DELIVERY_TO_CUSTOMER
+}
+
+enum BookingFinalPaymentMethod {
+  CASH
+  UPI
 }
 
 enum BookingPhotoPhase {

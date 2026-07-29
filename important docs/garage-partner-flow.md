@@ -117,11 +117,13 @@ The existing controller/owner flow can:
 
 - start tracking;
 - reach the customer;
-- verify customer handover OTP;
+- verify customer handover OTP for pickup bookings;
 - upload pickup evidence;
 - return vehicle to garage;
-- upload delivery evidence;
-- complete assigned work.
+- confirm arrival back at the garage;
+- upload post-service evidence;
+- track the vehicle back to the customer;
+- confirm customer arrival and final payment receipt.
 
 Controller availability moves between available and busy according to booking state.
 
@@ -145,12 +147,12 @@ The worker sees only task-relevant vehicle, services, destination, garage, and m
 
 ## 11. Self-drop handover
 
-- Customer takes the vehicle to the assigned garage.
-- No pickup tracking is available.
-- Controller/owner/worker verifies the handover OTP at the garage and uploads evidence.
-- The booking moves to `IN_PROGRESS`.
-
-For a self-drop `DELIVERY` task, the worker uploads ready-for-self-pickup evidence rather than travelling to the customer.
+- Garage acceptance starts the customer travel timer at `acceptedAt`.
+- The customer opens the booking and shares the single `SELF_DROP_TO_GARAGE` route to the assigned garage.
+- Controller/owner/worker watches the route but cannot publish customer-originated location points.
+- When the customer is near the garage, garage staff uploads 5-15 before-service photos and one video and confirms arrival without OTP.
+- `arrivedAtGarageAt` stops the travel timer and the booking moves to `IN_PROGRESS`.
+- Post-service evidence marks the vehicle ready for self pickup. No second self-drop map opens.
 
 ## 12. Service work and evidence
 
@@ -161,22 +163,25 @@ Required inspection media per pickup/delivery submission:
 
 The manager should review evidence quality. Physical mechanics do not need an account; a floor supervisor or shared garage phone can handle evidence.
 
-## 13. Delivery and completion
+## 13. Service completion, delivery, and payment confirmation
 
 Pickup/delivery booking:
 
-1. Delivery task starts at garage.
-2. Worker/controller tracks to customer.
-3. Delivery evidence is uploaded.
-4. Garage marks delivered.
-5. Customer accepts delivery.
-6. Booking becomes `COMPLETED`.
+1. Garage/controller/worker confirms that the pickup return journey reached the garage.
+2. Service work is completed and 5-15 post-service images plus one video are uploaded.
+3. Rovauto sends the customer a service-completed email/notification and starts the delivery journey.
+4. Worker/controller shares live location from garage to customer and confirms arrival near the saved address.
+5. Customer inspects the vehicle, chooses Cash or UPI, enters the amount actually paid, and sends the payment details.
+6. The booking remains pending until garage/controller/authorised task worker confirms receipt.
+7. Confirmation atomically sets `COMPLETED`, stops the elapsed timer, releases the controller, and activates warranty/history.
 
 Self drop:
 
-1. Garage uploads ready-for-pickup evidence.
-2. Customer collects and accepts.
-3. Booking becomes `COMPLETED`.
+1. Garage uploads ready-for-pickup evidence and the customer is notified to collect the vehicle.
+2. Customer inspects at the garage, chooses Cash or UPI, and submits the amount paid.
+3. Garage/controller/authorised worker confirms receipt and completes the booking.
+
+The Cash/UPI choice is an auditable payment declaration and confirmation flow, not a replacement for the actual cash handover or UPI transfer.
 
 ## 14. Warranty and history
 
@@ -186,7 +191,7 @@ Completed booking appears in:
 - protected Warranty Center;
 - garage/controller history according to role/privacy.
 
-The warranty card remains active for 30 days from customer acceptance/delivery fallback and then shows expired.
+The warranty card remains active for 30 days from final payment confirmation/completion and then shows expired.
 
 ## 15. Intervention controls
 

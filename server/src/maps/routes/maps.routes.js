@@ -87,21 +87,21 @@ router.get(
 );
 router.post(
   "/bookings/:bookingId/tracking/start",
-  authorizeRoles("GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN", "SUB_ADMIN"),
+  authorizeRoles("CUSTOMER", "GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN", "SUB_ADMIN"),
   bookingIdValidation,
   validate,
   controller.startBookingTracking,
 );
 router.post(
   "/bookings/:bookingId/tracking/location",
-  authorizeRoles("GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN", "SUB_ADMIN"),
+  authorizeRoles("CUSTOMER", "GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN", "SUB_ADMIN"),
   trackingPointValidation,
   validate,
   controller.addBookingTrackingPoint,
 );
 router.post(
   "/bookings/:bookingId/tracking/stop",
-  authorizeRoles("GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN", "SUB_ADMIN"),
+  authorizeRoles("CUSTOMER", "GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN", "SUB_ADMIN"),
   bookingIdValidation,
   validate,
   controller.stopBookingTracking,

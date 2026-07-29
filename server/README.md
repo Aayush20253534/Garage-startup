@@ -64,9 +64,11 @@ The public worker-task endpoints are rate-limited and token-scoped. Manager endp
 5. A compatible garage accepts atomically and pays the garage acceptance fee.
 6. With controller accounts enabled, existing controller dispatch/assignment runs.
 7. With controller accounts disabled, the owner/admin can create a WhatsApp worker task for `HANDOVER` or `DELIVERY`.
-8. Handover OTP plus 5-15 images and exactly one video moves the booking to `IN_PROGRESS`.
-9. Delivery evidence is uploaded and the customer accepts delivery.
-10. `COMPLETED` bookings appear in the customer Warranty Center for a 30-day active period and remain visible as expired afterwards.
+8. Pickup uses handover OTP plus 5-15 images and one video before switching to return-to-garage tracking. Self-drop instead lets the authenticated customer share `SELF_DROP_TO_GARAGE`; garage arrival is confirmed with the same before-service evidence and no OTP.
+9. Garage arrival is confirmed, service is completed, and post-service evidence starts return delivery plus customer email/notification.
+10. The garage/controller/worker shares the delivery route and confirms arrival near the customer.
+11. The customer submits Cash or UPI plus the amount paid; the booking remains pending until the garage confirms receipt.
+12. Payment confirmation atomically completes the booking, stops the timer, releases the controller, and activates the 30-day Warranty Center card.
 
 ## Garage capability rules
 
@@ -90,8 +92,9 @@ Worker links are enabled only when `Garage.controllerAccountsEnabled` is false.
 - Tokens are 32 random bytes encoded with base64url; only SHA-256 hashes are stored.
 - TTL is 1-48 hours; default is `WORKER_TASK_TTL_HOURS` or 12 hours.
 - Public responses hide the customer phone and financial data.
-- Pickup live tracking is disabled for self-drop bookings.
-- Browser tracking points are linked through `workerTaskId`.
+- Self-drop has one customer-originated `SELF_DROP_TO_GARAGE` journey. Garage/controller/worker may view it, but only the booking customer can publish those points; no second self-drop route is created.
+- Browser tracking points are linked through `workerTaskId` and partitioned into pickup-to-customer, return-to-garage, and delivery-to-customer phases.
+- The worker delivery task can submit service evidence, confirm arrival near the customer, and confirm a pending final payment.
 
 ## Customer warranties
 
@@ -105,7 +108,7 @@ There is no `Warranty` database model. `GET /api/v1/warranties` queries the auth
 - active/expired status
 - remaining days
 
-Activation prefers `customerAcceptedAt`, then `deliveredAt`, then `updatedAt`. Duration is 30 days.
+Activation prefers `finalPaymentConfirmedAt`, then `customerAcceptedAt`, then `deliveredAt`, then `updatedAt`. Duration is 30 days.
 
 ## Environment families
 

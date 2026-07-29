@@ -1,4 +1,4 @@
-import { isSelfDropOffService } from "@/utils/serviceFulfillment";
+import { isSelfDropOffService } from "./serviceFulfillment.js";
 
 export const BOOKING_TIMELINE_STEPS = [
   {
@@ -6,76 +6,96 @@ export const BOOKING_TIMELINE_STEPS = [
     status: "NEW",
     label: "Request Sent",
     shortLabel: "Request",
-    description: "Your service request was created and sent to nearby garages.",
+    description: "Your service request was created and sent to eligible garages.",
   },
   {
     key: "BOOKING_ACCEPTED",
     status: "ACCEPTED",
-    label: "Booking Accepted",
+    label: "Garage Accepted",
     shortLabel: "Accepted",
-    description: "A garage accepted the booking and received the service details.",
+    description: "A garage accepted the booking and the service timer started.",
   },
   {
     key: "VEHICLE_HANDOVER",
     status: "CONFIRMED",
-    label: "Vehicle Handover",
-    shortLabel: "Handover",
-    description: "The garage is ready to verify the handover OTP and pickup photos.",
+    label: "Vehicle Pickup & Handover",
+    shortLabel: "Pickup",
+    description: "The garage verifies the customer OTP, photos and pickup video.",
   },
   {
-    key: "SERVICE_IN_PROGRESS",
-    status: "IN_PROGRESS",
-    label: "Service In Progress",
+    key: "VEHICLE_AT_GARAGE",
+    status: "AT_GARAGE",
+    label: "Vehicle Reached Garage",
+    shortLabel: "Garage",
+    description: "The pickup journey ended at the assigned garage and service can begin.",
+  },
+  {
+    key: "SERVICE_COMPLETED",
+    status: "SERVICE_COMPLETED",
+    label: "Service Completed",
     shortLabel: "Service",
-    description: "Vehicle handover was verified and the garage started the service.",
+    description: "Completion photos and video were uploaded and the customer was notified.",
   },
   {
-    key: "AWAITING_CUSTOMER_ACCEPTANCE",
+    key: "VEHICLE_ARRIVED",
     status: "DELIVERED",
-    label: "Awaiting Customer Acceptance",
-    shortLabel: "Delivery",
-    description: "The garage marked the vehicle ready. Review it and accept delivery.",
+    label: "Vehicle Arrived",
+    shortLabel: "Arrived",
+    description: "The vehicle reached the customer and is ready for payment submission.",
+  },
+  {
+    key: "PAYMENT_PENDING",
+    status: "PAYMENT_PENDING",
+    label: "Payment Confirmation Pending",
+    shortLabel: "Payment",
+    description: "The customer sent Cash or UPI payment details for garage confirmation.",
   },
   {
     key: "COMPLETED",
     status: "COMPLETED",
     label: "Completed",
     shortLabel: "Complete",
-    description: "Delivery was accepted and the service is complete.",
+    description: "The garage confirmed payment and the customer warranty is active.",
   },
 ];
 
 export const SELF_DROP_OFF_TIMELINE_STEPS = [
   {
     ...BOOKING_TIMELINE_STEPS[0],
-    description: "Your self drop-off request was sent to suitable nearby garages.",
+    description: "Your self drop-off request was sent to suitable garages.",
   },
   {
     ...BOOKING_TIMELINE_STEPS[1],
     label: "Garage Assigned",
     shortLabel: "Assigned",
-    description: "A garage accepted. Use its address and directions to take your vehicle there.",
+    description: "A garage accepted. Start the one-time live route while taking the vehicle there.",
   },
   {
     ...BOOKING_TIMELINE_STEPS[2],
-    label: "Drop Vehicle at Garage",
-    shortLabel: "Drop-off",
-    description: "At the garage, share the handover OTP and complete the drop-off inspection photos and video.",
+    label: "Vehicle Reached Garage",
+    shortLabel: "Arrival",
+    description: "Garage staff confirmed arrival and recorded the before-service photos and video. No OTP is required.",
   },
   {
     ...BOOKING_TIMELINE_STEPS[3],
-    description: "The garage verified your drop-off and started servicing the vehicle.",
+    label: "Service In Progress",
+    shortLabel: "Service",
+    description: "The vehicle is already at the garage and service work is underway.",
   },
   {
     ...BOOKING_TIMELINE_STEPS[4],
-    label: "Ready for Customer Pickup",
-    shortLabel: "Pickup",
-    description: "The garage finished the work. Visit the garage, inspect the vehicle and confirm collection.",
+    label: "Ready for Collection",
+    shortLabel: "Ready",
+    description: "Completion evidence was uploaded and the vehicle is ready at the garage.",
   },
   {
     ...BOOKING_TIMELINE_STEPS[5],
-    description: "You confirmed collection and the service is complete.",
+    label: "Vehicle Collected",
+    shortLabel: "Collected",
+    description: "The customer reviewed and collected the serviced vehicle.",
   },
+  BOOKING_TIMELINE_STEPS[6],
+  BOOKING_TIMELINE_STEPS[7],
 ];
 
 export const getBookingTimelineSteps = (booking = {}) =>
@@ -85,10 +105,25 @@ export const getBookingTimelineSteps = (booking = {}) =>
 
 const getReachedIndex = (booking = {}) => {
   const status = String(booking.status || "").toUpperCase();
+  const selfDropOff = isSelfDropOffService(booking);
 
-  if (status === "COMPLETED" || booking.customerAcceptedAt) return 5;
-  if (status === "DELIVERED" || booking.deliveredAt) return 4;
-  if (status === "IN_PROGRESS" || booking.handoverOtpVerifiedAt) return 3;
+  if (status === "COMPLETED" || booking.finalPaymentConfirmedAt) return 7;
+  if (booking.finalPaymentSubmittedAt) return 6;
+
+  if (selfDropOff) {
+    if (booking.serviceCompletedAt) return 4;
+    if (booking.arrivedAtGarageAt) return 3;
+    if (status === "CONFIRMED") return 1;
+    if (["GARAGE_ASSIGNED", "ACCEPTED"].includes(status) || booking.acceptedAt) {
+      return 1;
+    }
+    return 0;
+  }
+
+  if (booking.deliveredAt) return 5;
+  if (booking.serviceCompletedAt) return 4;
+  if (booking.arrivedAtGarageAt) return 3;
+  if (booking.handoverOtpVerifiedAt || status === "IN_PROGRESS") return 2;
   if (status === "CONFIRMED") return 2;
   if (["GARAGE_ASSIGNED", "ACCEPTED"].includes(status) || booking.acceptedAt) {
     return 1;

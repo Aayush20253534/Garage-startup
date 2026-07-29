@@ -128,7 +128,7 @@ Garage-wide and service-level exclusions must be evaluated before positive inclu
 
 ## 6. Booking model and states
 
-`Booking` owns the marketplace lifecycle, selected vehicle, assigned garage/controller, financial snapshot, fulfilment type, location, route, handover OTP state, delivery/customer acceptance, and tracking summary.
+`Booking` owns the marketplace lifecycle, selected vehicle, assigned garage/controller, financial snapshot, fulfilment type, location, route, handover OTP state, garage arrival, service completion, delivery arrival, final-payment declaration/confirmation, and tracking summary.
 
 Current `BookingStatus` values:
 
@@ -145,11 +145,20 @@ EXPIRED
 
 Important timestamps:
 
-- `acceptedAt`
+- `acceptedAt` — starts the acceptance counter; for self-drop it is also the customer-to-garage journey start
 - `handoverOtpVerifiedAt`
-- `deliveredAt`
-- `customerAcceptedAt`
+- `arrivedAtGarageAt` — stops the self-drop travel timer or records pickup return arrival
+- `serviceCompletedAt`
+- `deliveryStartedAt`
+- `deliveredAt` — garage/worker reached the customer, or self-drop vehicle became ready
+- `finalPaymentSubmittedAt`
+- `finalPaymentConfirmedAt`
+- `customerAcceptedAt` — compatibility/completion timestamp set with payment confirmation
 - tracking start/end and latest location timestamps
+
+`BookingTrackingPhase` includes `SELF_DROP_TO_GARAGE`, `PICKUP_TO_CUSTOMER`, `RETURN_TO_GARAGE`, and `DELIVERY_TO_CUSTOMER`. Self-drop points use `TrackingSource.CUSTOMER`; garage actors may observe the route but cannot write customer-originated points.
+
+`BookingFinalPaymentMethod` is `CASH` or `UPI`. `finalPaymentAmount` is the amount declared by the customer after physical payment; this record is not itself a payment-rail transaction. The garage confirmation transaction changes the booking to `COMPLETED`.
 
 `BookingService` snapshots estimated/final prices for each selected service.
 
@@ -217,7 +226,7 @@ Tracking points can belong to:
 - garage controller
 - worker task
 
-`workerTaskId` links no-account worker location to the temporary assignment. Source remains `GARAGE`, `CUSTOMER`, or `ADMIN`; worker origin is distinguished by the relation.
+`workerTaskId` links no-account worker location to the temporary assignment. `journeyPhase` partitions trails into `PICKUP_TO_CUSTOMER`, `RETURN_TO_GARAGE`, and `DELIVERY_TO_CUSTOMER`. Source remains `GARAGE`, `CUSTOMER`, or `ADMIN`; worker origin is distinguished by the relation.
 
 ## 10. Warranty design
 
@@ -234,7 +243,7 @@ garageId is not null
 Activation uses:
 
 ```text
-customerAcceptedAt ?? deliveredAt ?? updatedAt
+finalPaymentConfirmedAt ?? customerAcceptedAt ?? deliveredAt ?? updatedAt
 ```
 
 Expiry is 30 days later. This avoids a daily decrement job and automatically includes historical completed bookings. A dedicated warranty table becomes appropriate only when adding claims, per-service durations, exclusions, extensions, transfer, or administrator overrides.

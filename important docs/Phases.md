@@ -19,7 +19,7 @@ Current code includes:
 - Garage applications, profiles, service/vehicle scopes, media, wallet, dispatch, controllers, and operational controls.
 - Pickup and self-drop fulfilment with garage eligibility enforcement.
 - Controller enable/disable setting and no-account WhatsApp worker tasks.
-- Worker live tracking, Hindi/English instructions, browser voice, handover OTP, and structured inspection image/video evidence.
+- Pickup/return/delivery worker tracking, one-time customer-originated self-drop tracking, Hindi/English worker instructions, browser voice, pickup handover OTP, and structured inspection image/video evidence.
 - Vehicle model catalogue photos shown in customer My Vehicles.
 - Combined System Health for admin, sub-admin, and intern.
 - Customer real Warranty Center derived from completed bookings with a 30-day countdown.
@@ -60,7 +60,7 @@ Current code includes:
 
 - No unresolved critical security or payment blocker.
 - Readiness is green and System Health has no unexplained outage.
-- Successful staging smoke flow for payment → dispatch → handover → tracking → delivery → warranty.
+- Successful staging smoke flow for platform-fee payment → dispatch → pickup → return-to-garage tracking → service evidence → delivery tracking → Cash/UPI submission → garage confirmation → warranty.
 - Every launch garage has verified operational configuration and contact details.
 - Rollback and incident contacts are written and available.
 
@@ -84,7 +84,7 @@ Track at minimum:
 - Tracking freshness and permission failure
 - Handover OTP failure/attempt rate
 - Evidence upload failure and median size
-- Completion and customer acceptance rate
+- Final-payment submission and garage-confirmation rate
 - Warranty cards created and support claims
 - Support tickets, complaints, cancellations, and refunds
 - System issues by severity and route

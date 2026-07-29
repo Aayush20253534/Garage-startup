@@ -68,10 +68,18 @@ router.get(
 
 
 router.post(
+  "/:id/submit-final-payment",
+  acceptDeliveryValidation,
+  validate,
+  bookingController.acceptDelivery,
+);
+
+// Backward-compatible route name used by already-cached frontend bundles.
+router.post(
   "/:id/accept-delivery",
   acceptDeliveryValidation,
   validate,
-  bookingController.acceptDelivery
+  bookingController.acceptDelivery,
 );
 
 router.post(

@@ -9,10 +9,10 @@ Rovauto is a multi-surface vehicle-service marketplace for customers, garage own
 | Surface | Current capabilities |
 | --- | --- |
 | Public | Marketing pages, service catalogue, supported cities, garage discovery, public warranty mock page, contact, legal pages, garage-partner application, and the public worker-task route |
-| Customer | Authentication, onboarding, saved locations, vehicles with model photos, service selection, pickup/self-drop choice, wallet/Cashfree payment, garage search, handover OTP, live tracking, inspection media, delivery acceptance, real 30-day warranty cards, history, reviews, complaints, tickets, notifications, SOS, and chatbot |
-| Garage owner | Garage profile and media, services and vehicle scopes, booking requests, wallet, controller management when enabled, no-account worker task assignment when controllers are disabled, tracking, inspection media, and booking completion |
+| Customer | Authentication, onboarding, saved locations, vehicles with model photos, service selection, pickup/self-drop choice, wallet/Cashfree platform-fee payment, garage search, pickup handover OTP, pickup/return/delivery tracking, one-time self-drop customer-to-garage tracking, inspection media, Cash/UPI final-payment submission, real 30-day warranty cards, detailed service timings, history, reviews, complaints, tickets, notifications, SOS, and chatbot |
+| Garage owner | Garage profile and media, services and vehicle scopes, booking requests, wallet, controller management when enabled, no-account worker task assignment when controllers are disabled, pickup/return/delivery tracking, inspection media, and final-payment confirmation |
 | Garage controller | Garage-scoped login, availability, assigned bookings, limited customer data, booking handling, tracking, evidence, and history |
-| No-account worker | Secure booking-specific WhatsApp task link, Hindi/English instructions, browser voice guidance, pickup/delivery tracking, handover OTP, and required photo/video evidence without a Rovauto account |
+| No-account worker | Secure booking-specific WhatsApp task link, Hindi/English instructions, browser voice guidance, pickup/return/delivery tracking, pickup handover OTP, self-drop arrival evidence without OTP, required photo/video evidence, customer-arrival confirmation, and payment-receipt confirmation without a Rovauto account |
 | Customer support | Separate authentication/session, ticket claim/release/reply, outbound notifications and email history, and push subscriptions |
 | Intern | Price-range operations, staff-authorised operational pages, and the same System Health centre used by admins |
 | Admin/Sub-admin | Customers, bookings, garages, fulfilment and controller settings, services, cities, price operations, support, worker-task intervention, System Health, and permitted staff administration |
@@ -45,6 +45,7 @@ PostgreSQL is the source of truth. Redis is used for cache, rate limits, and ope
 - Worker links are booking- and stage-specific, expire automatically, and never expose wallet, payment, or unrelated customer data.
 - Inspection evidence requires 5-15 images and exactly one video for each pickup/delivery phase.
 - Vehicle model photos are managed in Admin Cars and shown on customer vehicle cards when a brand/model match exists.
+- A shared elapsed timer starts at garage acceptance; final Cash/UPI details remain pending until garage confirmation completes the booking.
 - Customer warranty cards appear for completed bookings for 30 days, then remain visible as expired.
 - System Health combines System Issues and Integration Health for main admin, sub-admin, and intern roles.
 

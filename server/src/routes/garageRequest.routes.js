@@ -11,6 +11,7 @@ const {
   rejectGarageRequestSchema,
   verifyHandoverOtpSchema,
   markDeliveredSchema,
+  bookingStageMutationSchema,
 } = require("../validations/garageRequest.validation");
 
 const router = express.Router();
@@ -52,6 +53,48 @@ router.post(
   verifyHandoverOtpSchema,
   validate,
   garageRequestController.verifyHandoverOtp
+);
+
+
+router.post(
+  "/:requestId/confirm-self-drop-arrival",
+  inspectionMediaFields,
+  upload.registerUploadCleanup,
+  upload.validateUploadedFiles,
+  markDeliveredSchema,
+  validate,
+  garageRequestController.confirmSelfDropArrival,
+);
+
+router.post(
+  "/:requestId/mark-arrived-garage",
+  bookingStageMutationSchema,
+  validate,
+  garageRequestController.markArrivedAtGarage,
+);
+
+router.post(
+  "/:requestId/mark-service-complete",
+  inspectionMediaFields,
+  upload.registerUploadCleanup,
+  upload.validateUploadedFiles,
+  markDeliveredSchema,
+  validate,
+  garageRequestController.markServiceCompleted,
+);
+
+router.post(
+  "/:requestId/mark-arrived-customer",
+  bookingStageMutationSchema,
+  validate,
+  garageRequestController.markArrivedAtCustomer,
+);
+
+router.post(
+  "/:requestId/confirm-final-payment",
+  bookingStageMutationSchema,
+  validate,
+  garageRequestController.confirmFinalPayment,
 );
 
 router.post(

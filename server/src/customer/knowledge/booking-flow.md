@@ -4,7 +4,9 @@
 
 ## Before booking
 
-You need to be signed in, have a saved service location, and have at least one vehicle in My Vehicles. Choose the correct city and vehicle before adding services because availability and estimated price ranges can depend on them.
+You need to be signed in, have a selected saved service location, and have at least one vehicle in My Vehicles. Choose the correct city and vehicle before adding services because availability and estimated price ranges can depend on them.
+
+During normal booking, Rovauto uses the selected saved service location and does not request the customer's current browser GPS. To change it, explicitly edit, confirm, and save the service address before checkout.
 
 Vehicle model photos may appear in My Vehicles when Rovauto has an image for the saved brand and model. A missing image does not affect booking eligibility.
 
@@ -16,62 +18,84 @@ Vehicle model photos may appear in My Vehicles when Rovauto has an image for the
 4. Check that an approved price range is available.
 5. Add the service to the booking.
 
-When no approved price range exists for the vehicle/city, Rovauto may show the service but will not allow checkout with an invented price.
+When no approved price range exists for the vehicle/city, Rovauto may show the service but will not allow checkout with an invented price. The displayed range is an estimate and not a guaranteed final repair quotation.
 
 ## Pickup or self drop-off
 
-Rovauto may offer:
+Most services let the customer choose one of these methods when compatible garages are available:
 
 - **Pickup and delivery** — the assigned garage arranges vehicle collection and return.
-- **Self drop-off** — you take the vehicle to the assigned garage and collect it later.
+- **Self drop-off & pickup** — you take the vehicle to the assigned garage and collect it later. No pickup vehicle will come.
 
-Some services require self drop-off. Some garages support only one method. Rovauto searches only garages compatible with the method saved on your booking.
+Some services require self drop-off. Some garages support only one method. Rovauto searches only garages that support the selected handover mode, vehicle brand/model scope, and every selected service.
+
+For self drop-off, the customer gets one live route from their current/home location to the assigned garage after acceptance. Keep the booking page open and share location until the garage confirms arrival. There is no pickup vehicle and no second route for collection.
 
 ## Checkout and payment
 
-The checkout summary shows selected services, estimated ranges, the platform/handling amount, wallet use where available, and the fulfilment method. Complete payment through the supported payment flow. A payment page or redirect alone does not prove payment; wait for Rovauto to confirm it.
+The online checkout amount is the Rovauto platform fee. The checkout summary also shows selected services, estimated ranges, wallet use where available, and the fulfilment method. Complete payment through the supported payment flow. A payment page or redirect alone does not prove payment; wait for Rovauto to confirm it.
 
 A pending payment booking may be resumed instead of creating repeated bookings.
 
 ## Garage search
 
-After payment confirmation, Rovauto searches eligible nearby garages. A garage must support your fulfilment choice, vehicle brand/model scope, and every selected service. Search may expand through larger distance rounds.
+After payment confirmation, Rovauto first searches eligible garages within 5 km. If none accepts, it expands to 10 km, then expands to 20 km. When a full pass finishes without an acceptance, it starts a new cycle from 5 km. Repeated search cycles require no extra platform-fee payment.
 
-You will receive an update when a garage accepts or when the search needs attention.
+A garage must support your fulfilment choice, vehicle brand/model scope, and every selected service. You will receive an update when a garage accepts or when the search needs attention. A service timer starts when the garage accepts and remains visible in customer and garage booking views.
 
 ## Vehicle handover
 
 For pickup:
 
-1. Track the assigned worker/controller where available.
+1. Track the assigned garage worker/controller where available. Live location sharing belongs to the assigned garage or its authorised no-account worker task; the customer is not asked to share live journey location.
 2. Give the handover OTP only when the person is physically receiving your vehicle.
 3. Pickup inspection photos and one video are recorded.
-4. The vehicle is taken to the garage.
+4. Follow the return-to-garage map while the vehicle travels to the assigned garage.
+5. Service starts after the garage worker reaches near the garage and confirms arrival.
 
 For self drop-off:
 
-1. Use the assigned garage address/map.
-2. Take the vehicle to the garage.
-3. Give the handover OTP only at the garage during physical handover.
-4. Inspection evidence is recorded there.
+1. Open the accepted booking and start the one-time route to the assigned garage.
+2. Keep live sharing active while taking the vehicle to the garage.
+3. When you reach the garage, staff records 5-15 before-service photos and one video and confirms arrival.
+4. The customer-to-garage journey timer stops and service begins. No handover OTP is used.
 
-Never share a handover OTP over an unsolicited call before the vehicle handover.
+For pickup bookings, never share a handover OTP over an unsolicited call before the vehicle handover.
 
 ## During service
 
 The booking becomes in progress after handover verification. Use booking tracking/status, notifications, and support for updates. Additional work or amount changes should be confirmed through the approved booking flow, not informal messages alone.
 
-## Delivery and completion
+## Service completion, return delivery, and final payment
 
-For pickup/delivery, the garage records delivery evidence and returns the vehicle. For self drop-off, the garage records that the vehicle is ready and you collect it.
+After service work is complete, the garage uploads the required post-service photos and one video. Rovauto then emails/notifies the customer that service is complete.
 
-Check the vehicle before accepting completion. Customer acceptance completes the booking and adds it to service history.
+For pickup and delivery:
+
+1. The return-delivery map becomes available after the completion evidence is uploaded.
+2. Follow the garage worker's live route from the garage to the saved customer address.
+3. The garage worker confirms arrival only after reaching near the customer.
+4. Inspect the vehicle, choose **Cash** or **UPI**, enter the final amount, and select **Send Payment Details**.
+5. The booking shows payment confirmation pending until the garage/controller/authorised worker confirms that the payment was received.
+6. Garage confirmation completes the booking and activates the warranty.
+
+The Cash/UPI selection records the payment mode and amount for garage confirmation. It does not itself transfer money or replace the actual cash/UPI payment made between the customer and garage.
+
+For self drop-off, the garage marks the vehicle **Ready for customer pickup**. Visit the garage, inspect the vehicle, choose Cash or UPI, submit the amount, and use **Confirm Vehicle Collection** where shown. The booking completes only after the garage confirms receipt.
 
 ## Warranty Center
 
 Every completed booking with an assigned garage appears in **Dashboard → Warranty Center**. The card shows selected services, vehicle, garage, activation date, expiry date, and remaining days.
 
-The service warranty is active for 30 days from completion/acceptance and then remains visible as expired. The public Warranty page is only a general design/information page and does not show your personal bookings.
+A 30-day Rovauto service warranty starts after final payment confirmation/completion and then remains visible as expired. The public Warranty page is only a general design/information page and does not show your personal bookings.
+
+## Ratings
+
+A new garage may show no public rating when its aggregate rating is zero. This does not create a fake score.
+
+## Account context and privacy
+
+The assistant may receive only limited account signals needed to guide you, such as whether a saved location or vehicle exists and a minimal latest-booking status. It should not expose private account, garage, payment, or internal system details.
 
 ## Help
 

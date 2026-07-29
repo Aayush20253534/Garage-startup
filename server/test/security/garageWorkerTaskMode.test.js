@@ -92,11 +92,13 @@ test("worker task routes support tracking and structured evidence without worker
   assert.match(publicRoutes, /\/:token\/handover/);
   assert.match(publicRoutes, /handover\/complete-journey/);
   assert.match(publicRoutes, /\/:token\/delivery/);
+  assert.match(publicRoutes, /payment\/confirm/);
   assert.doesNotMatch(publicRoutes, /router\.use\(protect\)/);
   assert.match(managerRoutes, /authorizeRoles\("ADMIN", "SUB_ADMIN", "GARAGE_OWNER"\)/);
   assert.match(tracking, /workerTaskId: workerTask\.id/);
   assert.match(taskService, /RETURN_TO_GARAGE/);
   assert.match(taskService, /completeHandoverJourney/);
+  assert.match(taskService, /confirmFinalPayment/);
   assert.match(workerUi, /navigator\.geolocation\.watchPosition/);
   assert.match(workerUi, /SpeechSynthesisUtterance/);
   assert.match(workerUi, /utterance\.lang = language === "hi" \? "hi-IN" : "en-IN"/);

@@ -52,12 +52,25 @@ export const workerTaskApi = {
     }));
   },
 
-  async markDelivered(token, formData) {
+  async markServiceComplete(token, formData) {
     return unwrap(await api.post(`/worker-tasks/${token}/delivery`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
       timeout: 120000,
       skipNetworkRetry: true,
     }));
+  },
+
+  async markArrivedAtCustomer(token) {
+    return unwrap(await api.post(`/worker-tasks/${token}/delivery/arrived`));
+  },
+
+  async confirmFinalPayment(token) {
+    return unwrap(await api.post(`/worker-tasks/${token}/payment/confirm`));
+  },
+
+  // Compatibility alias for older worker bundles.
+  async markDelivered(token, formData) {
+    return this.markServiceComplete(token, formData);
   },
 };
 

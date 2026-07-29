@@ -22,7 +22,7 @@ Location: {{5}}
 
 Tap Open Task. No worker login or worker OTP is required.
 For Hindi instructions, tap हिंदी and then 🔊 सुनें inside the task page.
-The customer handover OTP is required only when physically receiving the vehicle.
+For pickup tasks, the customer handover OTP is required only when physically receiving the vehicle. Self-drop tasks use arrival evidence and no OTP.
 ```
 
 Body values:
@@ -95,8 +95,10 @@ The WhatsApp template itself is not dynamically translated. A separate Hindi Wha
 
 ### Self drop
 
-- No pickup live tracking.
-- Use the task page for handover evidence at the garage.
+- The customer starts the one-time route from their booking page.
+- The worker task observes the customer route but does not publish worker location for this phase.
+- When the customer is near the garage, upload 5-15 before-service images and one video and confirm arrival without OTP.
+- Post-service evidence marks the vehicle ready for customer collection; no second map opens.
 
 ### Delivery
 

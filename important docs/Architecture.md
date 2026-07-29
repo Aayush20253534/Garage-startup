@@ -102,13 +102,15 @@ flowchart TD
     E --> F[SEARCHING_GARAGE]
     F --> G[Progressive eligible-garage dispatch]
     G --> H[Garage accepts atomically]
-    H --> I[CONFIRMED]
-    I --> J[Handover OTP and inspection evidence]
-    J --> K[IN_PROGRESS]
-    K --> L[Delivery evidence]
-    L --> M[Customer acceptance]
-    M --> N[COMPLETED]
-    N --> O[30-day customer warranty projection]
+    H --> I[CONFIRMED + elapsed timer starts]
+    I --> J[Pickup tracking, handover OTP, pickup evidence]
+    J --> K[Return tracking to garage]
+    K --> L[Service work + post-service evidence]
+    L --> M[Completion email + delivery tracking]
+    M --> N[Customer submits Cash or UPI amount]
+    N --> O[Garage confirms payment received]
+    O --> P[COMPLETED]
+    P --> Q[30-day customer warranty projection]
 ```
 
 Missing approved pricing blocks checkout. Payment and garage acceptance are idempotent/transactional boundaries.
@@ -174,7 +176,7 @@ Authorised actors are main admin, sub-admin, or the assigned garage owner. The g
 Task rules:
 
 - `HANDOVER` only after acceptance and before handover verification.
-- `DELIVERY` only after handover/service start and before delivery is marked.
+- `DELIVERY` after handover/service start; the same task can upload completion evidence, track return delivery, confirm customer arrival, and confirm the customer's submitted payment.
 - TTL is 1-48 hours.
 - A new active task of the same type revokes the older one.
 - Only SHA-256 of the random token is stored.
@@ -189,6 +191,8 @@ POST /api/v1/worker-tasks/:token/tracking/stop
 POST /api/v1/worker-tasks/:token/handover
 POST /api/v1/worker-tasks/:token/handover/complete-journey
 POST /api/v1/worker-tasks/:token/delivery
+POST /api/v1/worker-tasks/:token/delivery/arrived
+POST /api/v1/worker-tasks/:token/payment/confirm
 ```
 
 The public projection hides customer phone and all financial data. The browser UI supports English/Hindi and built-in speech synthesis.
@@ -202,8 +206,11 @@ Pickup bookings:
 3. Handover OTP and media move the booking to `IN_PROGRESS`.
 4. Destination changes to the garage.
 5. Worker keeps tracking until reaching the garage and completes the return journey.
+6. After service, post-service evidence starts a separate `DELIVERY_TO_CUSTOMER` journey.
+7. The customer submits the final Cash/UPI mode and amount only after the worker confirms arrival.
+8. Garage/controller/task worker confirmation is the atomic booking-completion boundary.
 
-Self-drop bookings do not permit pickup tracking. The task is used for garage handover or ready-for-self-pickup evidence.
+Tracking points are partitioned by `SELF_DROP_TO_GARAGE`, `PICKUP_TO_CUSTOMER`, `RETURN_TO_GARAGE`, and `DELIVERY_TO_CUSTOMER`, so journeys never mix trails. For self-drop, the authenticated customer shares only the initial route to the garage. Garage/controller/worker views that route and confirms arrival with before-service evidence; there is no handover OTP and no second self-drop route.
 
 ### Evidence
 

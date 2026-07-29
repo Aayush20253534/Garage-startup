@@ -69,17 +69,21 @@ test("accepted booking tracking uses garage GPS and the fixed booking address", 
   assert.match(liveTracking, /maximumAge: 0/);
   assert.match(liveTracking, /TARGET_ACCURACY_METERS/);
   assert.doesNotMatch(customerTracking, /navigator\.geolocation/);
-  assert.match(
-    trackingService,
-    /destination = \{[\s\S]*latitude: booking\.customerLatitude,[\s\S]*longitude: booking\.customerLongitude/,
-  );
+  assert.match(trackingService, /TRACKING_PHASE\.RETURN_TO_GARAGE/);
+  assert.match(trackingService, /latitude: booking\.garage\.latitude/);
+  assert.match(trackingService, /latitude: booking\.customerLatitude/);
+  assert.match(trackingService, /journeyPhase/);
   assert.match(
     trackingService,
     /lastGarageLatitude: rawLocation\.latitude,[\s\S]*lastGarageLongitude: rawLocation\.longitude/,
   );
   assert.match(
     mapRoutes,
-    /tracking\/location"[\s\S]*authorizeRoles\("GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN", "SUB_ADMIN"\)/,
+    /tracking\/location"[\s\S]*authorizeRoles\("CUSTOMER", "GARAGE_OWNER", "GARAGE_CONTROLLER", "ADMIN", "SUB_ADMIN"\)/,
+  );
+  assert.match(
+    trackingService,
+    /account\.role === "CUSTOMER"[\s\S]*bookingUsesSelfDropOff\(booking\)[\s\S]*booking\.userId === account\.id/,
   );
   assert.match(
     trackingService,

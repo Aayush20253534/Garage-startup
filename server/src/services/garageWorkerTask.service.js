@@ -138,7 +138,11 @@ const assertTaskLinkMode = (garage) => {
 
 const assertTaskStage = (booking, taskType) => {
   if (taskType === "HANDOVER") {
-    if (booking.status !== "CONFIRMED" || booking.handoverOtpVerifiedAt) {
+    if (
+      booking.status !== "CONFIRMED" ||
+      booking.handoverOtpVerifiedAt ||
+      booking.arrivedAtGarageAt
+    ) {
       throw new ApiError(
         409,
         "A handover task can be assigned only after garage acceptance and before handover verification",
@@ -149,7 +153,9 @@ const assertTaskStage = (booking, taskType) => {
 
   if (
     booking.status !== "IN_PROGRESS" ||
-    !booking.handoverOtpVerifiedAt ||
+    (bookingUsesSelfDropOff(booking)
+      ? !booking.arrivedAtGarageAt
+      : !booking.handoverOtpVerifiedAt) ||
     booking.deliveredAt
   ) {
     throw new ApiError(
@@ -167,12 +173,16 @@ const taskStatusForBooking = (task) => {
 
   if (
     task.taskType === "HANDOVER" &&
-    task.booking?.handoverOtpVerifiedAt &&
-    bookingUsesSelfDropOff(task.booking)
+    (bookingUsesSelfDropOff(task.booking)
+      ? task.booking?.arrivedAtGarageAt
+      : task.booking?.handoverOtpVerifiedAt && task.booking?.arrivedAtGarageAt)
   ) {
     return "COMPLETED";
   }
-  if (task.taskType === "DELIVERY" && task.booking?.deliveredAt) {
+  if (
+    task.taskType === "DELIVERY" &&
+    (task.booking?.status === "COMPLETED" || task.booking?.finalPaymentConfirmedAt)
+  ) {
     return "COMPLETED";
   }
   return task.status;
@@ -200,8 +210,17 @@ const toPublicTask = (task) => {
   const returningToGarage =
     task.taskType === "HANDOVER" &&
     !isSelfDropOff &&
-    Boolean(booking.handoverOtpVerifiedAt);
-  const useGarageDestination = isSelfDropOff || returningToGarage;
+    Boolean(booking.handoverOtpVerifiedAt) &&
+    !booking.arrivedAtGarageAt;
+  const serviceEvidenceRequired =
+    task.taskType === "DELIVERY" && !booking.serviceCompletedAt;
+  const deliveringToCustomer =
+    task.taskType === "DELIVERY" &&
+    !isSelfDropOff &&
+    Boolean(booking.serviceCompletedAt) &&
+    !booking.deliveredAt;
+  const useGarageDestination =
+    isSelfDropOff || returningToGarage || serviceEvidenceRequired;
   const activeDestination = useGarageDestination
     ? {
         type: "GARAGE",
@@ -219,7 +238,13 @@ const toPublicTask = (task) => {
       };
   const destination =
     task.status === "COMPLETED"
-      ? { type: activeDestination.type, label: "Task completed", address: null, latitude: null, longitude: null }
+      ? {
+          type: activeDestination.type,
+          label: "Task completed",
+          address: null,
+          latitude: null,
+          longitude: null,
+        }
       : activeDestination;
 
   return {
@@ -235,9 +260,15 @@ const toPublicTask = (task) => {
     isSelfDropOff,
     stage:
       task.taskType === "DELIVERY"
-        ? isSelfDropOff
-          ? "READY_FOR_SELF_PICKUP"
-          : "DELIVER_TO_CUSTOMER"
+        ? serviceEvidenceRequired
+          ? "COMPLETE_SERVICE"
+          : booking.finalPaymentSubmittedAt && !booking.finalPaymentConfirmedAt
+            ? "CONFIRM_PAYMENT"
+            : isSelfDropOff
+              ? "READY_FOR_SELF_PICKUP"
+              : booking.deliveredAt
+                ? "WAITING_FOR_PAYMENT"
+                : "DELIVER_TO_CUSTOMER"
         : isSelfDropOff
           ? "HANDOVER_AT_GARAGE"
           : returningToGarage
@@ -246,9 +277,23 @@ const toPublicTask = (task) => {
     canTrack:
       !isSelfDropOff &&
       ACTIVE_TASK_STATUSES.includes(task.status) &&
-      ["CONFIRMED", "IN_PROGRESS"].includes(booking.status),
+      (task.taskType === "HANDOVER"
+        ? booking.status === "CONFIRMED" || returningToGarage
+        : deliveringToCustomer),
     canCompleteReturnJourney:
       returningToGarage && ACTIVE_TASK_STATUSES.includes(task.status),
+    canConfirmCustomerArrival:
+      deliveringToCustomer && ACTIVE_TASK_STATUSES.includes(task.status),
+    canConfirmFinalPayment:
+      Boolean(booking.finalPaymentSubmittedAt) &&
+      !booking.finalPaymentConfirmedAt &&
+      ACTIVE_TASK_STATUSES.includes(task.status),
+    requiresEvidence:
+      (task.taskType === "HANDOVER" &&
+        (isSelfDropOff
+          ? !booking.arrivedAtGarageAt
+          : !booking.handoverOtpVerifiedAt)) ||
+      serviceEvidenceRequired,
     mediaRequirements: {
       minimumImages: 5,
       maximumImages: 15,
@@ -265,7 +310,14 @@ const toPublicTask = (task) => {
       fulfillmentType: booking.fulfillmentType,
       handoverOtpExpiresAt: booking.handoverOtpExpiresAt,
       handoverOtpVerifiedAt: booking.handoverOtpVerifiedAt,
+      arrivedAtGarageAt: booking.arrivedAtGarageAt,
+      serviceCompletedAt: booking.serviceCompletedAt,
+      deliveryStartedAt: booking.deliveryStartedAt,
       deliveredAt: booking.deliveredAt,
+      finalPaymentMethod: booking.finalPaymentMethod,
+      finalPaymentAmount: booking.finalPaymentAmount,
+      finalPaymentSubmittedAt: booking.finalPaymentSubmittedAt,
+      finalPaymentConfirmedAt: booking.finalPaymentConfirmedAt,
       vehicle: booking.vehicle,
       customer: booking.user
         ? {
@@ -393,13 +445,16 @@ const resendTask = async ({ actor, taskId, expiresInHours }) => {
     throw new ApiError(409, "Completed or revoked worker tasks cannot be resent");
   }
 
-  const isActiveReturnJourney =
-    current.taskType === "HANDOVER" &&
+  const isActiveJourney =
     !bookingUsesSelfDropOff(current.booking) &&
     current.booking?.status === "IN_PROGRESS" &&
-    Boolean(current.booking?.handoverOtpVerifiedAt) &&
-    !current.booking?.deliveredAt;
-  if (!isActiveReturnJourney) {
+    ((current.taskType === "HANDOVER" &&
+      Boolean(current.booking?.handoverOtpVerifiedAt) &&
+      !current.booking?.arrivedAtGarageAt) ||
+      (current.taskType === "DELIVERY" &&
+        Boolean(current.booking?.serviceCompletedAt) &&
+        !current.booking?.deliveredAt));
+  if (!isActiveJourney) {
     assertTaskStage(current.booking, current.taskType);
   }
   const rawToken = createRawToken();
@@ -541,15 +596,23 @@ const verifyHandover = async ({ rawToken, otp, images, video }) => {
     throw new ApiError(409, "This link is not a vehicle handover task");
   }
 
-  const result = await bookingLifecycleService.verifyBookingHandoverOtp({
-    garageId: task.garageId,
-    requestId: task.requestId,
-    otp,
-    images,
-    video,
-  });
+  const selfDropOff = bookingUsesSelfDropOff(task.booking);
+  const result = selfDropOff
+    ? await bookingLifecycleService.confirmSelfDropArrivalByGarage({
+        garageId: task.garageId,
+        requestId: task.requestId,
+        images,
+        video,
+      })
+    : await bookingLifecycleService.verifyBookingHandoverOtp({
+        garageId: task.garageId,
+        requestId: task.requestId,
+        otp,
+        images,
+        video,
+      });
 
-  if (bookingUsesSelfDropOff(task.booking)) {
+  if (selfDropOff) {
     await Promise.allSettled([
       completeTask(task.id),
       bookingTrackingService.stopTracking({
@@ -585,10 +648,9 @@ const completeHandoverJourney = async ({ rawToken }) => {
     );
   }
 
-  await bookingTrackingService.stopTracking({
-    bookingId: task.bookingId,
-    account: null,
-    workerTask: task,
+  await bookingLifecycleService.markBookingArrivedAtGarageByGarage({
+    garageId: task.garageId,
+    requestId: task.requestId,
   });
   await completeTask(task.id);
   return getPublicTask(rawToken);
@@ -599,35 +661,77 @@ const markDelivered = async ({ rawToken, images, video }) => {
   if (task.taskType !== "DELIVERY") {
     throw new ApiError(409, "This link is not a delivery task");
   }
+  if (task.booking?.serviceCompletedAt) {
+    throw new ApiError(409, "Service completion evidence is already uploaded");
+  }
 
-  const result = await bookingLifecycleService.markBookingDeliveredByGarage({
+  const result = await bookingLifecycleService.markBookingServiceCompletedByGarage({
     garageId: task.garageId,
     requestId: task.requestId,
     images,
     video,
   });
 
-  await Promise.allSettled([
-    completeTask(task.id),
-    bookingTrackingService.stopTracking({
-      bookingId: task.bookingId,
-      account: null,
-      workerTask: task,
-    }),
-  ]);
+  await prisma.garageWorkerTask.update({
+    where: { id: task.id },
+    data: {
+      status: "IN_PROGRESS",
+      startedAt: task.startedAt || new Date(),
+    },
+  });
+
   return result;
+};
+
+const markArrivedAtCustomer = async ({ rawToken }) => {
+  const task = await getTaskByToken(rawToken, { markOpened: true });
+  if (task.taskType !== "DELIVERY") {
+    throw new ApiError(409, "This link is not a delivery task");
+  }
+
+  const result = await bookingLifecycleService.markBookingArrivedAtCustomerByGarage({
+    garageId: task.garageId,
+    requestId: task.requestId,
+  });
+  await prisma.garageWorkerTask.update({
+    where: { id: task.id },
+    data: {
+      status: "IN_PROGRESS",
+      startedAt: task.startedAt || new Date(),
+    },
+  });
+  return result;
+};
+
+const confirmFinalPayment = async ({ rawToken }) => {
+  const task = await getTaskByToken(rawToken, { markOpened: true });
+  if (task.taskType !== "DELIVERY") {
+    throw new ApiError(409, "This link is not a delivery task");
+  }
+  if (!task.booking?.finalPaymentSubmittedAt) {
+    throw new ApiError(409, "The customer has not submitted payment yet");
+  }
+
+  const booking = await bookingLifecycleService.confirmFinalPaymentByGarage({
+    garageId: task.garageId,
+    requestId: task.requestId,
+  });
+  await completeTask(task.id).catch(() => {});
+  return booking;
 };
 
 module.exports = {
   ACTIVE_TASK_STATUSES,
   addTrackingPoint,
   completeHandoverJourney,
+  confirmFinalPayment,
   createTask,
   getPublicTask,
   getTaskByToken,
   getTaskUrl,
   hashToken,
   listTasks,
+  markArrivedAtCustomer,
   markDelivered,
   resendTask,
   revokeTask,

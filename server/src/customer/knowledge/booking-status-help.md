@@ -16,7 +16,7 @@ A garage has accepted your booking. Review its details and follow pickup or self
 
 ## In progress
 
-The handover OTP and required vehicle evidence were completed. The garage is working on the booking or the vehicle is in an active collection/return stage.
+For pickup, the handover OTP and required evidence were completed. For self drop-off, garage arrival and before-service evidence were confirmed without OTP. The garage is working on the booking or the vehicle is in an active journey stage.
 
 ## Delivered or awaiting acceptance
 

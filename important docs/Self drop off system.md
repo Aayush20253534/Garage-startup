@@ -83,8 +83,12 @@ Customer selects pickup
 → live tracking back to garage
 → worker completes return journey
 → service work
-→ delivery task/evidence
-→ customer accepts
+→ post-service images/video uploaded
+→ customer receives service-complete email
+→ live delivery tracking to customer
+→ worker confirms arrival near customer
+→ customer submits Cash/UPI mode and amount
+→ garage confirms payment received
 → booking becomes COMPLETED
 ```
 
@@ -95,18 +99,23 @@ Browser worker tracking requires HTTPS, location permission, and the task page r
 ```text
 Customer selects/is forced to self drop
 → only self-drop-capable garages are searched
-→ garage accepts
-→ customer receives garage location/instructions
-→ customer takes vehicle to garage
-→ garage/controller/worker verifies handover OTP and media at garage
-→ no pickup tracking is created
+→ garage accepts and acceptedAt starts the customer travel timer
+→ customer opens the booking and starts one live route to the garage
+→ customer location points use SELF_DROP_TO_GARAGE
+→ customer reaches near the garage
+→ garage/controller/authorised worker uploads 5-15 before-service photos and one video
+→ garage confirms arrival without OTP
+→ arrivedAtGarageAt stops the customer travel timer and service begins
 → service work
-→ delivery task means ready-for-self-pickup evidence
-→ customer collects/accepts
+→ garage uploads 5-15 post-service photos and one video
+→ customer receives service-complete notification and collects the vehicle
+→ no second self-drop map or return-delivery route is opened
+→ customer submits Cash/UPI mode and amount
+→ garage confirms payment received
 → booking becomes COMPLETED
 ```
 
-A no-account worker link can still be used for handover and ready-for-pickup media, but `canTrack` is false for self-drop bookings.
+A no-account worker link can be used to confirm self-drop arrival and submit before/after evidence, but the customer—not the worker—shares the one-time journey location. No self-drop handover OTP is created.
 
 ## 7. Inspection evidence
 
@@ -121,7 +130,7 @@ Evidence is linked to booking, garage, phase, media type, order, and upload time
 
 ## 8. Customer warranty
 
-After customer acceptance completes the booking, the protected Warranty Center derives a 30-day warranty card showing services, vehicle, garage, activation, expiry, and remaining days. The public mock warranty page remains separate.
+After garage payment confirmation completes the booking, the protected Warranty Center derives a 30-day warranty card showing services, vehicle, garage, activation, expiry, and remaining days. The public mock warranty page remains separate.
 
 ## 9. Database deployment
 
@@ -133,6 +142,8 @@ Relevant migrations:
 20260725190000_repair_fulfillment_enum_compatibility
 20260726070000_add_booking_inspection_video
 20260728090000_add_garage_worker_task_mode
+20260728174500_add_pickup_delivery_payment_confirmation
+20260728183000_add_self_drop_tracking_phase
 ```
 
 Apply:
@@ -155,6 +166,6 @@ npm run prisma:check-client
 - A matching exclusion prevents notification and acceptance.
 - Controller-disabled garage sends no controller notification.
 - Worker link cannot be created while controllers are enabled.
-- Self-drop worker page shows no live tracking.
+- Customer can start `SELF_DROP_TO_GARAGE`; garage/worker can view but cannot impersonate the customer location source.
 - Pickup handover changes destination to garage for return tracking.
 - Required image/video validation runs on client and server.

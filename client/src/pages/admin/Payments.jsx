@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi } from "@/api/admin";
+import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
 import {
   FiAlertCircle,
@@ -12,6 +13,8 @@ import {
   FiShield,
   FiUser,
   FiTool,
+  FiTrash2,
+  FiX,
 } from "react-icons/fi";
 
 const paymentTypes = [
@@ -293,11 +296,17 @@ const WalletTransferPanel = ({ onTransferred }) => {
 };
 
 function Payments() {
+  const { user } = useApp();
   const [filters, setFilters] = useState(initialFilters);
   const [records, setRecords] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [clearOpen, setClearOpen] = useState(false);
+  const [clearConfirmation, setClearConfirmation] = useState("");
+  const [clearPassword, setClearPassword] = useState("");
+  const [clearing, setClearing] = useState(false);
 
   const load = async (overrideFilters = filters) => {
     setLoading(true);
@@ -390,6 +399,38 @@ function Payments() {
     load(initialFilters);
   };
 
+  const clearAllPaymentData = async () => {
+    if (clearConfirmation.trim() !== "rovauto delete-all-payments") {
+      setError("Type rovauto delete-all-payments exactly to continue");
+      return;
+    }
+    if (!clearPassword) {
+      setError("Enter your Main Admin password to continue");
+      return;
+    }
+
+    setClearing(true);
+    setError("");
+    setSuccess("");
+    try {
+      const result = await adminApi.runDangerousCommand("delete-all-payments", {
+        confirmation: clearConfirmation.trim(),
+        password: clearPassword,
+      });
+      setClearOpen(false);
+      setClearConfirmation("");
+      setClearPassword("");
+      setSuccess(
+        `Payment data cleared. ${Number(result?.deletedPayments || 0).toLocaleString("en-IN")} payment rows were deleted and wallet balances were reset.`,
+      );
+      await load(initialFilters);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to clear payment data");
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const exportCsv = () => {
     if (!records.length) return;
 
@@ -451,6 +492,20 @@ function Payments() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {user?.role === "ADMIN" && (
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                setSuccess("");
+                setClearOpen(true);
+              }}
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+            >
+              <FiTrash2 />
+              Clear all payments
+            </button>
+          )}
           <button
             type="button"
             onClick={exportCsv}
@@ -477,6 +532,12 @@ function Payments() {
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <FiAlertCircle className="shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {success && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {success}
         </div>
       )}
 
@@ -662,6 +723,80 @@ function Payments() {
           </table>
         </div>
       </section>
+
+      {clearOpen && (
+        <div className="fixed inset-0 z-[100] grid place-items-center bg-black/55 p-4">
+          <section className="w-full max-w-lg overflow-hidden rounded-xl border border-red-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-red-200 bg-red-50 p-5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-red-700">
+                  Main Admin only
+                </p>
+                <h3 className="mt-1 text-xl font-bold text-ink">Clear all payment data</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !clearing && setClearOpen(false)}
+                className="grid h-9 w-9 place-items-center rounded-lg border border-red-200 bg-white text-red-700"
+                aria-label="Close clear payments dialog"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
+                This permanently deletes every Cashfree payment row, customer wallet transaction and garage wallet transaction, and resets all customer and garage wallet balances to zero. Booking and service-history records remain.
+              </div>
+
+              <label className="grid gap-1.5 text-sm font-semibold text-ink">
+                Type <code className="rounded bg-bg-soft px-1.5 py-0.5">rovauto delete-all-payments</code>
+                <input
+                  value={clearConfirmation}
+                  onChange={(event) => setClearConfirmation(event.target.value)}
+                  className={controlClass}
+                  autoComplete="off"
+                />
+              </label>
+
+              <label className="grid gap-1.5 text-sm font-semibold text-ink">
+                Main Admin password
+                <input
+                  type="password"
+                  value={clearPassword}
+                  onChange={(event) => setClearPassword(event.target.value)}
+                  className={controlClass}
+                  autoComplete="current-password"
+                />
+              </label>
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setClearOpen(false)}
+                  disabled={clearing}
+                  className="h-11 rounded-lg border border-line px-4 text-sm font-semibold text-ink disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={clearAllPaymentData}
+                  disabled={
+                    clearing ||
+                    clearConfirmation.trim() !== "rovauto delete-all-payments" ||
+                    !clearPassword
+                  }
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FiTrash2 />
+                  {clearing ? "Clearing..." : "Delete all payment data"}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

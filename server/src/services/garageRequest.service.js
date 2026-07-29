@@ -989,7 +989,10 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
     }
 
     const acceptedAt = new Date();
-    const handoverOtp = bookingLifecycleService.createHandoverOtp(acceptedAt);
+    const selfDropOff = bookingUsesSelfDropOff(freshBooking);
+    const handoverOtp = selfDropOff
+      ? null
+      : bookingLifecycleService.createHandoverOtp(acceptedAt);
 
     const requestClaim = await tx.garageBroadcastRequest.updateMany({
       where: {
@@ -1027,11 +1030,18 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
         acceptedAt,
         searchExpiresAt: null,
         expiredAt: null,
-        handoverOtpHash: handoverOtp.otpHash,
-        handoverOtpExpiresAt: handoverOtp.expiresAt,
+        handoverOtpHash: handoverOtp?.otpHash || null,
+        handoverOtpExpiresAt: handoverOtp?.expiresAt || null,
         handoverOtpVerifiedAt: null,
         handoverOtpAttempts: 0,
         handoverOtpClaimedAt: null,
+        trackingStartedAt: null,
+        trackingEndedAt: null,
+        arrivedAtGarageAt: null,
+        routeDistanceMeters: null,
+        routeDurationSeconds: null,
+        routePolyline: null,
+        routeUpdatedAt: null,
       },
     });
 
@@ -1170,19 +1180,23 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
       distanceKm,
       etaMinutes,
     }),
-    bookingLifecycleService.notifyVehicleHandoverOtp({
-      booking: result.request.booking,
-      garage: result.request.garage,
-      otp: result.handoverOtp.otp,
-      expiresAt: result.handoverOtp.expiresAt,
-    }),
-    bookingLifecycleService.sendCustomerHandoverOtpEmail({
-      customer: result.request.booking.user,
-      garage: result.request.garage,
-      booking: result.request.booking,
-      otp: result.handoverOtp.otp,
-      otpExpiresAt: result.handoverOtp.expiresAt,
-    }),
+    result.handoverOtp
+      ? bookingLifecycleService.notifyVehicleHandoverOtp({
+          booking: result.request.booking,
+          garage: result.request.garage,
+          otp: result.handoverOtp.otp,
+          expiresAt: result.handoverOtp.expiresAt,
+        })
+      : Promise.resolve({ sent: false, reason: "not-required" }),
+    result.handoverOtp
+      ? bookingLifecycleService.sendCustomerHandoverOtpEmail({
+          customer: result.request.booking.user,
+          garage: result.request.garage,
+          booking: result.request.booking,
+          otp: result.handoverOtp.otp,
+          otpExpiresAt: result.handoverOtp.expiresAt,
+        })
+      : Promise.resolve({ sent: false, reason: "not-required" }),
     sendCustomerGarageDetailsWhatsapp({
       customer: result.request.booking.user,
       garage: result.request.garage,

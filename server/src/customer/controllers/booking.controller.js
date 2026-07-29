@@ -55,11 +55,18 @@ const acceptDelivery = asyncHandler(async (req, res) => {
     req.user.id,
     req.params.id,
     req.body.finalAmount,
+    req.body.paymentMethod,
   );
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Delivery accepted successfully", booking));
+    .json(
+      new ApiResponse(
+        200,
+        "Final payment submitted for garage confirmation",
+        booking,
+      ),
+    );
 });
 
 const regenerateHandoverOtp = asyncHandler(async (req, res) => {

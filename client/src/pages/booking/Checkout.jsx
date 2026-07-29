@@ -879,7 +879,7 @@ export default function Checkout() {
             <div className="mt-4 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-violet-900">
               <FiMapPin className="mt-1 shrink-0" />
               <p>
-                <span className="font-bold">Self drop-off booking:</span> no pickup or return vehicle is included. After a garage accepts, you will receive its address, map and handover OTP.
+                <span className="font-bold">Self drop-off booking:</span> no pickup or return vehicle is included. After a garage accepts, start the one-time route to the garage from your booking page. No handover OTP is required.
               </p>
             </div>
           )}

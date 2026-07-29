@@ -10,6 +10,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import api from "@/api/axios";
 import AcceptedGarageCard from "@/components/booking/AcceptedGarageCard";
 import InspectionGallery from "@/components/booking/InspectionGallery";
+import BookingElapsedTimer from "@/components/booking/BookingElapsedTimer";
 import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
@@ -140,8 +141,16 @@ const getHeaderCopy = (booking, remainingSeconds) => {
         ? "Garage Ready for Your Drop-off"
         : "Garage Accepted Your Booking",
       description: isSelfDropOff
-        ? "Take your vehicle to the assigned garage. Use the address, directions and handover OTP shown below."
+        ? "Start the one-time route from your location to the assigned garage. No handover OTP is required."
         : "Your garage is confirmed. Customer details are now unlocked for the garage.",
+    };
+  }
+
+  if (booking.status === "IN_PROGRESS" && booking.finalPaymentSubmittedAt) {
+    return {
+      title: "Payment Confirmation Pending",
+      description:
+        "Your payment details were sent. The garage must confirm receipt before the booking is completed and warranty starts.",
     };
   }
 
@@ -149,10 +158,35 @@ const getHeaderCopy = (booking, remainingSeconds) => {
     return {
       title: isSelfDropOff
         ? "Vehicle Ready for Self Pickup"
-        : "Vehicle Ready for Delivery",
+        : "Vehicle Arrived at Your Address",
       description: isSelfDropOff
-        ? "Visit the garage, review the completed work, enter the final amount paid and confirm collection."
-        : "Review the completed service and accept delivery when you receive the vehicle.",
+        ? "Review the vehicle at the garage, choose Cash or UPI, enter the amount and send the payment details."
+        : "Review the completed work, choose Cash or UPI, enter the amount and send the payment details.",
+    };
+  }
+
+  if (
+    booking.status === "IN_PROGRESS" &&
+    booking.serviceCompletedAt &&
+    !booking.deliveredAt
+  ) {
+    return {
+      title: "Service Completed — Vehicle on the Way",
+      description:
+        "The garage uploaded the completion evidence and your vehicle is now being delivered to your address.",
+    };
+  }
+
+  if (
+    booking.status === "IN_PROGRESS" &&
+    booking.handoverOtpVerifiedAt &&
+    !booking.arrivedAtGarageAt &&
+    !isSelfDropOff
+  ) {
+    return {
+      title: "Vehicle Returning to the Garage",
+      description:
+        "Pickup is complete. Follow the live route while the vehicle travels to the assigned garage.",
     };
   }
 
@@ -161,7 +195,7 @@ const getHeaderCopy = (booking, remainingSeconds) => {
       title: "Service In Progress",
       description: isSelfDropOff
         ? "Your drop-off was verified and the garage is servicing your vehicle."
-        : "The handover OTP was verified and the garage is servicing your vehicle.",
+        : "Your vehicle reached the garage and the selected services are being completed.",
     };
   }
 
@@ -403,6 +437,7 @@ function Tracking() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [handoverOtpResult, setHandoverOtpResult] = useState(null);
   const [finalAmount, setFinalAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
   const requestInFlight = useRef(false);
 
   useEffect(() => {
@@ -504,34 +539,35 @@ function Tracking() {
     }
   };
 
-  const acceptDelivery = async () => {
+  const submitFinalPayment = async () => {
     const amount = Math.round(Number(finalAmount));
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      setError(
-        isSelfDropOffService(booking)
-          ? "Enter the final amount paid to the garage before confirming collection."
-          : "Enter the final amount paid to the garage before accepting delivery.",
-      );
+      setError("Enter the amount paid to the garage before sending payment details.");
       return;
     }
 
     try {
       setActionLoading("delivery");
       setError("");
+      setSuccess("");
       const response = await api.post(
-        `/bookings/${bookingId}/accept-delivery`,
-        { finalAmount: amount },
+        `/bookings/${bookingId}/submit-final-payment`,
+        {
+          finalAmount: amount,
+          paymentMethod,
+        },
       );
       setBooking(response.data.data);
       setFinalAmount("");
+      setSuccess(
+        "Payment details sent. The booking remains pending until the garage confirms receipt.",
+      );
       clearBookingCaches?.();
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          (isSelfDropOffService(booking)
-            ? "Could not confirm vehicle collection."
-            : "Could not accept vehicle delivery."),
+          "Could not send the final payment details.",
       );
     } finally {
       setActionLoading("");
@@ -656,6 +692,33 @@ function Tracking() {
   const deliveryMedia = inspectionImages.filter(
     (item) => item.phase === "DELIVERY",
   );
+  const trackingPhase = isSelfDropOff
+    ? "SELF_DROP_TO_GARAGE"
+    : booking.serviceCompletedAt && !booking.deliveredAt
+      ? "DELIVERY_TO_CUSTOMER"
+      : booking.handoverOtpVerifiedAt && !booking.arrivedAtGarageAt
+        ? "RETURN_TO_GARAGE"
+        : "PICKUP_TO_CUSTOMER";
+  const showLiveJourneyMap = Boolean(
+    !searching &&
+      booking.garage &&
+      !booking.deliveredAt &&
+      (isSelfDropOff
+        ? booking.status === "CONFIRMED" && !booking.arrivedAtGarageAt
+        : ["GARAGE_ASSIGNED", "CONFIRMED"].includes(booking.status) ||
+          (booking.status === "IN_PROGRESS" &&
+            (!booking.arrivedAtGarageAt || booking.serviceCompletedAt))),
+  );
+  const liveMapTitle =
+    trackingPhase === "SELF_DROP_TO_GARAGE"
+      ? "Your route to the garage"
+      : booking.requestType === "SOS"
+      ? "Live SOS response route"
+      : trackingPhase === "RETURN_TO_GARAGE"
+        ? "Live route to the garage"
+        : trackingPhase === "DELIVERY_TO_CUSTOMER"
+          ? "Live vehicle delivery"
+          : "Live pickup route";
 
   return (
     <>
@@ -711,6 +774,10 @@ function Tracking() {
             </div>
           )}
 
+          {booking.acceptedAt && (
+            <BookingElapsedTimer booking={booking} className="mt-5 max-w-3xl" />
+          )}
+
           <div className="mt-7 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-7">
             <main className="min-w-0">
 
@@ -746,11 +813,13 @@ function Tracking() {
           </div>
         )}
 
-        {!searching && booking.garage && !isSelfDropOff && (
+        {showLiveJourneyMap && (
           <div>
             <LiveBookingTracking
+              key={`${booking.id}:${trackingPhase}`}
               bookingId={booking.id}
-              title={booking.requestType === "SOS" ? "Live SOS response route" : "Live garage route"}
+              title={liveMapTitle}
+              canShare={isSelfDropOff}
             />
           </div>
         )}
@@ -764,7 +833,7 @@ function Tracking() {
               <div>
                 <h2 className="text-lg font-bold">Take your vehicle to the assigned garage</h2>
                 <p className="mt-1 text-sm leading-6 text-violet-800">
-                  Pickup tracking is not used for this service. Navigate to the garage, hand over the vehicle there and share the OTP with garage staff.
+                  Start live sharing above while travelling to the garage. Garage staff will stop the journey timer and capture the before-service photos and video when you arrive. No OTP is required.
                 </p>
               </div>
             </div>
@@ -847,88 +916,133 @@ function Tracking() {
           </div>
         )}
 
-        {booking.deliveredAt && booking.status !== "COMPLETED" && (
+        {booking.deliveredAt &&
+          !booking.finalPaymentSubmittedAt &&
+          booking.status !== "COMPLETED" && (
           <section className="card-soft mt-6 overflow-hidden" aria-labelledby="customer-confirmation-title">
             <div className="border-b border-line bg-bg-soft p-5 sm:p-6">
               <div className="flex items-start gap-3.5 sm:gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-xl text-ink shadow-sm">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand text-xl text-ink shadow-sm">
                   <FiCheckCircle aria-hidden="true" />
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
-                        Final booking step
-                      </p>
-                      <h2 id="customer-confirmation-title" className="mt-1 text-xl font-bold leading-tight sm:text-2xl">
-                        {isSelfDropOff ? "Your vehicle is ready for pickup" : "Your vehicle has arrived"}
-                      </h2>
-                    </div>
-
-                    <span className="inline-flex w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-brand/40 bg-brand-soft px-3 py-1.5 text-xs font-bold text-ink">
-                      <span className="h-2 w-2 rounded-full bg-brand-dark" aria-hidden="true" />
-                      Action required
-                    </span>
-                  </div>
-
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
+                    Final payment step
+                  </p>
+                  <h2 id="customer-confirmation-title" className="mt-1 text-xl font-bold leading-tight sm:text-2xl">
+                    {isSelfDropOff ? "Your vehicle is ready at the garage" : "Your vehicle has arrived"}
+                  </h2>
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-muted sm:text-base">
-                    {isSelfDropOff
-                      ? "Check the completed work and post-service photos at the garage. Then enter the amount you actually paid and confirm that you collected the vehicle."
-                      : "Review the completed work and delivery photos. Then enter the amount you actually paid and confirm that you received the vehicle."}
+                    Review the vehicle and completion evidence. Choose how you paid, enter the exact amount and press Send. The booking remains pending until garage staff confirms receipt.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-5 sm:p-6">
-              <div className="rounded-2xl border border-line bg-white p-4 sm:p-5">
-                <label className="block" htmlFor="final-booking-amount">
-                  <span className="text-sm font-bold text-ink">Final amount paid to the garage</span>
-                  <span className="mt-1 block text-xs leading-5 text-muted">
-                    Enter the complete amount paid for this booking, including any approved additional work.
+            <div className="space-y-5 p-5 sm:p-6">
+              <fieldset>
+                <legend className="text-sm font-bold text-ink">Payment mode</legend>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {[
+                    { value: "CASH", label: "Cash", description: "Paid directly in cash" },
+                    { value: "UPI", label: "UPI", description: "Paid using any UPI app" },
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className={`cursor-pointer rounded-xl border p-4 transition ${
+                        paymentMethod === option.value
+                          ? "border-ink bg-brand/10"
+                          : "border-line bg-white hover:border-ink/25"
+                      }`}
+                    >
+                      <span className="flex items-start gap-3">
+                        <input
+                          type="radio"
+                          name="final-payment-method"
+                          value={option.value}
+                          checked={paymentMethod === option.value}
+                          onChange={(event) => setPaymentMethod(event.target.value)}
+                          className="mt-1 h-4 w-4 accent-black"
+                        />
+                        <span>
+                          <strong className="block text-sm text-ink">{option.label}</strong>
+                          <span className="mt-1 block text-xs text-muted">{option.description}</span>
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <label className="block" htmlFor="final-booking-amount">
+                <span className="text-sm font-bold text-ink">Amount paid to the garage</span>
+                <span className="mt-1 block text-xs leading-5 text-muted">
+                  Include approved additional work in the final amount.
+                </span>
+                <div className="relative mt-3">
+                  <span className="pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center border-r border-line text-base font-bold text-ink" aria-hidden="true">
+                    ₹
                   </span>
+                  <input
+                    id="final-booking-amount"
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    value={finalAmount}
+                    onChange={(event) =>
+                      setFinalAmount(event.target.value.replace(/\D/g, ""))
+                    }
+                    placeholder="Enter amount"
+                    className="min-h-14 w-full rounded-xl border border-line bg-white py-3 pl-16 pr-4 text-base font-bold text-ink outline-none transition placeholder:font-medium placeholder:text-muted focus:border-ink focus:ring-2 focus:ring-ink/10"
+                  />
+                </div>
+              </label>
 
-                  <div className="relative mt-3">
-                    <span className="pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center border-r border-line text-base font-bold text-ink" aria-hidden="true">
-                      ₹
-                    </span>
-                    <input
-                      id="final-booking-amount"
-                      type="number"
-                      min="1"
-                      inputMode="numeric"
-                      value={finalAmount}
-                      onChange={(event) =>
-                        setFinalAmount(event.target.value.replace(/\D/g, ""))
-                      }
-                      placeholder="Enter amount"
-                      className="min-h-14 w-full rounded-xl border border-line bg-white py-3 pl-16 pr-4 text-base font-bold text-ink outline-none transition placeholder:font-medium placeholder:text-muted focus:border-ink focus:ring-2 focus:ring-ink/10"
-                    />
-                  </div>
-                </label>
-              </div>
+              <button
+                type="button"
+                onClick={submitFinalPayment}
+                disabled={actionLoading === "delivery" || Number(finalAmount) <= 0}
+                className="btn-primary min-h-12 w-full disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FiCheck aria-hidden="true" />
+                {actionLoading === "delivery" ? "Sending..." : "Send Payment Details"}
+              </button>
+              <p className="text-xs leading-5 text-muted">
+                Pressing Send does not complete the booking. Garage staff must verify the received Cash or UPI amount and then press Complete.
+              </p>
+            </div>
+          </section>
+        )}
 
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs leading-5 text-muted sm:max-w-xl">
-                  Confirm only after you have checked the vehicle. This completes the booking and records the final amount.
+        {booking.finalPaymentSubmittedAt &&
+          !booking.finalPaymentConfirmedAt &&
+          booking.status !== "COMPLETED" && (
+          <section className="mt-6 overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm">
+            <div className="border-b border-amber-200 bg-amber-50 p-5 sm:p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-800">
+                Pending garage confirmation
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-ink sm:text-2xl">
+                {booking.finalPaymentMethod === "UPI" ? "UPI" : "Cash"} · {formatRupees(booking.finalPaymentAmount || 0)}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-amber-900">
+                Payment details were sent successfully. Keep this page open or return later; the status updates automatically when garage staff confirms receipt.
+              </p>
+            </div>
+            <div className="grid gap-3 p-5 text-sm sm:grid-cols-2 sm:p-6">
+              <div className="rounded-lg border border-line bg-bg-soft p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">Submitted</p>
+                <p className="mt-1 font-semibold text-ink">
+                  {new Date(booking.finalPaymentSubmittedAt).toLocaleString("en-IN", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
                 </p>
-
-                <button
-                  type="button"
-                  onClick={acceptDelivery}
-                  disabled={actionLoading === "delivery" || Number(finalAmount) <= 0}
-                  className="btn-primary min-h-12 w-full shrink-0 px-5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                >
-                  <FiCheck aria-hidden="true" />
-                  {actionLoading === "delivery"
-                    ? isSelfDropOff
-                      ? "Confirming collection..."
-                      : "Confirming delivery..."
-                    : isSelfDropOff
-                      ? "Confirm vehicle pickup"
-                      : "Confirm vehicle delivery"}
-                </button>
+              </div>
+              <div className="rounded-lg border border-line bg-bg-soft p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">Booking state</p>
+                <p className="mt-1 font-semibold text-amber-800">Pending confirmation</p>
               </div>
             </div>
           </section>
@@ -939,9 +1053,7 @@ function Tracking() {
             <div className="card-soft mt-6 p-6">
               <h3 className="mb-2 text-xl font-bold">Service completed</h3>
               <p className="text-sm text-muted">
-                {isSelfDropOff
-                  ? "You confirmed collection and the booking is now in your service history."
-                  : "You confirmed the final amount and the booking is now in your service history."}
+                Garage staff confirmed the received payment. The booking is now in your service history and the 30-day warranty is active.
               </p>
               <button
                 type="button"
@@ -1093,7 +1205,7 @@ function Tracking() {
                 <div className="flex items-start gap-2">
                   <FiMapPin className="mt-1 shrink-0" />
                   <span>
-                    This garage will not collect or return your vehicle. Take it to this address and return here when it is marked ready.
+                    This garage will not collect or return your vehicle. Share the one-time route while taking it here. No handover OTP is required.
                   </span>
                 </div>
               </div>
@@ -1105,14 +1217,16 @@ function Tracking() {
                 label="Address"
                 value={booking.garage.address || booking.garage.area || "Not provided"}
               />
-              <Row
-                label="Handover OTP"
-                value={
-                  handoverOtpResult?.otp ||
-                  "Available in your booking notification"
-                }
-              />
-              {booking.handoverOtpExpiresAt && (
+              {!isSelfDropOff && (
+                <Row
+                  label="Handover OTP"
+                  value={
+                    handoverOtpResult?.otp ||
+                    "Available in your booking notification"
+                  }
+                />
+              )}
+              {!isSelfDropOff && booking.handoverOtpExpiresAt && (
                 <Row
                   label="OTP expires (2-hour validity)"
                   value={new Date(booking.handoverOtpExpiresAt).toLocaleString(
@@ -1131,7 +1245,8 @@ function Tracking() {
               )}
             </div>
 
-            {booking.status === "CONFIRMED" &&
+            {!isSelfDropOff &&
+              booking.status === "CONFIRMED" &&
               !booking.handoverOtpVerifiedAt && (
                 <button
                   type="button"

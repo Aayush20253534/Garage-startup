@@ -82,9 +82,7 @@ export const mapGarageRequestToBooking = (request) => {
     request.status === "SENT"
       ? "NEW"
       : request.status === "ACCEPTED"
-        ? booking.deliveredAt && !booking.customerAcceptedAt
-          ? "DELIVERED"
-          : booking.status || request.status
+        ? booking.status || request.status
         : request.status;
 
     return {
@@ -106,8 +104,16 @@ export const mapGarageRequestToBooking = (request) => {
     customerLocationLink: request.customerLocationLink,
     handoverOtpExpiresAt: booking.handoverOtpExpiresAt,
     handoverOtpVerifiedAt: booking.handoverOtpVerifiedAt,
+    arrivedAtGarageAt: booking.arrivedAtGarageAt,
+    serviceCompletedAt: booking.serviceCompletedAt,
+    deliveryStartedAt: booking.deliveryStartedAt,
     deliveredAt: booking.deliveredAt,
+    finalPaymentMethod: booking.finalPaymentMethod,
+    finalPaymentAmount: booking.finalPaymentAmount,
+    finalPaymentSubmittedAt: booking.finalPaymentSubmittedAt,
+    finalPaymentConfirmedAt: booking.finalPaymentConfirmedAt,
     customerAcceptedAt: booking.customerAcceptedAt,
+    acceptedAt: booking.acceptedAt || request.acceptedAt,
     inspectionImages: Array.isArray(booking.inspectionImages)
       ? booking.inspectionImages
       : [],
@@ -443,6 +449,66 @@ export const garageApi = {
     );
   },
 
+  async confirmSelfDropArrival(...args) {
+    const normalizedArgs = args[0] === "cookie-session" ? args.slice(1) : args;
+    const [requestId, images = [], video = null] = normalizedArgs.slice(-3);
+    const formData = new FormData();
+
+    images
+      .map((item) => item.file || item)
+      .filter(Boolean)
+      .forEach((file) => formData.append("images", file));
+
+    const videoFile = video?.file || video;
+    if (videoFile) formData.append("video", videoFile);
+
+    return unwrap(
+      await api.post(
+        `/garage/requests/${requestId}/confirm-self-drop-arrival`,
+        formData,
+      ),
+    );
+  },
+
+  async markArrivedAtGarage(requestId) {
+    return unwrap(
+      await api.post(`/garage/requests/${requestId}/mark-arrived-garage`),
+    );
+  },
+
+  async markServiceComplete(...args) {
+    const normalizedArgs = args[0] === "cookie-session" ? args.slice(1) : args;
+    const [requestId, images = [], video = null] = normalizedArgs.slice(-3);
+    const formData = new FormData();
+
+    images
+      .map((item) => item.file || item)
+      .filter(Boolean)
+      .forEach((file) => formData.append("images", file));
+
+    const videoFile = video?.file || video;
+    if (videoFile) formData.append("video", videoFile);
+
+    return unwrap(
+      await api.post(
+        `/garage/requests/${requestId}/mark-service-complete`,
+        formData,
+      ),
+    );
+  },
+
+  async markArrivedAtCustomer(requestId) {
+    return unwrap(
+      await api.post(`/garage/requests/${requestId}/mark-arrived-customer`),
+    );
+  },
+
+  async confirmFinalPayment(requestId) {
+    return unwrap(
+      await api.post(`/garage/requests/${requestId}/confirm-final-payment`),
+    );
+  },
+
   async markDelivered(...args) {
     // New: markDelivered(requestId, images, video)
     // Compatibility: markDelivered(token, requestId, images, video)
@@ -461,7 +527,7 @@ export const garageApi = {
 
     return unwrap(
       await api.post(
-        `/garage/requests/${requestId}/mark-delivered`,
+        `/garage/requests/${requestId}/mark-service-complete`,
         formData,
       ),
     );

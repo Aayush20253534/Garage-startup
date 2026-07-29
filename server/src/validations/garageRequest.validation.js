@@ -23,6 +23,10 @@ const markDeliveredSchema = [
   param("requestId").isUUID().withMessage("Invalid request ID"),
 ];
 
+const bookingStageMutationSchema = [
+  param("requestId").isUUID().withMessage("Invalid request ID"),
+];
+
 const acceptGarageRequestSchema = [
   param("requestId").isUUID().withMessage("Invalid request ID"),
 
@@ -39,4 +43,5 @@ module.exports = {
   acceptGarageRequestSchema,
   verifyHandoverOtpSchema,
   markDeliveredSchema,
+  bookingStageMutationSchema,
 };

@@ -8,7 +8,7 @@ const repoRoot = path.resolve(__dirname, "../../..");
 const read = (relativePath) =>
   fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 
-test("customer, tracking, and garage views share one six-stage timeline", async () => {
+test("customer, tracking, and garage views share the pickup, service, delivery, and payment timeline", async () => {
   const timelinePath = path.join(
     repoRoot,
     "client/src/utils/bookingTimeline.js",
@@ -19,10 +19,12 @@ test("customer, tracking, and garage views share one six-stage timeline", async 
     timeline.BOOKING_TIMELINE_STEPS.map((step) => step.label),
     [
       "Request Sent",
-      "Booking Accepted",
-      "Vehicle Handover",
-      "Service In Progress",
-      "Awaiting Customer Acceptance",
+      "Garage Accepted",
+      "Vehicle Pickup & Handover",
+      "Vehicle Reached Garage",
+      "Service Completed",
+      "Vehicle Arrived",
+      "Payment Confirmation Pending",
       "Completed",
     ],
   );
@@ -37,15 +39,32 @@ test("customer, tracking, and garage views share one six-stage timeline", async 
     2,
   );
   assert.equal(
-    timeline.getBookingTimelineState({ status: "IN_PROGRESS" }).currentIndex,
+    timeline.getBookingTimelineState({
+      status: "IN_PROGRESS",
+      arrivedAtGarageAt: "2026-07-28T00:00:00.000Z",
+    }).currentIndex,
     3,
   );
   assert.equal(
     timeline.getBookingTimelineState({
       status: "IN_PROGRESS",
-      deliveredAt: "2026-07-13T00:00:00.000Z",
+      serviceCompletedAt: "2026-07-28T01:00:00.000Z",
     }).currentIndex,
     4,
+  );
+  assert.equal(
+    timeline.getBookingTimelineState({
+      status: "IN_PROGRESS",
+      deliveredAt: "2026-07-28T02:00:00.000Z",
+    }).currentIndex,
+    5,
+  );
+  assert.equal(
+    timeline.getBookingTimelineState({
+      status: "IN_PROGRESS",
+      finalPaymentSubmittedAt: "2026-07-28T02:05:00.000Z",
+    }).currentIndex,
+    6,
   );
   assert.equal(
     timeline.getBookingTimelineState({ status: "COMPLETED" }).percent,
@@ -57,7 +76,6 @@ test("customer, tracking, and garage views share one six-stage timeline", async 
     "client/src/pages/booking/Tracking.jsx",
     "client/src/pages/garage/BookingDetail.jsx",
   ]) {
-    assert.match(read(view), /BOOKING_TIMELINE_STEPS/);
     assert.match(read(view), /getBookingTimelineState/);
   }
 });

@@ -131,10 +131,10 @@ Notification-time filtering alone is insufficient because configuration may chan
 
 ## 9. Handover, tracking, and evidence
 
-- Handover OTP is sent to/confirmed by the customer, not used as worker login.
-- Attempt count, expiry, and atomic claim prevent replay/races.
-- Tracking updates require assigned account or valid worker task.
-- Worker task cannot track self-drop bookings.
+- Pickup handover OTP is sent to/confirmed by the customer, not used as worker login. Self-drop creates no handover OTP.
+- Pickup OTP attempt count, expiry, and atomic claim prevent replay/races.
+- Tracking updates require the correct actor for the current phase.
+- `SELF_DROP_TO_GARAGE` updates are accepted only from the authenticated customer who owns the confirmed booking; garage/controller/worker may view the route but cannot submit customer points.
 - Customer saved destination must not be overwritten by live garage/worker position.
 - Evidence is tied to booking, garage, phase, media type, and order.
 - Mandatory evidence should be immutable after completion except through explicit audited admin workflow.

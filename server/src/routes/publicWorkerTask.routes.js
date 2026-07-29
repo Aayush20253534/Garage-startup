@@ -56,5 +56,15 @@ router.post(
 );
 router.post("/:token/handover", ...receiveEvidence, controller.verifyHandover);
 router.post("/:token/delivery", ...receiveEvidence, controller.markDelivered);
+router.post(
+  "/:token/delivery/arrived",
+  mutationLimit,
+  controller.markArrivedAtCustomer,
+);
+router.post(
+  "/:token/payment/confirm",
+  mutationLimit,
+  controller.confirmFinalPayment,
+);
 
 module.exports = router;

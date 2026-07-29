@@ -7,6 +7,11 @@ const bookingIdValidation = [
 
 const acceptDeliveryValidation = [
   ...bookingIdValidation,
+  body("paymentMethod")
+    .trim()
+    .toUpperCase()
+    .isIn(["CASH", "UPI"])
+    .withMessage("Choose Cash or UPI as the final payment mode"),
   body("finalAmount")
     .exists({ checkFalsy: true })
     .withMessage("Final service amount is required")

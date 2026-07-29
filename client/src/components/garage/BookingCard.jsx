@@ -11,6 +11,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import { formatRupees } from "@/utils/priceRange";
+import BookingElapsedTimer from "@/components/booking/BookingElapsedTimer";
 
 const statusColors = {
   NEW: "border-yellow-200 bg-yellow-50 text-yellow-700",
@@ -49,6 +50,21 @@ const getCustomerText = (booking) =>
 
 const getStatusText = (status) => String(status || "UNKNOWN").replaceAll("_", " ");
 
+const getFlowStatusText = (booking) => {
+  if (booking.finalPaymentSubmittedAt && !booking.finalPaymentConfirmedAt) {
+    return "PAYMENT PENDING";
+  }
+  if (booking.deliveredAt) return "AWAITING PAYMENT";
+  if (booking.serviceCompletedAt) return "OUT FOR DELIVERY";
+  if (booking.handoverOtpVerifiedAt && !booking.arrivedAtGarageAt) {
+    return "RETURNING TO GARAGE";
+  }
+  if (booking.arrivedAtGarageAt && booking.status === "IN_PROGRESS") {
+    return "SERVICE IN PROGRESS";
+  }
+  return getStatusText(booking.status);
+};
+
 export default function BookingCard({
   booking,
   onAccept,
@@ -67,7 +83,7 @@ export default function BookingCard({
     hasWalletBalance &&
     numericWalletBalance < acceptFee;
   const servicesText = getServicesText(booking) || "Service request";
-  const statusText = getStatusText(booking.status);
+  const statusText = getFlowStatusText(booking);
   const bookingLabel = booking.bookingCode || booking.bookingId || booking.id;
   const distanceText = Number.isFinite(Number(booking.distance))
     ? `${Number(booking.distance || 0).toFixed(1)} km away`
@@ -123,6 +139,10 @@ export default function BookingCard({
               {statusText}
             </span>
           </div>
+
+          {booking.acceptedAt && (
+            <BookingElapsedTimer booking={booking} compact className="mt-4" />
+          )}
 
           <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
             <div className="flex min-w-0 items-center gap-2 rounded-md bg-bg-soft px-3 py-2">

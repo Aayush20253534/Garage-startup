@@ -104,6 +104,25 @@ const verifyHandover = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Vehicle handover completed", result));
 });
 
+const markArrivedAtCustomer = asyncHandler(async (req, res) => {
+  const result = await garageWorkerTaskService.markArrivedAtCustomer({
+    rawToken: req.params.token,
+  });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Vehicle arrival at customer confirmed", result));
+});
+
+
+const confirmFinalPayment = asyncHandler(async (req, res) => {
+  const result = await garageWorkerTaskService.confirmFinalPayment({
+    rawToken: req.params.token,
+  });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Payment confirmed and booking completed", result));
+});
+
 const markDelivered = asyncHandler(async (req, res) => {
   const result = await garageWorkerTaskService.markDelivered({
     rawToken: req.params.token,
@@ -118,9 +137,11 @@ const markDelivered = asyncHandler(async (req, res) => {
 module.exports = {
   addTrackingPoint,
   completeHandoverJourney,
+  confirmFinalPayment,
   createTask,
   getPublicTask,
   listTasks,
+  markArrivedAtCustomer,
   markDelivered,
   resendTask,
   revokeTask,

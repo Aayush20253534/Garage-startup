@@ -112,9 +112,9 @@ Critical transitions must be transactional or compare-and-set guarded:
 - first garage acceptance wins;
 - garage eligibility is recalculated in acceptance;
 - wallet acceptance fee is charged once;
-- handover OTP is consumed atomically;
+- pickup handover OTP is consumed atomically; self-drop arrival uses proximity plus evidence and no OTP;
 - inspection evidence is complete before transition;
-- delivery/customer acceptance does not complete twice;
+- final-payment confirmation does not complete the booking twice;
 - task creation revokes prior active same-type task.
 
 ## 10. Worker-task failures

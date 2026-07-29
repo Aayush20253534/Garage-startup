@@ -91,6 +91,106 @@ const verifyHandoverOtp = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Handover OTP verified successfully", result));
 });
 
+
+const confirmSelfDropArrival = asyncHandler(async (req, res) => {
+  const { garageId, controllerId } = await getGarageAccess(req.user);
+  if (controllerId) {
+    await garageRequestService.getGarageRequestById(
+      garageId,
+      req.params.requestId,
+      controllerId,
+    );
+  }
+
+  const result = await bookingLifecycleService.confirmSelfDropArrivalByGarage({
+    garageId,
+    requestId: req.params.requestId,
+    images: req.files?.images || [],
+    video: req.files?.video?.[0] || null,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Self drop-off arrival confirmed", result));
+});
+
+const markArrivedAtGarage = asyncHandler(async (req, res) => {
+  const { garageId, controllerId } = await getGarageAccess(req.user);
+  if (controllerId) {
+    await garageRequestService.getGarageRequestById(
+      garageId,
+      req.params.requestId,
+      controllerId,
+    );
+  }
+  const result = await bookingLifecycleService.markBookingArrivedAtGarageByGarage({
+    garageId,
+    requestId: req.params.requestId,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Vehicle arrival at garage confirmed", result));
+});
+
+const markServiceCompleted = asyncHandler(async (req, res) => {
+  const { garageId, controllerId } = await getGarageAccess(req.user);
+  if (controllerId) {
+    await garageRequestService.getGarageRequestById(
+      garageId,
+      req.params.requestId,
+      controllerId,
+    );
+  }
+  const result = await bookingLifecycleService.markBookingServiceCompletedByGarage({
+    garageId,
+    requestId: req.params.requestId,
+    images: req.files?.images || [],
+    video: req.files?.video?.[0] || null,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Service completed and delivery started", result));
+});
+
+const markArrivedAtCustomer = asyncHandler(async (req, res) => {
+  const { garageId, controllerId } = await getGarageAccess(req.user);
+  if (controllerId) {
+    await garageRequestService.getGarageRequestById(
+      garageId,
+      req.params.requestId,
+      controllerId,
+    );
+  }
+  const result = await bookingLifecycleService.markBookingArrivedAtCustomerByGarage({
+    garageId,
+    requestId: req.params.requestId,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Vehicle arrival at customer confirmed", result));
+});
+
+const confirmFinalPayment = asyncHandler(async (req, res) => {
+  const { garageId, controllerId } = await getGarageAccess(req.user);
+  if (controllerId) {
+    await garageRequestService.getGarageRequestById(
+      garageId,
+      req.params.requestId,
+      controllerId,
+    );
+  }
+  const booking = await bookingLifecycleService.confirmFinalPaymentByGarage({
+    garageId,
+    requestId: req.params.requestId,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Payment confirmed and booking completed", booking));
+});
 const markDelivered = asyncHandler(async (req, res) => {
   const { garageId, controllerId } = await getGarageAccess(req.user);
   if (controllerId) {
@@ -100,7 +200,7 @@ const markDelivered = asyncHandler(async (req, res) => {
       controllerId,
     );
   }
-  const result = await bookingLifecycleService.markBookingDeliveredByGarage({
+  const result = await bookingLifecycleService.markBookingServiceCompletedByGarage({
     garageId,
     requestId: req.params.requestId,
     images: req.files?.images || [],
@@ -109,7 +209,7 @@ const markDelivered = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Booking marked delivered successfully", result));
+    .json(new ApiResponse(200, "Service completed and delivery started", result));
 });
 const rejectGarageRequest = asyncHandler(async (req, res) => {
   const { garageId, controllerId } = await getGarageAccess(req.user);
@@ -142,6 +242,10 @@ module.exports = {
   getGarageRequestById,
   acceptGarageRequest,
   verifyHandoverOtp,
+  markArrivedAtGarage,
+  markServiceCompleted,
+  markArrivedAtCustomer,
+  confirmFinalPayment,
   markDelivered,
   rejectGarageRequest,
 };

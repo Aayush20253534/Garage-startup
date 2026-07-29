@@ -102,13 +102,13 @@ export default function LiveBookingTracking({
     const now = Date.now();
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      setShareMessage("Waiting for a valid garage GPS position...");
+      setShareMessage("Waiting for a valid GPS position...");
       return;
     }
 
     const recordedAtMs = Number(position.timestamp || now);
     if (now - recordedAtMs > MAX_FRESH_POSITION_AGE_MS) {
-      setShareMessage("Refreshing the garage GPS position...");
+      setShareMessage("Refreshing the GPS position...");
       return;
     }
 
@@ -119,7 +119,7 @@ export default function LiveBookingTracking({
       warmingUp
     ) {
       setShareMessage(
-        `Improving garage GPS accuracy (+/- ${Math.round(accuracyM)} m)...`,
+        `Improving GPS accuracy (+/- ${Math.round(accuracyM)} m)...`,
       );
       return;
     }
@@ -157,8 +157,8 @@ export default function LiveBookingTracking({
       setError("");
       setShareMessage(
         Number.isFinite(accuracyM)
-          ? `Garage location live (+/- ${Math.round(accuracyM)} m)`
-          : "Garage location is live",
+          ? `Location live (+/- ${Math.round(accuracyM)} m)`
+          : "Location is live",
       );
       void loadTracking({ silent: true });
     } catch (err) {
@@ -183,7 +183,7 @@ export default function LiveBookingTracking({
     startInFlightRef.current = true;
     try {
       setError("");
-      setShareMessage("Acquiring accurate garage GPS...");
+      setShareMessage("Acquiring accurate GPS...");
       await mapsApi.startBookingTracking(bookingId);
       lastSentAtRef.current = 0;
       lastSentAccuracyRef.current = Number.POSITIVE_INFINITY;
@@ -218,6 +218,10 @@ export default function LiveBookingTracking({
       startInFlightRef.current = false;
     }
   };
+
+  useEffect(() => {
+    autoStartAttemptedRef.current = false;
+  }, [tracking?.journeyPhase]);
 
   useEffect(() => {
     if (
@@ -271,16 +275,36 @@ export default function LiveBookingTracking({
     );
   }
 
+  const isSelfDropJourney =
+    tracking?.journeyPhase === "SELF_DROP_TO_GARAGE";
   const origin =
     tracking?.latestLocation ||
-    (tracking?.garage
-      ? {
-          latitude: tracking.garage.latitude,
-          longitude: tracking.garage.longitude,
-        }
-      : null);
-  const destination = tracking?.customerLocation || null;
+    (isSelfDropJourney || tracking?.journeyPhase === "RETURN_TO_GARAGE"
+      ? tracking?.customerLocation
+      : tracking?.garage
+        ? {
+            latitude: tracking.garage.latitude,
+            longitude: tracking.garage.longitude,
+          }
+        : null);
+  const destination = tracking?.destination || tracking?.customerLocation || null;
   const points = tracking?.points || [];
+  const journeySubtitle =
+    isSelfDropJourney
+      ? tracking?.trackingActive
+        ? "Live route from your current location to the assigned garage"
+        : "Route from your home to the assigned garage"
+      : tracking?.journeyPhase === "RETURN_TO_GARAGE"
+      ? tracking?.trackingActive
+        ? "Live route from the customer back to the assigned garage"
+        : "Latest return route to the assigned garage"
+      : tracking?.journeyPhase === "DELIVERY_TO_CUSTOMER"
+        ? tracking?.trackingActive
+          ? "Live delivery route from the garage to the customer"
+          : "Latest delivery route to the customer"
+        : tracking?.trackingActive
+          ? "Live pickup route from the garage to the customer"
+          : "Latest pickup route to the customer";
 
   return (
     <div className="space-y-4">
@@ -302,11 +326,7 @@ export default function LiveBookingTracking({
         route={tracking?.route}
         points={points}
         title={title}
-        subtitle={
-          tracking?.trackingActive
-            ? "Garage GPS to the customer's booking address"
-            : "Latest garage position to the customer's booking address"
-        }
+        subtitle={journeySubtitle}
         dark={dark}
       />
 
@@ -376,11 +396,14 @@ export default function LiveBookingTracking({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className={`font-bold ${dark ? "text-white" : "text-ink"}`}>
-                Share garage live location
+                {isSelfDropJourney
+                  ? "Share your journey to the garage"
+                  : "Share worker live location"}
               </h3>
               <p className={`mt-1 text-sm ${dark ? "text-gray-400" : "text-muted"}`}>
-                Keep this page open while travelling. Points are road-snapped and
-                ETA is refreshed at controlled intervals.
+                {isSelfDropJourney
+                  ? "Allow location access and keep this page open while driving to the garage. Tracking stops when garage staff confirms your arrival."
+                  : "Keep this page open while travelling. Location points and ETA follow the current pickup, return-to-garage or delivery phase."}
               </p>
               {shareMessage && (
                 <p className="mt-2 text-xs font-semibold text-green-500">

@@ -21,6 +21,7 @@ import { formatRupees } from "@/utils/priceRange";
 import { getBookingTimelineState } from "@/utils/bookingTimeline";
 import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 import WorkerTaskManager from "@/components/garage/WorkerTaskManager";
+import BookingElapsedTimer from "@/components/booking/BookingElapsedTimer";
 
 
 
@@ -42,8 +43,8 @@ const formatDateTime = (value) => {
   });
 };
 
-const ARRIVAL_UNLOCK_DISTANCE_METERS = 200;
-const CUSTOMER_ACCEPTANCE_POLL_INTERVAL_MS = 3000;
+const ARRIVAL_UNLOCK_DISTANCE_METERS = 300;
+const BOOKING_FLOW_POLL_INTERVAL_MS = 3000;
 const GARAGE_DASHBOARD_PATH = "/garage";
 
 const toRad = (value) => (Number(value) * Math.PI) / 180;
@@ -165,65 +166,48 @@ export default function GarageBookingDetail() {
   useEffect(() => {
     if (!booking) return;
 
-    if (booking.status === "COMPLETED" || booking.customerAcceptedAt) {
-      if (booking.status !== "COMPLETED") {
-        mergeBookingIntoStore({ ...booking, status: "COMPLETED" });
-      }
-
+    if (booking.status === "COMPLETED" || booking.finalPaymentConfirmedAt) {
       navigate(GARAGE_DASHBOARD_PATH, {
         replace: true,
-        state: { message: "Booking completed by customer." },
+        state: { message: "Payment confirmed and booking completed." },
       });
     }
+  }, [booking, booking?.finalPaymentConfirmedAt, booking?.status, navigate]);
+
+  useEffect(() => {
+    setTrackingSummary(null);
   }, [
-    booking,
-    booking?.customerAcceptedAt,
-    booking?.status,
-    mergeBookingIntoStore,
-    navigate,
+    booking?.arrivedAtGarageAt,
+    booking?.deliveredAt,
+    booking?.handoverOtpVerifiedAt,
+    booking?.serviceCompletedAt,
   ]);
 
   useEffect(() => {
-    const waitingForCustomerAcceptance = Boolean(
-      booking?.deliveredAt &&
-        !booking.customerAcceptedAt &&
-        booking.status !== "COMPLETED",
+    const shouldPoll = Boolean(
+      booking?.status === "IN_PROGRESS" &&
+        (booking.serviceCompletedAt || booking.deliveredAt),
     );
 
-    if (!waitingForCustomerAcceptance || !garageToken) return undefined;
+    if (!shouldPoll || !garageToken) return undefined;
 
     let cancelled = false;
 
-    const refreshCompletionStatus = async () => {
+    const refreshFlowStatus = async () => {
       try {
         const refreshedBooking = await garageApi.getRequest(
           booking.requestId || booking.id,
         );
-
-        if (cancelled) return;
-
-        if (
-          refreshedBooking.status === "COMPLETED" ||
-          refreshedBooking.customerAcceptedAt
-        ) {
-          mergeBookingIntoStore({
-            ...refreshedBooking,
-            status: "COMPLETED",
-          });
-          navigate(GARAGE_DASHBOARD_PATH, {
-            replace: true,
-            state: { message: "Booking completed by customer." },
-          });
-        }
+        if (!cancelled) mergeBookingIntoStore(refreshedBooking);
       } catch {
-        // Keep the delivered screen usable if a silent completion refresh fails.
+        // Keep the operational controls usable if a silent refresh fails.
       }
     };
 
-    void refreshCompletionStatus();
+    void refreshFlowStatus();
     const interval = window.setInterval(
-      refreshCompletionStatus,
-      CUSTOMER_ACCEPTANCE_POLL_INTERVAL_MS,
+      refreshFlowStatus,
+      BOOKING_FLOW_POLL_INTERVAL_MS,
     );
 
     return () => {
@@ -231,14 +215,13 @@ export default function GarageBookingDetail() {
       window.clearInterval(interval);
     };
   }, [
-    booking?.customerAcceptedAt,
     booking?.deliveredAt,
     booking?.id,
     booking?.requestId,
+    booking?.serviceCompletedAt,
     booking?.status,
     garageToken,
     mergeBookingIntoStore,
-    navigate,
   ]);
 
   if (!booking) {
@@ -266,11 +249,25 @@ export default function GarageBookingDetail() {
     mergeBookingIntoStore(updatedBooking);
   };
 
+  const applyLifecycleResult = (result, fallbackPatch = {}) => {
+    const updatedBooking = result?.booking || result;
+    if (updatedBooking?.id) {
+      mergeBookingIntoStore(
+        updatedBooking.requestId
+          ? updatedBooking
+          : { ...booking, ...updatedBooking, ...fallbackPatch },
+      );
+      return;
+    }
+    updateLocalBooking(fallbackPatch);
+  };
+
   const verifyHandover = async () => {
     const validImageCount =
       preServiceImages.length >= 5 && preServiceImages.length <= 15;
     if (
-      (!isSelfDropOff && !isNearCustomer) ||
+      isSelfDropOff ||
+      !isNearDestination ||
       !validImageCount ||
       !preServiceVideo ||
       !otp.trim()
@@ -291,18 +288,16 @@ export default function GarageBookingDetail() {
         preServiceVideo,
       );
 
-      updateLocalBooking({
+      applyLifecycleResult(result, {
         status: "IN_PROGRESS",
-        inspectionImages:
-          result?.booking?.inspectionImages || booking.inspectionImages || [],
+        handoverOtpVerifiedAt: new Date().toISOString(),
+        arrivedAtGarageAt: null,
       });
       setOtp("");
       setPreServiceImages([]);
       setPreServiceVideo(null);
       setSuccess(
-        isSelfDropOff
-          ? "Customer drop-off verified and service started."
-          : "Vehicle handover verified and service started.",
+        "Vehicle handover verified. Keep live tracking on while returning to the garage.",
       );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to verify handover OTP");
@@ -311,7 +306,67 @@ export default function GarageBookingDetail() {
     }
   };
 
-  const markDelivered = async () => {
+  const confirmSelfDropArrival = async () => {
+    const validImageCount =
+      preServiceImages.length >= 5 && preServiceImages.length <= 15;
+    if (!isSelfDropOff || !isNearDestination || !validImageCount || !preServiceVideo) {
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await garageApi.confirmSelfDropArrival(
+        booking.requestId || booking.id,
+        preServiceImages,
+        preServiceVideo,
+      );
+
+      applyLifecycleResult(result, {
+        status: "IN_PROGRESS",
+        arrivedAtGarageAt: new Date().toISOString(),
+      });
+      setPreServiceImages([]);
+      setPreServiceVideo(null);
+      setSuccess(
+        "Customer arrival confirmed. The travel timer stopped and service can begin.",
+      );
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to confirm the self drop-off arrival.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markArrivedAtGarage = async () => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await garageApi.markArrivedAtGarage(
+        booking.requestId || booking.id,
+      );
+      applyLifecycleResult(result, {
+        arrivedAtGarageAt: new Date().toISOString(),
+      });
+      setSuccess("Vehicle arrival at the garage confirmed. Service work can begin.");
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to confirm that the vehicle reached the garage.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markServiceComplete = async () => {
     const validImageCount =
       postServiceImages.length >= 5 && postServiceImages.length <= 15;
     if (!validImageCount || !postServiceVideo) return;
@@ -321,33 +376,77 @@ export default function GarageBookingDetail() {
     setSuccess("");
 
     try {
-      const result = await garageApi.markDelivered(
+      const result = await garageApi.markServiceComplete(
         garageToken,
         booking.requestId || booking.id,
         postServiceImages,
         postServiceVideo,
       );
 
-      updateLocalBooking({
-        status: "DELIVERED",
-        deliveredAt: result?.booking?.deliveredAt || new Date().toISOString(),
-        totalServiceAmount:
-          result?.booking?.totalServiceAmount || booking.totalServiceAmount,
-        totalServiceMaxAmount:
-          result?.booking?.totalServiceMaxAmount || booking.totalServiceMaxAmount,
-        inspectionImages:
-          result?.booking?.inspectionImages || booking.inspectionImages || [],
+      applyLifecycleResult(result, {
+        status: "IN_PROGRESS",
+        serviceCompletedAt: new Date().toISOString(),
+        deliveryStartedAt: isSelfDropOff ? null : new Date().toISOString(),
+        deliveredAt: isSelfDropOff ? new Date().toISOString() : null,
       });
       setPostServiceImages([]);
       setPostServiceVideo(null);
       setSuccess(
         isSelfDropOff
-          ? "Vehicle marked ready for customer pickup. The customer must visit the garage, inspect it, enter the final amount and confirm collection."
-          : "Vehicle marked delivered. The customer must now inspect, enter the final amount, and accept delivery.",
+          ? "Service evidence uploaded. The customer has been notified that the vehicle is ready for collection."
+          : "Service evidence uploaded. The customer has been emailed and return delivery tracking is now active.",
       );
     } catch (err) {
       setError(
-        err.response?.data?.message || "Unable to mark booking delivered",
+        err.response?.data?.message || "Unable to complete the service stage",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markArrivedAtCustomer = async () => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await garageApi.markArrivedAtCustomer(
+        booking.requestId || booking.id,
+      );
+      applyLifecycleResult(result, {
+        deliveredAt: new Date().toISOString(),
+      });
+      setSuccess(
+        "Arrival at the customer address confirmed. Ask the customer to submit Cash or UPI payment from their booking page.",
+      );
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to confirm arrival at the customer address.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmFinalPayment = async () => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await garageApi.confirmFinalPayment(
+        booking.requestId || booking.id,
+      );
+      applyLifecycleResult(result, {
+        status: "COMPLETED",
+        finalPaymentConfirmedAt: new Date().toISOString(),
+      });
+      setSuccess("Payment confirmed. The booking is complete and warranty is active.");
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Unable to confirm the final payment.",
       );
     } finally {
       setLoading(false);
@@ -369,35 +468,70 @@ export default function GarageBookingDetail() {
   const isSelfDropOff = isSelfDropOffService(booking);
   const inspectionImages = booking.inspectionImages || [];
   const isCompletedByCustomer =
-    booking.status === "COMPLETED" || Boolean(booking.customerAcceptedAt);
-  const isAwaitingCustomerAcceptance =
-    booking.status === "DELIVERED" && !booking.customerAcceptedAt;
+    booking.status === "COMPLETED" || Boolean(booking.finalPaymentConfirmedAt);
   const bookingDisplayId =
     booking.bookingCode || booking.bookingId || booking.id;
   const isHandoverStage = ["ACCEPTED", "CONFIRMED"].includes(booking.status);
-  const liveTrackingEnabled =
+  const isReturningToGarage = Boolean(
     !isSelfDropOff &&
-    ["ACCEPTED", "CONFIRMED", "IN_PROGRESS", "DELIVERED"].includes(
-      booking.status,
-    );
-  const distanceToCustomerMeters =
+      booking.handoverOtpVerifiedAt &&
+      !booking.arrivedAtGarageAt &&
+      !booking.serviceCompletedAt,
+  );
+  const isServiceStage = Boolean(
+    booking.status === "IN_PROGRESS" &&
+      booking.arrivedAtGarageAt &&
+      !booking.serviceCompletedAt,
+  );
+  const isDeliveryJourney = Boolean(
+    !isSelfDropOff && booking.serviceCompletedAt && !booking.deliveredAt,
+  );
+  const isAwaitingCustomerPayment = Boolean(
+    booking.deliveredAt && !booking.finalPaymentSubmittedAt,
+  );
+  const isFinalPaymentPending = Boolean(
+    booking.finalPaymentSubmittedAt &&
+      !booking.finalPaymentConfirmedAt &&
+      booking.status !== "COMPLETED",
+  );
+  const liveTrackingEnabled = Boolean(
+    !booking.deliveredAt &&
+      (isSelfDropOff
+        ? isHandoverStage && !booking.arrivedAtGarageAt
+        : isHandoverStage || isReturningToGarage || isDeliveryJourney),
+  );
+  const trackingPhase = isSelfDropOff
+    ? "SELF_DROP_TO_GARAGE"
+    : isDeliveryJourney
+      ? "DELIVERY_TO_CUSTOMER"
+    : isReturningToGarage
+      ? "RETURN_TO_GARAGE"
+      : "PICKUP_TO_CUSTOMER";
+  const trackingTitle =
+    trackingPhase === "SELF_DROP_TO_GARAGE"
+      ? "Customer route to garage"
+      : trackingPhase === "RETURN_TO_GARAGE"
+      ? "Live route back to garage"
+      : trackingPhase === "DELIVERY_TO_CUSTOMER"
+        ? "Live delivery route to customer"
+        : "Live pickup route to customer";
+  const distanceToDestinationMeters =
     getDistanceMeters(
       trackingSummary?.latestLocation,
-      trackingSummary?.customerLocation,
+      trackingSummary?.destination,
     ) ??
     (Number.isFinite(Number(trackingSummary?.route?.distanceMeters))
       ? Math.round(Number(trackingSummary.route.distanceMeters))
       : null);
-  const isNearCustomer =
-    isSelfDropOff ||
-    (Number.isFinite(distanceToCustomerMeters) &&
-      distanceToCustomerMeters <= ARRIVAL_UNLOCK_DISTANCE_METERS);
+  const isNearDestination =
+    Number.isFinite(distanceToDestinationMeters) &&
+    distanceToDestinationMeters <= ARRIVAL_UNLOCK_DISTANCE_METERS;
   const hasCompleteOtp = otp.length === 6;
 
   if (isCompletedByCustomer) {
     return (
       <div className="card-soft p-6 text-sm font-semibold text-muted">
-        Opening garage dashboard...
+        Completing booking...
       </div>
     );
   }
@@ -421,6 +555,8 @@ export default function GarageBookingDetail() {
       )}
 
       <WorkerTaskManager booking={booking} garage={garage} />
+
+      <BookingElapsedTimer booking={booking} />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
@@ -499,11 +635,12 @@ export default function GarageBookingDetail() {
 
           {liveTrackingEnabled && (
             <LiveBookingTracking
+              key={`${booking.bookingId}:${trackingPhase}`}
               bookingId={booking.bookingId}
-              canShare
-              autoStart
+              canShare={!isSelfDropOff}
+              autoStart={!isSelfDropOff}
               onTrackingUpdate={handleTrackingUpdate}
-              title="Live route to customer"
+              title={trackingTitle}
             />
           )}
 
@@ -514,7 +651,7 @@ export default function GarageBookingDetail() {
                 <div>
                   <p className="font-bold">Wait for the customer at your garage</p>
                   <p className="mt-1">
-                    This is a self drop-off booking. Do not travel to the customer. When they arrive, verify their OTP and capture 5–15 drop-off inspection photos plus one video.
+                    This is a self drop-off booking. The customer shares the one-time route from home to the garage. When they arrive, capture 5–15 before-service photos and one video, then confirm arrival. No OTP is required.
                   </p>
                 </div>
               </div>
@@ -534,14 +671,14 @@ export default function GarageBookingDetail() {
                     </h3>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
                       {isSelfDropOff
-                        ? "When the customer arrives at your garage, verify the handover OTP and capture the vehicle condition before starting service."
+                        ? "Watch the customer route to the garage. When they arrive, capture the vehicle condition and start service without an OTP."
                         : `Share live location first. The handover OTP unlocks when you are within ${ARRIVAL_UNLOCK_DISTANCE_METERS}m of the customer location.`}
                     </p>
                   </div>
                   <span
                     className={[
                       "inline-flex w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-extrabold shadow-sm",
-                      isNearCustomer
+                      isNearDestination
                         ? "border-brand/50 bg-brand/20 text-ink"
                         : "border-line bg-white text-muted",
                     ].join(" ")}
@@ -549,12 +686,12 @@ export default function GarageBookingDetail() {
                     {isSelfDropOff ? (
                       <>
                         <FiMapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                        Customer arrives here
+                        {formatDistance(distanceToDestinationMeters)}
                       </>
                     ) : (
                       <>
                         <FiNavigation className="h-3.5 w-3.5" aria-hidden="true" />
-                        {formatDistance(distanceToCustomerMeters)}
+                        {formatDistance(distanceToDestinationMeters)}
                       </>
                     )}
                   </span>
@@ -562,74 +699,67 @@ export default function GarageBookingDetail() {
               </div>
 
               <div className="p-5 sm:p-6">
-                {!isNearCustomer ? (
+                {!isNearDestination ? (
                   <div className="rounded-xl border border-line bg-bg-soft p-4 text-sm text-muted">
                     <div className="flex items-start gap-3">
                       <FiNavigation className="mt-0.5 shrink-0 text-brand-dark" />
                       <p>
-                        Keep live sharing on and navigate to the customer. The OTP
-                        box appears automatically once you are very close.
+                        {isSelfDropOff
+                          ? "The customer must keep live sharing on while travelling to the garage. Arrival evidence unlocks when they are nearby."
+                          : "Keep live sharing on and navigate to the customer. The OTP box appears automatically once you are very close."}
                       </p>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <div className="rounded-xl border border-line bg-bg-soft px-4 py-3">
-                      <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted">
-                        OTP valid until
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-ink">
-                        {formatDateTime(booking.handoverOtpExpiresAt)}
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-muted">
-                        The OTP expires exactly two hours after generation. The
-                        customer can generate a new one from booking tracking.
-                      </p>
-                    </div>
+                    {!isSelfDropOff && (
+                      <>
+                        <div className="rounded-xl border border-line bg-bg-soft px-4 py-3">
+                          <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted">
+                            OTP valid until
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-ink">
+                            {formatDateTime(booking.handoverOtpExpiresAt)}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-muted">
+                            The OTP expires exactly two hours after generation. The customer can generate a new one from booking tracking.
+                          </p>
+                        </div>
 
-                    <label
-                      htmlFor="garage-handover-otp"
-                      className="mt-5 block text-sm font-bold text-ink"
-                    >
-                      6-digit handover OTP
-                    </label>
-                    <input
-                      id="garage-handover-otp"
-                      value={otp}
-                      onChange={(event) =>
-                        setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-                      }
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      placeholder="Enter customer OTP"
-                      className="mt-2 h-12 w-full rounded-xl border border-line px-4 text-base tracking-[0.08em] focus:border-ink focus:outline-none"
-                    />
+                        <label htmlFor="garage-handover-otp" className="mt-5 block text-sm font-bold text-ink">
+                          6-digit handover OTP
+                        </label>
+                        <input
+                          id="garage-handover-otp"
+                          value={otp}
+                          onChange={(event) =>
+                            setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+                          }
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          placeholder="Enter customer OTP"
+                          className="mt-2 h-12 w-full rounded-xl border border-line px-4 text-base tracking-[0.08em] focus:border-ink focus:outline-none"
+                        />
+                      </>
+                    )}
 
-                    {hasCompleteOtp && (
+                    {(isSelfDropOff || hasCompleteOtp) && (
                       <div className="mt-5">
                         <p className="mb-3 text-sm leading-6 text-muted">
-                          Upload 5–15 {isSelfDropOff ? "drop-off" : "pickup"} photos and exactly one video after entering the OTP. Each photo must be 1 MB or less; the video must be 50 MB or less.
+                          Upload 5–15 {isSelfDropOff ? "before-service" : "pickup"} photos and exactly one video. Each photo must be 1 MB or less; the video must be 50 MB or less.
                         </p>
                         <div className="space-y-4">
-                          <ImageUpload
-                            min={5}
-                            max={15}
-                            value={preServiceImages}
-                            onChange={setPreServiceImages}
-                          />
-                          <VideoUpload
-                            value={preServiceVideo}
-                            onChange={setPreServiceVideo}
-                          />
+                          <ImageUpload min={5} max={15} value={preServiceImages} onChange={setPreServiceImages} />
+                          <VideoUpload value={preServiceVideo} onChange={setPreServiceVideo} />
                         </div>
                       </div>
                     )}
 
                     <button
-                      onClick={verifyHandover}
+                      onClick={isSelfDropOff ? confirmSelfDropArrival : verifyHandover}
                       disabled={
                         loading ||
-                        !hasCompleteOtp ||
+                        (!isSelfDropOff && !hasCompleteOtp) ||
                         preServiceImages.length < 5 ||
                         preServiceImages.length > 15 ||
                         !preServiceVideo
@@ -637,9 +767,11 @@ export default function GarageBookingDetail() {
                       className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {loading
-                        ? "Verifying..."
+                        ? isSelfDropOff
+                          ? "Confirming arrival..."
+                          : "Verifying..."
                         : isSelfDropOff
-                          ? "Verify Drop-off & Start Service"
+                          ? "Confirm Arrival & Start Service"
                           : "Verify Handover & Start Service"}
                     </button>
                   </>
@@ -648,13 +780,52 @@ export default function GarageBookingDetail() {
             </div>
           ) : null}
 
-          {booking.status === "IN_PROGRESS" && !booking.deliveredAt ? (
-            <div className="card-soft p-6">
-              <h3 className="mb-2 text-xl font-bold">Complete Service</h3>
-              <p className="mb-4 text-muted">
-                Upload 5–15 post-service photos and exactly one video. Each photo must be 1 MB or less and the video must be 50 MB or less. {isSelfDropOff
-                  ? "The customer enters the final amount when confirming collection at your garage."
-                  : "The customer enters the final amount while accepting delivery."}
+          {isReturningToGarage && (
+            <section className="card-soft p-5 sm:p-6">
+              <div className="flex items-start gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-700">
+                  <FiNavigation className="h-5 w-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+                    Pickup return journey
+                  </p>
+                  <h3 className="mt-1 text-xl font-bold">Take the vehicle to the garage</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    The customer handover is verified. Keep live tracking active until the vehicle reaches the assigned garage. Service evidence stays locked until arrival is confirmed.
+                  </p>
+                  <div className="mt-4 rounded-lg border border-line bg-bg-soft p-3 text-sm font-semibold text-ink">
+                    {formatDistance(distanceToDestinationMeters)} from the garage
+                  </div>
+                  <button
+                    type="button"
+                    onClick={markArrivedAtGarage}
+                    disabled={loading || !isNearDestination}
+                    className="btn-primary mt-4 w-full disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <FiCheckCircle />
+                    {loading ? "Confirming arrival..." : "Reached Garage — Start Service"}
+                  </button>
+                  {!isNearDestination && (
+                    <p className="mt-2 text-xs leading-5 text-muted">
+                      This button unlocks within approximately {ARRIVAL_UNLOCK_DISTANCE_METERS} metres of the garage. Keep GPS and live sharing enabled.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {isServiceStage && (
+            <div className="card-soft p-5 sm:p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+                Service completion evidence
+              </p>
+              <h3 className="mt-1 text-xl font-bold">Complete Service</h3>
+              <p className="mb-4 mt-2 text-sm leading-6 text-muted">
+                Upload 5–15 post-service photos and exactly one video. Each photo must be 1 MB or less and the video must be 50 MB or less. After upload, the customer receives a completion email. {isSelfDropOff
+                  ? "The vehicle becomes ready for collection at the garage."
+                  : "Return delivery tracking starts immediately."}
               </p>
               <div className="space-y-4">
                 <ImageUpload
@@ -669,7 +840,7 @@ export default function GarageBookingDetail() {
                 />
               </div>
               <button
-                onClick={markDelivered}
+                onClick={markServiceComplete}
                 disabled={
                   loading ||
                   postServiceImages.length < 5 ||
@@ -679,20 +850,89 @@ export default function GarageBookingDetail() {
                 className="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading
-                  ? "Completing..."
+                  ? "Uploading evidence..."
                   : isSelfDropOff
-                    ? "Mark Ready for Customer Pickup"
-                    : "Mark Ready for Customer"}
+                    ? "Complete Service & Notify Customer"
+                    : "Complete Service & Start Delivery"}
               </button>
             </div>
-          ) : null}
+          )}
 
-          {isAwaitingCustomerAcceptance && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-              {isSelfDropOff
-                ? "The vehicle is ready at your garage. This booking completes only after the customer inspects it, enters the final amount and confirms collection."
-                : "The vehicle is marked delivered. This booking becomes completed only after the customer receives the vehicle and accepts delivery."}
+          {isDeliveryJourney && (
+            <section className="card-soft p-5 sm:p-6">
+              <div className="flex items-start gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-brand/20 text-brand-dark">
+                  <FiNavigation className="h-5 w-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+                    Return delivery
+                  </p>
+                  <h3 className="mt-1 text-xl font-bold">Vehicle is on the way to the customer</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    The completion email has been sent. Keep the live map active during delivery, then confirm arrival near the customer address.
+                  </p>
+                  <div className="mt-4 rounded-lg border border-line bg-bg-soft p-3 text-sm font-semibold text-ink">
+                    {formatDistance(distanceToDestinationMeters)} from the customer
+                  </div>
+                  <button
+                    type="button"
+                    onClick={markArrivedAtCustomer}
+                    disabled={loading || !isNearDestination}
+                    className="btn-primary mt-4 w-full disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <FiCheckCircle />
+                    {loading ? "Confirming arrival..." : "Arrived at Customer"}
+                  </button>
+                  {!isNearDestination && (
+                    <p className="mt-2 text-xs leading-5 text-muted">
+                      This button unlocks within approximately {ARRIVAL_UNLOCK_DISTANCE_METERS} metres of the customer address.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {isAwaitingCustomerPayment && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
+              <p className="font-bold">Waiting for customer payment submission</p>
+              <p className="mt-1">
+                {isSelfDropOff
+                  ? "The vehicle is ready at the garage. Ask the customer to open their booking, choose Cash or UPI, enter the amount and press Send."
+                  : "The vehicle has reached the customer. Ask them to open their booking, choose Cash or UPI, enter the amount and press Send."}
+              </p>
             </div>
+          )}
+
+          {isFinalPaymentPending && (
+            <section className="overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm">
+              <div className="border-b border-amber-200 bg-amber-50 p-5">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-amber-800">
+                  Customer payment pending confirmation
+                </p>
+                <h3 className="mt-1 text-xl font-bold text-ink">
+                  {booking.finalPaymentMethod === "UPI" ? "UPI" : "Cash"} · {formatRupees(booking.finalPaymentAmount || 0)}
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-amber-900">
+                  Submitted {formatDateTime(booking.finalPaymentSubmittedAt)}. Confirm only after the amount has actually been received.
+                </p>
+              </div>
+              <div className="p-5">
+                <button
+                  type="button"
+                  onClick={confirmFinalPayment}
+                  disabled={loading}
+                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <FiCheckCircle />
+                  {loading ? "Completing booking..." : "Payment Received — Complete Booking"}
+                </button>
+                <p className="mt-2 text-xs leading-5 text-muted">
+                  This finalises the booking, stops the timer, releases the assigned controller and activates the customer warranty.
+                </p>
+              </div>
+            </section>
           )}
 
           {inspectionImages.some((image) => image.phase === "PICKUP") && (
