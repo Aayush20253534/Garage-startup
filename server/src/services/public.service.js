@@ -32,16 +32,24 @@ const getStats = async () => {
       enabled: false,
       extraUsers: 0,
       extraGarages: 0,
+      pseudoAverageRating: null,
     })),
   ]);
 
   const extraUsers = boosts?.enabled ? Number(boosts.extraUsers) || 0 : 0;
   const extraGarages = boosts?.enabled ? Number(boosts.extraGarages) || 0 : 0;
+  const realRating = Number(garageStats._avg.ratingAvg ?? 0);
+  const averageRating =
+    boosts?.enabled &&
+    boosts.pseudoAverageRating !== null &&
+    boosts.pseudoAverageRating !== undefined
+      ? Number(boosts.pseudoAverageRating)
+      : realRating;
 
   const stats = {
     garages: garageStats._count._all + extraGarages,
     customers: customers + extraUsers,
-    averageRating: Number(garageStats._avg.ratingAvg ?? 0),
+    averageRating,
   };
 
   await setCache(PUBLIC_STATS_CACHE_KEY, stats, PUBLIC_STATS_TTL_SECONDS);

@@ -6,6 +6,7 @@ import {
   FiHome,
   FiRefreshCw,
   FiSave,
+  FiStar,
   FiToggleLeft,
   FiToggleRight,
   FiUsers,
@@ -23,12 +24,21 @@ const emptyState = {
   enabled: false,
   extraUsers: 0,
   extraGarages: 0,
+  pseudoAverageRating: null,
   realUsers: 0,
   realGarages: 0,
+  realAverageRating: 0,
   displayUsers: 0,
   displayGarages: 0,
+  displayAverageRating: 0,
   updatedAt: null,
   updatedByStaffName: null,
+};
+
+const formatRating = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  return n.toFixed(1);
 };
 
 export default function PseudoData() {
@@ -36,6 +46,7 @@ export default function PseudoData() {
   const [enabled, setEnabled] = useState(false);
   const [extraUsers, setExtraUsers] = useState(0);
   const [extraGarages, setExtraGarages] = useState(0);
+  const [pseudoAverageRating, setPseudoAverageRating] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -47,6 +58,11 @@ export default function PseudoData() {
     setEnabled(Boolean(next.enabled));
     setExtraUsers(Number(next.extraUsers) || 0);
     setExtraGarages(Number(next.extraGarages) || 0);
+    setPseudoAverageRating(
+      next.pseudoAverageRating === null || next.pseudoAverageRating === undefined
+        ? ""
+        : String(next.pseudoAverageRating),
+    );
   };
 
   const load = useCallback(async () => {
@@ -72,16 +88,30 @@ export default function PseudoData() {
       setSaving(true);
       setError("");
       setSuccess("");
+
+      const ratingRaw = String(pseudoAverageRating).trim();
+      let ratingValue = null;
+      if (ratingRaw !== "") {
+        const n = Number(ratingRaw);
+        if (!Number.isFinite(n) || n < 1 || n > 5) {
+          setError("Pseudo average rating must be between 1.0 and 5.0, or left blank");
+          setSaving(false);
+          return;
+        }
+        ratingValue = Math.round(n * 10) / 10;
+      }
+
       const payload = await adminApi.updatePseudoData({
         enabled,
         extraUsers: Number(extraUsers) || 0,
         extraGarages: Number(extraGarages) || 0,
+        pseudoAverageRating: ratingValue,
       });
       applyResponse(payload);
       setSuccess(
         enabled
-          ? "Pseudo data enabled. Public pages now show the boosted counts."
-          : "Pseudo data disabled. Public pages show real counts only.",
+          ? "Pseudo data enabled. Public pages now show the boosted counts and rating."
+          : "Pseudo data disabled. Public pages show real counts and rating only.",
       );
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to save pseudo data settings"));
@@ -94,6 +124,11 @@ export default function PseudoData() {
     (Number(data.realUsers) || 0) + (enabled ? Number(extraUsers) || 0 : 0);
   const previewGarages =
     (Number(data.realGarages) || 0) + (enabled ? Number(extraGarages) || 0 : 0);
+  const ratingRaw = String(pseudoAverageRating).trim();
+  const previewRating =
+    enabled && ratingRaw !== "" && Number.isFinite(Number(ratingRaw))
+      ? Number(ratingRaw)
+      : data.realAverageRating;
 
   const formatWhen = (value) => {
     if (!value) return "Never saved";
@@ -116,9 +151,9 @@ export default function PseudoData() {
               Pseudo Data
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted">
-              Temporarily boost the public customer and garage counts shown on
-              marketing pages. No real accounts are created — only the numbers
-              visitors see change. Turn this off when organic traction is enough.
+              Temporarily boost the public customer count, garage count, and
+              average rating on marketing pages. No real accounts or reviews are
+              created — only the numbers visitors see change.
             </p>
           </div>
           <button
@@ -147,7 +182,7 @@ export default function PseudoData() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-line bg-white p-5">
           <div className="flex items-center gap-2 text-sm font-bold text-muted">
             <FiUsers />
@@ -156,7 +191,7 @@ export default function PseudoData() {
           <p className="mt-2 text-3xl font-extrabold text-ink">
             {loading ? "—" : data.realUsers}
           </p>
-          <p className="mt-1 text-xs text-muted">Active customer accounts in the database</p>
+          <p className="mt-1 text-xs text-muted">Active customer accounts</p>
         </div>
         <div className="rounded-2xl border border-line bg-white p-5">
           <div className="flex items-center gap-2 text-sm font-bold text-muted">
@@ -166,7 +201,17 @@ export default function PseudoData() {
           <p className="mt-2 text-3xl font-extrabold text-ink">
             {loading ? "—" : data.realGarages}
           </p>
-          <p className="mt-1 text-xs text-muted">Verified active garages in the database</p>
+          <p className="mt-1 text-xs text-muted">Verified active garages</p>
+        </div>
+        <div className="rounded-2xl border border-line bg-white p-5">
+          <div className="flex items-center gap-2 text-sm font-bold text-muted">
+            <FiStar />
+            Avg rating (real)
+          </div>
+          <p className="mt-2 text-3xl font-extrabold text-ink">
+            {loading ? "—" : formatRating(data.realAverageRating)}
+          </p>
+          <p className="mt-1 text-xs text-muted">From verified garage ratings</p>
         </div>
       </div>
 
@@ -179,8 +224,8 @@ export default function PseudoData() {
             <h2 className="text-lg font-bold text-ink">Public display mode</h2>
             <p className="mt-1 text-sm text-muted">
               {enabled
-                ? "Enabled — visitors see boosted counts on the homepage."
-                : "Disabled — visitors see the original real counts only."}
+                ? "Enabled — visitors see boosted counts and optional rating."
+                : "Disabled — visitors see the original real stats only."}
             </p>
           </div>
           <button
@@ -209,7 +254,7 @@ export default function PseudoData() {
         </div>
 
         <div
-          className={`grid gap-4 sm:grid-cols-2 ${enabled ? "" : "opacity-50"}`}
+          className={`grid gap-4 sm:grid-cols-3 ${enabled ? "" : "opacity-50"}`}
         >
           <label className="block space-y-2">
             <span className="text-sm font-semibold text-ink">
@@ -228,7 +273,7 @@ export default function PseudoData() {
               className={controlClass}
             />
             <span className="text-xs text-muted">
-              Added on top of {data.realUsers} real customers when enabled
+              Added on top of {data.realUsers} real customers
             </span>
           </label>
 
@@ -249,7 +294,27 @@ export default function PseudoData() {
               className={controlClass}
             />
             <span className="text-xs text-muted">
-              Added on top of {data.realGarages} real garages when enabled
+              Added on top of {data.realGarages} real garages
+            </span>
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-sm font-semibold text-ink">
+              Pseudo average rating
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={5}
+              step={0.1}
+              placeholder={formatRating(data.realAverageRating)}
+              value={pseudoAverageRating}
+              disabled={!enabled || loading || saving}
+              onChange={(event) => setPseudoAverageRating(event.target.value)}
+              className={controlClass}
+            />
+            <span className="text-xs text-muted">
+              1.0–5.0, or blank to keep the real rating ({formatRating(data.realAverageRating)})
             </span>
           </label>
         </div>
@@ -258,7 +323,7 @@ export default function PseudoData() {
           <p className="text-xs font-bold uppercase tracking-wide text-muted">
             Public preview
           </p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <div>
               <p className="text-sm text-muted">Customers shown publicly</p>
               <p className="text-2xl font-extrabold text-ink">{previewUsers}</p>
@@ -266,6 +331,12 @@ export default function PseudoData() {
             <div>
               <p className="text-sm text-muted">Garages shown publicly</p>
               <p className="text-2xl font-extrabold text-ink">{previewGarages}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted">Avg rating shown publicly</p>
+              <p className="text-2xl font-extrabold text-ink">
+                {formatRating(previewRating)}
+              </p>
             </div>
           </div>
         </div>
@@ -291,7 +362,7 @@ export default function PseudoData() {
         <p className="mt-1">
           This only affects public marketing stats (for example the homepage
           partner counters). Admin lists, dashboards, and real matching still use
-          the true database counts.
+          the true database values.
         </p>
       </div>
     </div>

@@ -1604,13 +1604,15 @@ model AdminAuditLog {
 /// Singleton row controlling public-facing pseudo user/garage counts.
 /// When enabled, homepage and public stats show real counts plus the boosts.
 model PlatformPseudoData {
-  id                 String   @id @default("default")
-  enabled            Boolean  @default(false)
-  extraUsers         Int      @default(0)
-  extraGarages       Int      @default(0)
-  updatedAt          DateTime @updatedAt
-  updatedByStaffId   String?
-  updatedByStaffName String?
+  id                   String   @id @default("default")
+  enabled              Boolean  @default(false)
+  extraUsers           Int      @default(0)
+  extraGarages         Int      @default(0)
+  /// When enabled and set (1.0–5.0), public average rating uses this value.
+  pseudoAverageRating  Float?
+  updatedAt            DateTime @updatedAt
+  updatedByStaffId     String?
+  updatedByStaffName   String?
 
   @@map("platform_pseudo_data")
 }

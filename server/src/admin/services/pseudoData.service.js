@@ -5,6 +5,8 @@ const { deleteCache } = require("../../utils/cache");
 const PUBLIC_STATS_CACHE_KEY = "public:stats:v2";
 const SETTINGS_ID = "default";
 const MAX_EXTRA = 1_000_000;
+const MIN_RATING = 1;
+const MAX_RATING = 5;
 
 const AVAILABLE_GARAGE_WHERE = {
   isVerified: true,
@@ -15,6 +17,20 @@ const clampExtra = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(MAX_EXTRA, Math.floor(n)));
+};
+
+const normalizeRating = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  const rounded = Math.round(n * 10) / 10;
+  if (rounded < MIN_RATING || rounded > MAX_RATING) {
+    throw new ApiError(
+      400,
+      `pseudoAverageRating must be between ${MIN_RATING} and ${MAX_RATING}`,
+    );
+  }
+  return rounded;
 };
 
 const ensureSettings = async (client = prisma) => {
@@ -30,6 +46,7 @@ const ensureSettings = async (client = prisma) => {
         enabled: false,
         extraUsers: 0,
         extraGarages: 0,
+        pseudoAverageRating: null,
       },
     });
   } catch {
@@ -40,8 +57,12 @@ const ensureSettings = async (client = prisma) => {
 };
 
 const getRealCounts = async () => {
-  const [garages, customers] = await Promise.all([
-    prisma.garage.count({ where: AVAILABLE_GARAGE_WHERE }),
+  const [garageStats, customers] = await Promise.all([
+    prisma.garage.aggregate({
+      where: AVAILABLE_GARAGE_WHERE,
+      _count: { _all: true },
+      _avg: { ratingAvg: true },
+    }),
     prisma.user.count({
       where: {
         role: "CUSTOMER",
@@ -50,23 +71,39 @@ const getRealCounts = async () => {
     }),
   ]);
 
-  return { realUsers: customers, realGarages: garages };
+  return {
+    realUsers: customers,
+    realGarages: garageStats._count._all,
+    realAverageRating: Number(garageStats._avg.ratingAvg ?? 0),
+  };
 };
 
 const toPublicPayload = (settings, real) => {
   const enabled = Boolean(settings?.enabled);
   const extraUsers = clampExtra(settings?.extraUsers);
   const extraGarages = clampExtra(settings?.extraGarages);
+  const pseudoAverageRating =
+    settings?.pseudoAverageRating === null ||
+    settings?.pseudoAverageRating === undefined
+      ? null
+      : Number(settings.pseudoAverageRating);
+
+  const displayAverageRating =
+    enabled && pseudoAverageRating !== null
+      ? pseudoAverageRating
+      : real.realAverageRating;
 
   return {
     enabled,
-    // Always return stored boosts so the admin form can re-enable without retyping.
     extraUsers,
     extraGarages,
+    pseudoAverageRating,
     realUsers: real.realUsers,
     realGarages: real.realGarages,
+    realAverageRating: real.realAverageRating,
     displayUsers: real.realUsers + (enabled ? extraUsers : 0),
     displayGarages: real.realGarages + (enabled ? extraGarages : 0),
+    displayAverageRating,
     updatedAt: settings?.updatedAt || null,
     updatedByStaffId: settings?.updatedByStaffId || null,
     updatedByStaffName: settings?.updatedByStaffName || null,
@@ -82,18 +119,27 @@ const getPseudoDataSettings = async () => {
 };
 
 /**
- * Returns the boosts applied to public stats only when pseudo data is enabled.
- * Used by public.service so the homepage can show inflated counts.
+ * Boosts applied to public stats only when pseudo data is enabled.
  */
 const getActivePublicBoosts = async () => {
   const settings = await ensureSettings();
   if (!settings?.enabled) {
-    return { extraUsers: 0, extraGarages: 0, enabled: false };
+    return {
+      enabled: false,
+      extraUsers: 0,
+      extraGarages: 0,
+      pseudoAverageRating: null,
+    };
   }
   return {
     enabled: true,
     extraUsers: clampExtra(settings.extraUsers),
     extraGarages: clampExtra(settings.extraGarages),
+    pseudoAverageRating:
+      settings.pseudoAverageRating === null ||
+      settings.pseudoAverageRating === undefined
+        ? null
+        : Number(settings.pseudoAverageRating),
   };
 };
 
@@ -138,12 +184,18 @@ const updatePseudoDataSettings = async (payload, staff) => {
       : current?.extraGarages ?? 0,
   );
 
+  let pseudoAverageRating = current?.pseudoAverageRating ?? null;
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "pseudoAverageRating")) {
+    pseudoAverageRating = normalizeRating(payload.pseudoAverageRating);
+  }
+
   const settings = await prisma.platformPseudoData.update({
     where: { id: SETTINGS_ID },
     data: {
       enabled,
       extraUsers,
       extraGarages,
+      pseudoAverageRating,
       updatedByStaffId: staff?.id || null,
       updatedByStaffName: staff?.name || staff?.loginId || staff?.email || null,
     },
@@ -161,4 +213,6 @@ module.exports = {
   updatePseudoDataSettings,
   PUBLIC_STATS_CACHE_KEY,
   MAX_EXTRA,
+  MIN_RATING,
+  MAX_RATING,
 };
