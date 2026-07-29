@@ -2,11 +2,11 @@ const ApiError = require("./apiError");
 
 const SERVICE_TIME_ZONE = "Asia/Kolkata";
 const SERVICE_OPEN_MINUTES = 10 * 60;
-const SERVICE_CLOSE_MINUTES = 12 * 60;
+const SERVICE_CLOSE_MINUTES = 24 * 60;
 const SERVICE_HOURS_CLOSED_CODE = "SERVICE_HOURS_CLOSED";
 
 const SERVICE_HOURS_MESSAGE =
-  "You can only pay between 10:00 AM and 12:00 PM (IST). Please retry during payment hours.";
+  "You can only pay between 10:00 AM and 12:00 AM midnight (IST). Please retry during payment hours.";
 
 const indiaTimeFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: SERVICE_TIME_ZONE,
