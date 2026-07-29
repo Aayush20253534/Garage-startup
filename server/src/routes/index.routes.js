@@ -49,6 +49,7 @@ const garageControllerAdminRoutes = require("../admin/routes/garageController.ro
 const adminAuditMiddleware = require("../admin/middlewares/adminAudit.middleware");
 const adminControlCenterRoutes = require("../admin/routes/adminControlCenter.routes");
 const integrationHealthRoutes = require("../admin/routes/integrationHealth.routes");
+const pseudoDataRoutes = require("../admin/routes/pseudoData.routes");
 const garageControllerManagementRoutes = require("../garage/routes/controllerManagement.routes");
 const garageControllerSelfRoutes = require("../garage/routes/controllerSelf.routes");
 const garageWorkerTaskRoutes = require("./garageWorkerTask.routes");
@@ -159,6 +160,7 @@ router.use("/garage/worker-tasks", garageWorkerTaskRoutes);
  */
 router.use("/admin/control-center", adminControlCenterRoutes);
 router.use("/admin/integration-health", integrationHealthRoutes);
+router.use("/admin/pseudo-data", pseudoDataRoutes);
 router.use(
   "/admin/garage-applications",
   adminGarageApplicationRoutes,

@@ -47,6 +47,14 @@ export const adminApi = {
     return unwrap(await api.get("/admin/stats"));
   },
 
+  async getPseudoData() {
+    return unwrap(await api.get("/admin/pseudo-data"));
+  },
+
+  async updatePseudoData(payload) {
+    return unwrap(await api.patch("/admin/pseudo-data", payload));
+  },
+
   async getOperations() {
     return unwrap(await api.get("/admin/operations"));
   },
