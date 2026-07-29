@@ -1,10 +1,10 @@
 export const SERVICE_TIME_ZONE = "Asia/Kolkata";
 export const SERVICE_OPEN_MINUTES = 10 * 60;
-export const SERVICE_CLOSE_MINUTES = 22 * 60;
+export const SERVICE_CLOSE_MINUTES = 12 * 60;
 export const SERVICE_HOURS_CLOSED_CODE = "SERVICE_HOURS_CLOSED";
 
 export const SERVICE_HOURS_MESSAGE =
-  "You can only pay between 10:00 AM and 10:00 PM (IST). Please retry during payment hours.";
+  "You can only pay between 10:00 AM and 12:00 PM (IST). Please retry during payment hours.";
 
 const indiaTimeFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: SERVICE_TIME_ZONE,
@@ -44,7 +44,7 @@ export const isServiceHoursError = (error) => {
   return (
     error?.code === SERVICE_HOURS_CLOSED_CODE ||
     error?.response?.data?.code === SERVICE_HOURS_CLOSED_CODE ||
-    /10:00 AM.*10:00 PM|payment hours|service hours/i.test(message)
+    /10:00 AM.*12:00 PM|payment hours|service hours/i.test(message)
   );
 };
 

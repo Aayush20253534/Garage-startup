@@ -226,7 +226,7 @@ export default function Home() {
 
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur">
                   <FiClock className="shrink-0" />
-                  Daily services · 10 AM–10 PM
+                  Daily services · 10 AM–12 PM
                 </span>
               </div>
 
