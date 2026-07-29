@@ -242,6 +242,7 @@ module.exports = {
   getGarageRequestById,
   acceptGarageRequest,
   verifyHandoverOtp,
+  confirmSelfDropArrival,
   markArrivedAtGarage,
   markServiceCompleted,
   markArrivedAtCustomer,
