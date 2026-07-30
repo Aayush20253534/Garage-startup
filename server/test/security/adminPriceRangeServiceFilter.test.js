@@ -23,7 +23,7 @@ test("admin price ranges support service filtering across every result page", ()
   assert.match(validation, /query\("serviceId"\).*isUUID\(\)/s);
 });
 
-test("configured vehicle options are loaded from all price ranges for the selected service", () => {
+test("vehicle brand and model filters work independently of service selection", () => {
   const routes = read(
     "server/src/admin/routes/cityServicePriceRange.routes.js",
   );
@@ -39,12 +39,18 @@ test("configured vehicle options are loaded from all price ranges for the select
   assert.match(routes, /"\/filter-options"/);
   assert.match(controller, /listPriceRangeFilterOptions/);
   assert.match(service, /buildPriceRangeVehicleFilterOptions/);
-  assert.match(service, /serviceId: query\.serviceId/);
-  assert.match(service, /vehicleBrand: true/);
-  assert.match(service, /vehicleModel: true/);
+  assert.match(service, /buildPriceRangeModelFilterOptions/);
+  assert.match(service, /query\.serviceId && \{ serviceId: query\.serviceId \}/);
+  assert.match(service, /vehicleBrands: buildPriceRangeVehicleFilterOptions\(rows\)/);
+  assert.match(service, /vehicleModels: buildPriceRangeModelFilterOptions\(rows\)/);
   assert.match(api, /getPriceRangeFilterOptions/);
-  assert.match(page, /getPriceRangeFilterOptions\(\{/);
-  assert.match(page, /All configured brands/);
-  assert.match(page, /All configured models/);
-  assert.match(page, /Brand and model filters only show covered vehicle scopes/);
+  assert.match(page, /getPriceRangeFilterOptions\(\)/);
+  assert.match(page, /All vehicle brands/);
+  assert.match(page, /All vehicle models/);
+  assert.match(page, /filters can be combined independently/);
+  assert.doesNotMatch(page, /Select service first/);
+  assert.doesNotMatch(
+    page,
+    /disabled=\{!filterServiceId \|\| loadingFilterOptions\}/,
+  );
 });

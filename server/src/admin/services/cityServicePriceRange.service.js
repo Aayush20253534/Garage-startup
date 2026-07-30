@@ -224,14 +224,30 @@ const buildPriceRangeVehicleFilterOptions = (rows = []) => {
     }));
 };
 
-const listPriceRangeFilterOptions = async (query = {}) => {
-  if (!query.serviceId) {
-    return { serviceId: null, vehicleBrands: [], rangeCount: 0 };
+const buildPriceRangeModelFilterOptions = (rows = []) => {
+  const models = new Map();
+
+  for (const row of rows) {
+    const modelValue = normalizeScopeValue(row.vehicleModel) || "ALL";
+    const current = models.get(modelValue) || {
+      value: modelValue,
+      label: modelValue === "ALL" ? "All models" : modelValue,
+      rangeCount: 0,
+    };
+
+    current.rangeCount += 1;
+    models.set(modelValue, current);
   }
 
+  return [...models.values()].sort((left, right) =>
+    compareFilterValues(left.value, right.value),
+  );
+};
+
+const listPriceRangeFilterOptions = async (query = {}) => {
   const where = {
-    serviceId: query.serviceId,
     ...(query.city && { city: normalizeCity(query.city) }),
+    ...(query.serviceId && { serviceId: query.serviceId }),
     ...(query.fuelType && { fuelType: query.fuelType }),
     ...(query.isActive !== undefined && { isActive: query.isActive === "true" }),
   };
@@ -246,9 +262,10 @@ const listPriceRangeFilterOptions = async (query = {}) => {
   });
 
   return {
-    serviceId: query.serviceId,
+    serviceId: query.serviceId || null,
     rangeCount: rows.length,
     vehicleBrands: buildPriceRangeVehicleFilterOptions(rows),
+    vehicleModels: buildPriceRangeModelFilterOptions(rows),
   };
 };
 
