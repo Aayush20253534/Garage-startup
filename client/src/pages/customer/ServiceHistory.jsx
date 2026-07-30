@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import {
   FiCalendar,
+  FiChevronDown,
   FiClock,
+  FiDownload,
   FiEdit3,
   FiRefreshCw,
   FiStar,
   FiTool,
-  FiTruck,
 } from "react-icons/fi";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { useApp } from "@/hooks/useApp";
+import { downloadServiceHistoryPdf } from "@/utils/serviceHistoryPdf";
 import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 
 const formatDate = (date) => {
@@ -45,6 +47,7 @@ const formatDuration = (start, end) => {
   const days = Math.floor(totalMinutes / 1440);
   const hours = Math.floor((totalMinutes % 1440) / 60);
   const minutes = totalMinutes % 60;
+
   return [
     days ? `${days}d` : "",
     hours ? `${hours}h` : "",
@@ -108,14 +111,11 @@ const getTimingDetails = (booking) => {
   return timings;
 };
 
-const getServicesText = (booking) => {
-  return (
-    booking.services
-      ?.map((item) => item.service?.name)
-      .filter(Boolean)
-      .join(", ") || "Vehicle Service"
-  );
-};
+const getServicesText = (booking) =>
+  booking.services
+    ?.map((item) => item.service?.name)
+    .filter(Boolean)
+    .join(", ") || "Vehicle Service";
 
 const getGarageText = (booking) =>
   booking.garage?.name || "Auto-assigned garage";
@@ -132,35 +132,24 @@ const getVehicleText = (booking) => {
   );
 };
 
-const getAmount = (booking) => {
-  return Number(booking.totalServiceAmount || 0);
-};
-
 const getAmountText = (booking) => {
-  const amount = getAmount(booking);
+  const amount = Number(
+    booking.finalPaymentAmount || booking.totalServiceAmount || 0,
+  );
 
-  return amount > 0 ? `\u20b9${amount.toLocaleString("en-IN")}` : "Not recorded";
+  return amount > 0 ? `₹${amount.toLocaleString("en-IN")}` : "Not recorded";
 };
 
 function RatingDisplay({ review }) {
   if (!review) {
-    return <span className="text-muted">Not rated</span>;
+    return <span className="text-sm font-semibold text-muted">Not rated</span>;
   }
 
   return (
-    <div>
-      <div className="flex items-center gap-0.5 text-amber-500">
-        {[1, 2, 3, 4, 5].map((value) => (
-          <FiStar
-            key={value}
-            fill={value <= Number(review.rating || 0) ? "currentColor" : "none"}
-          />
-        ))}
-      </div>
-      {review.comment && (
-        <p className="mt-1 max-w-xs text-xs text-muted">{review.comment}</p>
-      )}
-    </div>
+    <span className="inline-flex items-center gap-1 text-sm font-bold text-ink">
+      <FiStar className="text-amber-500" fill="currentColor" />
+      {Number(review.rating || 0).toFixed(1)} / 5
+    </span>
   );
 }
 
@@ -188,7 +177,6 @@ export default function ServiceHistory() {
       else if (!Array.isArray(serviceHistoryCache)) setLoading(true);
 
       setError("");
-
       const data = await fetchServiceHistory({ force });
       setHistory(data || []);
     } catch (err) {
@@ -238,9 +226,12 @@ export default function ServiceHistory() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-4">
-        <h2 className="min-w-0 text-2xl font-bold sm:text-3xl">
-          Service History
-        </h2>
+        <div>
+          <h2 className="text-2xl font-bold sm:text-3xl">Service History</h2>
+          <p className="mt-1 text-sm text-muted">
+            Completed bookings with downloadable detailed reports.
+          </p>
+        </div>
 
         <button
           type="button"
@@ -249,7 +240,9 @@ export default function ServiceHistory() {
           className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-white px-3.5 text-sm font-medium text-ink shadow-sm transition hover:border-ink/25 hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50"
         >
           <FiRefreshCw className={refreshing ? "animate-spin" : ""} />
-          {refreshing ? "Refreshing..." : "Refresh"}
+          <span className="hidden sm:inline">
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </span>
         </button>
       </div>
 
@@ -268,133 +261,132 @@ export default function ServiceHistory() {
       <div className="space-y-3">
         {history.map((booking) => {
           const completedDate = formatDate(
-            booking.customerAcceptedAt ||
+            booking.finalPaymentConfirmedAt ||
+              booking.customerAcceptedAt ||
               booking.updatedAt ||
               booking.createdAt,
           );
           const timingDetails = getTimingDetails(booking);
           const selfDropOff = isSelfDropOffService(booking);
+          const totalTiming = timingDetails[timingDetails.length - 1];
 
           return (
             <article
               key={booking.id}
-              className="overflow-hidden rounded-lg border border-line bg-white shadow-sm transition hover:border-ink/15 hover:shadow-md"
+              className="overflow-hidden rounded-xl border border-line bg-white shadow-sm transition hover:border-ink/15 hover:shadow-md"
             >
-              <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_240px]">
-                <div className="min-w-0 p-4 sm:p-5">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="break-words text-xs font-medium leading-snug text-muted">
-                        #{booking.bookingCode || booking.id}
-                      </div>
-
-                      <h3 className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-ink">
-                        {getServicesText(booking)}
-                      </h3>
-                    </div>
-
-                    <span className="inline-flex h-7 w-fit shrink-0 items-center rounded-md border border-green-200 bg-green-50 px-2.5 text-[11px] font-bold text-green-700">
-                      COMPLETED
-                    </span>
+              <div className="p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                      Booking #{booking.bookingCode || booking.id}
+                    </p>
+                    <h3 className="mt-1 line-clamp-2 text-lg font-bold leading-snug text-ink">
+                      {getServicesText(booking)}
+                    </h3>
+                    <p className="mt-1 line-clamp-1 text-sm text-muted">
+                      {getVehicleText(booking)} · {getGarageText(booking)}
+                    </p>
                   </div>
 
-                  <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
-                    <div className="flex min-w-0 items-center gap-2 rounded-md bg-bg-soft px-3 py-2">
-                      <FiTruck className="h-4 w-4 shrink-0 text-muted" />
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-                          Vehicle
-                        </p>
-                        <p className="truncate font-medium text-ink">
-                          {getVehicleText(booking)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex min-w-0 items-center gap-2 rounded-md bg-bg-soft px-3 py-2">
-                      <FiTool className="h-4 w-4 shrink-0 text-muted" />
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-                          Garage
-                        </p>
-                        <p className="truncate font-medium text-ink">
-                          {getGarageText(booking)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex min-w-0 items-center gap-2 rounded-md bg-bg-soft px-3 py-2">
-                      <FiStar className="h-4 w-4 shrink-0 text-muted" />
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-                          Rating
-                        </p>
-                        <RatingDisplay review={booking.review} />
-                      </div>
-                    </div>
+                  <div className="shrink-0 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-green-700">
+                      Status
+                    </p>
+                    <p className="mt-0.5 text-xs font-black text-green-800">
+                      Completed
+                    </p>
                   </div>
-
-                  <section className="mt-4 overflow-hidden rounded-lg border border-line">
-                    <div className="flex flex-col gap-1 border-b border-line bg-bg-soft px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted">
-                        <FiClock /> Service timing
-                      </p>
-                      <span className="text-xs font-semibold text-ink">
-                        {selfDropOff ? "Self drop-off" : "Pickup and delivery"}
-                      </span>
-                    </div>
-                    <div className="grid gap-px bg-line sm:grid-cols-2 xl:grid-cols-3">
-                      {timingDetails.map((item) => (
-                        <div key={item.label} className="min-w-0 bg-white p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
-                            {item.label}
-                          </p>
-                          <p className="mt-1 text-sm font-bold text-ink">
-                            {formatDuration(item.start, item.end)}
-                          </p>
-                          <p className="mt-1 break-words text-[11px] leading-4 text-muted">
-                            {formatDateTime(item.start)}
-                            {item.end ? ` → ${formatDateTime(item.end)}` : ""}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
                 </div>
 
-                <aside className="flex flex-col justify-center border-t border-line bg-bg-soft/50 p-4 sm:p-5 lg:border-l lg:border-t-0">
-                  <div className="mb-3 grid gap-2 text-sm">
-                    <div>
-                      <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
-                        <FiCalendar className="h-3.5 w-3.5" />
-                        Completed
-                      </p>
-                      <p className="mt-1 font-semibold text-ink">
-                        {completedDate}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-muted">
-                        Final amount
-                      </p>
-                      <p className="mt-1 text-lg font-bold text-ink">
-                        {getAmountText(booking)}
-                      </p>
-                    </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+                  <div className="rounded-lg border border-line bg-bg-soft/60 p-3">
+                    <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                      <FiCalendar /> Completed
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-ink">
+                      {completedDate}
+                    </p>
                   </div>
 
-                  <button
-                    type="button"
-                    className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-brand px-3.5 text-sm font-semibold text-black shadow-sm transition hover:bg-brand-dark"
-                    onClick={() => {
-                      setSuccess("");
-                      setReviewBooking(booking);
-                    }}
-                  >
-                    {booking.review ? <FiEdit3 /> : <FiStar />}
-                    {booking.review ? "Edit Review" : "Rate Garage"}
-                  </button>
-                </aside>
+                  <div className="rounded-lg border border-line bg-bg-soft/60 p-3">
+                    <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                      <FiClock /> Total time
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-ink">
+                      {formatDuration(totalTiming.start, totalTiming.end)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-line bg-bg-soft/60 p-3">
+                    <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                      <FiTool /> Final amount
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-ink">
+                      {getAmountText(booking)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-line bg-bg-soft/60 p-3">
+                    <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                      <FiStar /> Rating
+                    </p>
+                    <div className="mt-1">
+                      <RatingDisplay review={booking.review} />
+                    </div>
+                  </div>
+                </div>
+
+                <details className="group mt-4 rounded-lg border border-line bg-white">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3 text-sm font-semibold text-ink marker:hidden">
+                    <span className="inline-flex items-center gap-2">
+                      <FiClock className="text-muted" /> Detailed service timing
+                      <span className="text-xs font-medium text-muted">
+                        · {selfDropOff ? "Self drop-off" : "Pickup and delivery"}
+                      </span>
+                    </span>
+                    <FiChevronDown className="shrink-0 transition group-open:rotate-180" />
+                  </summary>
+
+                  <div className="grid gap-px border-t border-line bg-line sm:grid-cols-2 xl:grid-cols-3">
+                    {timingDetails.map((item) => (
+                      <div key={item.label} className="min-w-0 bg-white p-3">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                          {item.label}
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-ink">
+                          {formatDuration(item.start, item.end)}
+                        </p>
+                        <p className="mt-1 break-words text-[11px] leading-4 text-muted">
+                          {formatDateTime(item.start)}
+                          {item.end ? ` → ${formatDateTime(item.end)}` : ""}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              </div>
+
+              <div className="flex flex-col gap-2 border-t border-line bg-bg-soft/40 p-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => downloadServiceHistoryPdf(booking)}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-ink bg-white px-4 text-sm font-bold text-ink transition hover:bg-ink hover:text-white"
+                >
+                  <FiDownload /> Download detailed PDF
+                </button>
+
+                <button
+                  type="button"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black shadow-sm transition hover:bg-brand-dark"
+                  onClick={() => {
+                    setSuccess("");
+                    setReviewBooking(booking);
+                  }}
+                >
+                  {booking.review ? <FiEdit3 /> : <FiStar />}
+                  {booking.review ? "Edit Review" : "Rate Garage"}
+                </button>
               </div>
             </article>
           );

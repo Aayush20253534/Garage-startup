@@ -40,6 +40,15 @@ const MAX_INSPECTION_PHOTO_SIZE_BYTES = 1024 * 1024;
 const MAX_INSPECTION_VIDEO_SIZE_BYTES = MAX_BOOKING_INSPECTION_VIDEO_SIZE_BYTES;
 const INSPECTION_IMAGE_FOLDER = "project-x/bookings/inspection-images";
 const INSPECTION_VIDEO_FOLDER = "project-x/bookings/inspection-videos";
+const INSPECTION_VIDEO_EAGER_TRANSFORMATION = {
+  format: "mp4",
+  quality: "auto:good",
+  video_codec: {
+    codec: "h264",
+    profile: "baseline",
+    level: "3.1",
+  },
+};
 const GARAGE_ARRIVAL_DISTANCE_METERS = Math.max(
   100,
   Number(process.env.GARAGE_ARRIVAL_DISTANCE_METERS || 300),
@@ -421,6 +430,10 @@ const uploadInspectionMedia = async ({
       getUploadSource(video),
       INSPECTION_VIDEO_FOLDER,
       "video",
+      {
+        eager: [INSPECTION_VIDEO_EAGER_TRANSFORMATION],
+        eager_async: false,
+      },
     );
 
     await prisma.$transaction([
@@ -441,7 +454,8 @@ const uploadInspectionMedia = async ({
           garageId,
           phase,
           mediaType: "VIDEO",
-          imageUrl: uploadedVideo.secure_url,
+          imageUrl:
+            uploadedVideo.eager?.[0]?.secure_url || uploadedVideo.secure_url,
           publicId: uploadedVideo.public_id,
           order: 0,
         },

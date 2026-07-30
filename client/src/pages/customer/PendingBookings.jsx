@@ -251,14 +251,19 @@ export default function PendingBookings() {
       {/* Header Section */}
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-line pb-6">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-start gap-3">
             <h1 className="text-2xl font-bold text-ink">
               Pending Bookings
             </h1>
             {pendingCount > 0 && (
-              <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                {pendingCount} pending
-              </span>
+              <div className="min-w-[92px] rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                  Pending
+                </p>
+                <p className="mt-0.5 text-sm font-black text-amber-900">
+                  {pendingCount} {pendingCount === 1 ? "booking" : "bookings"}
+                </p>
+              </div>
             )}
           </div>
           <p className="mt-1 text-sm text-muted max-w-2xl">
@@ -316,18 +321,22 @@ export default function PendingBookings() {
                       <span className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
                         Booking #{booking.bookingCode || booking.id}
                       </span>
-                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-800 shadow-sm shadow-amber-100/60">
-                        <FiClock className="h-3.5 w-3.5" />
-                        Payment pending
-                      </span>
+                      <div className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 shadow-sm">
+                        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                          <FiClock className="h-3.5 w-3.5" /> Status
+                        </p>
+                        <p className="mt-0.5 text-xs font-black text-amber-900">
+                          Payment pending
+                        </p>
+                      </div>
                     </div>
                     <h3 className="mt-3 text-xl font-bold leading-tight text-ink">
                       {getServicesText(booking)}
                     </h3>
-                    <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                    <span className={`mt-2 inline-flex rounded-md border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
                       isSelfDropOff
-                        ? "bg-violet-100 text-violet-800"
-                        : "bg-sky-100 text-sky-800"
+                        ? "border-violet-200 bg-violet-50 text-violet-800"
+                        : "border-sky-200 bg-sky-50 text-sky-800"
                     }`}>
                       {isSelfDropOff ? "Self drop-off & pickup" : "Pickup & delivery"}
                     </span>

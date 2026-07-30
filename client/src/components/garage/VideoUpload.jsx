@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiUploadCloud, FiVideo, FiX } from "react-icons/fi";
+import { FiCheckCircle, FiUploadCloud, FiVideo, FiX } from "react-icons/fi";
 
 const MAX_VIDEO_SIZE_MB = 50;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
@@ -93,13 +93,19 @@ export default function VideoUpload({ value = null, onChange }) {
             <video
               src={preview}
               controls
+              playsInline
               preload="metadata"
               className="max-h-72 w-full bg-black object-contain"
             />
             <div className="flex items-center justify-between gap-3 bg-white px-3 py-2">
-              <p className="min-w-0 truncate text-xs font-semibold text-muted">
-                {value.name || file?.name || "Inspection video"}
-              </p>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-muted">
+                  {value.name || file?.name || "Inspection video"}
+                </p>
+                <p className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-green-700">
+                  <FiCheckCircle aria-hidden="true" /> Selected - ready to upload
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={removeVideo}
