@@ -1,6 +1,6 @@
 # WhatsApp Worker Task Assignment Template
 
-> Template contract verified against the worker-task implementation on 28 July 2026.
+> Template contract verified against the worker-task implementation on 30 July 2026.
 
 Use this template only for garages where **Controller accounts enabled** is switched off. Permanent controller notifications continue using their existing templates when controller accounts are enabled.
 
@@ -62,6 +62,8 @@ WHATSAPP_WORKER_TASK_TEMPLATE_LANGUAGE=en
 WORKER_TASK_TTL_HOURS=12
 ```
 
+When the stack runs locally in Docker, `localhost` task URLs are reachable only on the same machine and cannot be opened from a worker phone or WhatsApp provider. Use an HTTPS tunnel/staging host and set `PUBLIC_API_URL`/frontend URLs accordingly for end-to-end template tests.
+
 Allowed task TTL is 1-48 hours; the environment value is the default.
 
 ## Approval and fallback
@@ -88,7 +90,7 @@ The WhatsApp template itself is not dynamically translated. A separate Hindi Wha
 - Open task.
 - Start live tracking.
 - Reach customer.
-- Upload 5-15 images and exactly one video.
+- Upload 5-15 images and exactly one video, then wait for the persisted **Uploaded** state before leaving the task.
 - Enter customer handover OTP.
 - Keep the same link open while returning to the garage.
 - Press **Reached garage — complete task**.

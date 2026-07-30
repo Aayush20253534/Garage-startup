@@ -1,10 +1,10 @@
 # Booking Status Help
 
-> Customer-help knowledge updated on 28 July 2026.
+> Customer-help knowledge updated on 30 July 2026.
 
 ## Pending payment
 
-Your booking exists but payment has not been confirmed. Open the pending booking and continue payment. Avoid creating repeated bookings for the same service unless support confirms the previous one is unusable.
+Your booking exists but payment has not been confirmed. Open the pending booking and continue payment between 10:00 AM and 12:00 AM midnight IST. Avoid creating repeated bookings for the same service unless support confirms the previous one is unusable.
 
 ## Searching for a garage
 
@@ -24,7 +24,7 @@ The garage has submitted delivery/ready-for-pickup evidence. Check the vehicle a
 
 ## Completed
 
-You accepted the completed service. The booking appears in service history and creates a real Warranty Center card for 30 days.
+You accepted the completed service. The booking appears in compact Service History, where detailed timings can be expanded and a black-and-white PDF report can be downloaded. It also creates a real Warranty Center card for 30 days.
 
 ## Cancelled
 

@@ -1,6 +1,6 @@
 # Customer Account, Vehicles, and Warranty
 
-> Customer-help knowledge updated on 28 July 2026.
+> Customer-help knowledge updated on 30 July 2026.
 
 ## Account access
 
@@ -30,7 +30,7 @@ Changing the selected vehicle, city, or location can change service availability
 
 ## Warranty Center
 
-Open **Dashboard → Warranty Center** after a booking is completed. Each card shows the vehicle, selected services, assigned garage, activation/expiry dates, and days remaining.
+Open **Dashboard → Warranty Center** after a booking is completed. Each card shows the vehicle, selected services, assigned garage, activation/expiry dates, and days remaining. The same booking appears in Service History with expandable timing details and a downloadable black-and-white PDF report.
 
 The card is active for 30 days and then displays expired. Use the Claim button/support flow when you need help about work covered by a completed service. A warranty card does not automatically approve a refund or repair; support reviews the booking and evidence.
 

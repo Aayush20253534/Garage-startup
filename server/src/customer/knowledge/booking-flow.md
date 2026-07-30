@@ -1,6 +1,6 @@
 # Booking Flow
 
-> Customer-help knowledge updated on 28 July 2026.
+> Customer-help knowledge updated on 30 July 2026.
 
 ## Before booking
 
@@ -35,7 +35,7 @@ For self drop-off, the customer gets one live route from their current/home loca
 
 The online checkout amount is the Rovauto platform fee. The checkout summary also shows selected services, estimated ranges, wallet use where available, and the fulfilment method. Complete payment through the supported payment flow. A payment page or redirect alone does not prove payment; wait for Rovauto to confirm it.
 
-A pending payment booking may be resumed instead of creating repeated bookings.
+A pending payment booking may be resumed instead of creating repeated bookings. Payments can be started or resumed daily from 10:00 AM inclusive until 12:00 AM midnight exclusive in Indian Standard Time. Outside that window, keep the booking and retry during payment hours.
 
 ## Garage search
 
@@ -49,7 +49,7 @@ For pickup:
 
 1. Track the assigned garage worker/controller where available. Live location sharing belongs to the assigned garage or its authorised no-account worker task; the customer is not asked to share live journey location.
 2. Give the handover OTP only when the person is physically receiving your vehicle.
-3. Pickup inspection photos and one video are recorded.
+3. Pickup inspection photos and one video are recorded. A selected video is only ready to upload; the gallery shows Uploaded after it has been saved. If an uploaded video does not start immediately, retry once or use Open video while the compatible MP4 finishes processing.
 4. Follow the return-to-garage map while the vehicle travels to the assigned garage.
 5. Service starts after the garage worker reaches near the garage and confirms arrival.
 
@@ -68,7 +68,7 @@ The booking becomes in progress after handover verification. Use booking trackin
 
 ## Service completion, return delivery, and final payment
 
-After service work is complete, the garage uploads the required post-service photos and one video. Rovauto then emails/notifies the customer that service is complete.
+After service work is complete, the garage uploads the required post-service photos and one video and waits for the persisted Uploaded state. Rovauto then emails/notifies the customer that service is complete.
 
 For pickup and delivery:
 
@@ -88,6 +88,10 @@ For self drop-off, the garage marks the vehicle **Ready for customer pickup**. V
 Every completed booking with an assigned garage appears in **Dashboard → Warranty Center**. The card shows selected services, vehicle, garage, activation date, expiry date, and remaining days.
 
 A 30-day Rovauto service warranty starts after final payment confirmation/completion and then remains visible as expired. The public Warranty page is only a general design/information page and does not show your personal bookings.
+
+## Service history and report
+
+Completed bookings appear as compact Service History entries. Expand the timing section for travel, service, delivery, payment-confirmation, and total duration. Use Download PDF for a detailed black-and-white report containing the booking, customer, vehicle, garage, services, payment, evidence, rating, notes, and recorded times.
 
 ## Ratings
 

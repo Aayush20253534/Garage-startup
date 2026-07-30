@@ -1,6 +1,6 @@
 # Pricing, Payments, and Refunds
 
-> Customer-help knowledge updated on 28 July 2026.
+> Customer-help knowledge updated on 30 July 2026.
 
 ## Price ranges
 
@@ -10,7 +10,7 @@ When no approved range exists, checkout should be blocked rather than showing a 
 
 ## Payment
 
-Use the payment page opened from Rovauto. Payment is confirmed only after the backend verifies the provider order/status. Do not pay again only because a browser redirect was slow; reopen the pending booking or contact support first.
+Use the payment page opened from Rovauto between 10:00 AM and 12:00 AM midnight IST. Payment is confirmed only after the backend verifies the provider order/status. Outside payment hours, keep the pending booking and return after 10:00 AM. Do not pay again only because a browser redirect was slow; reopen the pending booking or contact support first.
 
 ## Wallet
 

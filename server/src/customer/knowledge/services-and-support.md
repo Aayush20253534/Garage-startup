@@ -1,6 +1,6 @@
 # Services, Tracking, Warranty, and Support
 
-> Customer-help knowledge updated on 28 July 2026.
+> Customer-help knowledge updated on 30 July 2026.
 
 ## Service availability
 
@@ -12,11 +12,15 @@ Rovauto searches garages that can fulfil every selected service for your vehicle
 
 ## Inspection photos and video
 
-Pickup and delivery evidence protects both customer and garage. The current flow requires several clear photos and one video. Review evidence from your booking where available and report mismatches before accepting completion.
+Pickup and delivery evidence protects both customer and garage. The current flow requires 5-15 clear photos and exactly one video. Wait for the Uploaded label before leaving the page. Uploaded videos use a compatible MP4 path; Retry or Open video is available if inline playback is still processing. Review evidence and report mismatches before accepting completion.
 
 ## Live tracking
 
 The map can show the latest garage/controller/worker location for supported pickup/delivery stages. Check the last-update time. Browser tracking can pause if the worker closes the page, loses permission, network, or battery.
+
+## Service history
+
+Completed bookings have a compact history summary. Expand details to see each recorded stage and use Download PDF for a black-and-white detailed report.
 
 ## Warranty
 

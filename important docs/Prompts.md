@@ -1,6 +1,6 @@
 # Rovauto Engineering Prompts
 
-> Prompt library synchronized with the codebase on 28 July 2026.
+> Prompt library synchronized with the codebase on 30 July 2026.
 
 These prompts are templates for code assistants. Always attach the latest complete codebase or state the exact base commit/patch. Require evidence for every claim.
 
@@ -19,7 +19,10 @@ Important current behaviour:
 - Garage service scopes use vehicleBrand/vehicleModel with ALL support and explicit exclusions.
 - controllerAccountsEnabled=true uses permanent controllers.
 - controllerAccountsEnabled=false uses secure WhatsApp worker-task links.
-- Worker tasks are HANDOVER or DELIVERY, token-scoped, expiring, and require 5-15 images plus exactly one video.
+- Worker tasks are HANDOVER or DELIVERY, token-scoped, expiring, and require 5-15 images plus exactly one video. New uploads must remain browser-compatible H.264 MP4, distinguish selected from uploaded state, and retain playback retry/direct-open fallbacks.
+- Customer payment actions are allowed only from 10:00 AM inclusive until 12:00 AM midnight exclusive in Asia/Kolkata; keep frontend and backend checks aligned.
+- Service History is compact and exports a detailed black-and-white A4 PDF locally. Pending status UI uses rectangular corner cards, not oversized capsules.
+- Local Docker uses PostGIS 16, Redis 7, the backend migration entrypoint, and Nginx same-origin API proxying.
 - Public /warranty is a mock design page; customer /dashboard/warranty is real and protected.
 - Customer warranties are derived from completed bookings for 30 days; there is no Warranty table.
 - System Health combines System Issues and Integration Health for ADMIN, SUB_ADMIN, and INTERN.
@@ -239,7 +242,35 @@ Check whether it applies cleanly, touches unintended files, weakens authorizatio
 Provide blocking findings first and include exact hunks/files.
 ```
 
-## 16. Required handoff format
+## 16. Docker/Compose change
+
+```text
+Inspect the Prisma migrations before selecting a database image. Rovauto requires PostgreSQL with PostGIS.
+
+For every Docker change:
+1. Keep secrets out of image layers and client build arguments.
+2. Preserve named database/Redis volumes.
+3. Keep backend migration retries and Prisma client verification.
+4. Preserve the Nginx /api/ proxy, five SPA shell fallbacks, upload limit, and health checks.
+5. Validate `docker compose config` and document first-run, logs, rebuild, stop, and destructive reset commands.
+6. Update README.md, client/README.md, server/README.md, Architecture.md, security.md, error handling.md, and RECOVERY_RUNBOOK.md.
+```
+
+## 17. Commit and pull-request convention
+
+```text
+Choose exactly one prefix:
+- feat: a new or materially expanded user-facing capability
+- fix: correction of broken or incorrect behaviour
+- update: configuration, documentation, dependency, or existing implementation revision
+- temp: temporary diagnostic/testing change that must be removed or explicitly justified
+
+Write the remainder in imperative, specific language. Mention the affected flow and the important invariant, not only the filename.
+Example:
+feat: add compatible inspection video playback, compact service history PDF exports, and structured pending-payment status cards
+```
+
+## 18. Required handoff format
 
 Every code handoff should include:
 

@@ -1,6 +1,6 @@
 # Rovauto Error Handling and Resilience
 
-> Error policy synchronized with the codebase on 28 July 2026.
+> Error policy synchronized with the codebase on 30 July 2026.
 
 ## 1. Goals
 
@@ -88,7 +88,7 @@ Every page should implement loading, empty, retry, permission-denied, and offlin
 | --- | --- | --- |
 | Authentication | wrong password, expired session, 2FA email failure | `401` for credentials/session; provider failure translated without exposing provider secret |
 | Pricing | no approved range | `409`/domain error; block checkout |
-| Payment | order mismatch, failed verification, provider timeout | preserve pending state, allow safe recovery, never mark paid from redirect alone |
+| Payment | order mismatch, failed verification, provider timeout, or `SERVICE_HOURS_CLOSED` | preserve pending state, allow safe recovery, never mark paid from redirect alone; outside 10:00 AM-12:00 AM IST return the shared payment-hours message |
 | Dispatch | no eligible garage, stale capability | continue/expire search; reject stale acceptance |
 | Handover | wrong/expired OTP, missing media | bounded attempts; no state transition |
 | Worker task | invalid token, expired, revoked, wrong stage, controllers enabled | `404`, `410`, or `409` as appropriate |
@@ -146,11 +146,21 @@ Task creation and link delivery are separate outcomes. If WhatsApp fails:
 
 ### Media
 
+- A file selected in the browser is not yet uploaded; show “ready to upload” until persistence succeeds.
+- New videos request eager H.264 MP4 transformation. Playback tries the compatible URL first and preserves the original source as fallback.
+- When inline playback fails, expose Retry and Open video actions instead of leaving an inert black player.
+- Cloudinary processing can be eventually consistent; a first playback failure is recoverable and must not delete the database record.
+- The 55 MB Nginx body limit stays above the 50 MB application video limit so the application can return its own validation response.
+
+
 - Enforce 5-15 images, one video, MIME/type/size limits.
 - Clean temporary files after success or failure.
 - Preserve task/booking state when provider upload fails part-way.
 
-## 11. Warranty behaviour
+## 11. Service-history PDF and warranty behaviour
+
+PDF export is generated in the authenticated browser from the currently loaded booking. A generation failure should show a local retryable error and must not mutate booking state. The report intentionally uses built-in PDF generation, ASCII-safe text, black/white output, pagination, and no remote font or rendering dependency.
+
 
 Warranty calculation is a read projection. Errors reading completed bookings return a normal server error with request ID. An empty list is valid. The frontend recalculates remaining days from `expiresAt`; it must not write daily countdown values back to the database.
 
@@ -169,7 +179,13 @@ Warranty calculation is a read projection. Errors reading completed bookings ret
 | Web Push | notification may continue through other channels |
 | Groq | chatbot uses local retrieval/fallback response path |
 
-## 13. Background errors
+## 13. Container startup and background errors
+
+- Compose waits for PostGIS and Redis health before starting the backend.
+- `docker-entrypoint.sh` retries `prisma migrate deploy` for configured attempts and exits non-zero instead of starting against an unknown schema.
+- The database image must provide PostGIS; a plain PostgreSQL image causes the geospatial extension migration to fail and is a configuration error, not a retryable application incident.
+- Frontend starts only after backend readiness. Use `docker compose logs -f backend` to distinguish migration, schema-client, provider-configuration, and runtime failures.
+
 
 Background jobs must:
 

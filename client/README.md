@@ -1,6 +1,6 @@
 # Rovauto Web Client
 
-> Frontend reference verified against the repository on 28 July 2026.
+> Frontend reference verified against the repository on 30 July 2026.
 
 The web client is one React/Vite application serving public visitors, customers, garage owners, garage controllers, no-account workers, administrators, interns, and customer-support agents. Role-specific HTML/PWA shells boot the same route tree from `src/main.jsx` and `src/App.jsx`.
 
@@ -25,7 +25,7 @@ Deployment rewrites must send each path family to its matching HTML document. Ro
 - Profile, avatar, saved locations, vehicle management, default vehicle, and vehicle model photos.
 - City/category/service restrictions and approved vehicle-aware price ranges.
 - Checkout with pickup/self-drop selection, wallet contribution, Cashfree, pending-payment recovery, and progressive garage search.
-- Pickup handover OTP, pickup/return/delivery tracking, one-time customer-to-garage self-drop tracking, 5-15 image plus one-video inspection evidence, final-payment confirmation, detailed service timings, reviews, complaints, tickets, and notifications.
+- Pickup handover OTP, pickup/return/delivery tracking, one-time customer-to-garage self-drop tracking, 5-15 image plus one-video inspection evidence, explicit selected/uploaded media states, browser-compatible video playback, final-payment confirmation, compact service history with expandable timings and detailed PDF export, reviews, complaints, tickets, and notifications.
 - Protected customer Warranty Center at `/dashboard/warranty`, derived from completed bookings with a live 30-day countdown.
 - Customer chatbot backed by repository Markdown knowledge.
 
@@ -67,6 +67,11 @@ Relevant recent pages/components:
 - `pages/admin/SystemIssues.jsx`
 - `components/garage/WorkerTaskManager.jsx`
 - `components/booking/InspectionGallery.jsx`
+- `components/garage/VideoUpload.jsx`
+- `pages/customer/PendingBookings.jsx`
+- `pages/customer/ServiceHistory.jsx`
+- `utils/cloudinaryVideo.js`
+- `utils/serviceHistoryPdf.js`
 
 ## API client rules
 
@@ -92,6 +97,7 @@ The public worker-task wrapper in `src/api/workerTasks.js` sends the secure toke
 ## Booking and warranty states
 
 - Missing approved pricing blocks checkout.
+- Payment creation/recovery is available from 10:00 AM inclusive to 12:00 AM midnight exclusive in `Asia/Kolkata`; `src/utils/serviceHours.js` provides the immediate UI guard while the server enforces the same boundary.
 - `PENDING_PAYMENT` can resume payment.
 - Successful payment moves a normal booking into garage search.
 - Garage acceptance normally writes `CONFIRMED`; `GARAGE_ASSIGNED` is compatibility state.
@@ -108,7 +114,9 @@ The public worker-task wrapper in `src/api/workerTasks.js` sends the secure toke
 - Worker-task links are available only when `controllerAccountsEnabled` is false.
 - Pickup tasks can track from the garage/worker to the customer and then back to the garage after handover.
 - Self-drop customers share one live route to the garage; garage/worker task pages observe that route and confirm arrival with before-service evidence, without OTP. No return or delivery route is opened for self-drop.
-- Evidence requires 5-15 images, each at most 1 MB, plus exactly one video at most 50 MB.
+- Evidence requires 5-15 images, each at most 1 MB, plus exactly one video at most 50 MB. The picker shows “Selected - ready to upload”; persisted media shows “Uploaded”. Cloudinary URLs are normalised to an H.264 MP4 delivery URL, with the original URL retained as a fallback.
+- Service History keeps summary cards minimal. Full timing, payment, customer, vehicle, garage, service, evidence, rating, and note data is available in a black-and-white A4 PDF generated locally without a new server endpoint or npm dependency.
+- Pending count and payment state are presented as compact rectangular corner cards, not large capsule badges.
 - Hindi voice is implemented with browser `speechSynthesis`; unsupported browsers show a clear error rather than silently failing.
 
 ## Environment
@@ -117,19 +125,31 @@ All `VITE_*` values are public build-time configuration.
 
 | Variable | Purpose |
 | --- | --- |
-| `VITE_API_URL` | API root ending in `/api/v1` |
-| `VITE_API_FALLBACK_URL` | Optional fallback API root |
-| `VITE_USE_RELATIVE_API` | Prefer same-origin `/api/v1` |
-| `VITE_API_TIMEOUT_MS` | Axios timeout |
-| `VITE_API_NETWORK_RETRIES` | Safe network retry count |
-| `VITE_API_RETRY_DELAY_MS` | Retry delay |
-| `VITE_APP_VERSION` | Client release identifier |
-| `VITE_ERROR_REPORTING_ENABLED` | Frontend issue reporting toggle |
-| `VITE_FIREBASE_*` | Public Firebase web settings |
-| `VITE_GOOGLE_MAPS_BROWSER_KEY` | Browser Maps key, restricted by referrer/API |
-| `VITE_GOOGLE_MAPS_MAP_ID` | Optional map style ID |
+| `VITE_API_URL` | API root ending in `/api/v1`; manual local default is `http://localhost:5000/api/v1` |
+| `VITE_API_FALLBACK_URL` | Optional production fallback API root; omit locally |
+| `VITE_USE_RELATIVE_API` | Prefer same-origin `/api/v1`; Docker defaults this to `true` |
+| `VITE_API_TIMEOUT_MS` | Optional Axios timeout override; code default is 45000 ms |
+| `VITE_API_NETWORK_RETRIES` | Optional safe network retry override; code default is 1 |
+| `VITE_API_RETRY_DELAY_MS` | Optional retry delay override; code default is 900 ms |
+| `VITE_APP_VERSION` | Optional client release identifier |
+| `VITE_ERROR_REPORTING_ENABLED` | Frontend issue reporting toggle; keep `false` locally |
+| `VITE_FIREBASE_*` | Public Firebase web settings needed only for Google sign-in |
+
+Google Maps configuration is intentionally server-owned. The client calls `GET /api/v1/maps/config`, which returns the permitted browser key and optional Map ID from `GOOGLE_MAPS_BROWSER_KEY` and `GOOGLE_MAPS_MAP_ID` in `server/.env`.
 
 Never expose provider secret keys, database URLs, JWT secrets, private Firebase credentials, WhatsApp tokens, or VAPID private keys.
+
+## Docker image and Nginx
+
+`client/Dockerfile` performs a Vite production build with Node 22 and serves `dist/` from Nginx. `client/nginx.conf`:
+
+- proxies `/api/` to `backend:5000` without rewriting the API path;
+- serves the correct HTML fallback for public/customer, garage, admin, intern, and support routes;
+- prevents stale HTML/service-worker caching while caching hashed assets immutably;
+- allows request bodies up to 55 MB for inspection-video uploads; and
+- exposes an HTTP health check on port 80.
+
+Build-time Firebase values may be passed through Compose variables. Never pass secret provider credentials as `VITE_*` build arguments.
 
 ## Commands and validation
 

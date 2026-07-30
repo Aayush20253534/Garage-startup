@@ -1,6 +1,6 @@
 # Rovauto Delivery Phases
 
-> Roadmap synchronized with the repository on 28 July 2026. The planned launch date referenced by the team is 1 August 2026.
+> Roadmap synchronized with the repository on 30 July 2026. The planned launch date referenced by the team is 1 August 2026.
 
 ## Guiding principles
 
@@ -12,6 +12,8 @@
 
 ## Phase 0 — Implemented baseline
 
+Status verified on 30 July 2026.
+
 Current code includes:
 
 - Public/customer, garage, controller, admin, intern, and support web portals.
@@ -19,7 +21,10 @@ Current code includes:
 - Garage applications, profiles, service/vehicle scopes, media, wallet, dispatch, controllers, and operational controls.
 - Pickup and self-drop fulfilment with garage eligibility enforcement.
 - Controller enable/disable setting and no-account WhatsApp worker tasks.
-- Pickup/return/delivery worker tracking, one-time customer-originated self-drop tracking, Hindi/English worker instructions, browser voice, pickup handover OTP, and structured inspection image/video evidence.
+- Pickup/return/delivery worker tracking, one-time customer-originated self-drop tracking, Hindi/English worker instructions, browser voice, pickup handover OTP, and structured inspection evidence with one browser-compatible H.264 MP4 video per phase, selected/uploaded state, and playback fallbacks.
+- Compact service history, expandable detailed timings, and black-and-white A4 PDF export.
+- Rectangular pending-booking and payment-state cards.
+- Full local Docker Compose stack with PostGIS, Redis, backend migration retries, and Nginx frontend proxying.
 - Vehicle model catalogue photos shown in customer My Vehicles.
 - Combined System Health for admin, sub-admin, and intern.
 - Customer real Warranty Center derived from completed bookings with a 30-day countdown.
@@ -39,9 +44,16 @@ Current code includes:
 
 ### Engineering
 
-- Apply all production migrations through `20260728090000_add_garage_worker_task_mode`.
+- Run `docker compose config` and a clean `docker compose up -d --build` smoke test on a machine with Docker Desktop.
+- Confirm the PostGIS migration succeeds against an empty Compose volume and against the retained local PostgreSQL 16 volume after switching from the plain Postgres image.
+- Verify the backend becomes healthy before Nginx starts, `/api/v1` works through port 8080, and all five route shells survive a hard refresh.
+- Test payment boundaries at 09:59, 10:00, 23:59, and 00:00 IST.
+- Upload a real phone video, wait for Cloudinary processing, confirm inline playback/retry/open behaviour, and verify “Uploaded” appears only after persistence.
+- Download a service-history PDF and review every section in black and white on mobile and desktop.
+
+- Apply all production migrations through `20260729103000_add_pseudo_average_rating`.
 - Build all frontend shells and test direct URL refresh.
-- Run the 70 security/regression tests.
+- Run all 74 security/regression test files (275 current `test(...)` cases).
 - Validate Cashfree, Resend, Cloudinary, WhatsApp, Maps, Firebase, Web Push, Redis, and PostgreSQL in System Health.
 - Test one end-to-end pickup booking and one end-to-end self-drop booking.
 - Test both controller-enabled and controller-disabled garages.
@@ -60,7 +72,7 @@ Current code includes:
 
 - No unresolved critical security or payment blocker.
 - Readiness is green and System Health has no unexplained outage.
-- Successful staging smoke flow for platform-fee payment → dispatch → pickup → return-to-garage tracking → service evidence → delivery tracking → Cash/UPI submission → garage confirmation → warranty.
+- Successful staging smoke flow for Docker/PostGIS startup → valid-hours platform-fee payment → dispatch → pickup → return-to-garage tracking → compatible video evidence → delivery tracking → Cash/UPI submission → garage confirmation → compact history/PDF → warranty.
 - Every launch garage has verified operational configuration and contact details.
 - Rollback and incident contacts are written and available.
 

@@ -1,6 +1,6 @@
 # Rovauto
 
-> Repository documentation verified against the codebase on 28 July 2026.
+> Repository documentation verified against the codebase on 30 July 2026.
 
 Rovauto is a multi-surface vehicle-service marketplace for customers, garage owners, garage controllers, no-account garage workers, customer-support agents, interns, sub-admins, and main administrators. The system combines city- and vehicle-aware service discovery, Cashfree payments, progressive garage dispatch, garage wallet fees, pickup/self-drop fulfilment, live tracking, inspection evidence, operational health monitoring, and customer support.
 
@@ -9,7 +9,7 @@ Rovauto is a multi-surface vehicle-service marketplace for customers, garage own
 | Surface | Current capabilities |
 | --- | --- |
 | Public | Marketing pages, service catalogue, supported cities, garage discovery, public warranty mock page, contact, legal pages, garage-partner application, and the public worker-task route |
-| Customer | Authentication, onboarding, saved locations, vehicles with model photos, service selection, pickup/self-drop choice, wallet/Cashfree platform-fee payment, garage search, pickup handover OTP, pickup/return/delivery tracking, one-time self-drop customer-to-garage tracking, inspection media, Cash/UPI final-payment submission, real 30-day warranty cards, detailed service timings, history, reviews, complaints, tickets, notifications, SOS, and chatbot |
+| Customer | Authentication, onboarding, saved locations, vehicles with model photos, service selection, pickup/self-drop choice, wallet/Cashfree platform-fee payment, garage search, pickup handover OTP, pickup/return/delivery tracking, one-time self-drop customer-to-garage tracking, inspection media with browser-compatible video playback, Cash/UPI final-payment submission, real 30-day warranty cards, compact service history with detailed black-and-white PDF export, reviews, complaints, tickets, notifications, SOS, and chatbot |
 | Garage owner | Garage profile and media, services and vehicle scopes, booking requests, wallet, controller management when enabled, no-account worker task assignment when controllers are disabled, pickup/return/delivery tracking, inspection media, and final-payment confirmation |
 | Garage controller | Garage-scoped login, availability, assigned bookings, limited customer data, booking handling, tracking, evidence, and history |
 | No-account worker | Secure booking-specific WhatsApp task link, Hindi/English instructions, browser voice guidance, pickup/return/delivery tracking, pickup handover OTP, self-drop arrival evidence without OTP, required photo/video evidence, customer-arrival confirmation, and payment-receipt confirmation without a Rovauto account |
@@ -43,7 +43,9 @@ PostgreSQL is the source of truth. Redis is used for cache, rate limits, and ope
 - `controllerAccountsEnabled=true` keeps the existing controller workflow.
 - `controllerAccountsEnabled=false` revokes controller sessions and enables secure WhatsApp worker-task links.
 - Worker links are booking- and stage-specific, expire automatically, and never expose wallet, payment, or unrelated customer data.
-- Inspection evidence requires 5-15 images and exactly one video for each pickup/delivery phase.
+- Inspection evidence requires 5-15 images and exactly one video for each pickup/delivery phase. New videos are uploaded as browser-compatible H.264 MP4 assets; the UI distinguishes selected files from successfully uploaded evidence and provides retry/direct-open playback fallbacks.
+- Customer payment actions are accepted daily from 10:00 AM inclusive until 12:00 AM midnight exclusive in `Asia/Kolkata`; both client and server enforce the same rule, and the server remains authoritative.
+- Pending-booking counts and payment state use compact corner cards rather than oversized capsules. Completed bookings use a minimal history layout with expandable timings and a detailed black-and-white A4 PDF generated in the browser.
 - Vehicle model photos are managed in Admin Cars and shown on customer vehicle cards when a brand/model match exists.
 - A shared elapsed timer starts at garage acceptance; final Cash/UPI details remain pending until garage confirmation completes the booking.
 - Customer warranty cards appear for completed bookings for 30 days, then remain visible as expired.
@@ -65,7 +67,7 @@ PostgreSQL is the source of truth. Redis is used for cache, rate limits, and ope
 - HttpOnly browser sessions backed by revocable database session records
 - Argon2 passwords, staff two-factor challenges, OTP attempt controls, CSRF, CORS, Helmet, rate limits, and request correlation IDs
 - Cashfree, Cloudinary, Firebase Admin, Google Maps, Groq, Resend, WhatsApp Cloud API, web push, and optional SMS providers
-- 70 Node security/regression tests under `server/test/security`
+- 74 Node security/regression test files under `server/test/security` (275 current `test(...)` cases)
 
 ### Mobile
 
@@ -80,7 +82,7 @@ PostgreSQL is the source of truth. Redis is used for cache, rate limits, and ope
 |-- server/                         Express API, Prisma schema, migrations, tests, scripts
 |-- mobile/apps/customer/           Expo customer application
 |-- important docs/                 Canonical architecture and operational documentation
-|-- docker-compose.yml              Optional container composition
+|-- docker-compose.yml              Recommended local full-stack composition
 |-- firebase.json                   Firebase hosting configuration
 `-- README.md                       Full-stack entry point
 ```
@@ -99,15 +101,45 @@ Canonical documentation:
 
 ## Prerequisites
 
-- Node.js 22 or newer
-- npm 10 or newer
-- PostgreSQL with PostGIS
-- Redis for production-equivalent operation
+Choose either Docker Desktop/Compose or the manual Node setup.
+
+- Docker Desktop with Docker Compose v2 for the recommended local stack
+- Node.js 22 or newer and npm 10 or newer for manual development
+- PostgreSQL 16 with PostGIS when the database is not run through Compose
+- Redis for production-equivalent manual operation
 - Provider credentials only for integrations being exercised
 
 ## Local development
 
-### Server
+### Docker Compose — recommended
+
+From the repository root:
+
+```powershell
+Copy-Item .\server\.env.example .\server\.env   # first run only
+# Edit server/.env when testing optional integrations or seed credentials.
+
+docker compose config
+docker compose up -d --build
+docker compose ps
+```
+
+Open `http://localhost:8080`. The API is also published at `http://localhost:5000`, while browser requests normally use the same-origin Nginx proxy at `/api/v1`.
+
+```powershell
+# Follow startup, migration, and application logs
+docker compose logs -f backend
+
+# Seed the optional local admin after the stack is healthy
+docker compose exec backend npm run seed:admin
+
+# Stop without deleting PostgreSQL/Redis data
+docker compose down
+```
+
+Compose runs `postgis/postgis:16-3.5-alpine`, Redis 7, the Node backend, and the Nginx-served production client. The backend entrypoint retries `prisma migrate deploy`, verifies the generated Prisma client, and then starts the API. Do not run `docker compose down -v` unless you intentionally want to erase the local database and Redis volumes.
+
+### Manual server
 
 ```bash
 cd server
@@ -148,15 +180,14 @@ Typical local configuration:
 
 ```env
 VITE_API_URL=http://localhost:5000/api/v1
+VITE_ERROR_REPORTING_ENABLED=false
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_APP_ID=
-VITE_GOOGLE_MAPS_BROWSER_KEY=
-VITE_GOOGLE_MAPS_MAP_ID=
 ```
 
-Open `http://127.0.0.1:8080`.
+Google Maps browser configuration is fetched from `GET /api/v1/maps/config`; keep `GOOGLE_MAPS_BROWSER_KEY` and `GOOGLE_MAPS_MAP_ID` in `server/.env`, not in the client file. Open `http://127.0.0.1:8080`.
 
 ### Mobile customer app
 
@@ -226,13 +257,14 @@ npm run build
 git diff --check
 ```
 
-When a migration exists, apply `npm run prisma:deploy` before starting application code that depends on it. The current latest migration is `20260728090000_add_garage_worker_task_mode`.
+When a migration exists, apply `npm run prisma:deploy` before starting application code that depends on it. The current latest migration is `20260729103000_add_pseudo_average_rating`; 52 migration directories are checked in.
 
 ## Deployment notes
 
 - The frontend currently uses path-based portals such as `/admin`, `/intern`, `/garage`, `/support`, and `/dashboard`; they are not separate subdomains.
 - `rovauto.com` and `www.rovauto.com` belong to the frontend deployment. `api.rovauto.com` belongs to the backend/reverse proxy.
-- Preserve all five HTML/PWA shell rewrites when changing hosting providers.
+- Preserve all five HTML/PWA shell rewrites when changing hosting providers. The included Nginx configuration already routes `/admin`, `/intern`, `/garage`, `/support`, and public/customer paths to the correct documents.
+- The local Compose database must be PostGIS-enabled because checked-in migrations create the `postgis` extension and geospatial indexes.
 - Never place secrets in `VITE_*` or `EXPO_PUBLIC_*` variables.
 - Cashfree and WhatsApp webhooks bypass browser CSRF but require provider signature verification.
 - Browser live tracking depends on HTTPS, location permission, and the worker keeping the task page active. A future native worker app is the stronger background-tracking option.
@@ -250,3 +282,17 @@ Update documentation in the same patch as behaviour changes:
 | Product delivery and scale milestones | `important docs/Phases.md` |
 | Garage operations and dispatch | `important docs/garage-partner-flow.md` |
 | Customer chatbot answers | `server/src/customer/knowledge/*.md` |
+| Docker images, Compose, proxying, and local startup | root `README.md`, `client/README.md`, and `server/README.md` |
+
+## Commit message convention
+
+Use one descriptive commit per coherent change:
+
+```text
+feat: add or materially extend a user-facing capability
+fix: correct broken or incorrect behaviour
+update: revise configuration, documentation, dependencies, or an existing implementation
+temp: temporary diagnostic or test-only change
+```
+
+Do not keep `temp:` changes in a production pull request unless the temporary nature is intentional and documented.

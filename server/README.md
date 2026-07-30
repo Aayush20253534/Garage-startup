@@ -1,6 +1,6 @@
 # Rovauto Server
 
-> Backend reference verified against the repository on 28 July 2026.
+> Backend reference verified against the repository on 30 July 2026.
 
 The server is a Node.js 22+/Express 5 API backed by PostgreSQL/PostGIS through Prisma 7 and by Redis for cache, rate limits, and operational coordination. It owns authentication, authorization, bookings, payments, garage dispatch, tracking, evidence, worker-task links, customer warranty projections, support, integrations, and background jobs.
 
@@ -25,7 +25,7 @@ src/
 
 ## Startup and background work
 
-Production startup generates/checks the Prisma client before launching `src/server.js`. Critical configuration is validated before normal traffic. In-process jobs currently include garage search, garage-application email outbox processing, session cleanup, issue auto-resolution, and scheduled operational work.
+Production startup generates/checks the Prisma client before launching `src/server.js`. The Docker entrypoint instead runs `prisma migrate deploy` with bounded retries, checks the generated client, and then executes `src/server.js` as the non-root `node` user. Critical configuration is validated before normal traffic. In-process jobs currently include garage search, garage-application email outbox processing, session cleanup, issue auto-resolution, and scheduled operational work.
 
 Because workers share the web process, deployment with multiple replicas must preserve idempotency and distributed claiming. Redis is not a durable job queue.
 
@@ -59,16 +59,17 @@ The public worker-task endpoints are rate-limited and token-scoped. Manager endp
 
 1. Customer selects city, vehicle, services, and fulfilment type.
 2. The server validates service restrictions and approved price ranges.
-3. Payment/wallet reconciliation creates or confirms the booking.
-4. Progressive garage search checks distance, operational status, fulfilment, brand/model/service scopes, exclusions, and availability.
-5. A compatible garage accepts atomically and pays the garage acceptance fee.
-6. With controller accounts enabled, existing controller dispatch/assignment runs.
-7. With controller accounts disabled, the owner/admin can create a WhatsApp worker task for `HANDOVER` or `DELIVERY`.
-8. Pickup uses handover OTP plus 5-15 images and one video before switching to return-to-garage tracking. Self-drop instead lets the authenticated customer share `SELF_DROP_TO_GARAGE`; garage arrival is confirmed with the same before-service evidence and no OTP.
-9. Garage arrival is confirmed, service is completed, and post-service evidence starts return delivery plus customer email/notification.
-10. The garage/controller/worker shares the delivery route and confirms arrival near the customer.
-11. The customer submits Cash or UPI plus the amount paid; the booking remains pending until the garage confirms receipt.
-12. Payment confirmation atomically completes the booking, stops the timer, releases the controller, and activates the 30-day Warranty Center card.
+3. The server enforces the daily payment window from 10:00 AM inclusive until 12:00 AM midnight exclusive in `Asia/Kolkata`.
+4. Payment/wallet reconciliation creates or confirms the booking.
+5. Progressive garage search checks distance, operational status, fulfilment, brand/model/service scopes, exclusions, and availability.
+6. A compatible garage accepts atomically and pays the garage acceptance fee.
+7. With controller accounts enabled, existing controller dispatch/assignment runs.
+8. With controller accounts disabled, the owner/admin can create a WhatsApp worker task for `HANDOVER` or `DELIVERY`.
+9. Pickup uses handover OTP plus 5-15 images and one video before switching to return-to-garage tracking. Self-drop instead lets the authenticated customer share `SELF_DROP_TO_GARAGE`; garage arrival is confirmed with the same before-service evidence and no OTP.
+10. Garage arrival is confirmed, service is completed, and post-service evidence starts return delivery plus customer email/notification.
+11. The garage/controller/worker shares the delivery route and confirms arrival near the customer.
+12. The customer submits Cash or UPI plus the amount paid; the booking remains pending until the garage confirms receipt.
+13. Payment confirmation atomically completes the booking, stops the timer, releases the controller, and activates the 30-day Warranty Center card.
 
 ## Garage capability rules
 
@@ -94,7 +95,7 @@ Worker links are enabled only when `Garage.controllerAccountsEnabled` is false.
 - Public responses hide the customer phone and financial data.
 - Self-drop has one customer-originated `SELF_DROP_TO_GARAGE` journey. Garage/controller/worker may view it, but only the booking customer can publish those points; no second self-drop route is created.
 - Browser tracking points are linked through `workerTaskId` and partitioned into pickup-to-customer, return-to-garage, and delivery-to-customer phases.
-- The worker delivery task can submit service evidence, confirm arrival near the customer, and confirm a pending final payment.
+- The worker delivery task can submit service evidence, confirm arrival near the customer, and confirm a pending final payment. New inspection videos are uploaded with an eager H.264 MP4 transformation; the browser also derives a compatible URL for historical assets.
 
 ## Customer warranties
 
@@ -108,7 +109,7 @@ There is no `Warranty` database model. `GET /api/v1/warranties` queries the auth
 - active/expired status
 - remaining days
 
-Activation prefers `finalPaymentConfirmedAt`, then `customerAcceptedAt`, then `deliveredAt`, then `updatedAt`. Duration is 30 days.
+Activation prefers `customerAcceptedAt`, then `deliveredAt`, then `updatedAt`. Completion currently sets `customerAcceptedAt` during final payment confirmation. Duration is 30 days.
 
 ## Environment families
 
@@ -129,7 +130,7 @@ Activation prefers `finalPaymentConfirmedAt`, then `customerAcceptedAt`, then `d
 | Integration Health | check cache/timeout overrides where configured |
 | Recovery | backup directory, recovery database, deployment smoke variables |
 
-Do not commit `.env`. `VITE_*` and `EXPO_PUBLIC_*` are client-visible and are not server secret storage.
+Do not commit `.env`. `VITE_*` and `EXPO_PUBLIC_*` are client-visible and are not server secret storage. Maps browser values stay in `server/.env` and are projected through `/api/v1/maps/config`. Service-history PDFs are generated client-side and need no server environment variable or database model.
 
 ## Commands
 
@@ -160,10 +161,22 @@ npm run db:recovery-drill
 npm run deploy:smoke
 ```
 
-The current schema contains 48 checked-in migrations. The latest migration adds garage worker-task mode:
+Docker from the repository root:
+
+```powershell
+docker compose up -d --build
+docker compose ps
+docker compose logs -f backend
+docker compose exec backend npm run seed:admin
+docker compose down
+```
+
+The Compose database is `postgis/postgis:16-3.5-alpine`; this is required by the geospatial migration history.
+
+The current schema contains 52 checked-in migration directories. The latest migration is:
 
 ```text
-20260728090000_add_garage_worker_task_mode
+20260729103000_add_pseudo_average_rating
 ```
 
 ## Security and API conventions
@@ -180,12 +193,13 @@ The current schema contains 48 checked-in migrations. The latest migration adds 
 
 ## Tests
 
-`npm test` runs 70 security/regression files. Recent coverage includes:
+`npm test` currently runs 74 security/regression test files containing 275 `test(...)` cases. Recent coverage includes:
 
 - Garage controller enable/disable behaviour
 - Worker task token hashing, access, lifecycle, evidence, and tracking
 - Fulfilment and vehicle/service eligibility
-- Inspection image/video requirements
+- Inspection image/video count, type, size, and lifecycle requirements
+- Fulfilment, tracking, payment, warranty, and other security/regression contracts
 - Vehicle model photos
 - System Health access and provider probes
 - Customer warranty derivation
@@ -196,6 +210,7 @@ The suite is focused source/regression coverage, not complete integration or E2E
 
 - Background work runs in the API process.
 - Redis is required by production readiness/configuration.
+- PostgreSQL must have PostGIS available; the geospatial migration cannot run against a plain PostgreSQL image without extension packages.
 - There is no external durable job queue.
 - Browser live tracking may pause when the worker closes/backgrounds the page.
 - `seed:intern`, `seed:staff`, and `seed:all` depend on the presence and correctness of `src/seed/seedIntern.js`; verify before use.

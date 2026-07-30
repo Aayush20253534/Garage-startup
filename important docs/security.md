@@ -1,6 +1,6 @@
 # Rovauto Security Design
 
-> Security reference synchronized with the codebase on 28 July 2026.
+> Security reference synchronized with the codebase on 30 July 2026.
 
 ## 1. Objectives
 
@@ -93,7 +93,8 @@ Backend service ownership is authoritative; UI visibility is not security.
 - Services normalise phone, scopes, enums, TTL, and state.
 - JSON/urlencoded body limits are configured.
 - Upload middleware enforces MIME, file count, and size.
-- Worker evidence allows 5-15 images and one video, with server lifecycle checks.
+- Worker evidence allows 5-15 images and exactly one video up to 50 MB, with server lifecycle checks. Nginx permits 55 MB so the application, not the proxy, remains the normal validation boundary.
+- Cloudinary output is constrained to compatible H.264 MP4 delivery for new inspection videos. Playback fallback URLs do not grant additional authority; they reference the same uploaded resource.
 - Temporary files are registered for cleanup.
 - Cloudinary public IDs are stored for controlled deletion.
 
@@ -162,15 +163,21 @@ The warranty endpoint is customer-authenticated and queries only `req.user.id`. 
 
 The public `/warranty` route contains only mock/design data and must never load a customer's warranty list.
 
-## 13. Client and mobile secrets
+## 13. Client PDF/media privacy
 
-- `VITE_*` and `EXPO_PUBLIC_*` are public.
+The service-history PDF is generated only after authenticated booking data reaches the customer browser. It is not uploaded to Rovauto, but the downloaded file contains personal, vehicle, garage, payment, and timing information; the UI must describe it as sensitive and avoid automatic sharing. Video URLs and public IDs must not be written to analytics or issue reports with worker tokens or personal identifiers.
+
+## 14. Client, mobile, and container secrets
+
+- `VITE_*` and `EXPO_PUBLIC_*` are public. Google Maps browser configuration is returned through the public-safe maps config endpoint from server-side environment values.
+- Docker build contexts exclude `.env`, keys, backups, tests, logs, and dependency/build directories. `server/.env` is runtime input and must never be copied into the image.
+- The backend container runs as the non-root `node` user; Nginx and backend images expose health checks and use bounded log rotation in Compose.
 - Web JWTs remain HttpOnly; do not copy them into local storage.
 - Mobile SecureStore is better than plain storage but still requires backend revocation/refresh design.
 - Google Maps browser keys must be API/referrer restricted.
 - Firebase public configuration is not a server credential.
 
-## 14. Operational security
+## 15. Operational security
 
 - Apply security updates and pin/review dependencies.
 - Run behind HTTPS and a reverse proxy/CDN/WAF.
@@ -181,7 +188,7 @@ The public `/warranty` route contains only mock/design data and must never load 
 - Protect production environment files and CI secrets.
 - Review admin audit logs for consequential changes such as controller-mode switches.
 
-## 15. Residual risks
+## 16. Residual risks
 
 - Browser worker tracking may stop in background.
 - Worker links are bearer capabilities and are not device-bound.
@@ -190,20 +197,22 @@ The public `/warranty` route contains only mock/design data and must never load 
 - Mobile bearer-token backend contract is not yet production-final.
 - Warranty claims currently route through support rather than a dedicated adjudication model.
 
-## 16. Release security gate
+## 17. Release security gate
 
 - Prisma validation/generation and all migrations pass.
-- 70 regression tests pass.
+- All 74 security/regression test files (275 current cases) pass.
 - Client build passes.
 - Role/IDOR checks for changed routes pass.
 - Provider webhook signatures are enabled.
+- Backend payment-hours enforcement blocks client-clock/UI bypass outside 10:00 AM-to-midnight IST.
+- The Compose database is PostGIS-enabled and secrets are absent from built image layers and committed Compose output.
 - Worker token never appears in logs/issue reports.
 - Controller mode switch revokes correct sessions/tasks.
 - Upload limits and cleanup tested.
 - System Health shows no unexplained outage and no secret disclosure.
 - Backup and rollback are ready.
 
-## 17. Incident response
+## 18. Incident response
 
 1. Preserve request IDs, timestamps, audit logs, and relevant provider event IDs.
 2. Revoke sessions/task links/credentials where exposure is possible.

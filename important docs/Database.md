@@ -1,10 +1,10 @@
 # Rovauto Database Design
 
-> Schema reference verified against `server/prisma/schema.prisma` on 28 July 2026.
+> Schema reference verified against `server/prisma/schema.prisma` on 30 July 2026.
 
 ## 1. Platform and conventions
 
-- PostgreSQL is the system of record.
+- PostgreSQL 16 with PostGIS is the system of record. The local Compose stack uses `postgis/postgis:16-3.5-alpine`; plain `postgres:16` cannot execute the checked-in `CREATE EXTENSION postgis` migration by itself.
 - PostGIS supports geospatial queries and garage-distance matching.
 - Prisma 7 is the application data layer.
 - IDs are UUID strings unless a provider or domain code requires another identifier.
@@ -12,10 +12,10 @@
 - Timestamps are stored in UTC and formatted at the client boundary.
 - Redis is not the durable source for bookings, sessions, tasks, or payments.
 
-The repository currently contains 48 checked-in migrations. The latest is:
+The repository currently contains 52 checked-in migration directories. The latest is:
 
 ```text
-20260728090000_add_garage_worker_task_mode
+20260729103000_add_pseudo_average_rating
 ```
 
 ## 2. Domain map
@@ -215,7 +215,7 @@ Despite the historical name, the model stores both images and videos:
 - URL/public ID/order
 - unique `(bookingId, phase, mediaType, order)`
 
-The service layer enforces 5-15 images and exactly one video per submission.
+The service layer enforces 5-15 images and exactly one video per submission. Cloudinary delivery/transcoding changes do not require a schema change: the same URL/public-ID fields store the uploaded resource, while clients derive a compatible H.264 MP4 URL when needed.
 
 ### BookingTrackingPoint
 
@@ -226,11 +226,11 @@ Tracking points can belong to:
 - garage controller
 - worker task
 
-`workerTaskId` links no-account worker location to the temporary assignment. `journeyPhase` partitions trails into `PICKUP_TO_CUSTOMER`, `RETURN_TO_GARAGE`, and `DELIVERY_TO_CUSTOMER`. Source remains `GARAGE`, `CUSTOMER`, or `ADMIN`; worker origin is distinguished by the relation.
+`workerTaskId` links no-account worker location to the temporary assignment. `journeyPhase` partitions trails into `SELF_DROP_TO_GARAGE`, `PICKUP_TO_CUSTOMER`, `RETURN_TO_GARAGE`, and `DELIVERY_TO_CUSTOMER`. Source remains `GARAGE`, `CUSTOMER`, or `ADMIN`; worker origin is distinguished by the relation.
 
 ## 10. Warranty design
 
-There is no `Warranty` table in the current schema.
+There is no `Warranty` table in the current schema. There is also no PDF/report table: the service-history PDF is generated in the authenticated browser from booking data and is not persisted.
 
 Warranty data is a read model derived from `Booking` where:
 
@@ -243,7 +243,7 @@ garageId is not null
 Activation uses:
 
 ```text
-finalPaymentConfirmedAt ?? customerAcceptedAt ?? deliveredAt ?? updatedAt
+customerAcceptedAt ?? deliveredAt ?? updatedAt
 ```
 
 Expiry is 30 days later. This avoids a daily decrement job and automatically includes historical completed bookings. A dedicated warranty table becomes appropriate only when adding claims, per-service durations, exclusions, extensions, transfer, or administrator overrides.
@@ -335,7 +335,7 @@ npm run prisma:check-client
 
 Never edit an already-applied migration. Add a repair migration when production history and schema diverge.
 
-Recent migrations:
+The repository currently contains 52 migration directories. Recent migrations:
 
 ```text
 20260725003000_add_service_fulfillment_type
@@ -344,11 +344,15 @@ Recent migrations:
 20260726070000_add_booking_inspection_video
 20260726193000_add_vehicle_model_photos
 20260728090000_add_garage_worker_task_mode
+20260728174500_add_pickup_delivery_payment_confirmation
+20260728183000_add_self_drop_tracking_phase
+20260729100000_add_platform_pseudo_data
+20260729103000_add_pseudo_average_rating
 ```
 
 ## 16. Backup and recovery
 
-Use PostgreSQL custom-format backups and isolated restore drills. Verify migrations, critical tables, row counts, and application smoke tests before declaring recovery successful. See `server/docs/RECOVERY_RUNBOOK.md`.
+Use PostgreSQL custom-format backups and isolated restore drills. For Docker, run backup/restore commands inside the backend or PostGIS container and copy artefacts outside the named volume before destructive maintenance. Verify migrations, critical tables, row counts, and application smoke tests before declaring recovery successful. See `server/docs/RECOVERY_RUNBOOK.md`.
 
 ## 17. Future evolution
 

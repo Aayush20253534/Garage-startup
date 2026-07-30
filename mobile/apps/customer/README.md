@@ -1,12 +1,12 @@
 # Rovauto Customer Mobile App
 
-> Mobile reference verified against the repository on 28 July 2026.
+> Mobile reference verified against the repository on 30 July 2026.
 
 This is the early Expo SDK 57 customer application under the Rovauto monorepo. It uses Expo Router with routes in `src/app` and shares the existing backend rather than embedding server code.
 
 ## Current status
 
-The application already contains the intended route structure, API client, React Query provider, SecureStore helpers, authentication screens, tabs, checkout routes, booking detail, payments, notifications, complaints, chatbot, profile, addresses, and vehicles. Most screens are still implementation placeholders and must not be treated as feature-equivalent to the web customer portal yet.
+The application already contains the intended route structure, API client, React Query provider, SecureStore helpers, authentication screens, tabs, checkout routes, booking detail, payments, notifications, complaints, chatbot, profile, addresses, and vehicles. Most screens are still implementation placeholders and must not be treated as feature-equivalent to the web customer portal yet. Compatible inspection-video playback/upload state, compact service-history PDF export, and redesigned pending cards are current parity targets rather than completed native features.
 
 ## Stack
 
@@ -86,7 +86,11 @@ npm ci
 Create a local environment file:
 
 ```env
+# Physical Android/iOS device on the same network
 EXPO_PUBLIC_API_URL=http://YOUR-LAN-IP:5000/api/v1
+
+# Android Studio emulator on the same Windows host
+# EXPO_PUBLIC_API_URL=http://10.0.2.2:5000/api/v1
 ```
 
 Use a LAN-reachable address when testing on a physical phone. `localhost` on the phone refers to the phone itself.
@@ -105,6 +109,13 @@ npm run ios
 npm run web
 npm run lint
 ```
+
+## Shared backend contracts to preserve
+
+- Payment attempts are accepted from 10:00 AM inclusive until 12:00 AM midnight exclusive in `Asia/Kolkata`; surface server `SERVICE_HOURS_CLOSED` responses without relying only on device time.
+- Pending bookings remain recoverable outside the payment window.
+- Inspection evidence is 5-15 images plus exactly one video per phase; selected, uploading, uploaded, processing, and failed playback states must remain distinct.
+- A future native service-history report should match the web PDF fields and black-and-white detail without exposing another customer's booking.
 
 ## Implementation priorities
 

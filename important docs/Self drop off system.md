@@ -1,6 +1,6 @@
 # Pickup and Self Drop-off System
 
-> Behaviour verified against the codebase on 28 July 2026.
+> Behaviour verified against the codebase on 30 July 2026.
 
 ## 1. Independent configuration layers
 
@@ -26,6 +26,7 @@ SELF_DROP_OFF
 - If any selected service is self-drop-only, the booking is forced to `SELF_DROP_OFF`.
 - A pickup-only service requires pickup/delivery.
 - Once the pending booking is created, the chosen fulfilment type is preserved as booking state.
+- Payment can be started or resumed from 10:00 AM inclusive until 12:00 AM midnight exclusive in `Asia/Kolkata`; outside that window the pending booking remains recoverable.
 - Missing price or service eligibility blocks checkout rather than silently changing service selection.
 
 ## 3. Garage eligibility
@@ -126,9 +127,14 @@ For each pickup/delivery submission:
 - exactly one video
 - video at most 50 MB
 
+The upload control shows a local file as “Selected - ready to upload”. Only persisted booking evidence is labelled “Uploaded”. New Cloudinary videos request H.264 MP4 output; historical URLs are normalised for compatible playback with retry and direct-open fallbacks.
+
 Evidence is linked to booking, garage, phase, media type, order, and upload timestamps.
 
-## 8. Customer warranty
+## 8. Service history and customer warranty
+
+After completion, both fulfilment methods appear in compact Service History cards. Detailed travel, service, delivery, and payment-confirmation timing remains expandable and is included in a black-and-white A4 PDF together with customer, vehicle, garage, service, payment, evidence, rating, and note details.
+
 
 After garage payment confirmation completes the booking, the protected Warranty Center derives a 30-day warranty card showing services, vehicle, garage, activation, expiry, and remaining days. The public mock warranty page remains separate.
 

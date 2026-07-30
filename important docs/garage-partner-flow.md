@@ -1,6 +1,6 @@
 # Garage Partner, Controller, Worker Task, and Booking Flow
 
-> Operational flow verified against the repository on 28 July 2026.
+> Operational flow verified against the repository on 30 July 2026.
 
 ## 1. Partner application and approval
 
@@ -82,6 +82,8 @@ Re-enabling controllers revokes active/in-progress worker links.
 
 ## 6. Customer checkout and payment
 
+Payment creation and recovery are allowed daily from 10:00 AM inclusive until 12:00 AM midnight exclusive in `Asia/Kolkata`. The client blocks obvious out-of-window attempts, but the backend remains the authority and preserves the pending booking for the next valid window.
+
 1. Customer selects city, vehicle, and services.
 2. Server validates restrictions and approved price ranges.
 3. Customer selects pickup/self-drop when allowed.
@@ -160,6 +162,8 @@ Required inspection media per pickup/delivery submission:
 
 - 5-15 images, maximum 1 MB each
 - exactly one video, maximum 50 MB
+- The video picker labels local selection as ready to upload; the booking gallery labels only persisted media as uploaded.
+- New Cloudinary videos use H.264 MP4 delivery, and the gallery provides retry/direct-open recovery for processing or browser playback failures.
 
 The manager should review evidence quality. Physical mechanics do not need an account; a floor supervisor or shared garage phone can handle evidence.
 
@@ -187,7 +191,7 @@ The Cash/UPI choice is an auditable payment declaration and confirmation flow, n
 
 Completed booking appears in:
 
-- customer service history;
+- customer service history with a minimal summary, expandable phase timings, and a detailed black-and-white A4 PDF containing the booking, service, payment, evidence, rating, and timing record;
 - protected Warranty Center;
 - garage/controller history according to role/privacy.
 

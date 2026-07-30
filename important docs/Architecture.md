@@ -1,6 +1,6 @@
 # Rovauto Solution Architecture
 
-> Code-verified architecture snapshot: 28 July 2026.
+> Code-verified architecture snapshot: 30 July 2026.
 
 ## 1. Purpose and boundaries
 
@@ -27,8 +27,22 @@ Primary trust boundaries:
 | Redis | Cache, rate limits, and coordination |
 | Cloudinary | Images and videos |
 | Provider services | Payments, maps, auth, email, WhatsApp, push, AI |
+| Docker Compose | Local PostGIS, Redis, backend, and Nginx frontend orchestration |
 
 The current web deployment is path-based. `/admin`, `/intern`, `/garage`, `/support`, and `/dashboard` are not separate subdomains.
+
+Local Compose topology:
+
+```mermaid
+flowchart LR
+    B[Browser :8080] --> N[Nginx frontend]
+    N -->|/api/*| A[Express backend :5000]
+    A --> P[(PostgreSQL 16 + PostGIS)]
+    A --> R[(Redis 7)]
+    A --> X[External providers]
+```
+
+Nginx serves all five HTML/PWA shells and keeps API requests same-origin. The backend entrypoint retries `prisma migrate deploy`, verifies the generated client, and starts only after PostGIS and Redis are healthy.
 
 ## 3. Client architecture
 
@@ -45,7 +59,7 @@ Important routes:
 | `/intern/system-health` | Intern System Health |
 | `/garage/controllers` | Owner controller management, hidden when disabled |
 
-The shared Axios client manages cookies, CSRF, request IDs, bounded safe retries, and issue reporting. The worker-task API wrapper is unauthenticated but token-scoped.
+The shared Axios client manages cookies, CSRF, request IDs, bounded safe retries, and issue reporting. The worker-task API wrapper is unauthenticated but token-scoped. Service-history PDF generation is a client-side read/export operation, and Cloudinary video URLs are normalised client-side for H.264 MP4 playback while retaining an original-source fallback.
 
 ## 4. Server request pipeline
 
@@ -98,7 +112,9 @@ flowchart TD
     A[Select city, vehicle, services] --> B[Validate restrictions and price ranges]
     B --> C[Choose pickup or self drop]
     C --> D[Create/reuse pending booking]
-    D --> E[Wallet and Cashfree payment]
+    D --> T{10:00 AM-12:00 AM IST?}
+    T -->|No| D
+    T -->|Yes| E[Wallet and Cashfree payment]
     E --> F[SEARCHING_GARAGE]
     F --> G[Progressive eligible-garage dispatch]
     G --> H[Garage accepts atomically]
@@ -113,7 +129,7 @@ flowchart TD
     P --> Q[30-day customer warranty projection]
 ```
 
-Missing approved pricing blocks checkout. Payment and garage acceptance are idempotent/transactional boundaries.
+Missing approved pricing blocks checkout. Payment actions are accepted from 10:00 AM inclusive until midnight exclusive in `Asia/Kolkata`; the browser guard improves feedback but the backend check is authoritative. Payment and garage acceptance are idempotent/transactional boundaries.
 
 ## 7. Fulfilment and garage eligibility
 
@@ -221,7 +237,7 @@ Each pickup/delivery phase requires:
 - exactly one video
 - maximum 50 MB video
 
-`BookingInspectionImage` stores both image and video entries through `mediaType` while preserving the historical model name.
+`BookingInspectionImage` stores both image and video entries through `mediaType` while preserving the historical model name. New Cloudinary videos request an eager H.264 MP4 transformation; the client also derives a compatible delivery URL for older assets and offers retry/direct-open fallback controls. Selected files are not labelled uploaded until the booking media record exists.
 
 ## 10. Customer warranties
 
@@ -243,7 +259,7 @@ Activation preference:
 customerAcceptedAt → deliveredAt → updatedAt
 ```
 
-Expiry is activation plus 30 days. The frontend recalculates remaining days while open, so no daily decrement job is required.
+Expiry is activation plus 30 days. The frontend recalculates remaining days while open, so no daily decrement job is required. Completed-booking history is separate from the warranty projection: it uses compact summary cards and can generate a detailed black-and-white A4 PDF entirely in the browser from the already-authorised booking payload.
 
 ## 11. Vehicle metadata and photos
 
@@ -305,7 +321,15 @@ Current in-process responsibilities include:
 
 Before horizontal scaling, every worker needs distributed claiming or leader election and durable retry/dead-letter behaviour where loss is unacceptable.
 
-## 18. Scaling evolution
+## 18. Container deployment contract
+
+- `docker-compose.yml` uses `postgis/postgis:16-3.5-alpine`, not plain PostgreSQL, because the migration history creates the `postgis` extension and a geography GiST index.
+- PostgreSQL and Redis use named volumes; normal `docker compose down` preserves them, while `docker compose down -v` is destructive.
+- The backend image runs as the non-root `node` user behind `dumb-init` and has a readiness health check.
+- The frontend image is an immutable Vite build served by Nginx. Runtime changes to `VITE_*` do not affect an existing image; rebuild when public build configuration changes.
+- `server/.env` is loaded at runtime but excluded from image layers. Client secrets do not exist: every `VITE_*` value is browser-visible.
+
+## 19. Scaling evolution
 
 Near-term:
 
@@ -323,7 +347,7 @@ Later:
 
 Kubernetes is not a prerequisite for launch. Operational maturity, rollback, observability, and backups matter first.
 
-## 19. Change checklist
+## 20. Change checklist
 
 For every domain change:
 

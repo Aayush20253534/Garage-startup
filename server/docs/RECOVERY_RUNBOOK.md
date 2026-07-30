@@ -1,6 +1,6 @@
 # Rovauto Recovery, Rollback, and Incident Runbook
 
-> Runbook synchronized with the repository on 28 July 2026.
+> Runbook synchronized with the repository on 30 July 2026.
 
 ## 1. Objectives and ownership
 
@@ -33,6 +33,33 @@ SMOKE_API_URL=
 Keep credentials outside the repository. Recovery databases must be isolated from production and must never reuse production webhook URLs.
 
 ## 3. Pre-deployment checklist
+
+### Docker/Compose first response
+
+```powershell
+# Repository root
+docker compose config
+docker compose ps
+docker compose logs --tail=200 backend
+docker compose logs --tail=100 postgres redis frontend
+```
+
+The database service must use a PostGIS image compatible with PostgreSQL 16. If migration logs report that the `postgis` extension is unavailable, fix the image first; repeated application restarts cannot solve a missing database extension package.
+
+Safe restart/rebuild:
+
+```powershell
+docker compose up -d --build
+docker compose restart backend frontend
+```
+
+Normal shutdown preserves named volumes:
+
+```powershell
+docker compose down
+```
+
+`docker compose down -v` permanently deletes the local PostGIS and Redis volumes and is allowed only after an intentional reset decision or verified external backup.
 
 1. Record current frontend/backend releases and commit IDs.
 2. Review migration list and backward compatibility.
@@ -116,6 +143,13 @@ After schema/feature releases, add targeted smoke flows.
 - Worker task can be created only while controllers are disabled.
 - Worker link opens, tracks, uploads media, and verifies handover.
 - Re-enabling controllers invalidates the worker link.
+
+### Payment hours, media, history, and warranty
+
+- Verify 09:59 IST is blocked, 10:00 and 23:59 are accepted, and 00:00 is blocked with `SERVICE_HOURS_CLOSED`.
+- Upload a phone-recorded inspection video, confirm the persisted Uploaded state, and test inline playback, Retry, and Open video.
+- Complete a booking, expand detailed timings, and download the black-and-white service-history PDF.
+- Confirm pending count/payment state cards remain compact on a narrow mobile viewport.
 
 ### Warranty
 
@@ -212,13 +246,13 @@ Use only when repair/rollback against the current database is impossible.
 - Do not bypass staff 2FA by sharing sessions/passwords.
 - Restore provider/configuration or use an approved operational recovery path.
 
-## 15. Database/Redis outage
+## 15. Database/PostGIS/Redis outage
 
 - Readiness should return `503`.
 - Stop unsafe traffic or fail over according to hosting plan.
 - Confirm network/DNS/TLS/connection limits before restarting repeatedly.
 - Redis loss can affect cache/limits; current production readiness treats it as unavailable.
-- PostgreSQL recovery takes priority because it is authoritative.
+- PostgreSQL/PostGIS recovery takes priority because it is authoritative. Verify `SELECT PostGIS_Version()` and Prisma migration status before reopening traffic.
 
 ## 16. Destructive scripts
 
