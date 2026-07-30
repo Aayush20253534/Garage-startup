@@ -10,12 +10,14 @@ import ComingSoonOverlay from "@/components/services/ComingSoonOverlay";
 import { getCategoryThumbnailUrl } from "@/utils/imageCache";
 import { reportSystemIssue } from "@/utils/errorReporter";
 import {
+  clearLocalFrontendState,
   createMissingLazyDefaultError,
   isChunkLoadError,
   reloadForLatestBuild,
 } from "@/utils/chunkRecovery";
 import PrivatePageSeo from "@/components/seo/PrivatePageSeo";
 import Home from "@/pages/Home";
+import Login from "@/pages/auth/Login";
 
 
 const runAfterInitialPaint = (callback) => {
@@ -32,10 +34,36 @@ const runAfterInitialPaint = (callback) => {
   return () => window.clearTimeout(timeoutId);
 };
 
+const isLocalFrontendHost = () => {
+  if (typeof window === "undefined") return false;
+
+  return ["localhost", "127.0.0.1", "::1"].includes(
+    window.location.hostname,
+  );
+};
+
+const shouldLoadVercelInsights = () => {
+  const configuredValue = String(
+    import.meta.env.VITE_VERCEL_INSIGHTS_ENABLED ?? "",
+  )
+    .trim()
+    .toLowerCase();
+
+  if (configuredValue) {
+    return ["1", "true", "yes", "on"].includes(configuredValue);
+  }
+
+  return import.meta.env.PROD && !isLocalFrontendHost();
+};
+
 function DeferredVercelInsights() {
   const [analyticsComponents, setAnalyticsComponents] = useState(null);
 
   useEffect(() => {
+    if (!shouldLoadVercelInsights()) {
+      return undefined;
+    }
+
     let mounted = true;
 
     const cancelIdleTask = runAfterInitialPaint(async () => {
@@ -633,7 +661,6 @@ const SOSSuccessScreen = lazyPage(
   "SOSSuccessScreen",
 );
 
-const Login = lazyPage(() => import("@/pages/auth/Login"), "Login");
 const Register = lazyPage(() => import("@/pages/auth/Register"), "Register");
 const OTP = lazyPage(() => import("@/pages/auth/OTP"), "OTP");
 const Forgot = lazyPage(() => import("@/pages/auth/Forgot"), "Forgot");
@@ -929,11 +956,14 @@ class AppErrorBoundary extends Component {
     window.setTimeout(() => {
       const url = new URL(window.location.href);
       url.searchParams.set("rov_reload", String(Date.now()));
-      window.location.replace(url.toString());
+
+      void clearLocalFrontendState().finally(() => {
+        window.location.replace(url.toString());
+      });
     }, 250);
   }
 
-  clearAndReload = () => {
+  clearAndReload = async () => {
     Object.keys(sessionStorage)
       .filter(
         (key) =>
@@ -942,6 +972,8 @@ class AppErrorBoundary extends Component {
           key.startsWith("rovauto:stale-chunk-reload"),
       )
       .forEach((key) => sessionStorage.removeItem(key));
+
+    await clearLocalFrontendState();
 
     const url = new URL(window.location.href);
     url.searchParams.set("rov_reload", String(Date.now()));

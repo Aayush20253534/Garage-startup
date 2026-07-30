@@ -1,4 +1,8 @@
 import { resolveMediaUrl } from "@/utils/mediaUrl";
+import {
+  clearLocalFrontendState,
+  isLocalFrontendHost,
+} from "@/utils/chunkRecovery";
 
 const isCloudinaryHost = (hostname) =>
   hostname === "res.cloudinary.com" || hostname.endsWith(".cloudinary.com");
@@ -235,7 +239,19 @@ export const getRovautoServiceWorkerRegistration = async ({ portal = "auto" } = 
 };
 
 export const registerImageCacheWorker = () => {
-  if (!("serviceWorker" in navigator) || !import.meta.env.PROD) {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  // Docker serves a production Vite build on localhost. Do not let a PWA
+  // worker from an older local image keep stale route chunks alive between
+  // rebuilds. Production domains still retain normal PWA behaviour.
+  if (isLocalFrontendHost()) {
+    void clearLocalFrontendState();
+    return;
+  }
+
+  if (!import.meta.env.PROD) {
     return;
   }
 

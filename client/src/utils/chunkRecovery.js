@@ -2,6 +2,57 @@ const CHUNK_RELOAD_KEY_PREFIX = "rovauto:stale-chunk-reload";
 const CHUNK_RELOAD_COOLDOWN_MS = 15_000;
 const MISSING_LAZY_DEFAULT_CODE = "MISSING_LAZY_DEFAULT";
 
+const LOCAL_FRONTEND_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const LOCAL_CACHE_PREFIX = "rovauto-";
+
+export const isLocalFrontendHost = () =>
+  typeof window !== "undefined" &&
+  LOCAL_FRONTEND_HOSTS.has(window.location.hostname);
+
+export const clearLocalFrontendState = async () => {
+  if (!isLocalFrontendHost()) return;
+
+  const cleanupTasks = [];
+
+  if ("serviceWorker" in navigator) {
+    cleanupTasks.push(
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) =>
+          Promise.all(
+            registrations
+              .filter((registration) => {
+                try {
+                  return new URL(registration.scope).origin === window.location.origin;
+                } catch {
+                  return false;
+                }
+              })
+              .map((registration) => registration.unregister()),
+          ),
+        )
+        .catch(() => null),
+    );
+  }
+
+  if ("caches" in window) {
+    cleanupTasks.push(
+      window.caches
+        .keys()
+        .then((cacheNames) =>
+          Promise.all(
+            cacheNames
+              .filter((cacheName) => cacheName.startsWith(LOCAL_CACHE_PREFIX))
+              .map((cacheName) => window.caches.delete(cacheName)),
+          ),
+        )
+        .catch(() => null),
+    );
+  }
+
+  await Promise.all(cleanupTasks);
+};
+
 const getSessionValue = (key) => {
   try {
     return window.sessionStorage.getItem(key);
@@ -112,7 +163,10 @@ export const reloadForLatestBuild = (error) => {
   const url = new URL(window.location.href);
   url.searchParams.set("rov_build_refresh", String(now));
 
-  window.location.replace(url.toString());
+  void clearLocalFrontendState().finally(() => {
+    window.location.replace(url.toString());
+  });
+
   return true;
 };
 

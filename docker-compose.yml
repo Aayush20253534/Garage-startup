@@ -96,6 +96,7 @@ services:
         VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
         VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
         VITE_ERROR_REPORTING_ENABLED: ${VITE_ERROR_REPORTING_ENABLED:-false}
+        VITE_VERCEL_INSIGHTS_ENABLED: ${VITE_VERCEL_INSIGHTS_ENABLED:-false}
         VITE_APP_VERSION: ${VITE_APP_VERSION:-docker-local}
     image: rovauto-frontend:local
     restart: unless-stopped
