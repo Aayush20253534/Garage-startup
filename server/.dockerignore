@@ -1,11 +1,15 @@
+# Dependencies and generated output
 node_modules
-npm-debug.log*
-logs
 coverage
+.nyc_output
+.cache
+
+# Source-control metadata
 .git
 .github
+.gitignore
 
-# Never bake runtime credentials into an image.
+# Never bake credentials into the backend image.
 .env
 .env.*
 !.env.example
@@ -14,10 +18,22 @@ coverage
 *.p12
 *.pfx
 
-# Development, test, and local-only artifacts.
+# Development, tests, documentation, and local artifacts
 test
 tests
 docs
+scripts
 backups
 tmp
 *.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+Dockerfile*
+.dockerignore
+README.md

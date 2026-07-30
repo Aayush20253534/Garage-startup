@@ -1,0 +1,41 @@
+# Root build context safety net. The current Compose file builds client/ and
+# server/ separately, but keeping this file prevents accidental large or
+# secret-filled root-context builds.
+.git
+.github
+**/.git
+**/.github
+
+**/node_modules
+**/dist
+**/build
+**/coverage
+**/.vite
+**/.cache
+**/.turbo
+**/.next
+
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+
+**/*.log
+**/npm-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+
+**/.vscode
+**/.idea
+**/.DS_Store
+**/Thumbs.db
+
+server/backups
+server/tmp
+server/test
+server/tests
+client/.vercel
+mobile/**/node_modules

@@ -1,26 +1,122 @@
+name: rovauto
+
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rovauto}
+      POSTGRES_USER: ${POSTGRES_USER:-rovauto}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rovauto_local_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - data
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    networks:
+      - data
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   backend:
-    build: ./server
-    container_name: rovauto-backend
-    ports:
-      - "5000:5000"
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: rovauto-backend:local
+    restart: unless-stopped
     env_file:
       - ./server/.env
-    restart: always
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 5000
+      APP_TIME_ZONE: ${APP_TIME_ZONE:-Asia/Kolkata}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-rovauto}:${POSTGRES_PASSWORD:-rovauto_local_password}@postgres:5432/${POSTGRES_DB:-rovauto}?schema=public}
+      DIRECT_URL: ${DIRECT_URL:-postgresql://${POSTGRES_USER:-rovauto}:${POSTGRES_PASSWORD:-rovauto_local_password}@postgres:5432/${POSTGRES_DB:-rovauto}?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      JWT_SECRET: ${JWT_SECRET:-local-docker-jwt-secret-change-before-production-2026}
+      EMAIL_OTP_DELIVERY: ${EMAIL_OTP_DELIVERY:-console}
+      SMS_PROVIDER: ${SMS_PROVIDER:-console}
+      RUN_DATABASE_MIGRATIONS: ${RUN_DATABASE_MIGRATIONS:-true}
+      DATABASE_STARTUP_MAX_ATTEMPTS: ${DATABASE_STARTUP_MAX_ATTEMPTS:-30}
+      DATABASE_STARTUP_RETRY_SECONDS: ${DATABASE_STARTUP_RETRY_SECONDS:-2}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    networks:
+      - app
+      - data
+    stop_grace_period: 30s
+    logging:
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   frontend:
     build:
       context: ./client
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL}
-        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
-        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
-        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
-        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
-    container_name: rovauto-frontend
-    ports:
-      - "8080:80"
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
+        VITE_USE_RELATIVE_API: ${VITE_USE_RELATIVE_API:-true}
+        VITE_API_FALLBACK_URL: ${VITE_API_FALLBACK_URL:-}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
+        VITE_ERROR_REPORTING_ENABLED: ${VITE_ERROR_REPORTING_ENABLED:-false}
+        VITE_APP_VERSION: ${VITE_APP_VERSION:-docker-local}
+    image: rovauto-frontend:local
+    restart: unless-stopped
     depends_on:
-      - backend
-    restart: always
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    networks:
+      - app
+    stop_grace_period: 15s
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  app:
+  data:
+    internal: true
+
+volumes:
+  postgres_data:
+  redis_data:

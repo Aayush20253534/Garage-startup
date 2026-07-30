@@ -1,16 +1,38 @@
+# Dependencies and generated output
 node_modules
 dist
+build
+coverage
+.vite
+.cache
+
+# Source-control and platform metadata
 .git
+.github
 .gitignore
+.vercel
+firebase-debug.log*
 
-Dockerfile
-.dockerignore
-
+# Environment files are build/runtime inputs, never image content.
 .env
 .env.*
-npm-debug.log
-yarn-error.log
-pnpm-debug.log
+!.env.example
 
+# Logs and editor files
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 .vscode
 .idea
+.DS_Store
+Thumbs.db
+
+# Files not needed by the Vite production build
+README.md
+AGENTS.md
+.vade-report
+bun.lock
+bunfig.toml
+Dockerfile*
+.dockerignore
