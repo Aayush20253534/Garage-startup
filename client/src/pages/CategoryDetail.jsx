@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useParams,
   Link,
@@ -34,6 +34,11 @@ import {
 import {
   getServiceMinPrice,
 } from "@/utils/priceRange";
+import {
+  clearPendingServiceSelection,
+  readPendingServiceSelection,
+  savePendingServiceSelection,
+} from "@/utils/bookingCart";
 import {
   getCategoryThumbnailUrl,
   getOptimizedImageUrl,
@@ -111,6 +116,7 @@ export default function CategoryDetail() {
     model: guestModelId,
     fuelType: guestFuelType,
   });
+  const pendingServiceHandledRef = useRef(false);
 
   const selectedBrand = brands.find((brand) => brand.id === guestBrandId);
   const selectedModel = selectedBrand?.models?.find(
@@ -278,6 +284,77 @@ export default function CategoryDetail() {
     guestFuelType,
   ]);
 
+  useEffect(() => {
+    if (
+      !user ||
+      loading ||
+      pricingLoading ||
+      !category ||
+      pendingServiceHandledRef.current
+    ) {
+      return;
+    }
+
+    const pendingSelection = readPendingServiceSelection();
+    if (!pendingSelection) return;
+
+    const currentCategoryPath = getServiceCategoryPath(category);
+    const matchesCategory =
+      !pendingSelection.categoryId ||
+      pendingSelection.categoryId === category.id ||
+      pendingSelection.returnLocation?.pathname === currentCategoryPath;
+
+    if (!matchesCategory) return;
+
+    pendingServiceHandledRef.current = true;
+    clearPendingServiceSelection();
+
+    const service = packages.find(
+      (item) => item.id === pendingSelection.serviceId,
+    );
+
+    if (!service) {
+      setCartNotice(
+        "That service is no longer available. Please choose another service.",
+      );
+      return;
+    }
+
+    if (!service.priceRange) {
+      setCartNotice(
+        service.priceUnavailableMessage ||
+          "This service is not priced for your selected vehicle and city.",
+      );
+      return;
+    }
+
+    addToCart({
+      ...service,
+      price: getServiceMinPrice(service),
+      image: getServiceThumbnailUrl(service) || getCategoryThumbnailUrl(category),
+      catId: category.id,
+      category: {
+        id: category.id,
+        name: category.name,
+        isComingSoon: toBoolean(category.isComingSoon),
+      },
+      categoryComingSoon: toBoolean(category.isComingSoon),
+    });
+
+    nav("/booking/services", {
+      replace: true,
+      state: { message: `${service.name} was added to your cart.` },
+    });
+  }, [
+    addToCart,
+    category,
+    loading,
+    nav,
+    packages,
+    pricingLoading,
+    user,
+  ]);
+
   if (loading) {
     return (
       <div className="container-x py-10">
@@ -345,12 +422,20 @@ export default function CategoryDetail() {
     }
 
     if (!user) {
+      const returnLocation = {
+        pathname: categoryPath,
+        search: guestFilterSearch,
+      };
+
+      savePendingServiceSelection({
+        serviceId: service.id,
+        categoryId: category.id,
+        returnLocation,
+      });
+
       nav("/login", {
         state: {
-          from: {
-            pathname: categoryPath,
-            search: guestFilterSearch,
-          },
+          from: returnLocation,
           message: "Sign in to add this service and continue booking.",
         },
       });

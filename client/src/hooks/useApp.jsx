@@ -35,6 +35,8 @@ const VEHICLES_CACHE_TTL = 5 * 60 * 1000;
 const ACTIVE_BOOKINGS_CACHE_TTL = 60 * 1000;
 const SERVICE_HISTORY_CACHE_TTL = 5 * 60 * 1000;
 const PROFILE_CACHE_TTL = 5 * 60 * 1000;
+const CART_CACHE_KEY = "rov_booking_cart";
+const CART_CONTEXT_CACHE_KEY = "rov_booking_cart_context";
 
 const isConstrainedConnection = () => {
   if (typeof navigator === "undefined") return false;
@@ -374,8 +376,12 @@ export function AppProvider({ children }) {
     useSelector(selectCustomerState);
   const { garage: garageUser } = useSelector(selectGarageState);
 
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    const storedCart = readSessionJson(CART_CACHE_KEY, []);
+    return Array.isArray(storedCart) ? storedCart : [];
+  });
   const [cartContextKey, setCartContextKey] = useState(() =>
+    sessionStorage.getItem(CART_CONTEXT_CACHE_KEY) ||
     getCartPricingContextKey(vehicle, location),
   );
   const [authLoading, setAuthLoading] = useState(true);
@@ -383,6 +389,7 @@ export function AppProvider({ children }) {
   // Prevent duplicate session/profile requests when multiple components mount
   // together or the tab becomes visible repeatedly.
   const authRequestRef = useRef(null);
+  const preserveCartContextChangeRef = useRef(false);
   const garageRequestRef = useRef(null);
   const profileRequestRef = useRef(null);
   const dashboardRequestRef = useRef(null);
@@ -565,7 +572,10 @@ export function AppProvider({ children }) {
     clearServiceHistoryCache();
   };
 
-  const clearCustomerSession = ({ clearRole = true } = {}) => {
+  const clearCustomerSession = ({
+    clearRole = true,
+    preserveCart = false,
+  } = {}) => {
     // Remove legacy JWT storage left by older frontend versions.
     localStorage.removeItem("token");
 
@@ -576,7 +586,13 @@ export function AppProvider({ children }) {
     localStorage.removeItem("rov_vehicles");
 
     dispatch(clearCustomerState());
-    setCart([]);
+
+    if (!preserveCart) {
+      setCart([]);
+      setCartContextKey(getCartPricingContextKey(null, null));
+      removeSessionCache(CART_CACHE_KEY);
+      removeSessionCache(CART_CONTEXT_CACHE_KEY);
+    }
 
     customerPreloadRef.current.cancel?.();
     customerPreloadRef.current = {
@@ -706,7 +722,14 @@ export function AppProvider({ children }) {
       return;
     }
 
-    clearCustomerSession({ clearRole: false });
+    const preserveCustomerCart =
+      normalizedUser.role === "CUSTOMER" && cart.length > 0;
+
+    preserveCartContextChangeRef.current = preserveCustomerCart;
+    clearCustomerSession({
+      clearRole: false,
+      preserveCart: preserveCustomerCart,
+    });
     clearGarageSession({ clearRole: false });
     localStorage.removeItem("token");
 
@@ -1436,11 +1459,23 @@ export function AppProvider({ children }) {
     const nextContextKey = getCartPricingContextKey(vehicle, location);
 
     if (cartContextKey && cartContextKey !== nextContextKey && cart.length > 0) {
-      setCart([]);
+      if (preserveCartContextChangeRef.current) {
+        setCart((current) =>
+          current.map((item) => ({
+            ...item,
+            pricingContextKey: nextContextKey,
+          })),
+        );
+        preserveCartContextChangeRef.current = false;
+      } else {
+        setCart([]);
+      }
     }
 
     if (cartContextKey !== nextContextKey) {
       setCartContextKey(nextContextKey);
+    } else if (preserveCartContextChangeRef.current) {
+      preserveCartContextChangeRef.current = false;
     }
   }, [
     cart.length,
@@ -1449,6 +1484,20 @@ export function AppProvider({ children }) {
     vehicle?.id,
     location?.city,
   ]);
+
+  useEffect(() => {
+    if (cart.length === 0) {
+      removeSessionCache(CART_CACHE_KEY);
+    } else {
+      setSessionCache(CART_CACHE_KEY, JSON.stringify(cart));
+    }
+
+    if (cartContextKey) {
+      setSessionCache(CART_CONTEXT_CACHE_KEY, cartContextKey);
+    } else {
+      removeSessionCache(CART_CONTEXT_CACHE_KEY);
+    }
+  }, [cart, cartContextKey]);
 
   useEffect(() => {
     if (!user) return;

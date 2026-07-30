@@ -10,6 +10,7 @@ import { useApp } from "@/hooks/useApp";
 import CustomerPwaInstall from "@/components/pwa/CustomerPwaInstall";
 import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import { preloadCustomerPortal } from "@/utils/customerPreload";
+import { readPendingServiceSelection } from "@/utils/bookingCart";
 
 const MOBILE_LOGIN_LOADER_MINIMUM_MS = 1100;
 const AUTH_NOTICE_KEY = "rov_auth_notice";
@@ -24,7 +25,9 @@ const buildReturnPath = (fromLocation) => {
 
 export default function Login() {
   const { state } = useLocation();
-  const fromLocation = state?.from || null;
+  const pendingServiceSelection = readPendingServiceSelection();
+  const fromLocation =
+    state?.from || pendingServiceSelection?.returnLocation || null;
   const from = buildReturnPath(fromLocation);
   const storedNotice =
     typeof window !== "undefined"

@@ -124,7 +124,15 @@ function CartItems({ cart, serviceById, comingSoonIds, removeFromCart }) {
 }
 
 export default function ServiceSelect() {
-  const { user, vehicle, location, cart, addToCart, removeFromCart } = useApp();
+  const {
+    user,
+    vehicle,
+    location,
+    cart,
+    setCart,
+    addToCart,
+    removeFromCart,
+  } = useApp();
 
   const [categories, setCategories] = useState([]);
   const [catId, setCatId] = useState(null);
@@ -213,6 +221,40 @@ export default function ServiceSelect() {
         });
 
         const data = res.data.data || [];
+        const currentServiceById = new Map(
+          data.flatMap((category) =>
+            (category.services || []).map((service) => [
+              service.id,
+              {
+                ...service,
+                catId: category.id,
+                category: {
+                  id: category.id,
+                  name: category.name,
+                  isComingSoon: toBoolean(category.isComingSoon),
+                },
+                categoryComingSoon: toBoolean(category.isComingSoon),
+              },
+            ]),
+          ),
+        );
+
+        setCart((current) =>
+          current.map((item) => {
+            const refreshedService = currentServiceById.get(item.id);
+            if (!refreshedService) return item;
+
+            return {
+              ...item,
+              ...refreshedService,
+              price: refreshedService.priceRange
+                ? getServiceMinPrice(refreshedService)
+                : item.price,
+              image:
+                getServiceThumbnailUrl(refreshedService) || item.image,
+            };
+          }),
+        );
 
         setCategories(data);
         warmImageCache(getServiceImageUrls(data));
@@ -232,7 +274,7 @@ export default function ServiceSelect() {
     };
 
     loadServices();
-  }, [user, vehicle?.id, location?.city]);
+  }, [user, vehicle?.id, location?.city, setCart]);
 
   useEffect(() => {
     if (cart.length === 0) {
