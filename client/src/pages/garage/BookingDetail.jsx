@@ -11,6 +11,7 @@ import {
 } from "react-icons/fi";
 import ImageUpload from "@/components/garage/ImageUpload";
 import VideoUpload from "@/components/garage/VideoUpload";
+import EvidenceUploadProgress from "@/components/garage/EvidenceUploadProgress";
 import InspectionGallery from "@/components/booking/InspectionGallery";
 import LiveBookingTracking from "@/components/maps/LiveBookingTracking";
 import MapPanel from "@/components/maps/MapPanel";
@@ -46,6 +47,13 @@ const formatDateTime = (value) => {
 const ARRIVAL_UNLOCK_DISTANCE_METERS = 300;
 const BOOKING_FLOW_POLL_INTERVAL_MS = 3000;
 const GARAGE_DASHBOARD_PATH = "/garage";
+
+const getEvidenceFileSize = (item) =>
+  Number(item?.file?.size || item?.size || 0);
+
+const getEvidenceTotalBytes = (images = [], video = null) =>
+  images.reduce((total, item) => total + getEvidenceFileSize(item), 0) +
+  getEvidenceFileSize(video);
 
 const toRad = (value) => (Number(value) * Math.PI) / 180;
 
@@ -94,6 +102,7 @@ export default function GarageBookingDetail() {
   const [remoteBooking, setRemoteBooking] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [evidenceUpload, setEvidenceUpload] = useState(null);
 
   const cachedBooking = bookings.find(
     (item) => item.id === id || item.requestId === id || item.bookingId === id,
@@ -262,6 +271,51 @@ export default function GarageBookingDetail() {
     updateLocalBooking(fallbackPatch);
   };
 
+  const beginEvidenceUpload = (label) => {
+    setEvidenceUpload({
+      label,
+      progress: 0,
+      stage: "uploading",
+    });
+  };
+
+  const createEvidenceProgressHandler = (images, video) => {
+    const expectedTotalBytes = getEvidenceTotalBytes(images, video);
+
+    return (event) => {
+      const loaded = Number(event?.loaded || 0);
+      const total = Number(event?.total || expectedTotalBytes || 0);
+      const progress =
+        total > 0
+          ? Math.min(100, Math.round((loaded / total) * 100))
+          : 0;
+
+      setEvidenceUpload((current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          progress: Math.max(current.progress || 0, progress),
+          stage: progress >= 100 ? "verifying" : "uploading",
+        };
+      });
+    };
+  };
+
+  const markEvidenceFinalizing = async () => {
+    setEvidenceUpload((current) =>
+      current
+        ? {
+            ...current,
+            progress: 100,
+            stage: "finalizing",
+          }
+        : current,
+    );
+
+    await new Promise((resolve) => window.setTimeout(resolve, 350));
+  };
+
   const verifyHandover = async () => {
     const validImageCount =
       preServiceImages.length >= 5 && preServiceImages.length <= 15;
@@ -278,16 +332,23 @@ export default function GarageBookingDetail() {
     setLoading(true);
     setError("");
     setSuccess("");
+    beginEvidenceUpload("Pickup inspection evidence");
 
     try {
       const result = await garageApi.verifyHandoverOtp(
-        garageToken,
         booking.requestId || booking.id,
         otp.trim(),
         preServiceImages,
         preServiceVideo,
+        {
+          onUploadProgress: createEvidenceProgressHandler(
+            preServiceImages,
+            preServiceVideo,
+          ),
+        },
       );
 
+      await markEvidenceFinalizing();
       applyLifecycleResult(result, {
         status: "IN_PROGRESS",
         handoverOtpVerifiedAt: new Date().toISOString(),
@@ -303,6 +364,7 @@ export default function GarageBookingDetail() {
       setError(err.response?.data?.message || "Unable to verify handover OTP");
     } finally {
       setLoading(false);
+      setEvidenceUpload(null);
     }
   };
 
@@ -316,14 +378,22 @@ export default function GarageBookingDetail() {
     setLoading(true);
     setError("");
     setSuccess("");
+    beginEvidenceUpload("Arrival inspection evidence");
 
     try {
       const result = await garageApi.confirmSelfDropArrival(
         booking.requestId || booking.id,
         preServiceImages,
         preServiceVideo,
+        {
+          onUploadProgress: createEvidenceProgressHandler(
+            preServiceImages,
+            preServiceVideo,
+          ),
+        },
       );
 
+      await markEvidenceFinalizing();
       applyLifecycleResult(result, {
         status: "IN_PROGRESS",
         arrivedAtGarageAt: new Date().toISOString(),
@@ -340,6 +410,7 @@ export default function GarageBookingDetail() {
       );
     } finally {
       setLoading(false);
+      setEvidenceUpload(null);
     }
   };
 
@@ -374,15 +445,22 @@ export default function GarageBookingDetail() {
     setLoading(true);
     setError("");
     setSuccess("");
+    beginEvidenceUpload("Post-service inspection evidence");
 
     try {
       const result = await garageApi.markServiceComplete(
-        garageToken,
         booking.requestId || booking.id,
         postServiceImages,
         postServiceVideo,
+        {
+          onUploadProgress: createEvidenceProgressHandler(
+            postServiceImages,
+            postServiceVideo,
+          ),
+        },
       );
 
+      await markEvidenceFinalizing();
       applyLifecycleResult(result, {
         status: "IN_PROGRESS",
         serviceCompletedAt: new Date().toISOString(),
@@ -402,6 +480,7 @@ export default function GarageBookingDetail() {
       );
     } finally {
       setLoading(false);
+      setEvidenceUpload(null);
     }
   };
 
@@ -537,7 +616,14 @@ export default function GarageBookingDetail() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <EvidenceUploadProgress
+        visible={Boolean(evidenceUpload)}
+        progress={evidenceUpload?.progress || 0}
+        stage={evidenceUpload?.stage || "uploading"}
+        label={evidenceUpload?.label || "Inspection evidence"}
+      />
+      <div className="space-y-6">
       <button
         onClick={() => navigate("/garage/bookings")}
         className="flex items-center gap-2 text-muted hover:text-ink"
@@ -1058,6 +1144,7 @@ export default function GarageBookingDetail() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

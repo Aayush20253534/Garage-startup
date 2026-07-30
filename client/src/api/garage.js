@@ -427,8 +427,10 @@ export const garageApi = {
   },
 
   async verifyHandoverOtp(...args) {
-    // New: verifyHandoverOtp(requestId, otp, images, video)
-    const [requestId, otp, images = [], video = null] = args.slice(-4);
+    // New: verifyHandoverOtp(requestId, otp, images, video, requestOptions)
+    const normalizedArgs = args[0] === "cookie-session" ? args.slice(1) : args;
+    const [requestId, otp, images = [], video = null, requestOptions = {}] =
+      normalizedArgs;
 
     const formData = new FormData();
     formData.append("otp", otp);
@@ -445,13 +447,17 @@ export const garageApi = {
       await api.post(
         `/garage/requests/${requestId}/verify-handover-otp`,
         formData,
+        {
+          onUploadProgress: requestOptions?.onUploadProgress,
+        },
       ),
     );
   },
 
   async confirmSelfDropArrival(...args) {
     const normalizedArgs = args[0] === "cookie-session" ? args.slice(1) : args;
-    const [requestId, images = [], video = null] = normalizedArgs.slice(-3);
+    const [requestId, images = [], video = null, requestOptions = {}] =
+      normalizedArgs;
     const formData = new FormData();
 
     images
@@ -466,6 +472,9 @@ export const garageApi = {
       await api.post(
         `/garage/requests/${requestId}/confirm-self-drop-arrival`,
         formData,
+        {
+          onUploadProgress: requestOptions?.onUploadProgress,
+        },
       ),
     );
   },
@@ -478,7 +487,8 @@ export const garageApi = {
 
   async markServiceComplete(...args) {
     const normalizedArgs = args[0] === "cookie-session" ? args.slice(1) : args;
-    const [requestId, images = [], video = null] = normalizedArgs.slice(-3);
+    const [requestId, images = [], video = null, requestOptions = {}] =
+      normalizedArgs;
     const formData = new FormData();
 
     images
@@ -493,6 +503,9 @@ export const garageApi = {
       await api.post(
         `/garage/requests/${requestId}/mark-service-complete`,
         formData,
+        {
+          onUploadProgress: requestOptions?.onUploadProgress,
+        },
       ),
     );
   },
