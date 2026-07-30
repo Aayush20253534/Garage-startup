@@ -18,6 +18,7 @@ import { formatRupees } from "@/utils/priceRange";
 import { getBookingTimelineState } from "@/utils/bookingTimeline";
 import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 import {
+  FiArrowRight,
   FiCheck,
   FiCheckCircle,
   FiClock,
@@ -1084,15 +1085,37 @@ function Tracking() {
               )}
             </div>
 
-            <div className="mt-6 rounded-3xl bg-gradient-to-br from-ink to-ink-2 p-6 text-white">
-              <span className="chip-brand">Active</span>
-              <h3 className="mt-3 flex items-center gap-2 text-2xl font-bold">
-                <FiShield /> 30-Day Warranty Card
-              </h3>
-              <p className="mt-2 text-sm text-white/70">
-                Your service warranty is active after booking completion.
-              </p>
-            </div>
+            <Link
+              to={`/dashboard/warranty?bookingId=${encodeURIComponent(booking.id)}`}
+              state={{
+                focusWarrantyBookingId: booking.id,
+                fromTracking: true,
+              }}
+              className="group mt-6 block overflow-hidden rounded-3xl border border-brand/30 bg-gradient-to-br from-ink to-ink-2 p-6 text-white shadow-lg transition hover:-translate-y-0.5 hover:border-brand/70 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
+              aria-label="Open the active warranty card for this booking"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <span className="chip-brand">Warranty active</span>
+                  <h3 className="mt-3 flex items-start gap-2 text-2xl font-bold">
+                    <FiShield className="mt-1 shrink-0" />
+                    <span>Open your 30-day warranty</span>
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-white/70">
+                    View the real warranty card for this completed booking, including its warranty ID, covered services, garage, vehicle, activation date, expiry date, and claim option.
+                  </p>
+                </div>
+
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/10 text-xl transition group-hover:border-brand group-hover:bg-brand group-hover:text-black">
+                  <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </div>
+
+              <div className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-black transition group-hover:bg-brand">
+                View warranty card
+                <FiArrowRight />
+              </div>
+            </Link>
           </>
         )}
       </main>

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   FiAlertTriangle,
   FiCheckCircle,
@@ -47,7 +47,7 @@ const getLiveWarrantyState = (warranty, now) => {
   };
 };
 
-function WarrantyCard({ warranty, now }) {
+function WarrantyCard({ warranty, now, isFocused = false, cardRef = null }) {
   const { isActive, daysRemaining, progress } = getLiveWarrantyState(
     warranty,
     now,
@@ -57,12 +57,24 @@ function WarrantyCard({ warranty, now }) {
     .filter(Boolean);
 
   return (
-    <article className="relative min-w-0 overflow-hidden rounded-3xl bg-gradient-to-br from-ink to-ink-2 p-4 text-white shadow-lg sm:p-6">
+    <article
+      ref={cardRef}
+      id={`warranty-booking-${warranty.bookingId}`}
+      tabIndex={isFocused ? -1 : undefined}
+      aria-current={isFocused ? "true" : undefined}
+      className={[
+        "relative min-w-0 scroll-mt-28 overflow-hidden rounded-3xl bg-gradient-to-br from-ink to-ink-2 p-4 text-white shadow-lg transition sm:p-6",
+        isFocused
+          ? "ring-4 ring-brand/70 ring-offset-4 ring-offset-white"
+          : "",
+      ].join(" ")}
+    >
       <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-brand/20 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -left-16 h-52 w-52 rounded-full bg-white/5 blur-3xl" />
 
       <header className="relative flex min-w-0 flex-col gap-3 min-[440px]:flex-row min-[440px]:items-start min-[440px]:justify-between">
-        <span
+        <div className="flex flex-wrap items-center gap-2">
+          <span
           className={[
             "inline-flex w-fit items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold",
             isActive
@@ -70,9 +82,16 @@ function WarrantyCard({ warranty, now }) {
               : "border-white/15 bg-white/10 text-white/80",
           ].join(" ")}
         >
-          {isActive ? <FiCheckCircle /> : <FiAlertTriangle />}
-          {isActive ? "Active" : "Expired"}
-        </span>
+            {isActive ? <FiCheckCircle /> : <FiAlertTriangle />}
+            {isActive ? "Active" : "Expired"}
+          </span>
+
+          {isFocused && (
+            <span className="inline-flex w-fit items-center rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold text-white">
+              Selected booking
+            </span>
+          )}
+        </div>
 
         <div className="min-w-0 max-w-full text-left min-[440px]:max-w-[58%] min-[440px]:text-right">
           <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
@@ -208,6 +227,9 @@ function WarrantyCard({ warranty, now }) {
 }
 
 export default function WarrantyCenter() {
+  const [searchParams] = useSearchParams();
+  const focusedBookingId = String(searchParams.get("bookingId") || "").trim();
+  const focusedCardRef = useRef(null);
   const [warranties, setWarranties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -243,6 +265,41 @@ export default function WarrantyCenter() {
     const timer = window.setInterval(() => setNow(new Date()), 60 * 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  const orderedWarranties = useMemo(() => {
+    if (!focusedBookingId) return warranties;
+
+    return [...warranties].sort((left, right) => {
+      const leftMatches = String(left.bookingId) === focusedBookingId ? 1 : 0;
+      const rightMatches = String(right.bookingId) === focusedBookingId ? 1 : 0;
+      return rightMatches - leftMatches;
+    });
+  }, [focusedBookingId, warranties]);
+
+  const focusedWarrantyExists = useMemo(
+    () =>
+      Boolean(
+        focusedBookingId &&
+          warranties.some(
+            (warranty) => String(warranty.bookingId) === focusedBookingId,
+          ),
+      ),
+    [focusedBookingId, warranties],
+  );
+
+  useEffect(() => {
+    if (loading || !focusedWarrantyExists || !focusedCardRef.current) return;
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      focusedCardRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      focusedCardRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [focusedWarrantyExists, loading]);
 
   const summary = useMemo(() => {
     return warranties.reduce(
@@ -308,6 +365,15 @@ export default function WarrantyCenter() {
         Service warranty cards
       </h2>
 
+      {focusedBookingId && !loading && !error && !focusedWarrantyExists && (
+        <div className="mt-5 flex min-w-0 items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <FiAlertTriangle className="mt-0.5 shrink-0" />
+          <span className="min-w-0 break-words">
+            The warranty for that booking is not available yet. Refresh after the booking has been fully completed and payment has been confirmed.
+          </span>
+        </div>
+      )}
+
       {error && (
         <div className="mt-5 flex min-w-0 items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           <FiAlertTriangle className="mt-0.5 shrink-0" />
@@ -337,9 +403,19 @@ export default function WarrantyCenter() {
         </div>
       ) : (
         <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-2">
-          {warranties.map((warranty) => (
-            <WarrantyCard key={warranty.id} warranty={warranty} now={now} />
-          ))}
+          {orderedWarranties.map((warranty) => {
+            const isFocused = String(warranty.bookingId) === focusedBookingId;
+
+            return (
+              <WarrantyCard
+                key={warranty.id}
+                warranty={warranty}
+                now={now}
+                isFocused={isFocused}
+                cardRef={isFocused ? focusedCardRef : null}
+              />
+            );
+          })}
         </div>
       )}
     </div>
