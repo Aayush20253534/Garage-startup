@@ -39,14 +39,14 @@ function RequestTable({ rows }) {
       {rows.map(({ label, value, strong = false }) => (
         <div
           key={label}
-          className="grid grid-cols-[minmax(105px,0.42fr)_minmax(0,1fr)] gap-3 px-4 py-3.5 sm:grid-cols-[180px_minmax(0,1fr)]"
+          className="grid min-w-0 gap-1.5 px-4 py-3.5 sm:grid-cols-[170px_minmax(0,1fr)] sm:gap-4"
         >
           <dt className="text-xs font-bold uppercase tracking-[0.1em] text-muted">
             {label}
           </dt>
           <dd
             className={[
-              "min-w-0 break-words text-right text-sm text-ink sm:text-left",
+              "min-w-0 break-words text-left text-sm leading-5 text-ink",
               strong ? "font-extrabold" : "font-semibold",
             ].join(" ")}
           >
@@ -62,7 +62,7 @@ function StatusBadge({ accepted }) {
   return (
     <span
       className={[
-        "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.1em]",
+        "inline-flex min-h-8 max-w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-[11px] font-extrabold uppercase leading-tight tracking-[0.08em]",
         accepted
           ? "border-emerald-200 bg-emerald-50 text-emerald-700"
           : "border-brand/40 bg-brand/15 text-ink",
@@ -279,7 +279,7 @@ export default function MagicLink() {
   const requestId = booking?.bookingId || booking?.requestId || id;
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-slate-50 px-3 py-4 sm:px-6 sm:py-8">
+    <main className="min-h-[calc(100vh-4rem)] overflow-x-hidden bg-slate-50 px-3 py-4 sm:px-6 sm:py-8">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -289,7 +289,7 @@ export default function MagicLink() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <StatusBadge accepted={accepted} />
-              <h1 className="mt-3 break-all text-xl font-extrabold tracking-tight text-ink sm:text-2xl">
+              <h1 className="mt-3 break-words text-xl font-extrabold leading-tight tracking-tight text-ink sm:text-2xl">
                 Request {requestId}
               </h1>
               {garage?.name && (
@@ -299,7 +299,7 @@ export default function MagicLink() {
               )}
             </div>
 
-            <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-muted shadow-sm">
+            <div className="flex w-full min-w-0 items-start gap-2 rounded-xl border border-line bg-white px-3 py-2.5 text-xs font-semibold leading-5 text-muted shadow-sm sm:w-auto sm:max-w-xs">
               <FiClock className="h-4 w-4 text-brand-dark" />
               Respond promptly to keep the request active
             </div>
@@ -324,7 +324,7 @@ export default function MagicLink() {
                     <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted">
                       Vehicle
                     </p>
-                    <h2 className="truncate text-lg font-extrabold text-ink sm:text-xl">
+                    <h2 className="break-words text-lg font-extrabold leading-tight text-ink sm:text-xl">
                       {vehicleTitle}
                     </h2>
                     <p className="mt-0.5 text-sm font-medium text-muted">
@@ -335,7 +335,7 @@ export default function MagicLink() {
               </section>
 
               <section>
-                <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <h2 className="text-sm font-extrabold text-ink">Request summary</h2>
                   <span className="text-xs font-semibold text-muted">
                     Before acceptance
@@ -421,7 +421,7 @@ export default function MagicLink() {
                     ]}
                   />
 
-                  <div className={`grid gap-2 sm:gap-3 ${isSelfDropOff ? "grid-cols-2" : "grid-cols-3"}`}>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <button
                       type="button"
                       disabled={!booking.customer?.phone}
@@ -452,7 +452,7 @@ export default function MagicLink() {
                       <button
                         type="button"
                         onClick={openGoogleMaps}
-                        className="inline-flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl bg-brand px-2 py-3 text-xs font-extrabold text-black transition hover:bg-brand-dark sm:text-sm"
+                        className="col-span-2 inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-brand px-3 py-3 text-sm font-extrabold text-black transition hover:bg-brand-dark"
                       >
                         <FiNavigation className="h-5 w-5" />
                         Navigate
@@ -478,14 +478,14 @@ export default function MagicLink() {
                     </h2>
                   </div>
                   <dl className="divide-y divide-current/10 px-4">
-                    <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                    <div className="flex flex-col gap-1 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                       <dt className="font-medium text-muted">Acceptance fee</dt>
                       <dd className="font-extrabold text-ink">
                         {formatRupees(acceptFee)}
                       </dd>
                     </div>
                     {hasWalletBalance && (
-                      <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                      <div className="flex flex-col gap-1 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                         <dt className="font-medium text-muted">Wallet balance</dt>
                         <dd className="font-extrabold text-ink">
                           {formatRupees(walletBalance)}
@@ -493,7 +493,7 @@ export default function MagicLink() {
                       </div>
                     )}
                     {needsRecharge && (
-                      <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                      <div className="flex flex-col gap-1 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                         <dt className="font-semibold text-amber-800">Required recharge</dt>
                         <dd className="font-extrabold text-amber-900">
                           {formatRupees(walletShortfall)}
@@ -518,7 +518,7 @@ export default function MagicLink() {
                       onClick={handleAccept}
                       disabled={Boolean(actionLoading)}
                       className={[
-                        "inline-flex h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60",
+                        "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3 text-center text-sm font-extrabold leading-tight transition disabled:cursor-not-allowed disabled:opacity-60",
                         needsRecharge
                           ? "bg-ink text-white hover:bg-ink-soft"
                           : "bg-brand text-black hover:bg-brand-dark",
@@ -535,7 +535,7 @@ export default function MagicLink() {
                       type="button"
                       onClick={handleReject}
                       disabled={Boolean(actionLoading)}
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 text-sm font-extrabold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3 text-center text-sm font-extrabold leading-tight text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <FiXCircle className="h-4 w-4" />
                       {actionLoading === "reject" ? "Rejecting..." : "Reject request"}
@@ -553,7 +553,7 @@ export default function MagicLink() {
                       : "/garage/bookings",
                   )
                 }
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-slate-50 px-4 text-sm font-extrabold text-ink transition hover:border-ink hover:bg-white"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-slate-50 px-4 py-2.5 text-center text-sm font-extrabold leading-tight text-ink transition hover:border-ink hover:bg-white"
               >
                 {accepted ? "Open booking workspace" : "Open garage dashboard"}
                 <FiArrowRight className="h-4 w-4" />

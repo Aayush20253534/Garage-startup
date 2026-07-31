@@ -111,13 +111,13 @@ export default function BookingCard({
     <motion.article
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-lg border border-line bg-white shadow-sm transition hover:border-ink/15 hover:shadow-md"
+      className="min-w-0 overflow-hidden rounded-xl border border-line bg-white shadow-sm transition hover:border-ink/15 hover:shadow-md"
     >
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_220px]">
+      <div className="grid min-w-0 gap-0 lg:grid-cols-[minmax(0,1fr)_250px]">
         <button
           type="button"
           onClick={openBooking}
-          className="min-w-0 p-4 text-left sm:p-5"
+          className="block w-full min-w-0 p-4 text-left sm:p-5"
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -132,7 +132,7 @@ export default function BookingCard({
 
             <span
               className={[
-                "inline-flex h-7 w-fit shrink-0 items-center rounded-md border px-2.5 text-[11px] font-bold",
+                "inline-flex min-h-7 max-w-full shrink-0 items-center rounded-md border px-2.5 py-1 text-left text-[11px] font-bold leading-tight sm:text-center",
                 statusColors[booking.status] || "border-slate-200 bg-slate-50 text-slate-600",
               ].join(" ")}
             >
@@ -195,34 +195,38 @@ export default function BookingCard({
           {isNewBooking && acceptFee > 0 && (
             <div
               className={[
-                "mb-3 rounded-md border px-3 py-2 text-xs leading-5",
+                "mb-3 rounded-lg border px-3 py-2.5 text-xs leading-5",
                 needsRecharge
                   ? "border-amber-200 bg-amber-50 text-amber-800"
                   : "border-green-200 bg-green-50 text-green-700",
               ].join(" ")}
             >
-              <div className="flex items-start gap-2">
+              <div className="flex min-w-0 items-start gap-2.5">
                 <FiAlertCircle className="mt-0.5 shrink-0" />
-                <span>
-                  Accept fee: <strong>{formatRupees(acceptFee)}</strong>
-                  {hasWalletBalance ? (
-                    <>
-                      {" "}
-                      - Wallet: <strong>{formatRupees(numericWalletBalance)}</strong>
-                    </>
-                  ) : null}
-                </span>
+                <div className="min-w-0">
+                  <p className="font-medium">
+                    Acceptance fee
+                    <strong className="ml-1 font-extrabold">
+                      {formatRupees(acceptFee)}
+                    </strong>
+                  </p>
+                  {hasWalletBalance && (
+                    <p className="break-words text-current/80">
+                      Wallet balance: {formatRupees(numericWalletBalance)}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
           {isNewBooking && onAccept && onDecline ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               <button
                 type="button"
                 onClick={handleAccept}
                 className={[
-                  "inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold text-white transition disabled:opacity-60",
+                  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-center text-sm font-semibold leading-tight text-white transition disabled:opacity-60",
                   needsRecharge
                     ? "bg-amber-500 hover:bg-amber-600"
                     : "bg-green-600 hover:bg-green-700",
@@ -235,7 +239,7 @@ export default function BookingCard({
               <button
                 type="button"
                 onClick={handleDecline}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-red-600 px-3 text-sm font-semibold text-white transition hover:bg-red-700"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-center text-sm font-semibold leading-tight text-white transition hover:bg-red-700"
               >
                 <FiX className="h-4 w-4" />
                 Decline
@@ -245,7 +249,7 @@ export default function BookingCard({
             <button
               type="button"
               onClick={openBooking}
-              className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-ink px-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ink-2"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-ink px-3.5 py-2 text-center text-sm font-semibold leading-tight text-white shadow-sm transition hover:bg-ink-2"
             >
               View Details
               <FiArrowRight className="h-4 w-4" />
