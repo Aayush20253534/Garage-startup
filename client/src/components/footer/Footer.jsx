@@ -32,7 +32,7 @@ const SOCIAL_LINKS = [
   {
     Icon: FiYoutube,
     label: "Rovauto on YouTube",
-    href: "https://www.youtube.com/@Rovauto",
+    href: "https://www.youtube.com/@rovautoofficial",
   },
   {
     Icon: FiFacebook,
