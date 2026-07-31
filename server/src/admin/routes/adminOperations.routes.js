@@ -94,7 +94,7 @@ router.post(
 );
 router.delete(
   "/bookings/all",
-  authorizeRoles("ADMIN", "SUB_ADMIN"),
+  authorizeRoles("ADMIN"),
   clearBookingsSchema,
   validate,
   controller.clearAllBookings,
