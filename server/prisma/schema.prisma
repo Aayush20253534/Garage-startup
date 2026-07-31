@@ -78,7 +78,7 @@ model GarageController {
   id                String                       @id @default(uuid())
   garageId          String
   name              String
-  email             String                       @unique
+  email             String?                      @unique
   phone             String                       @unique
   password          String
   role              Role                         @default(GARAGE_CONTROLLER)

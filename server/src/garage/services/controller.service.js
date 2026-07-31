@@ -44,6 +44,10 @@ const controllerSelect = {
 };
 
 const cleanName = (value) => String(value || "").trim().slice(0, 120);
+const cleanOptionalEmail = (value) => {
+  const email = normalizeEmail(value);
+  return email || null;
+};
 
 const resolveOwnerGarage = async (ownerId) => {
   const garage = await prisma.garage.findFirst({
@@ -131,12 +135,12 @@ const createController = async (actor, requestedGarageId, input) => {
     throw new ApiError(409, "Controller accounts are disabled for this garage");
   }
   const name = cleanName(input.name);
-  const email = normalizeEmail(input.email);
   const phone = normalizePhone(input.phone);
+  const email = cleanOptionalEmail(input.email);
   const password = String(input.password || "");
 
-  if (!name || !email || !phone) {
-    throw new ApiError(400, "Name, email and phone are required");
+  if (!name || !phone) {
+    throw new ApiError(400, "Name and phone are required");
   }
   if (!PASSWORD_REGEX.test(password)) throw new ApiError(400, PASSWORD_MESSAGE);
 
@@ -172,7 +176,7 @@ const createController = async (actor, requestedGarageId, input) => {
       });
     } catch (error) {
       if (error?.code === "P2002") {
-        throw new ApiError(409, "That controller email or phone number is already in use");
+        throw new ApiError(409, "That controller phone number or email is already in use");
       }
       throw error;
     }
@@ -188,7 +192,7 @@ const updateController = async (actor, requestedGarageId, controllerId, input) =
     data.name = cleanName(input.name);
     if (!data.name) throw new ApiError(400, "Name is required");
   }
-  if (Object.hasOwn(input, "email")) data.email = normalizeEmail(input.email);
+  if (Object.hasOwn(input, "email")) data.email = cleanOptionalEmail(input.email);
   if (Object.hasOwn(input, "phone")) data.phone = normalizePhone(input.phone);
   if (Object.hasOwn(input, "isActive")) data.isActive = Boolean(input.isActive);
   if (Object.hasOwn(input, "availability")) {
@@ -215,7 +219,7 @@ const updateController = async (actor, requestedGarageId, controllerId, input) =
     });
   } catch (error) {
     if (error?.code === "P2002") {
-      throw new ApiError(409, "That controller email or phone number is already in use");
+      throw new ApiError(409, "That controller phone number or email is already in use");
     }
     throw error;
   }
@@ -483,8 +487,10 @@ const getControllerDashboard = async (controllerId) => {
 };
 
 const requestPasswordReset = async (email) => {
-  const normalizedEmail = normalizeEmail(email);
-  const controller = await prisma.garageController.findUnique({ where: { email: normalizedEmail } });
+  const normalizedEmail = cleanOptionalEmail(email);
+  const controller = normalizedEmail
+    ? await prisma.garageController.findUnique({ where: { email: normalizedEmail } })
+    : null;
   if (controller?.isActive && !controller.deletedAt) {
     const otp = generateOtp();
     const now = new Date();
@@ -500,7 +506,10 @@ const requestPasswordReset = async (email) => {
 
 const resetPasswordWithOtp = async ({ email, otp, newPassword }) => {
   if (!PASSWORD_REGEX.test(String(newPassword || ""))) throw new ApiError(400, PASSWORD_MESSAGE);
-  const controller = await prisma.garageController.findUnique({ where: { email: normalizeEmail(email) } });
+  const normalizedEmail = cleanOptionalEmail(email);
+  const controller = normalizedEmail
+    ? await prisma.garageController.findUnique({ where: { email: normalizedEmail } })
+    : null;
   if (!controller?.isActive || controller.deletedAt) throw new ApiError(400, "Invalid or expired OTP");
   const changedAt = new Date();
   const result = await prisma.$transaction(async (tx) => {

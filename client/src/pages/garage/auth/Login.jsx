@@ -135,7 +135,7 @@ export default function GarageLogin() {
                   {isReturningToRequest
                     ? "After login, you will return directly to the booking received on WhatsApp."
                     : accountRole === "GARAGE_CONTROLLER"
-                      ? "Use the phone or email and password created for you by the garage owner or Rovauto admin."
+                      ? "Use the phone number and password created for you by the garage owner or Rovauto admin. Email login also works when an email was added."
                       : "Use the owner account approved for your garage workspace."}
                 </p>
               </div>
@@ -179,16 +179,22 @@ export default function GarageLogin() {
                 {[["GARAGE_OWNER", "Garage owner"], ["GARAGE_CONTROLLER", "Controller / staff"]].map(([value, label]) => <button key={value} type="button" onClick={() => { setAccountRole(value); setError(""); }} className={`rounded-lg px-3 py-2 text-xs font-bold ${accountRole === value ? "bg-white text-ink shadow-sm" : "text-muted"}`}>{label}</button>)}
               </div>
               <label className="grid gap-2 text-sm font-bold text-ink">
-                Email or phone
+                {accountRole === "GARAGE_CONTROLLER"
+                  ? "Phone number (preferred) or email"
+                  : "Email or phone"}
                 <div className="relative">
                   <FiUser className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                   <input
                     type="text"
                     value={identifier}
                     onChange={(event) => setIdentifier(event.target.value)}
-                    placeholder="Email or mobile number"
+                    placeholder={
+                      accountRole === "GARAGE_CONTROLLER"
+                        ? "+919876543210"
+                        : "Email or mobile number"
+                    }
                     autoComplete="username"
-                    inputMode="email"
+                    inputMode={accountRole === "GARAGE_CONTROLLER" ? "text" : "email"}
                     className="h-12 min-w-0 w-full rounded-xl border border-line bg-white pl-11 pr-3 text-[13px] outline-none transition placeholder:text-xs focus:border-ink focus:ring-2 focus:ring-slate-100 sm:pr-4 sm:text-sm sm:placeholder:text-sm"
                     required
                   />

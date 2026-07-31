@@ -6,17 +6,27 @@ const test = require("node:test");
 const root = path.resolve(__dirname, "../../..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
-test("garage controllers use isolated identities, sessions, and email recovery", () => {
+test("garage controllers use phone-first identities, isolated sessions, and optional email recovery", () => {
   const schema = read("server/prisma/schema.prisma");
   const auth = read("server/src/customer/services/auth.service.js");
   const middleware = read("server/src/middlewares/auth.middleware.js");
+  const controllerService = read("server/src/garage/services/controller.service.js");
+  const controllerValidation = read("server/src/garage/validations/controller.validation.js");
+  const migration = read(
+    "server/prisma/migrations/20260731153000_make_garage_controller_email_optional/migration.sql",
+  );
 
   assert.match(schema, /model GarageController \{/);
   assert.match(schema, /model GarageControllerSession \{/);
-  assert.match(schema, /email\s+String\s+@unique/);
+  assert.match(schema, /email\s+String\?\s+@unique/);
   assert.match(schema, /phone\s+String\s+@unique/);
   assert.match(auth, /GARAGE_CONTROLLER_ROLE/);
   assert.match(auth, /requestPasswordReset/);
+  assert.match(auth, /\.\.\.\(cleanPhone \? \[\{ phone: cleanPhone \}\] : \[\]\)/);
+  assert.match(controllerService, /Name and phone are required/);
+  assert.match(controllerService, /return email \|\| null/);
+  assert.match(controllerValidation, /body\("email"\)[\s\S]*optional\(\{ checkFalsy: true \}\)/);
+  assert.match(migration, /ALTER COLUMN "email" DROP NOT NULL/);
   assert.match(middleware, /getActiveGarageControllerSession/);
 });
 

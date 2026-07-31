@@ -18,8 +18,13 @@ const controllerId = [
 
 const createFields = [
   body("name").trim().isLength({ min: 2, max: 120 }),
-  body("email").trim().isEmail().normalizeEmail(),
   phoneRule,
+  body("email")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isEmail()
+    .withMessage("Enter a valid email address")
+    .normalizeEmail(),
   body("password").matches(PASSWORD_REGEX).withMessage("Use at least 8 characters with uppercase, lowercase, number and symbol"),
 ];
 
@@ -32,7 +37,12 @@ const adminCreate = [
 const update = [
   ...controllerId,
   body("name").optional().trim().isLength({ min: 2, max: 120 }),
-  body("email").optional().trim().isEmail().normalizeEmail(),
+  body("email")
+    .optional({ checkFalsy: true, nullable: true })
+    .trim()
+    .isEmail()
+    .withMessage("Enter a valid email address")
+    .normalizeEmail(),
   body("phone").optional().trim().matches(/^\+91[6-9]\d{9}$/),
   body("isActive").optional().isBoolean(),
   body("availability").optional().isIn(["AVAILABLE", "BUSY"]),

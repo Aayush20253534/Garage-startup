@@ -147,8 +147,11 @@ export default function GarageForgotPassword() {
               <h1 className="mb-2 text-3xl font-bold">Password updated</h1>
 
               <p className="mb-6 text-muted">
-                Your password has been set. Use your email and new password to
-                login.
+                Your password has been set. Use your{" "}
+                {role === "GARAGE_CONTROLLER"
+                  ? "phone number or configured email"
+                  : "email"}{" "}
+                and new password to login.
               </p>
 
               <Link to={`/garage/login?role=${role}`} className="btn-primary w-full">
@@ -160,7 +163,9 @@ export default function GarageForgotPassword() {
               <h1 className="mb-2 text-3xl font-bold">Forgot Password?</h1>
 
               <p className="mb-8 text-muted">
-                Enter your email to receive a password reset OTP.
+                {role === "GARAGE_CONTROLLER"
+                  ? "Enter the optional email linked to the controller account. When no email was added, ask the garage owner or Rovauto admin to reset the password."
+                  : "Enter your email to receive a password reset OTP."}
               </p>
 
               {error && (
@@ -180,7 +185,11 @@ export default function GarageForgotPassword() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="owner@example.com"
+                      placeholder={
+                        role === "GARAGE_CONTROLLER"
+                          ? "controller@example.com"
+                          : "owner@example.com"
+                      }
                       className="w-full rounded-xl border border-line py-3 pl-11 pr-4 text-left outline-none transition-colors focus:border-ink"
                       required
                     />

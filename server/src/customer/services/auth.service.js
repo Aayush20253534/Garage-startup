@@ -740,17 +740,20 @@ const login = async (
   }
 
   if (requestedRole === GARAGE_CONTROLLER_ROLE) {
-    const cleanEmail = normalizeEmail(rawIdentifier);
     let cleanPhone = null;
     try {
       cleanPhone = normalizePhone(rawIdentifier);
     } catch {
-      // Email remains a valid controller identifier.
+      // Fall back to the optional email identifier.
     }
+    const cleanEmail = cleanPhone ? null : normalizeEmail(rawIdentifier);
     const controller = await prisma.garageController.findFirst({
       where: {
         deletedAt: null,
-        OR: [{ email: cleanEmail }, ...(cleanPhone ? [{ phone: cleanPhone }] : [])],
+        OR: [
+          ...(cleanPhone ? [{ phone: cleanPhone }] : []),
+          ...(cleanEmail ? [{ email: cleanEmail }] : []),
+        ],
       },
       include: {
         garage: { select: { controllerAccountsEnabled: true, isActive: true } },

@@ -351,17 +351,21 @@ export default function ControllerManagement({ admin = false }) {
             />
             <input
               required
-              type="email"
-              placeholder="Email"
-              value={form.email}
-              onChange={(event) => setForm({ ...form, email: event.target.value })}
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="Phone number (required)"
+              value={form.phone}
+              onChange={(event) => setForm({ ...form, phone: event.target.value })}
               className="h-11 rounded-md border border-line px-3 text-sm outline-none focus:border-ink"
             />
             <input
-              required
-              placeholder="+919876543210"
-              value={form.phone}
-              onChange={(event) => setForm({ ...form, phone: event.target.value })}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="Email (optional)"
+              value={form.email}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
               className="h-11 rounded-md border border-line px-3 text-sm outline-none focus:border-ink"
             />
             <input
@@ -381,10 +385,16 @@ export default function ControllerManagement({ admin = false }) {
               Create controller
             </button>
           </form>
-          <p className="mt-3 text-xs text-muted">
-            {data.controllers?.length || 0} of{" "}
-            {data.garage?.controllerLimit ?? "—"} configured.
-          </p>
+          <div className="mt-3 flex flex-col gap-1 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              {data.controllers?.length || 0} of{" "}
+              {data.garage?.controllerLimit ?? "—"} configured.
+            </p>
+            <p>
+              Phone is used for login and booking alerts. Email is optional and
+              only enables email password recovery.
+            </p>
+          </div>
         </section>
       )}
 
@@ -478,10 +488,12 @@ export default function ControllerManagement({ admin = false }) {
                     <h3 className="truncate text-base font-extrabold text-ink">
                       {item.name}
                     </h3>
-                    <p className="mt-1 break-all text-xs text-muted">
-                      {item.email}
+                    <p className="mt-1 text-xs font-semibold text-ink">
+                      {item.phone}
                     </p>
-                    <p className="mt-0.5 text-xs text-muted">{item.phone}</p>
+                    <p className="mt-0.5 break-all text-xs text-muted">
+                      {item.email || "No email added"}
+                    </p>
                   </div>
                   <span
                     className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-bold ${
