@@ -141,8 +141,14 @@ export default function ControllerManagement({ admin = false }) {
   const create = (event) => {
     event.preventDefault();
     void (async () => {
+      const payload = {
+        ...form,
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim() || undefined,
+      };
       const created = await perform(
-        () => api.create(form),
+        () => api.create(payload),
         `Controller created for ${data.garage?.name || "this garage"}.`,
       );
       if (created) setForm(emptyForm);
@@ -341,46 +347,83 @@ export default function ControllerManagement({ admin = false }) {
               .
             </p>
           )}
-          <form onSubmit={create} className="mt-4 grid gap-3 lg:grid-cols-5">
-            <input
-              required
-              placeholder="Name"
-              value={form.name}
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
-              className="h-11 rounded-md border border-line px-3 text-sm outline-none focus:border-ink"
-            />
-            <input
-              required
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="Phone number (required)"
-              value={form.phone}
-              onChange={(event) => setForm({ ...form, phone: event.target.value })}
-              className="h-11 rounded-md border border-line px-3 text-sm outline-none focus:border-ink"
-            />
-            <input
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              placeholder="Email (optional)"
-              value={form.email}
-              onChange={(event) => setForm({ ...form, email: event.target.value })}
-              className="h-11 rounded-md border border-line px-3 text-sm outline-none focus:border-ink"
-            />
-            <input
-              required
-              type="password"
-              placeholder="Strong password"
-              value={form.password}
-              onChange={(event) =>
-                setForm({ ...form, password: event.target.value })
-              }
-              className="h-11 rounded-md border border-line px-3 text-sm outline-none focus:border-ink"
-            />
+          <form onSubmit={create} className="mt-4 min-w-0 space-y-4">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <label className="min-w-0">
+                <span className="mb-1.5 block text-xs font-bold text-ink">
+                  Controller name <span className="text-red-600">*</span>
+                </span>
+                <input
+                  required
+                  name="controllerName"
+                  placeholder="Full name"
+                  value={form.name}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                  className="h-11 w-full min-w-0 rounded-md border border-line px-3 text-sm outline-none focus:border-ink"
+                />
+              </label>
+
+              <label className="min-w-0">
+                <span className="mb-1.5 block text-xs font-bold text-ink">
+                  Phone number <span className="text-red-600">*</span>
+                </span>
+                <input
+                  required
+                  name="controllerPhone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="+91XXXXXXXXXX"
+                  value={form.phone}
+                  onChange={(event) => setForm({ ...form, phone: event.target.value })}
+                  className="h-11 w-full min-w-0 rounded-md border border-line px-3 text-sm outline-none focus:border-ink"
+                />
+                <span className="mt-1 block text-[11px] leading-4 text-muted">
+                  Primary login ID and booking-alert number.
+                </span>
+              </label>
+
+              <label className="min-w-0">
+                <span className="mb-1.5 block text-xs font-bold text-ink">
+                  Email <span className="font-semibold text-muted">(optional)</span>
+                </span>
+                <input
+                  name="controllerEmail"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="Leave blank when unavailable"
+                  value={form.email}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
+                  className="h-11 w-full min-w-0 rounded-md border border-line px-3 text-sm outline-none focus:border-ink"
+                />
+                <span className="mt-1 block text-[11px] leading-4 text-muted">
+                  Used only for email password recovery.
+                </span>
+              </label>
+
+              <label className="min-w-0">
+                <span className="mb-1.5 block text-xs font-bold text-ink">
+                  Password <span className="text-red-600">*</span>
+                </span>
+                <input
+                  required
+                  name="controllerPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Strong password"
+                  value={form.password}
+                  onChange={(event) =>
+                    setForm({ ...form, password: event.target.value })
+                  }
+                  className="h-11 w-full min-w-0 rounded-md border border-line px-3 text-sm outline-none focus:border-ink"
+                />
+              </label>
+            </div>
+
             <button
               disabled={loading}
-              className="h-11 rounded-md bg-ink px-4 text-sm font-bold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-11 w-full rounded-md bg-ink px-5 text-sm font-bold text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Create controller
             </button>
