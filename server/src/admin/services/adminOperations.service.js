@@ -2142,7 +2142,7 @@ const sendNotification = async ({
 const CLEAR_BOOKINGS_CONFIRMATION = "CLEAR ALL BOOKINGS";
 const CLOUDINARY_DELETE_BATCH_SIZE = 10;
 
-const deleteInspectionImagesFromCloudinary = async (records = []) => {
+const deleteInspectionMediaFromCloudinary = async (records = []) => {
   const uniqueAssets = [
     ...new Map(
       records
@@ -2186,7 +2186,7 @@ const deleteInspectionImagesFromCloudinary = async (records = []) => {
   }
 
   return {
-    requested: uniquePublicIds.length,
+    requested: uniqueAssets.length,
     deleted,
     failed,
   };
@@ -2275,7 +2275,7 @@ const clearAllBookings = async ({
   ]);
 
   const cloudinaryInspectionImages =
-    await deleteInspectionImagesFromCloudinary(inspectionImageRecords);
+    await deleteInspectionMediaFromCloudinary(inspectionImageRecords);
 
   console.info("[admin] All bookings cleared", {
     requestedById,
