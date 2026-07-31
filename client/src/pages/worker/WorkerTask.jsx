@@ -42,6 +42,12 @@ const COPY = {
     video: "Select one video",
     selectedPhotos: "photos selected",
     selectedVideo: "Video selected",
+    camera: "Open camera",
+    gallery: "Choose gallery",
+    cameraPhotoHelp: "Take a new photo",
+    galleryPhotoHelp: "Select existing photos",
+    cameraVideoHelp: "Record a new video",
+    galleryVideoHelp: "Select an existing video",
     otp: "Customer handover OTP",
     otpHelp: "Ask the customer for the handover OTP only when physically receiving the vehicle.",
     completeHandover: "Verify OTP and complete handover",
@@ -92,6 +98,12 @@ const COPY = {
     video: "एक वीडियो चुनें",
     selectedPhotos: "फोटो चुने गए",
     selectedVideo: "वीडियो चुना गया",
+    camera: "कैमरा खोलें",
+    gallery: "गैलरी चुनें",
+    cameraPhotoHelp: "नई फोटो लें",
+    galleryPhotoHelp: "मौजूदा फोटो चुनें",
+    cameraVideoHelp: "नया वीडियो रिकॉर्ड करें",
+    galleryVideoHelp: "मौजूदा वीडियो चुनें",
     otp: "ग्राहक का हैंडओवर ओटीपी",
     otpHelp: "गाड़ी लेते समय ही ग्राहक से हैंडओवर ओटीपी पूछें।",
     completeHandover: "ओटीपी जांचें और गाड़ी लेना पूरा करें",
@@ -164,7 +176,37 @@ export default function WorkerTask() {
   const watchIdRef = useRef(null);
   const sendingLocationRef = useRef(false);
   const lastLocationSentRef = useRef(0);
+  const photoCameraInputRef = useRef(null);
+  const photoGalleryInputRef = useRef(null);
+  const videoCameraInputRef = useRef(null);
+  const videoGalleryInputRef = useRef(null);
   const copy = COPY[language];
+
+  const addEvidenceImages = (fileList) => {
+    const selectedImages = Array.from(fileList || []).filter((file) =>
+      file.type?.startsWith("image/"),
+    );
+    if (selectedImages.length === 0) return;
+
+    setImages((currentImages) =>
+      [...currentImages, ...selectedImages].slice(0, 15),
+    );
+  };
+
+  const selectEvidenceVideo = (file) => {
+    if (!file?.type?.startsWith("video/")) return;
+    setVideo(file);
+  };
+
+  const handlePhotoInput = (event) => {
+    addEvidenceImages(event.target.files);
+    event.target.value = "";
+  };
+
+  const handleVideoInput = (event) => {
+    selectEvidenceVideo(event.target.files?.[0]);
+    event.target.value = "";
+  };
 
   const loadTask = useCallback(async () => {
     setLoading(true);
@@ -634,19 +676,76 @@ export default function WorkerTask() {
                 </label>
               )}
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-line bg-bg-soft p-4 text-center">
-                  <FiCamera className="text-2xl" />
-                  <strong className="mt-2 text-sm text-ink">{copy.photos}</strong>
-                  <span className="mt-1 text-xs text-muted">{images.length} {copy.selectedPhotos}</span>
-                  <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(event) => setImages(Array.from(event.target.files || []).slice(0, 15))} />
-                </label>
-                <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-line bg-bg-soft p-4 text-center">
-                  <FiVideo className="text-2xl" />
-                  <strong className="mt-2 text-sm text-ink">{copy.video}</strong>
-                  <span className="mt-1 text-xs text-muted">{video ? copy.selectedVideo : "MP4 / video"}</span>
-                  <input type="file" accept="video/*" capture="environment" className="hidden" onChange={(event) => setVideo(event.target.files?.[0] || null)} />
-                </label>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-line bg-bg-soft p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-xl shadow-sm">
+                      <FiCamera />
+                    </span>
+                    <div>
+                      <strong className="text-sm text-ink">{copy.photos}</strong>
+                      <p className="mt-0.5 text-xs text-muted">
+                        {images.length} {copy.selectedPhotos}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    <button
+                      type="button"
+                      onClick={() => photoCameraInputRef.current?.click()}
+                      disabled={images.length >= 15}
+                      className="flex min-h-11 items-center justify-between rounded-lg bg-ink px-3 text-left text-sm font-bold text-white disabled:opacity-50"
+                    >
+                      <span>{copy.camera}</span>
+                      <span className="text-[11px] font-medium text-white/60">{copy.cameraPhotoHelp}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => photoGalleryInputRef.current?.click()}
+                      disabled={images.length >= 15}
+                      className="flex min-h-11 items-center justify-between rounded-lg border border-line bg-white px-3 text-left text-sm font-bold text-ink disabled:opacity-50"
+                    >
+                      <span>{copy.gallery}</span>
+                      <span className="text-[11px] font-medium text-muted">{copy.galleryPhotoHelp}</span>
+                    </button>
+                  </div>
+                  <input ref={photoCameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoInput} />
+                  <input ref={photoGalleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoInput} />
+                </div>
+
+                <div className="rounded-xl border border-line bg-bg-soft p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-xl shadow-sm">
+                      <FiVideo />
+                    </span>
+                    <div>
+                      <strong className="text-sm text-ink">{copy.video}</strong>
+                      <p className="mt-0.5 text-xs text-muted">
+                        {video ? copy.selectedVideo : "MP4 / video"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    <button
+                      type="button"
+                      onClick={() => videoCameraInputRef.current?.click()}
+                      className="flex min-h-11 items-center justify-between rounded-lg bg-ink px-3 text-left text-sm font-bold text-white"
+                    >
+                      <span>{copy.camera}</span>
+                      <span className="text-[11px] font-medium text-white/60">{copy.cameraVideoHelp}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => videoGalleryInputRef.current?.click()}
+                      className="flex min-h-11 items-center justify-between rounded-lg border border-line bg-white px-3 text-left text-sm font-bold text-ink"
+                    >
+                      <span>{copy.gallery}</span>
+                      <span className="text-[11px] font-medium text-muted">{copy.galleryVideoHelp}</span>
+                    </button>
+                  </div>
+                  <input ref={videoCameraInputRef} type="file" accept="video/*" capture="environment" className="hidden" onChange={handleVideoInput} />
+                  <input ref={videoGalleryInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoInput} />
+                </div>
               </div>
 
               <button type="submit" disabled={submitting} className="mt-4 inline-flex h-13 min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-base font-bold text-white disabled:opacity-50">

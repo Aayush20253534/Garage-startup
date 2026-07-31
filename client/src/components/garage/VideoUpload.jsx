@@ -1,13 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
-import { FiCheckCircle, FiUploadCloud, FiVideo, FiX } from "react-icons/fi";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  FiCamera,
+  FiCheckCircle,
+  FiFolder,
+  FiVideo,
+  FiX,
+} from "react-icons/fi";
 
 const MAX_VIDEO_SIZE_MB = 50;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
+const VIDEO_ACCEPT =
+  "video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/*";
 
 const getFile = (value) => value?.file || value || null;
 
 export default function VideoUpload({ value = null, onChange }) {
   const [error, setError] = useState("");
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
   const file = getFile(value);
   const preview = useMemo(() => {
     if (!file) return "";
@@ -51,6 +61,11 @@ export default function VideoUpload({ value = null, onChange }) {
     });
   };
 
+  const handleInputChange = (event) => {
+    selectVideo(event.target.files?.[0]);
+    event.target.value = "";
+  };
+
   const removeVideo = () => {
     if (value?.preview?.startsWith("blob:")) {
       URL.revokeObjectURL(value.preview);
@@ -69,25 +84,64 @@ export default function VideoUpload({ value = null, onChange }) {
           <div className="min-w-0 flex-1">
             <p className="font-bold text-ink">Inspection video</p>
             <p className="mt-1 text-xs leading-5 text-muted">
-              Exactly one video is required. Maximum size: 50 MB.
+              Record a new video or select one from the gallery. Exactly one
+              video is required. Maximum size: 50 MB.
             </p>
           </div>
         </div>
 
         {!value ? (
-          <label className="mt-4 inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:bg-ink-2">
-            <FiUploadCloud aria-hidden="true" />
-            Choose video
+          <>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex min-h-16 items-center gap-3 rounded-xl bg-ink px-4 text-left text-white transition hover:bg-ink-2"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/10 text-xl">
+                  <FiCamera aria-hidden="true" />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold">Open camera</span>
+                  <span className="mt-0.5 block text-xs text-white/65">
+                    Record inspection video
+                  </span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex min-h-16 items-center gap-3 rounded-xl border border-line bg-white px-4 text-left text-ink transition hover:border-ink hover:bg-bg-soft"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-bg-soft text-xl">
+                  <FiFolder aria-hidden="true" />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold">Choose from gallery</span>
+                  <span className="mt-0.5 block text-xs text-muted">
+                    Select an existing video
+                  </span>
+                </span>
+              </button>
+            </div>
+
             <input
+              ref={cameraInputRef}
               type="file"
-              accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/*"
+              accept="video/*"
+              capture="environment"
               className="hidden"
-              onChange={(event) => {
-                selectVideo(event.target.files?.[0]);
-                event.target.value = "";
-              }}
+              onChange={handleInputChange}
             />
-          </label>
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept={VIDEO_ACCEPT}
+              className="hidden"
+              onChange={handleInputChange}
+            />
+          </>
         ) : (
           <div className="mt-4 overflow-hidden rounded-xl border border-line bg-black">
             <video

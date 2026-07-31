@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { FiUpload, FiX, FiImage } from "react-icons/fi";
+import { FiCamera, FiGrid, FiImage, FiX } from "react-icons/fi";
 
 const getPreview = (image) => {
   if (typeof image === "string") return image;
@@ -18,9 +18,11 @@ export default function ImageUpload({
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState("");
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
+  const handleDragOver = (event) => {
+    event.preventDefault();
     setIsDragging(true);
   };
 
@@ -28,10 +30,10 @@ export default function ImageUpload({
     setIsDragging(false);
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
+  const handleDrop = (event) => {
+    event.preventDefault();
     setIsDragging(false);
-    handleFiles(Array.from(e.dataTransfer.files));
+    handleFiles(Array.from(event.dataTransfer.files));
   };
 
   const handleFiles = (files) => {
@@ -66,29 +68,35 @@ export default function ImageUpload({
       setError(`${messages.join(". ")}.`);
     }
 
-    const imageFiles = acceptedFiles
-      .map((file) => ({
-        id: `${file.name}-${file.lastModified}-${file.size}`,
-        file,
-        preview: URL.createObjectURL(file),
-        name: file.name,
-      }));
+    const imageFiles = acceptedFiles.map((file) => ({
+      id: `${file.name}-${file.lastModified}-${file.size}`,
+      file,
+      preview: URL.createObjectURL(file),
+      name: file.name,
+    }));
 
     if (imageFiles.length === 0) return;
 
     onChange([...value, ...imageFiles]);
   };
 
+  const handleInputChange = (event) => {
+    handleFiles(Array.from(event.target.files || []));
+    event.target.value = "";
+  };
+
   const removeImage = (index) => {
     const image = value[index];
     if (image?.preview?.startsWith("blob:")) URL.revokeObjectURL(image.preview);
-    onChange(value.filter((_, i) => i !== index));
+    onChange(value.filter((_, imageIndex) => imageIndex !== index));
   };
+
+  const uploadDisabled = value.length >= max;
 
   return (
     <div className="space-y-4">
       <div
-        className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
+        className={`rounded-2xl border-2 border-dashed p-5 text-center transition-all sm:p-8 ${
           isDragging
             ? "border-brand bg-brand-soft"
             : "border-line hover:border-ink-2"
@@ -97,27 +105,76 @@ export default function ImageUpload({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <FiImage className="w-12 h-12 mx-auto text-muted mb-3" />
-        <h4 className="font-semibold mb-1">Drag & Drop Images</h4>
-        <p className="text-muted text-sm mb-4">
-          {countOffset + value.length} / {totalMax} Uploaded
+        <FiImage className="mx-auto mb-3 h-12 w-12 text-muted" />
+        <h4 className="font-semibold">Add inspection photos</h4>
+        <p className="mt-1 text-sm text-muted">
+          {countOffset + value.length} / {totalMax} uploaded
           {countOffset + value.length < min && (
-            <span className="text-red-500 ml-2">(Minimum {min} required)</span>
+            <span className="ml-2 text-red-500">(Minimum {min} required)</span>
           )}
         </p>
-        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-        <label className="btn-primary cursor-pointer">
-          <FiUpload className="w-4 h-4" />
-          <span>Browse Files</span>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => handleFiles(Array.from(e.target.files || []))}
-            disabled={value.length >= max}
-          />
-        </label>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          Take a new photo with the rear camera or select existing photos from
+          the device gallery. You can repeat the camera option until all photos
+          are added.
+        </p>
+
+        {error && <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={uploadDisabled}
+            className="group flex min-h-16 items-center gap-3 rounded-xl bg-ink px-4 text-left text-white transition hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/10 text-xl">
+              <FiCamera aria-hidden="true" />
+            </span>
+            <span>
+              <span className="block text-sm font-bold">Open camera</span>
+              <span className="mt-0.5 block text-xs text-white/65">
+                Take one clear photo
+              </span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => galleryInputRef.current?.click()}
+            disabled={uploadDisabled}
+            className="flex min-h-16 items-center gap-3 rounded-xl border border-line bg-white px-4 text-left text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-bg-soft text-xl">
+              <FiGrid aria-hidden="true" />
+            </span>
+            <span>
+              <span className="block text-sm font-bold">Choose from gallery</span>
+              <span className="mt-0.5 block text-xs text-muted">
+                Select one or multiple photos
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleInputChange}
+          disabled={uploadDisabled}
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleInputChange}
+          disabled={uploadDisabled}
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -127,19 +184,20 @@ export default function ImageUpload({
             layout
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="relative aspect-square rounded-xl overflow-hidden card-soft"
+            className="card-soft relative aspect-square overflow-hidden rounded-xl"
           >
             <img
               src={getPreview(image)}
               alt={`Upload ${index + 1}`}
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
             />
             <button
               type="button"
               onClick={() => removeImage(index)}
-              className="absolute top-2 right-2 bg-black/70 text-white p-1.5 rounded-full hover:bg-black transition-colors"
+              className="absolute right-2 top-2 rounded-full bg-black/70 p-1.5 text-white transition-colors hover:bg-black"
+              aria-label={`Remove photo ${index + 1}`}
             >
-              <FiX className="w-4 h-4" />
+              <FiX className="h-4 w-4" />
             </button>
           </motion.div>
         ))}
