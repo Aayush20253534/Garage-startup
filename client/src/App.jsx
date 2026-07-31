@@ -765,6 +765,10 @@ const GarageBookingDetail = lazyPage(
   () => import("@/pages/garage/BookingDetail"),
   "GarageBookingDetail",
 );
+const GarageServiceHistory = lazyPage(
+  () => import("@/pages/garage/ServiceHistory"),
+  "GarageServiceHistory",
+);
 const GarageProfile = lazyPage(
   () => import("@/pages/garage/Profile"),
   "GarageProfile",
@@ -1049,6 +1053,7 @@ const customerItems = [
 const garageItems = [
   { to: "/garage", label: "Dashboard", icon: FiGrid },
   { to: "/garage/bookings", label: "Bookings", icon: FiCalendar },
+  { to: "/garage/history", label: "Service History", icon: FiArchive },
   { to: "/garage/services", label: "Services", icon: FiInbox },
   { to: "/garage/wallet", label: "Wallet", icon: FiCreditCard },
   { to: "/garage/profile", label: "Profile", icon: FiUser },
@@ -1059,6 +1064,7 @@ const garageItems = [
 const controllerItems = [
   { to: "/garage", label: "My Dashboard", icon: FiGrid },
   { to: "/garage/bookings", label: "My Bookings", icon: FiCalendar },
+  { to: "/garage/history", label: "Service History", icon: FiArchive },
   { to: "/garage/wallet", label: "Shared Wallet", icon: FiCreditCard },
 ];
 
@@ -1409,6 +1415,14 @@ function AppRoutes() {
             element={
               <GaragePortalRoute>
                 <GarageBookingDetail />
+              </GaragePortalRoute>
+            }
+          />
+          <Route
+            path="/garage/history"
+            element={
+              <GaragePortalRoute>
+                <GarageServiceHistory />
               </GaragePortalRoute>
             }
           />

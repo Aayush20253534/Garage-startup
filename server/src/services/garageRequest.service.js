@@ -275,6 +275,46 @@ const requestInclude = {
   garage: true,
 };
 
+const serviceHistoryInclude = {
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+    },
+  },
+  vehicle: true,
+  services: {
+    include: {
+      service: {
+        include: { category: true },
+      },
+    },
+  },
+  garageController: {
+    select: { id: true, name: true, phone: true, email: true },
+  },
+  payment: true,
+  review: true,
+  inspectionImages: {
+    orderBy: [{ phase: "asc" }, { mediaType: "asc" }, { order: "asc" }],
+  },
+  events: {
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      actorType: true,
+      actorName: true,
+      actorRole: true,
+      eventType: true,
+      title: true,
+      detail: true,
+      createdAt: true,
+    },
+  },
+};
+
 const getCurrentRoundRequests = async (bookingId) => {
   return prisma.garageBroadcastRequest.findMany({
     where: {
@@ -803,6 +843,34 @@ const getGarageRequests = async (garageId, query = {}, controllerId = null) => {
   return serializeGarageRequests(requests);
 };
 
+const getGarageServiceHistory = async (garageId, query = {}, controllerId = null) => {
+  const requestedLimit = Number.parseInt(String(query.limit || "20"), 10);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(50, Math.max(1, requestedLimit))
+    : 20;
+  const cursor = String(query.cursor || "").trim();
+
+  const bookings = await prisma.booking.findMany({
+    where: {
+      garageId,
+      status: BOOKING_STATUS.COMPLETED,
+      ...(controllerId ? { garageControllerId: controllerId } : {}),
+    },
+    include: serviceHistoryInclude,
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
+
+  const hasMore = bookings.length > limit;
+  const items = hasMore ? bookings.slice(0, limit) : bookings;
+
+  return {
+    items,
+    nextCursor: hasMore ? items.at(-1)?.id || null : null,
+  };
+};
+
 const declineControllerRequest = async (
   garageId,
   requestId,
@@ -1319,6 +1387,7 @@ module.exports = {
   startNextGarageSearchCycle,
   getGarageRequestById,
   getGarageRequests,
+  getGarageServiceHistory,
   acceptGarageRequest,
   declineControllerRequest,
   rejectGarageRequest,

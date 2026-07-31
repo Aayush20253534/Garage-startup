@@ -373,6 +373,22 @@ export const garageApi = {
     return normalizeGarage(garage);
   },
 
+  async getServiceHistory({ cursor = "", limit = 20 } = {}) {
+    const result = unwrap(
+      await api.get("/garage/requests/service-history", {
+        params: {
+          limit,
+          ...(cursor ? { cursor } : {}),
+        },
+      }),
+    );
+
+    return {
+      items: Array.isArray(result?.items) ? result.items : [],
+      nextCursor: result?.nextCursor || null,
+    };
+  },
+
   async getRequests(...args) {
     // New: getRequests(status)
     const status = getStatusArgument(args);

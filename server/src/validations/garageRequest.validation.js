@@ -1,7 +1,18 @@
-const { body, param } = require("express-validator");
+const { body, param, query } = require("express-validator");
 
 const garageRequestIdParamSchema = [
   param("requestId").isUUID().withMessage("Invalid request ID"),
+];
+
+const serviceHistoryQuerySchema = [
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .withMessage("History limit must be between 1 and 50"),
+  query("cursor")
+    .optional({ checkFalsy: true })
+    .isUUID()
+    .withMessage("Invalid service history cursor"),
 ];
 
 const rejectGarageRequestSchema = [
@@ -39,6 +50,7 @@ const acceptGarageRequestSchema = [
 
 module.exports = {
   garageRequestIdParamSchema,
+  serviceHistoryQuerySchema,
   rejectGarageRequestSchema,
   acceptGarageRequestSchema,
   verifyHandoverOtpSchema,

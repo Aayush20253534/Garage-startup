@@ -12,6 +12,7 @@ const {
   verifyHandoverOtpSchema,
   markDeliveredSchema,
   bookingStageMutationSchema,
+  serviceHistoryQuerySchema,
 } = require("../validations/garageRequest.validation");
 
 const router = express.Router();
@@ -35,6 +36,12 @@ router.use(protect);
 router.use(authorizeRoles("GARAGE_OWNER", "GARAGE_CONTROLLER"));
 
 router.get("/", garageRequestController.getGarageRequests);
+router.get(
+  "/service-history",
+  serviceHistoryQuerySchema,
+  validate,
+  garageRequestController.getGarageServiceHistory,
+);
 router.get("/:requestId", garageRequestController.getGarageRequestById);
 
 router.post(
