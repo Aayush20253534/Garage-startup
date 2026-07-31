@@ -13,6 +13,7 @@ import {
   FiVolume2,
 } from "react-icons/fi";
 import { workerTaskApi } from "@/api/workerTasks";
+import useAutoScrollToNextTask from "@/hooks/useAutoScrollToNextTask";
 
 const COPY = {
   en: {
@@ -148,6 +149,26 @@ const mapsUrl = (destination) => {
     : null;
 };
 
+const getWorkerActionKey = (task) => {
+  if (!task) return "";
+  if (task.status === "COMPLETED") return "completed";
+  if (task.stage === "CONFIRM_PAYMENT") return "confirm-payment";
+  if (
+    ["WAITING_FOR_PAYMENT", "READY_FOR_SELF_PICKUP"].includes(task.stage)
+  ) {
+    return "waiting-payment";
+  }
+  if (task.requiresEvidence) return "evidence";
+  if (
+    ["RETURN_TO_GARAGE", "DELIVER_TO_CUSTOMER"].includes(task.stage) ||
+    task.canCompleteReturnJourney ||
+    task.canConfirmCustomerArrival
+  ) {
+    return "journey";
+  }
+  return "";
+};
+
 const fileError = (images, video) => {
   if (images.length < 5 || images.length > 15) {
     return "Select between 5 and 15 photos.";
@@ -180,7 +201,29 @@ export default function WorkerTask() {
   const photoGalleryInputRef = useRef(null);
   const videoCameraInputRef = useRef(null);
   const videoGalleryInputRef = useRef(null);
+  const journeyTaskRef = useRef(null);
+  const waitingPaymentTaskRef = useRef(null);
+  const confirmPaymentTaskRef = useRef(null);
+  const evidenceTaskRef = useRef(null);
+  const completedTaskRef = useRef(null);
   const copy = COPY[language];
+  const workerActionKey = getWorkerActionKey(task);
+  const workerActionRef =
+    workerActionKey === "journey"
+      ? journeyTaskRef
+      : workerActionKey === "waiting-payment"
+        ? waitingPaymentTaskRef
+        : workerActionKey === "confirm-payment"
+          ? confirmPaymentTaskRef
+          : workerActionKey === "evidence"
+            ? evidenceTaskRef
+            : workerActionKey === "completed"
+              ? completedTaskRef
+              : null;
+
+  useAutoScrollToNextTask(workerActionKey, workerActionRef, {
+    ready: Boolean(task) && !loading && !submitting,
+  });
 
   const addEvidenceImages = (fileList) => {
     const selectedImages = Array.from(fileList || []).filter((file) =>
@@ -573,12 +616,18 @@ export default function WorkerTask() {
         </section>
 
         {taskCompleted ? (
-          <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+          <section
+            ref={completedTaskRef}
+            className="scroll-mt-24 rounded-xl border border-emerald-200 bg-emerald-50 p-5 ring-2 ring-emerald-200/70"
+          >
             <div className="flex items-start gap-3"><FiCheckCircle className="mt-1 shrink-0 text-2xl text-emerald-700" /><div><h2 className="text-lg font-bold text-emerald-900">{copy.completed}</h2><p className="mt-1 text-sm leading-6 text-emerald-800">{copy.completedHelp}</p></div></div>
           </section>
         ) : (
           <>
-            <section className="rounded-xl border border-line bg-white p-4 shadow-sm">
+            <section
+              ref={journeyTaskRef}
+              className="scroll-mt-24 rounded-xl border border-line bg-white p-4 shadow-sm ring-1 ring-brand/10"
+            >
               <h2 className="font-bold text-ink">{copy.tracking}</h2>
               {task.stage === "RETURN_TO_GARAGE" && (
                 <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-900">
@@ -628,15 +677,21 @@ export default function WorkerTask() {
               )}
             </section>
 
-            {task.stage === "WAITING_FOR_PAYMENT" && (
-              <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
+            {["WAITING_FOR_PAYMENT", "READY_FOR_SELF_PICKUP"].includes(task.stage) && (
+              <section
+                ref={waitingPaymentTaskRef}
+                className="scroll-mt-24 rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900 ring-2 ring-amber-200/60"
+              >
                 <h2 className="font-bold">{copy.waitingPayment}</h2>
                 <p className="mt-1 text-sm leading-6">{copy.waitingPaymentHelp}</p>
               </section>
             )}
 
             {task.stage === "CONFIRM_PAYMENT" && (
-              <section className="overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm">
+              <section
+                ref={confirmPaymentTaskRef}
+                className="scroll-mt-24 overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm ring-2 ring-amber-200/70"
+              >
                 <div className="border-b border-amber-200 bg-amber-50 p-5 text-amber-900">
                   <h2 className="font-bold">{copy.paymentReady}</h2>
                   <p className="mt-1 text-sm leading-6">{copy.paymentReadyHelp}</p>
@@ -664,7 +719,11 @@ export default function WorkerTask() {
             )}
 
             {task.requiresEvidence && (
-            <form onSubmit={submitEvidence} className="rounded-xl border border-line bg-white p-4 shadow-sm">
+            <form
+              ref={evidenceTaskRef}
+              onSubmit={submitEvidence}
+              className="scroll-mt-24 rounded-xl border border-line bg-white p-4 shadow-sm ring-1 ring-brand/10"
+            >
               <h2 className="font-bold text-ink">{copy.evidence}</h2>
               <p className="mt-1 text-sm leading-6 text-muted">{copy.evidenceHelp}</p>
 

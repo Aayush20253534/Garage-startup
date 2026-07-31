@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -23,6 +23,7 @@ import { getBookingTimelineState } from "@/utils/bookingTimeline";
 import { isSelfDropOffService } from "@/utils/serviceFulfillment";
 import WorkerTaskManager from "@/components/garage/WorkerTaskManager";
 import BookingElapsedTimer from "@/components/booking/BookingElapsedTimer";
+import useAutoScrollToNextTask from "@/hooks/useAutoScrollToNextTask";
 
 
 
@@ -85,6 +86,50 @@ const formatDistance = (meters) => {
   return `${(meters / 1000).toFixed(1)} km away`;
 };
 
+const getGarageActionKey = (booking) => {
+  if (
+    !booking ||
+    booking.status === "COMPLETED" ||
+    booking.finalPaymentConfirmedAt
+  ) {
+    return "";
+  }
+
+  const selfDropOff = isSelfDropOffService(booking);
+  const handoverStage = ["ACCEPTED", "CONFIRMED"].includes(booking.status);
+
+  if (
+    booking.finalPaymentSubmittedAt &&
+    !booking.finalPaymentConfirmedAt
+  ) {
+    return "confirm-payment";
+  }
+  if (booking.deliveredAt && !booking.finalPaymentSubmittedAt) {
+    return "awaiting-payment";
+  }
+  if (!selfDropOff && booking.serviceCompletedAt && !booking.deliveredAt) {
+    return "delivery";
+  }
+  if (
+    booking.status === "IN_PROGRESS" &&
+    booking.arrivedAtGarageAt &&
+    !booking.serviceCompletedAt
+  ) {
+    return "service";
+  }
+  if (
+    !selfDropOff &&
+    booking.handoverOtpVerifiedAt &&
+    !booking.arrivedAtGarageAt &&
+    !booking.serviceCompletedAt
+  ) {
+    return "return-to-garage";
+  }
+  if (handoverStage) return "handover";
+
+  return "";
+};
+
 export default function GarageBookingDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -103,11 +148,38 @@ export default function GarageBookingDetail() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [evidenceUpload, setEvidenceUpload] = useState(null);
+  const handoverTaskRef = useRef(null);
+  const returnJourneyTaskRef = useRef(null);
+  const serviceTaskRef = useRef(null);
+  const deliveryTaskRef = useRef(null);
+  const awaitingPaymentTaskRef = useRef(null);
+  const confirmPaymentTaskRef = useRef(null);
 
   const cachedBooking = bookings.find(
     (item) => item.id === id || item.requestId === id || item.bookingId === id,
   );
   const booking = cachedBooking || remoteBooking;
+
+  const garageActionKey = getGarageActionKey(booking);
+  const garageActionRef =
+    garageActionKey === "handover"
+      ? handoverTaskRef
+      : garageActionKey === "return-to-garage"
+        ? returnJourneyTaskRef
+        : garageActionKey === "service"
+          ? serviceTaskRef
+          : garageActionKey === "delivery"
+            ? deliveryTaskRef
+            : garageActionKey === "awaiting-payment"
+              ? awaitingPaymentTaskRef
+              : garageActionKey === "confirm-payment"
+                ? confirmPaymentTaskRef
+                : null;
+
+  useAutoScrollToNextTask(garageActionKey, garageActionRef, {
+    ready:
+      Boolean(booking) && !detailLoading && !loading && !evidenceUpload,
+  });
 
   const handleTrackingUpdate = useCallback((tracking) => {
     setTrackingSummary(tracking);
@@ -745,7 +817,10 @@ export default function GarageBookingDetail() {
           )}
 
           {isHandoverStage ? (
-            <div className="card-soft overflow-hidden">
+            <div
+              ref={handoverTaskRef}
+              className="card-soft scroll-mt-24 overflow-hidden ring-1 ring-brand/10"
+            >
               <div className="border-b border-line bg-gradient-to-r from-white to-bg-soft/70 p-5 sm:p-6">
                 <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                   <div className="min-w-0">
@@ -867,7 +942,10 @@ export default function GarageBookingDetail() {
           ) : null}
 
           {isReturningToGarage && (
-            <section className="card-soft p-5 sm:p-6">
+            <section
+              ref={returnJourneyTaskRef}
+              className="card-soft scroll-mt-24 p-5 ring-1 ring-brand/10 sm:p-6"
+            >
               <div className="flex items-start gap-3">
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-700">
                   <FiNavigation className="h-5 w-5" />
@@ -903,7 +981,10 @@ export default function GarageBookingDetail() {
           )}
 
           {isServiceStage && (
-            <div className="card-soft p-5 sm:p-6">
+            <div
+              ref={serviceTaskRef}
+              className="card-soft scroll-mt-24 p-5 ring-1 ring-brand/10 sm:p-6"
+            >
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
                 Service completion evidence
               </p>
@@ -945,7 +1026,10 @@ export default function GarageBookingDetail() {
           )}
 
           {isDeliveryJourney && (
-            <section className="card-soft p-5 sm:p-6">
+            <section
+              ref={deliveryTaskRef}
+              className="card-soft scroll-mt-24 p-5 ring-1 ring-brand/10 sm:p-6"
+            >
               <div className="flex items-start gap-3">
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-brand/20 text-brand-dark">
                   <FiNavigation className="h-5 w-5" />
@@ -981,7 +1065,10 @@ export default function GarageBookingDetail() {
           )}
 
           {isAwaitingCustomerPayment && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
+            <div
+              ref={awaitingPaymentTaskRef}
+              className="scroll-mt-24 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900 ring-1 ring-amber-200/60"
+            >
               <p className="font-bold">Waiting for customer payment submission</p>
               <p className="mt-1">
                 {isSelfDropOff
@@ -992,7 +1079,10 @@ export default function GarageBookingDetail() {
           )}
 
           {isFinalPaymentPending && (
-            <section className="overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm">
+            <section
+              ref={confirmPaymentTaskRef}
+              className="scroll-mt-24 overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm ring-2 ring-amber-200/70"
+            >
               <div className="border-b border-amber-200 bg-amber-50 p-5">
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-amber-800">
                   Customer payment pending confirmation

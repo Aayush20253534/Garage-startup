@@ -17,6 +17,7 @@ import { useApp } from "@/hooks/useApp";
 import { formatRupees } from "@/utils/priceRange";
 import { getBookingTimelineState } from "@/utils/bookingTimeline";
 import { isSelfDropOffService } from "@/utils/serviceFulfillment";
+import useAutoScrollToNextTask from "@/hooks/useAutoScrollToNextTask";
 import {
   FiArrowRight,
   FiCheck,
@@ -43,6 +44,20 @@ const getSearchRound = (booking) =>
 const getSearchRadiusKm = (booking) =>
   Number(booking?.searchRadiusKm) ||
   SEARCH_RADIUS_BY_ROUND[getSearchRound(booking)];
+
+const getCustomerActionKey = (booking) => {
+  if (!booking) return "";
+  if (booking.status === "COMPLETED" || booking.finalPaymentConfirmedAt) {
+    return "completed";
+  }
+  if (booking.finalPaymentSubmittedAt && !booking.finalPaymentConfirmedAt) {
+    return "payment-pending";
+  }
+  if (booking.deliveredAt && !booking.finalPaymentSubmittedAt) {
+    return "payment";
+  }
+  return "";
+};
 
 const getWhatsappUrl = (phone) => {
   let digits = String(phone || "").replace(/\D/g, "");
@@ -440,6 +455,23 @@ function Tracking() {
   const [finalAmount, setFinalAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const requestInFlight = useRef(false);
+  const paymentTaskRef = useRef(null);
+  const paymentPendingTaskRef = useRef(null);
+  const completedTaskRef = useRef(null);
+
+  const customerActionKey = getCustomerActionKey(booking);
+  const customerActionRef =
+    customerActionKey === "payment"
+      ? paymentTaskRef
+      : customerActionKey === "payment-pending"
+        ? paymentPendingTaskRef
+        : customerActionKey === "completed"
+          ? completedTaskRef
+          : null;
+
+  useAutoScrollToNextTask(customerActionKey, customerActionRef, {
+    ready: Boolean(booking) && !loading && !actionLoading,
+  });
 
   useEffect(() => {
     if (!bookingId) return;
@@ -920,7 +952,11 @@ function Tracking() {
         {booking.deliveredAt &&
           !booking.finalPaymentSubmittedAt &&
           booking.status !== "COMPLETED" && (
-          <section className="card-soft mt-6 overflow-hidden" aria-labelledby="customer-confirmation-title">
+          <section
+            ref={paymentTaskRef}
+            className="card-soft mt-6 scroll-mt-24 overflow-hidden ring-2 ring-brand/20"
+            aria-labelledby="customer-confirmation-title"
+          >
             <div className="border-b border-line bg-bg-soft p-5 sm:p-6">
               <div className="flex items-start gap-3.5 sm:gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand text-xl text-ink shadow-sm">
@@ -1019,7 +1055,10 @@ function Tracking() {
         {booking.finalPaymentSubmittedAt &&
           !booking.finalPaymentConfirmedAt &&
           booking.status !== "COMPLETED" && (
-          <section className="mt-6 overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm">
+          <section
+            ref={paymentPendingTaskRef}
+            className="mt-6 scroll-mt-24 overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm ring-2 ring-amber-200/70"
+          >
             <div className="border-b border-amber-200 bg-amber-50 p-5 sm:p-6">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-800">
                 Pending garage confirmation
@@ -1051,7 +1090,10 @@ function Tracking() {
 
         {booking.status === "COMPLETED" && (
           <>
-            <div className="card-soft mt-6 p-6">
+            <div
+              ref={completedTaskRef}
+              className="card-soft mt-6 scroll-mt-24 p-6 ring-2 ring-emerald-200/70"
+            >
               <h3 className="mb-2 text-xl font-bold">Service completed</h3>
               <p className="text-sm text-muted">
                 Garage staff confirmed the received payment. The booking is now in your service history and the 30-day warranty is active.
