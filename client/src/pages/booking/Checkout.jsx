@@ -647,7 +647,7 @@ export default function Checkout() {
         phase={paymentProgress}
         paymentMethod={paymentMethod}
       />
-      <div className="container-x grid gap-8 py-12 lg:grid-cols-[1fr_400px]">
+      <div className="container-x grid gap-8 py-6 lg:grid-cols-[1fr_400px]">
       <div>
         <h1 className="text-3xl font-bold sm:text-4xl">Checkout</h1>
         <p className="mt-1 text-muted">
