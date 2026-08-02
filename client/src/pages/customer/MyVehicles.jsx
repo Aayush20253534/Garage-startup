@@ -226,9 +226,9 @@ export default function MyVehicles() {
                   onClick={() => handleSetDefault(savedVehicle)}
                   disabled={isSettingDefault}
                   aria-pressed={isActive}
-                  className="grid w-full min-w-0 grid-cols-[88px_minmax(0,1fr)] items-start gap-3 text-left disabled:cursor-not-allowed disabled:opacity-70 sm:block"
+                  className="grid w-full min-w-0 grid-cols-[72px_minmax(0,1fr)] items-start gap-3 text-left disabled:cursor-not-allowed disabled:opacity-70 sm:block"
                 >
-                  <div className="h-24 min-w-0 overflow-hidden rounded-lg border border-line bg-bg-soft sm:h-auto sm:rounded-xl">
+                  <div className="h-[72px] min-w-0 overflow-hidden rounded-lg border border-line bg-bg-soft sm:h-auto sm:rounded-xl">
                     <SafeImage
                       src={getOptimizedImageUrl(modelImageUrl, { width: 720 })}
                       alt={vehicleTitle}
@@ -236,9 +236,9 @@ export default function MyVehicles() {
                       height="405"
                       loading="lazy"
                       decoding="async"
-                      className="h-full w-full object-cover sm:aspect-[16/9] sm:h-auto"
+                      className="h-full w-full object-contain sm:aspect-[16/9] sm:h-auto sm:object-cover"
                       fallback={
-                        <span className="flex h-24 w-full items-center justify-center bg-brand text-2xl text-black sm:aspect-[16/9] sm:h-auto sm:text-4xl">
+                        <span className="flex h-[72px] w-full items-center justify-center bg-brand text-xl text-black sm:aspect-[16/9] sm:h-auto sm:text-4xl">
                           <FiTruck />
                         </span>
                       }
