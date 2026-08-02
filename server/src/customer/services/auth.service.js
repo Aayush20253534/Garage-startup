@@ -39,6 +39,9 @@ const {
   getPasswordChangeSessionRevocation,
 } = require("../security/passwordSessionRevocation");
 const staffPasswordResetService = require("./staffPasswordReset.service");
+const {
+  sendNewUserSignupNotification,
+} = require("./newUserSignupNotification.service");
 
 const PENDING_SIGNUP_EXPIRY_MS = 15 * 60 * 1000;
 const PASSWORD_REGEX =
@@ -52,6 +55,18 @@ const INVALID_LOGIN_MESSAGE =
 const CUSTOMER_BLOCKED_MESSAGE =
   "You are blocked from using Rovauto. Please contact customer support.";
 const CUSTOMER_BLOCKED_CODE = "CUSTOMER_BLOCKED";
+
+const notifyNewCustomerSignup = async (user, signupMethod) => {
+  try {
+    await sendNewUserSignupNotification({ user, signupMethod });
+  } catch (error) {
+    console.error("[new-user-signup-email] notification failed", {
+      userId: user?.id || null,
+      signupMethod,
+      message: error?.message || String(error),
+    });
+  }
+};
 
 const recordStaffSecurityAudit = async ({ staff, action, path, sessionMetadata = {}, metadata = {} }) => {
   if (!staff?.id || !STAFF_ROLES.includes(staff.role)) return;
@@ -591,6 +606,8 @@ const verifyOtp = async (
     return createdUser;
   });
 
+  await notifyNewCustomerSignup(user, "PASSWORD");
+
   return createUserAuthResult(user, sessionMetadata);
 };
 
@@ -1027,6 +1044,10 @@ const googleAuth = async (
     await prisma.emailOtp.deleteMany({
       where: { email: cleanEmail },
     });
+  }
+
+  if (isNewUser) {
+    await notifyNewCustomerSignup(user, "GOOGLE");
   }
 
   return createUserAuthResult(user, sessionMetadata, { isNewUser });
