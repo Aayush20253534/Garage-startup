@@ -653,7 +653,7 @@ export default function Checkout() {
         <p className="mt-1 text-muted">
           {isSelfDropOffBooking
             ? "Pay the fee, visit the assigned garage, and collect your vehicle after service"
-            : "Pay the fee to start. The garage visits your address; pay them after service."}
+            : "Pay the fee to start. The garage visits your address and pay them after service."}
         </p>
 
         {error && (
