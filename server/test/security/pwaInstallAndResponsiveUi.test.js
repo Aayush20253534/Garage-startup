@@ -76,12 +76,15 @@ test("install UI consumes each browser prompt once and uses mobile-safe help row
   assert.match(installCard, /break-words/);
 });
 
-test("customer vehicle and warranty cards use overflow-safe responsive layouts", () => {
+test("customer vehicle cards stay compact on mobile and warranty cards remain overflow safe", () => {
   const vehicles = read("client/src/pages/customer/MyVehicles.jsx");
   const warranties = read("client/src/pages/customer/WarrantyCenter.jsx");
 
   assert.match(vehicles, /aspect-\[16\/9\]/);
-  assert.match(vehicles, /min-\[360px\]:grid-cols-2/);
+  assert.match(vehicles, /grid-cols-\[88px_minmax\(0,1fr\)\]/);
+  assert.match(vehicles, /h-24[\s\S]*sm:aspect-\[16\/9\]/);
+  assert.match(vehicles, /space-y-1\.5 text-xs sm:hidden/);
+  assert.match(vehicles, /hidden min-w-0 grid-cols-2 gap-2 sm:grid/);
   assert.match(vehicles, /\[overflow-wrap:anywhere\]/);
 
   assert.match(warranties, /min-\[440px\]:flex-row/);

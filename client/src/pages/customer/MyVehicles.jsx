@@ -202,7 +202,7 @@ export default function MyVehicles() {
       )}
 
       {safeVehicles.length ? (
-        <div className="grid min-w-0 gap-4 min-[600px]:grid-cols-2 xl:grid-cols-3">
+        <div className="grid min-w-0 gap-3 min-[600px]:grid-cols-2 sm:gap-4 xl:grid-cols-3">
           {safeVehicles.map((savedVehicle) => {
             const isActive =
               vehicle?.id === savedVehicle.id || savedVehicle.isDefault;
@@ -215,7 +215,7 @@ export default function MyVehicles() {
               <article
                 key={savedVehicle.id}
                 className={[
-                  "card-soft min-w-0 overflow-hidden rounded-2xl border p-3 shadow-sm transition hover:shadow-md sm:p-4",
+                  "card-soft min-w-0 overflow-hidden rounded-2xl border p-2.5 shadow-sm transition hover:shadow-md sm:p-4",
                   isActive
                     ? "border-brand bg-brand-soft/30"
                     : "border-line bg-white",
@@ -226,9 +226,9 @@ export default function MyVehicles() {
                   onClick={() => handleSetDefault(savedVehicle)}
                   disabled={isSettingDefault}
                   aria-pressed={isActive}
-                  className="block w-full min-w-0 text-left disabled:cursor-not-allowed disabled:opacity-70"
+                  className="grid w-full min-w-0 grid-cols-[88px_minmax(0,1fr)] items-start gap-3 text-left disabled:cursor-not-allowed disabled:opacity-70 sm:block"
                 >
-                  <div className="min-w-0 overflow-hidden rounded-xl border border-line bg-bg-soft">
+                  <div className="h-24 min-w-0 overflow-hidden rounded-lg border border-line bg-bg-soft sm:h-auto sm:rounded-xl">
                     <SafeImage
                       src={getOptimizedImageUrl(modelImageUrl, { width: 720 })}
                       alt={vehicleTitle}
@@ -236,21 +236,45 @@ export default function MyVehicles() {
                       height="405"
                       loading="lazy"
                       decoding="async"
-                      className="aspect-[16/9] w-full object-cover"
+                      className="h-full w-full object-cover sm:aspect-[16/9] sm:h-auto"
                       fallback={
-                        <span className="flex aspect-[16/9] w-full items-center justify-center bg-brand text-4xl text-black">
+                        <span className="flex h-24 w-full items-center justify-center bg-brand text-2xl text-black sm:aspect-[16/9] sm:h-auto sm:text-4xl">
                           <FiTruck />
                         </span>
                       }
                     />
                   </div>
 
-                  <div className="mt-4 min-w-0">
-                    <div className="min-w-0 break-words text-lg font-bold leading-6 text-ink [overflow-wrap:anywhere]">
+                  <div className="min-w-0 sm:mt-4">
+                    <div className="min-w-0 break-words text-base font-bold leading-5 text-ink [overflow-wrap:anywhere] sm:text-lg sm:leading-6">
                       {vehicleTitle}
                     </div>
 
-                    <div className="mt-3 grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-2">
+                    <div className="mt-2 min-w-0 space-y-1.5 text-xs sm:hidden">
+                      <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
+                        <span className="min-w-0">
+                          <span className="text-muted">Fuel:</span>{" "}
+                          <span className="font-semibold text-ink">
+                            {savedVehicle.fuelType || "Not provided"}
+                          </span>
+                        </span>
+                        <span className="min-w-0">
+                          <span className="text-muted">Year:</span>{" "}
+                          <span className="font-semibold text-ink">
+                            {savedVehicle.year || "Not provided"}
+                          </span>
+                        </span>
+                      </div>
+
+                      <div
+                        className="min-w-0 truncate rounded-md border border-line bg-white/80 px-2 py-1.5 font-semibold text-ink"
+                        title={savedVehicle.registrationNumber || "Not provided"}
+                      >
+                        {savedVehicle.registrationNumber || "Not provided"}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 hidden min-w-0 grid-cols-2 gap-2 sm:grid">
                       <div className="min-w-0 rounded-lg border border-line bg-white/80 p-2.5">
                         <div className="text-[11px] font-bold uppercase tracking-wide text-muted">
                           Fuel type
@@ -270,7 +294,7 @@ export default function MyVehicles() {
                       </div>
                     </div>
 
-                    <div className="mt-2 min-w-0 rounded-lg border border-line bg-white/80 p-2.5">
+                    <div className="mt-2 hidden min-w-0 rounded-lg border border-line bg-white/80 p-2.5 sm:block">
                       <div className="text-[11px] font-bold uppercase tracking-wide text-muted">
                         Registration number
                       </div>
@@ -281,20 +305,24 @@ export default function MyVehicles() {
                   </div>
                 </button>
 
-                <div className="mt-4 grid min-w-0 grid-cols-1 gap-2 border-t border-line pt-4 min-[360px]:grid-cols-2">
+                <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 border-t border-line pt-3 sm:mt-4 sm:pt-4">
                   {isActive ? (
-                    <span className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-brand-soft px-3 py-2 text-center text-xs font-bold text-ink">
+                    <span className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-brand-soft px-2 py-2 text-center text-xs font-bold text-ink sm:px-3">
                       <FiCheckCircle className="shrink-0" />
-                      <span className="truncate">Default vehicle</span>
+                      <span className="truncate sm:hidden">Default</span>
+                      <span className="hidden truncate sm:inline">Default vehicle</span>
                     </span>
                   ) : (
                     <button
                       type="button"
                       onClick={() => handleSetDefault(savedVehicle)}
                       disabled={isSettingDefault}
-                      className="inline-flex min-h-9 min-w-0 items-center justify-center rounded-lg border border-line px-3 py-2 text-center text-xs font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-9 min-w-0 items-center justify-center rounded-lg border border-line px-2 py-2 text-center text-xs font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
                     >
-                      <span className="truncate">
+                      <span className="truncate sm:hidden">
+                        {isSettingDefault ? "Setting..." : "Set default"}
+                      </span>
+                      <span className="hidden truncate sm:inline">
                         {isSettingDefault ? "Setting..." : "Set as default"}
                       </span>
                     </button>
@@ -304,10 +332,13 @@ export default function MyVehicles() {
                     type="button"
                     onClick={() => handleDelete(savedVehicle.id)}
                     disabled={isDeleting}
-                    className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-2 py-2 text-center text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
                   >
                     <FiTrash2 className="shrink-0" />
-                    <span className="truncate">
+                    <span className="truncate sm:hidden">
+                      {isDeleting ? "Deleting..." : "Delete"}
+                    </span>
+                    <span className="hidden truncate sm:inline">
                       {isDeleting ? "Deleting..." : "Delete vehicle"}
                     </span>
                   </button>
