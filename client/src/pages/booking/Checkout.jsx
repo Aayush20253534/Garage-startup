@@ -652,8 +652,8 @@ export default function Checkout() {
         <h1 className="text-3xl font-bold sm:text-4xl">Checkout</h1>
         <p className="mt-1 text-muted">
           {isSelfDropOffBooking
-            ? "Pay the platform fee to find a nearby garage. Take your vehicle to the assigned garage and collect it after service."
-            : "Pay the platform fee to start the search. The garage will visit your saved service address. Pay the final service amount directly to the garage after completion."}
+            ? "Pay the fee, visit the assigned garage, and collect your vehicle after service"
+            : "Pay the fee to start. The garage visits your address; pay them after service."}
         </p>
 
         {error && (
