@@ -715,14 +715,14 @@ export default function Checkout() {
               {
                 value: SERVICE_FULFILLMENT_TYPE.PICKUP_DELIVERY,
                 title: "Pickup & delivery",
-                description: "An eligible garage collects the vehicle from your saved service address and returns it after service.",
+                description: "An eligible garage picks up and returns your vehicle.",
                 icon: FiTruck,
                 disabled: requiresSelfDropOff,
               },
               {
                 value: SERVICE_FULFILLMENT_TYPE.SELF_DROP_OFF,
                 title: "Self drop-off & pickup",
-                description: "You take the vehicle to the assigned garage and collect it after the service is ready.",
+                description: "Drop off and collect your vehicle at the assigned garage.",
                 icon: FiMapPin,
                 disabled: false,
               },

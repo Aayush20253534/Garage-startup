@@ -9,7 +9,7 @@ import api from "@/api/axios";
 
 const welcomeMessage = {
   from: "bot",
-  text: "Hi, I’m the Rovauto Assistant. I can help with bookings, vehicles, payments, garage search, service tracking, warranty, SOS, and support. Never share an OTP, password, card detail, or account token here.",
+  text: "Hi, I’m the Rovauto Assistant. I can help with bookings, vehicles, payments, garage search, service tracking, warranty,and support. Never share an OTP, password, card detail, or account token here.",
 };
 
 const quickPrompts = [
