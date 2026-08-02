@@ -652,8 +652,8 @@ export default function Checkout() {
         <h1 className="text-3xl font-bold sm:text-4xl">Checkout</h1>
         <p className="mt-1 text-muted">
           {isSelfDropOffBooking
-            ? "Pay the platform fee now to start nearby garage search. Your saved location is used only to find a suitable garage; you must take the vehicle to the assigned garage and collect it after service."
-            : "Pay the platform fee now to start garage search. The garage will use your saved service address below, regardless of your current device location. Edit it only when you want the garage to arrive somewhere else. The final service amount is paid directly to the garage after the work is complete."}
+            ? "Pay the platform fee to find a nearby garage. Take your vehicle to the assigned garage and collect it after service."
+            : "Pay the platform fee to start the search. The garage will visit your saved service address. Pay the final service amount directly to the garage after completion."}
         </p>
 
         {error && (
@@ -706,7 +706,7 @@ export default function Checkout() {
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-bold text-ink">Choose vehicle handover</h2>
             <p className="text-sm leading-6 text-muted">
-              Select how the vehicle reaches the garage for this booking. Garage alerts are sent only to garages that support your selected option and vehicle brand.
+              Choose how your vehicle will reach the garage. Only compatible garages will be notified.
             </p>
           </div>
 
