@@ -161,3 +161,36 @@ test("tracking explains the 20 km retry without another payment", () => {
   assert.match(source, /No additional payment or action is required/);
   assert.match(source, /Matching in progress · \{searchRadiusKm\} km/);
 });
+
+test("garage acceptance is retry-safe and does not wait on notifications", () => {
+  const requestSource = readProjectFile(
+    "server/src/services/garageRequest.service.js",
+  );
+  const acceptSource = requestSource.slice(
+    requestSource.indexOf("const acceptGarageRequest"),
+    requestSource.indexOf("const rejectGarageRequest"),
+  );
+  const cacheInvalidationIndex = acceptSource.lastIndexOf(
+    "await invalidateBookingReadCaches",
+  );
+  const backgroundNotificationIndex = acceptSource.lastIndexOf(
+    "void runAcceptanceSideEffects()",
+  );
+
+  assert.match(requestSource, /const isSameGarageAcceptance/);
+  assert.match(acceptSource, /alreadyAccepted: true/);
+  assert.match(acceptSource, /return serializeAcceptedGarageRequest/);
+  assert.ok(cacheInvalidationIndex >= 0);
+  assert.ok(backgroundNotificationIndex > cacheInvalidationIndex);
+});
+
+test("garage booking cards lock decisions and show acceptance progress", () => {
+  const bookings = readProjectFile("client/src/pages/garage/Bookings.jsx");
+  const card = readProjectFile("client/src/components/garage/BookingCard.jsx");
+
+  assert.match(bookings, /decisionInFlight\.current/);
+  assert.match(bookings, /actionsDisabled=\{Boolean\(decisionRequestId\)\}/);
+  assert.match(card, /disabled=\{actionsDisabled\}/);
+  assert.match(card, /Accepting\.\.\./);
+  assert.match(card, /Declining\.\.\./);
+});

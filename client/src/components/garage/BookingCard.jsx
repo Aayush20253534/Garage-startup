@@ -6,6 +6,7 @@ import {
   FiCheck,
   FiCreditCard,
   FiMapPin,
+  FiRefreshCw,
   FiTruck,
   FiUser,
   FiX,
@@ -71,6 +72,8 @@ export default function BookingCard({
   onDecline,
   walletBalance = null,
   onRecharge,
+  actionLoading = "",
+  actionsDisabled = false,
 }) {
   const navigate = useNavigate();
   const isNewBooking = booking.status === "NEW" || booking.status === "SENT";
@@ -95,6 +98,7 @@ export default function BookingCard({
 
   const handleAccept = (event) => {
     event.stopPropagation();
+    if (actionsDisabled) return;
     if (needsRecharge) {
       onRecharge?.();
       return;
@@ -104,6 +108,7 @@ export default function BookingCard({
 
   const handleDecline = (event) => {
     event.stopPropagation();
+    if (actionsDisabled) return;
     onDecline?.(booking);
   };
 
@@ -225,24 +230,38 @@ export default function BookingCard({
               <button
                 type="button"
                 onClick={handleAccept}
+                disabled={actionsDisabled}
                 className={[
-                  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-center text-sm font-semibold leading-tight text-white transition disabled:opacity-60",
+                  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-center text-sm font-semibold leading-tight text-white transition disabled:cursor-not-allowed disabled:opacity-60",
                   needsRecharge
                     ? "bg-amber-500 hover:bg-amber-600"
                     : "bg-green-600 hover:bg-green-700",
                 ].join(" ")}
               >
-                <FiCheck className="h-4 w-4" />
-                {needsRecharge ? "Recharge" : "Accept"}
+                {actionLoading === "accept" ? (
+                  <FiRefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FiCheck className="h-4 w-4" />
+                )}
+                {actionLoading === "accept"
+                  ? "Accepting..."
+                  : needsRecharge
+                    ? "Recharge"
+                    : "Accept"}
               </button>
 
               <button
                 type="button"
                 onClick={handleDecline}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-center text-sm font-semibold leading-tight text-white transition hover:bg-red-700"
+                disabled={actionsDisabled}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-center text-sm font-semibold leading-tight text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <FiX className="h-4 w-4" />
-                Decline
+                {actionLoading === "decline" ? (
+                  <FiRefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FiX className="h-4 w-4" />
+                )}
+                {actionLoading === "decline" ? "Declining..." : "Decline"}
               </button>
             </div>
           ) : (

@@ -79,3 +79,19 @@ test("one payment click survives transient Cashfree and network preparation", ()
     /409,[\s\S]{0,180}PAYMENT_SESSION_UNAVAILABLE/,
   );
 });
+
+test("restoring an authenticated customer keeps the checkout cart", () => {
+  const appProvider = read("client/src/hooks/useApp.jsx");
+  const restoreStart = appProvider.indexOf("const restoreSession = async () =>");
+  const restoreEnd = appProvider.indexOf("restoreSession();", restoreStart);
+  const restoreSession = appProvider.slice(restoreStart, restoreEnd);
+
+  assert.ok(restoreStart >= 0, "session restoration should be present");
+  assert.ok(restoreEnd > restoreStart, "session restoration should be callable");
+  assert.match(restoreSession, /me\.role === "CUSTOMER"/);
+  assert.match(
+    restoreSession,
+    /preserveCartContextChangeRef\.current = preserveCustomerCart/,
+  );
+  assert.match(restoreSession, /preserveCart: preserveCustomerCart/);
+});

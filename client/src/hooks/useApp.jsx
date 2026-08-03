@@ -1328,7 +1328,19 @@ export function AppProvider({ children }) {
           await refreshGarage({ sessionUser: me });
         }
       } else {
-        clearCustomerSession({ clearRole: false });
+        // A customer can refresh or revisit checkout while the HttpOnly
+        // session cookie is still valid. Preserve the session-backed cart
+        // until the restored profile has rehydrated its pricing context.
+        const preserveCustomerCart =
+          me.accountType === "USER" &&
+          me.role === "CUSTOMER" &&
+          cart.length > 0;
+
+        preserveCartContextChangeRef.current = preserveCustomerCart;
+        clearCustomerSession({
+          clearRole: false,
+          preserveCart: preserveCustomerCart,
+        });
         clearGarageSession({ clearRole: false });
         syncAuthenticatedUser(me);
       }

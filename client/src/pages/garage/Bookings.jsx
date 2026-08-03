@@ -41,6 +41,9 @@ export default function GarageBookings() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const requestInFlight = useRef(false);
+  const decisionInFlight = useRef("");
+  const [decisionRequestId, setDecisionRequestId] = useState("");
+  const [decisionAction, setDecisionAction] = useState("");
 
   const safeBookings = Array.isArray(bookings) ? bookings : [];
   const walletBalance = Number(
@@ -82,12 +85,17 @@ export default function GarageBookings() {
   // or after a booking action such as accept/decline.
 
   const handleAccept = async (booking) => {
+    const requestId = booking.requestId || booking.id;
+    if (decisionInFlight.current) return;
+
+    decisionInFlight.current = requestId;
+    setDecisionRequestId(requestId);
+    setDecisionAction("accept");
+
     try {
       setError("");
 
-      const updated = await garageApi.acceptRequest(
-        booking.requestId || booking.id,
-      );
+      const updated = await garageApi.acceptRequest(requestId);
 
       dispatch(
         setBookings(
@@ -102,16 +110,25 @@ export default function GarageBookings() {
       setError(
         err.response?.data?.message || "Unable to accept booking",
       );
+    } finally {
+      decisionInFlight.current = "";
+      setDecisionRequestId("");
+      setDecisionAction("");
     }
   };
 
   const handleDecline = async (booking) => {
+    const requestId = booking.requestId || booking.id;
+    if (decisionInFlight.current) return;
+
+    decisionInFlight.current = requestId;
+    setDecisionRequestId(requestId);
+    setDecisionAction("decline");
+
     try {
       setError("");
 
-      const updated = await garageApi.rejectRequest(
-        booking.requestId || booking.id,
-      );
+      const updated = await garageApi.rejectRequest(requestId);
 
       dispatch(
         setBookings(
@@ -126,6 +143,10 @@ export default function GarageBookings() {
       setError(
         err.response?.data?.message || "Unable to decline booking",
       );
+    } finally {
+      decisionInFlight.current = "";
+      setDecisionRequestId("");
+      setDecisionAction("");
     }
   };
 
@@ -195,6 +216,12 @@ export default function GarageBookings() {
               onDecline={handleDecline}
               walletBalance={walletBalance}
               onRecharge={() => navigate("/garage/wallet")}
+              actionLoading={
+                decisionRequestId === (booking.requestId || booking.id)
+                  ? decisionAction
+                  : ""
+              }
+              actionsDisabled={Boolean(decisionRequestId)}
             />
           ))
         ) : (

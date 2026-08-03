@@ -165,6 +165,21 @@ const serializeGarageRequest = (request) => {
   };
 };
 
+const serializeAcceptedGarageRequest = (request) => ({
+  ...serializeGarageRequest(request),
+  customerLocationLink: bookingUsesSelfDropOff(request.booking)
+    ? null
+    : getMapsLink(
+        request.booking.customerLatitude,
+        request.booking.customerLongitude,
+      ),
+});
+
+const isSameGarageAcceptance = (request, garageId, controllerId = null) =>
+  request?.status === BROADCAST_STATUS.ACCEPTED &&
+  request?.booking?.garageId === garageId &&
+  (!controllerId || request.booking.garageControllerId === controllerId);
+
 const serializeGarageRequests = (requests) =>
   requests.map(serializeGarageRequest);
 
@@ -903,12 +918,21 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
 
   if (!request) throw new ApiError(404, "Garage request not found");
 
-  if (!request.garage?.isActive || request.garage?.operationalStatus !== "ACTIVE") {
-    throw new ApiError(403, "This garage is disabled and cannot accept bookings");
+  if (request.status !== BROADCAST_STATUS.SENT) {
+    if (isSameGarageAcceptance(request, garageId, controllerId)) {
+      const acceptedRequest = await prisma.garageBroadcastRequest.findUnique({
+        where: { id: requestId },
+        include: requestInclude,
+      });
+
+      return serializeAcceptedGarageRequest(acceptedRequest);
+    }
+
+    throw new ApiError(400, "This request is no longer available");
   }
 
-  if (request.status !== BROADCAST_STATUS.SENT) {
-    throw new ApiError(400, "This request is no longer available");
+  if (!request.garage?.isActive || request.garage?.operationalStatus !== "ACTIVE") {
+    throw new ApiError(403, "This garage is disabled and cannot accept bookings");
   }
 
   if (
@@ -934,33 +958,6 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
 
     if (operationalGarage.count === 0) {
       throw new ApiError(403, "This garage is disabled and cannot accept bookings");
-    }
-
-    if (controllerId) {
-      const dispatched = await tx.garageControllerDispatch.findFirst({
-        where: {
-          requestId,
-          garageControllerId: controllerId,
-          status: "SENT",
-        },
-        select: { id: true },
-      });
-      if (!dispatched) {
-        throw new ApiError(403, "This booking request was not assigned to this controller");
-      }
-      const controllerClaim = await tx.garageController.updateMany({
-        where: {
-          id: controllerId,
-          garageId,
-          deletedAt: null,
-          isActive: true,
-          availability: "AVAILABLE",
-        },
-        data: { availability: "BUSY", lastActiveAt: new Date() },
-      });
-      if (controllerClaim.count === 0) {
-        throw new ApiError(409, "Controller is no longer available");
-      }
     }
 
     const freshRequest = await tx.garageBroadcastRequest.findFirst({
@@ -995,12 +992,52 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
       throw new ApiError(404, "Garage request not found");
     }
 
+    if (freshRequest.status !== BROADCAST_STATUS.SENT) {
+      if (isSameGarageAcceptance(freshRequest, garageId, controllerId)) {
+        const acceptedRequest = await tx.garageBroadcastRequest.findUnique({
+          where: { id: requestId },
+          include: requestInclude,
+        });
+
+        return {
+          request: acceptedRequest,
+          handoverOtp: null,
+          alreadyAccepted: true,
+        };
+      }
+
+      throw new ApiError(400, "This request is no longer available");
+    }
+
     if (!freshRequest.garage?.isActive || freshRequest.garage?.operationalStatus !== "ACTIVE") {
       throw new ApiError(403, "This garage is disabled and cannot accept bookings");
     }
 
-    if (freshRequest.status !== BROADCAST_STATUS.SENT) {
-      throw new ApiError(400, "This request is no longer available");
+    if (controllerId) {
+      const dispatched = await tx.garageControllerDispatch.findFirst({
+        where: {
+          requestId,
+          garageControllerId: controllerId,
+          status: "SENT",
+        },
+        select: { id: true },
+      });
+      if (!dispatched) {
+        throw new ApiError(403, "This booking request was not assigned to this controller");
+      }
+      const controllerClaim = await tx.garageController.updateMany({
+        where: {
+          id: controllerId,
+          garageId,
+          deletedAt: null,
+          isActive: true,
+          availability: "AVAILABLE",
+        },
+        data: { availability: "BUSY", lastActiveAt: new Date() },
+      });
+      if (controllerClaim.count === 0) {
+        throw new ApiError(409, "Controller is no longer available");
+      }
     }
 
     const freshBooking = freshRequest.booking;
@@ -1219,142 +1256,148 @@ const acceptGarageRequest = async (garageId, requestId, note, controllerId = nul
     return { request: acceptedRequest, handoverOtp };
   });
 
-  await activityService.createActivitySafely(
-    result.request.booking.userId,
-    {
-      type: "GARAGE_ACCEPTED",
-      title: "Garage accepted booking",
-      detail: `${result.request.garage.name} accepted booking ${result.request.booking.bookingCode || result.request.booking.id}.`,
-      path: `/tracking?bookingId=${result.request.booking.id}`,
-      metadata: {
+  if (result.alreadyAccepted) {
+    return serializeAcceptedGarageRequest(result.request);
+  }
+
+  const runAcceptanceSideEffects = async () => {
+    await activityService.createActivitySafely(
+      result.request.booking.userId,
+      {
+        type: "GARAGE_ACCEPTED",
+        title: "Garage accepted booking",
+        detail: `${result.request.garage.name} accepted booking ${result.request.booking.bookingCode || result.request.booking.id}.`,
+        path: `/tracking?bookingId=${result.request.booking.id}`,
+        metadata: {
+          bookingId: result.request.booking.id,
+          bookingCode: result.request.booking.bookingCode,
+          garageId,
+          garageName: result.request.garage.name,
+        },
+      },
+      { eventKey: `booking:${result.request.booking.id}:garage-accepted` },
+    );
+
+    const distanceKm = getRequestDistanceKm(result.request);
+    const etaMinutes = bookingUsesSelfDropOff(result.request.booking)
+      ? null
+      : estimateArrivalMinutes(distanceKm);
+
+    const acceptanceNotificationResults = await Promise.allSettled([
+      bookingLifecycleService.notifyGarageAccepted({
+        booking: result.request.booking,
+        garage: result.request.garage,
+        distanceKm,
+        etaMinutes,
+      }),
+      result.handoverOtp
+        ? bookingLifecycleService.notifyVehicleHandoverOtp({
+            booking: result.request.booking,
+            garage: result.request.garage,
+            otp: result.handoverOtp.otp,
+            expiresAt: result.handoverOtp.expiresAt,
+          })
+        : Promise.resolve({ sent: false, reason: "not-required" }),
+      result.handoverOtp
+        ? bookingLifecycleService.sendCustomerHandoverOtpEmail({
+            customer: result.request.booking.user,
+            garage: result.request.garage,
+            booking: result.request.booking,
+            otp: result.handoverOtp.otp,
+            otpExpiresAt: result.handoverOtp.expiresAt,
+          })
+        : Promise.resolve({ sent: false, reason: "not-required" }),
+      sendCustomerGarageDetailsWhatsapp({
+        customer: result.request.booking.user,
+        garage: result.request.garage,
+        booking: result.request.booking,
+      }),
+      sendGarageCustomerLocationWhatsapp({
+        garage: result.request.garage,
+        booking: result.request.booking,
+        to: result.request.booking.garageController?.phone || null,
+      }),
+    ]);
+
+    if (process.env.NODE_ENV !== "test") {
+      const customerEmailResult = acceptanceNotificationResults[2];
+      const customerWhatsappResult = acceptanceNotificationResults[3];
+      const customerEmailDelivery =
+        customerEmailResult?.status === "fulfilled"
+          ? customerEmailResult.value
+          : null;
+      const customerGarageDetails =
+        customerWhatsappResult?.status === "fulfilled"
+          ? customerWhatsappResult.value
+          : null;
+
+      console.info("[garage-request:accept] customer notification results", {
         bookingId: result.request.booking.id,
         bookingCode: result.request.booking.bookingCode,
-        garageId,
-        garageName: result.request.garage.name,
-      },
-    },
-    { eventKey: `booking:${result.request.booking.id}:garage-accepted` },
-  );
+        customerId: result.request.booking.user?.id || null,
+        garageDetailsWhatsappSettled:
+          customerWhatsappResult?.status || "missing",
+        garageDetailsWhatsappSent: Boolean(customerGarageDetails?.sent),
+        garageDetailsWhatsappFailed: Boolean(customerGarageDetails?.failed),
+        garageDetailsWhatsappStatus: customerGarageDetails?.status || null,
+        garageDetailsWhatsappMetaErrorCode:
+          customerGarageDetails?.providerErrorCode || null,
+        garageDetailsWhatsappReason:
+          customerWhatsappResult?.status === "rejected"
+            ? customerWhatsappResult.reason?.message ||
+              String(customerWhatsappResult.reason)
+            : customerGarageDetails?.errorMessage ||
+              customerGarageDetails?.reason ||
+              null,
+        handoverOtpEmailSettled: customerEmailResult?.status || "missing",
+        handoverOtpEmailSent: Boolean(customerEmailDelivery?.sent),
+        handoverOtpEmailId: customerEmailDelivery?.emailId || null,
+        handoverOtpEmailReason:
+          customerEmailResult?.status === "rejected"
+            ? customerEmailResult.reason?.message ||
+              String(customerEmailResult.reason)
+            : customerEmailDelivery?.reason || null,
+      });
 
-  const distanceKm = getRequestDistanceKm(result.request);
-  const etaMinutes = bookingUsesSelfDropOff(result.request.booking)
-    ? null
-    : estimateArrivalMinutes(distanceKm);
+      const garageWhatsappResult = acceptanceNotificationResults[4];
+      const delivery =
+        garageWhatsappResult?.status === "fulfilled"
+          ? garageWhatsappResult.value
+          : null;
 
-  const acceptanceNotificationResults = await Promise.allSettled([
-    bookingLifecycleService.notifyGarageAccepted({
-      booking: result.request.booking,
-      garage: result.request.garage,
-      distanceKm,
-      etaMinutes,
-    }),
-    result.handoverOtp
-      ? bookingLifecycleService.notifyVehicleHandoverOtp({
-          booking: result.request.booking,
-          garage: result.request.garage,
-          otp: result.handoverOtp.otp,
-          expiresAt: result.handoverOtp.expiresAt,
-        })
-      : Promise.resolve({ sent: false, reason: "not-required" }),
-    result.handoverOtp
-      ? bookingLifecycleService.sendCustomerHandoverOtpEmail({
-          customer: result.request.booking.user,
-          garage: result.request.garage,
-          booking: result.request.booking,
-          otp: result.handoverOtp.otp,
-          otpExpiresAt: result.handoverOtp.expiresAt,
-        })
-      : Promise.resolve({ sent: false, reason: "not-required" }),
-    sendCustomerGarageDetailsWhatsapp({
-      customer: result.request.booking.user,
-      garage: result.request.garage,
-      booking: result.request.booking,
-    }),
-    sendGarageCustomerLocationWhatsapp({
-      garage: result.request.garage,
-      booking: result.request.booking,
-      to: result.request.booking.garageController?.phone || null,
-    }),
-  ]);
-
-  if (process.env.NODE_ENV !== "test") {
-    const customerEmailResult = acceptanceNotificationResults[2];
-    const customerWhatsappResult = acceptanceNotificationResults[3];
-    const customerEmailDelivery =
-      customerEmailResult?.status === "fulfilled"
-        ? customerEmailResult.value
-        : null;
-    const customerGarageDetails =
-      customerWhatsappResult?.status === "fulfilled"
-        ? customerWhatsappResult.value
-        : null;
-
-    console.info("[garage-request:accept] customer notification results", {
-      bookingId: result.request.booking.id,
-      bookingCode: result.request.booking.bookingCode,
-      customerId: result.request.booking.user?.id || null,
-      garageDetailsWhatsappSettled:
-        customerWhatsappResult?.status || "missing",
-      garageDetailsWhatsappSent: Boolean(customerGarageDetails?.sent),
-      garageDetailsWhatsappFailed: Boolean(customerGarageDetails?.failed),
-      garageDetailsWhatsappStatus: customerGarageDetails?.status || null,
-      garageDetailsWhatsappMetaErrorCode:
-        customerGarageDetails?.providerErrorCode || null,
-      garageDetailsWhatsappReason:
-        customerWhatsappResult?.status === "rejected"
-          ? customerWhatsappResult.reason?.message ||
-            String(customerWhatsappResult.reason)
-          : customerGarageDetails?.errorMessage ||
-            customerGarageDetails?.reason ||
-            null,
-      handoverOtpEmailSettled: customerEmailResult?.status || "missing",
-      handoverOtpEmailSent: Boolean(customerEmailDelivery?.sent),
-      handoverOtpEmailId: customerEmailDelivery?.emailId || null,
-      handoverOtpEmailReason:
-        customerEmailResult?.status === "rejected"
-          ? customerEmailResult.reason?.message ||
-            String(customerEmailResult.reason)
-          : customerEmailDelivery?.reason || null,
-    });
-
-    const garageWhatsappResult = acceptanceNotificationResults[4];
-    const delivery =
-      garageWhatsappResult?.status === "fulfilled"
-        ? garageWhatsappResult.value
-        : null;
-
-    console.info("[garage-request:accept] garage details WhatsApp result", {
-      bookingId: result.request.booking.id,
-      bookingCode: result.request.booking.bookingCode,
-      requestId: result.request.id,
-      garageId: result.request.garage.id,
-      settled: garageWhatsappResult?.status || "missing",
-      sent: Boolean(delivery?.sent),
-      failed:
-        garageWhatsappResult?.status === "rejected" ||
-        Boolean(delivery?.failed),
-      status: delivery?.status || null,
-      metaErrorCode: delivery?.providerErrorCode || null,
-      metaErrorSubcode: delivery?.providerErrorSubcode || null,
-      reason:
-        garageWhatsappResult?.status === "rejected"
-          ? garageWhatsappResult.reason?.message ||
-            String(garageWhatsappResult.reason)
-          : delivery?.errorMessage || delivery?.reason || null,
-    });
-  }
+      console.info("[garage-request:accept] garage details WhatsApp result", {
+        bookingId: result.request.booking.id,
+        bookingCode: result.request.booking.bookingCode,
+        requestId: result.request.id,
+        garageId: result.request.garage.id,
+        settled: garageWhatsappResult?.status || "missing",
+        sent: Boolean(delivery?.sent),
+        failed:
+          garageWhatsappResult?.status === "rejected" ||
+          Boolean(delivery?.failed),
+        status: delivery?.status || null,
+        metaErrorCode: delivery?.providerErrorCode || null,
+        metaErrorSubcode: delivery?.providerErrorSubcode || null,
+        reason:
+          garageWhatsappResult?.status === "rejected"
+            ? garageWhatsappResult.reason?.message ||
+              String(garageWhatsappResult.reason)
+            : delivery?.errorMessage || delivery?.reason || null,
+      });
+    }
+  };
 
   await invalidateBookingReadCaches(result.request.booking.userId);
 
-  return {
-    ...serializeGarageRequest(result.request),
-    customerLocationLink: bookingUsesSelfDropOff(result.request.booking)
-      ? null
-      : getMapsLink(
-            result.request.booking.customerLatitude,
-            result.request.booking.customerLongitude,
-          ),
-  };
+  void runAcceptanceSideEffects().catch((error) => {
+    console.error("[garage-request:accept] post-acceptance side effects failed", {
+      bookingId: result.request.booking.id,
+      requestId: result.request.id,
+      error: error?.message || String(error),
+    });
+  });
+
+  return serializeAcceptedGarageRequest(result.request);
 };
 
 const rejectGarageRequest = async (garageId, requestId, note) => {
