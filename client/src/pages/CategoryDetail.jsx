@@ -513,22 +513,22 @@ export default function CategoryDetail() {
       {!user && (
         <section
           aria-labelledby="category-price-filter-heading"
-          className="mb-6 overflow-hidden rounded-2xl border border-gray-950 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]"
+          className="mb-5 overflow-hidden rounded-xl border border-gray-950 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)] sm:mb-6 sm:rounded-2xl"
         >
-          <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div className="min-w-0 border-l-[3px] border-[#9fce00] pl-4">
-              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#668500]">
+          <div className="flex items-start justify-between gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:px-6 sm:py-5">
+            <div className="min-w-0 border-l-[3px] border-[#9fce00] pl-3 sm:pl-4">
+              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#668500] sm:mb-1.5 sm:gap-2 sm:text-[11px] sm:tracking-[0.16em]">
                 <FiSliders className="text-sm" aria-hidden="true" />
                 Price preview
               </div>
               <div>
                 <h2
                   id="category-price-filter-heading"
-                  className="text-lg font-semibold tracking-[-0.01em] text-gray-950"
+                  className="text-[15px] font-semibold leading-5 tracking-[-0.01em] text-gray-950 sm:text-lg"
                 >
                   Service pricing for your vehicle
                 </h2>
-                <p className="mt-1 max-w-2xl text-sm leading-5 text-gray-600">
+                <p className="mt-1 hidden max-w-2xl text-sm leading-5 text-gray-600 sm:block">
                   Select your location and vehicle to see relevant prices in
                   this category.
                 </p>
@@ -539,16 +539,16 @@ export default function CategoryDetail() {
               <button
                 type="button"
                 onClick={clearGuestFilters}
-                className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-lg border border-gray-300 bg-white px-3.5 text-xs font-semibold text-gray-700 transition hover:border-gray-950 hover:text-gray-950 sm:self-auto"
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 text-[11px] font-semibold text-gray-700 transition hover:border-gray-950 hover:text-gray-950 sm:h-9 sm:gap-2 sm:px-3.5 sm:text-xs"
               >
                 <FiX aria-hidden="true" /> Clear filters
               </button>
             )}
           </div>
 
-          <div className="grid gap-4 border-y border-gray-200 bg-gray-50/80 px-5 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-3 border-y border-gray-200 bg-gray-50/80 px-4 py-4 sm:gap-4 sm:px-6 sm:py-5 lg:grid-cols-4">
             <label className="block min-w-0">
-              <span className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-600">
+              <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-gray-600 sm:mb-2 sm:gap-2 sm:text-[11px] sm:tracking-[0.12em]">
                 <FiMapPin className="text-gray-950" aria-hidden="true" /> City
               </span>
               <select
@@ -560,7 +560,7 @@ export default function CategoryDetail() {
                   }))
                 }
                 disabled={filterOptionsLoading}
-                className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
+                className="h-10 w-full min-w-0 rounded-lg border border-gray-950 bg-white px-2 text-xs font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500 sm:h-12 sm:px-3.5 sm:text-sm"
               >
                 <option value="">Select city</option>
                 {cities.map((city) => (
@@ -572,7 +572,7 @@ export default function CategoryDetail() {
             </label>
 
             <label className="block min-w-0">
-              <span className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-600">
+              <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-gray-600 sm:mb-2 sm:gap-2 sm:text-[11px] sm:tracking-[0.12em]">
                 <FiTruck className="text-gray-950" aria-hidden="true" /> Brand
               </span>
               <select
@@ -585,7 +585,7 @@ export default function CategoryDetail() {
                   }))
                 }
                 disabled={filterOptionsLoading}
-                className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
+                className="h-10 w-full min-w-0 rounded-lg border border-gray-950 bg-white px-2 text-xs font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500 sm:h-12 sm:px-3.5 sm:text-sm"
               >
                 <option value="">Select brand</option>
                 {brands.map((brand) => (
@@ -597,7 +597,7 @@ export default function CategoryDetail() {
             </label>
 
             <label className="block min-w-0">
-              <span className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-600">
+              <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-gray-600 sm:mb-2 sm:gap-2 sm:text-[11px] sm:tracking-[0.12em]">
                 <FiSettings className="text-gray-950" aria-hidden="true" /> Model
               </span>
               <select
@@ -609,7 +609,7 @@ export default function CategoryDetail() {
                   }))
                 }
                 disabled={filterOptionsLoading || !guestFilterDraft.brand}
-                className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
+                className="h-10 w-full min-w-0 rounded-lg border border-gray-950 bg-white px-2 text-xs font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500 sm:h-12 sm:px-3.5 sm:text-sm"
               >
                 <option value="">
                   {guestFilterDraft.brand
@@ -627,7 +627,7 @@ export default function CategoryDetail() {
               </select>
 
               {draftSelectedModel && (
-                <div className="mt-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2.5">
+                <div className="mt-2 hidden items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2.5 sm:flex">
                   <SafeImage
                     src={getOptimizedImageUrl(draftSelectedModel.imageUrl, {
                       width: 180,
@@ -656,7 +656,7 @@ export default function CategoryDetail() {
             </label>
 
             <label className="block min-w-0">
-              <span className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-600">
+              <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-gray-600 sm:mb-2 sm:gap-2 sm:text-[11px] sm:tracking-[0.12em]">
                 <FiDroplet className="text-gray-950" aria-hidden="true" /> Fuel
                 type
               </span>
@@ -669,7 +669,7 @@ export default function CategoryDetail() {
                   }))
                 }
                 disabled={filterOptionsLoading}
-                className="h-12 w-full rounded-lg border border-gray-950 bg-white px-3.5 text-sm font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
+                className="h-10 w-full min-w-0 rounded-lg border border-gray-950 bg-white px-2 text-xs font-medium text-gray-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none transition focus:border-gray-950 focus:ring-[3px] focus:ring-[#b9f000]/25 disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500 sm:h-12 sm:px-3.5 sm:text-sm"
               >
                 <option value="">Select fuel type</option>
                 {GUEST_FUEL_TYPES.map((fuelType) => (
@@ -681,9 +681,9 @@ export default function CategoryDetail() {
             </label>
           </div>
 
-          <div className="flex flex-col gap-3 bg-white px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-col gap-2.5 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6">
             <div
-              className="flex min-h-9 min-w-0 items-center gap-3 text-sm"
+              className="flex min-h-0 min-w-0 items-start gap-2 text-xs sm:min-h-9 sm:items-center sm:gap-3 sm:text-sm"
               aria-live="polite"
             >
               {filterOptionsError || pricingError ? (
@@ -737,7 +737,7 @@ export default function CategoryDetail() {
                 pricingLoading ||
                 filterOptionsLoading
               }
-              className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-950 px-5 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 sm:w-auto"
+              className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-950 px-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 sm:h-11 sm:w-auto sm:px-5"
             >
               <FiSearch
                 className={pricingLoading ? "animate-pulse" : "text-[#b9f000]"}

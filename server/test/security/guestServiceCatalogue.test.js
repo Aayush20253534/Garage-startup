@@ -38,6 +38,21 @@ test("price and vehicle filters live inside a selected category", () => {
   assert.match(categoryDetailPage, /Search prices/);
   assert.match(categoryDetailPage, /guestFilterDraft/);
   assert.match(categoryDetailPage, /Complete all four fields/);
+  assert.match(
+    categoryDetailPage,
+    /grid grid-cols-2[\s\S]*lg:grid-cols-4/,
+    "guest filters should stay compact on mobile and preserve the desktop grid",
+  );
+  assert.match(
+    categoryDetailPage,
+    /h-10 w-full min-w-0[\s\S]*sm:h-12/,
+    "guest filter controls should use mobile-sized heights with desktop fallbacks",
+  );
+  assert.match(
+    categoryDetailPage,
+    /mt-2 hidden items-center[\s\S]*sm:flex/,
+    "the selected-model preview should not expand the mobile filter",
+  );
   assert.match(serviceValidation, /query\("fuelType"\)/);
   assert.match(serviceController, /fuelType: req\.query\.fuelType/);
 });
