@@ -44,6 +44,38 @@ test("garage UI blocks start and completion until photo range and video are pres
   assert.match(videoUploadSource, /MAX_VIDEO_SIZE_MB = 50/);
 });
 
+test("garage account inspection photos allow 5 MB while worker links keep the 1 MB default", () => {
+  const constantsSource = readSource("src/garage/constants.js");
+  const lifecycleSource = readSource("src/services/bookingLifecycle.service.js");
+  const controllerSource = readSource(
+    "src/controllers/garageRequest.controller.js",
+  );
+  const workerTaskSource = readSource("src/services/garageWorkerTask.service.js");
+  const detailSource = readSource("../client/src/pages/garage/BookingDetail.jsx");
+  const workerUiSource = readSource("../client/src/pages/worker/WorkerTask.jsx");
+
+  assert.match(
+    constantsSource,
+    /MAX_GARAGE_BOOKING_INSPECTION_IMAGE_SIZE_BYTES = 5 \* 1024 \* 1024/,
+  );
+  assert.match(
+    lifecycleSource,
+    /maxPhotoSizeBytes = DEFAULT_MAX_INSPECTION_PHOTO_SIZE_BYTES/,
+  );
+  assert.match(
+    controllerSource,
+    /maxPhotoSizeBytes: MAX_GARAGE_BOOKING_INSPECTION_IMAGE_SIZE_BYTES/,
+  );
+  assert.doesNotMatch(
+    workerTaskSource,
+    /MAX_GARAGE_BOOKING_INSPECTION_IMAGE_SIZE_BYTES/,
+  );
+  assert.match(detailSource, /GARAGE_INSPECTION_PHOTO_MAX_SIZE_MB = 5/);
+  assert.match(detailSource, /maxSizeMb=\{GARAGE_INSPECTION_PHOTO_MAX_SIZE_MB\}/);
+  assert.match(detailSource, /Each photo must be 5 MB or less/);
+  assert.match(workerUiSource, /Every photo must be 1 MB or smaller/);
+});
+
 test("inspection media schema differentiates videos from legacy images", () => {
   const schemaSource = readSource("prisma/schema.prisma");
   const migrationSource = readSource(

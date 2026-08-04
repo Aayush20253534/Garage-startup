@@ -36,7 +36,7 @@ const OTP_CONCURRENCY_RETRIES = 8;
 const MIN_INSPECTION_PHOTO_COUNT = MIN_BOOKING_INSPECTION_IMAGES;
 const MAX_INSPECTION_PHOTO_COUNT = MAX_BOOKING_INSPECTION_IMAGES;
 const REQUIRED_INSPECTION_VIDEO_COUNT = REQUIRED_BOOKING_INSPECTION_VIDEOS;
-const MAX_INSPECTION_PHOTO_SIZE_BYTES = 1024 * 1024;
+const DEFAULT_MAX_INSPECTION_PHOTO_SIZE_BYTES = 1024 * 1024;
 const MAX_INSPECTION_VIDEO_SIZE_BYTES = MAX_BOOKING_INSPECTION_VIDEO_SIZE_BYTES;
 const INSPECTION_IMAGE_FOLDER = "project-x/bookings/inspection-images";
 const INSPECTION_VIDEO_FOLDER = "project-x/bookings/inspection-videos";
@@ -304,7 +304,10 @@ const createHandoverOtp = (generatedAt = new Date()) => {
   };
 };
 
-const validateInspectionImages = (files) => {
+const validateInspectionImages = (
+  files,
+  maxPhotoSizeBytes = DEFAULT_MAX_INSPECTION_PHOTO_SIZE_BYTES,
+) => {
   if (
     !Array.isArray(files) ||
     files.length < MIN_INSPECTION_PHOTO_COUNT ||
@@ -324,10 +327,11 @@ const validateInspectionImages = (files) => {
       );
     }
 
-    if (file.size > MAX_INSPECTION_PHOTO_SIZE_BYTES) {
+    if (file.size > maxPhotoSizeBytes) {
+      const maxPhotoSizeMb = maxPhotoSizeBytes / (1024 * 1024);
       throw new ApiError(
         400,
-        "Each car inspection photo must be less than or equal to 1 MB",
+        `Each car inspection photo must be less than or equal to ${maxPhotoSizeMb} MB`,
       );
     }
   }
@@ -396,8 +400,9 @@ const uploadInspectionMedia = async ({
   phase,
   images,
   video,
+  maxPhotoSizeBytes = DEFAULT_MAX_INSPECTION_PHOTO_SIZE_BYTES,
 }) => {
-  validateInspectionImages(images);
+  validateInspectionImages(images, maxPhotoSizeBytes);
   validateInspectionVideo(video);
 
   const existingMedia = await getExistingInspectionMedia({ bookingId, phase });
@@ -807,6 +812,7 @@ const verifyBookingHandoverOtp = async ({
   otp,
   images,
   video,
+  maxPhotoSizeBytes = DEFAULT_MAX_INSPECTION_PHOTO_SIZE_BYTES,
 }) => {
   const request = await prisma.garageBroadcastRequest.findFirst({
     where: {
@@ -964,6 +970,7 @@ const verifyBookingHandoverOtp = async ({
       phase: "PICKUP",
       images,
       video,
+      maxPhotoSizeBytes,
     });
 
     const verifiedAt = new Date();
@@ -1137,6 +1144,7 @@ const confirmSelfDropArrivalByGarage = async ({
   requestId,
   images,
   video,
+  maxPhotoSizeBytes = DEFAULT_MAX_INSPECTION_PHOTO_SIZE_BYTES,
 }) => {
   const request = await loadAcceptedLifecycleRequest({ garageId, requestId });
   const booking = request.booking;
@@ -1192,6 +1200,7 @@ const confirmSelfDropArrivalByGarage = async ({
     phase: "PICKUP",
     images,
     video,
+    maxPhotoSizeBytes,
   });
 
   const arrivedAtGarageAt = new Date();
@@ -1326,6 +1335,7 @@ const markBookingServiceCompletedByGarage = async ({
   requestId,
   images,
   video,
+  maxPhotoSizeBytes = DEFAULT_MAX_INSPECTION_PHOTO_SIZE_BYTES,
 }) => {
   const request = await loadAcceptedLifecycleRequest({ garageId, requestId });
   const booking = request.booking;
@@ -1358,6 +1368,7 @@ const markBookingServiceCompletedByGarage = async ({
     phase: "DELIVERY",
     images,
     video,
+    maxPhotoSizeBytes,
   });
 
   const serviceCompletedAt = new Date();

@@ -45,6 +45,7 @@ const formatDateTime = (value) => {
   });
 };
 
+const GARAGE_INSPECTION_PHOTO_MAX_SIZE_MB = 5;
 const ARRIVAL_UNLOCK_DISTANCE_METERS = 300;
 const BOOKING_FLOW_POLL_INTERVAL_MS = 3000;
 const GARAGE_DASHBOARD_PATH = "/garage";
@@ -907,10 +908,16 @@ export default function GarageBookingDetail() {
                     {(isSelfDropOff || hasCompleteOtp) && (
                       <div className="mt-5">
                         <p className="mb-3 text-sm leading-6 text-muted">
-                          Upload 5–15 {isSelfDropOff ? "before-service" : "pickup"} photos and exactly one video. Each photo must be 1 MB or less; the video must be 50 MB or less.
+                          Upload 5–15 {isSelfDropOff ? "before-service" : "pickup"} photos and exactly one video. Each photo must be 5 MB or less; the video must be 50 MB or less.
                         </p>
                         <div className="space-y-4">
-                          <ImageUpload min={5} max={15} value={preServiceImages} onChange={setPreServiceImages} />
+                          <ImageUpload
+                            min={5}
+                            max={15}
+                            value={preServiceImages}
+                            onChange={setPreServiceImages}
+                            maxSizeMb={GARAGE_INSPECTION_PHOTO_MAX_SIZE_MB}
+                          />
                           <VideoUpload value={preServiceVideo} onChange={setPreServiceVideo} />
                         </div>
                       </div>
@@ -990,7 +997,7 @@ export default function GarageBookingDetail() {
               </p>
               <h3 className="mt-1 text-xl font-bold">Complete Service</h3>
               <p className="mb-4 mt-2 text-sm leading-6 text-muted">
-                Upload 5–15 post-service photos and exactly one video. Each photo must be 1 MB or less and the video must be 50 MB or less. After upload, the customer receives a completion email. {isSelfDropOff
+                Upload 5–15 post-service photos and exactly one video. Each photo must be 5 MB or less and the video must be 50 MB or less. After upload, the customer receives a completion email. {isSelfDropOff
                   ? "The vehicle becomes ready for collection at the garage."
                   : "Return delivery tracking starts immediately."}
               </p>
@@ -1000,6 +1007,7 @@ export default function GarageBookingDetail() {
                   max={15}
                   value={postServiceImages}
                   onChange={setPostServiceImages}
+                  maxSizeMb={GARAGE_INSPECTION_PHOTO_MAX_SIZE_MB}
                 />
                 <VideoUpload
                   value={postServiceVideo}

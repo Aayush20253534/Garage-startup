@@ -4,6 +4,9 @@ const ApiError = require("../utils/apiError");
 const garageRequestService = require("../services/garageRequest.service");
 const prisma = require("../config/prisma");
 const bookingLifecycleService = require("../services/bookingLifecycle.service");
+const {
+  MAX_GARAGE_BOOKING_INSPECTION_IMAGE_SIZE_BYTES,
+} = require("../garage/constants");
 
 const getGarageAccess = async (user) => {
   if (user.accountType === "GARAGE_CONTROLLER") {
@@ -97,6 +100,7 @@ const verifyHandoverOtp = asyncHandler(async (req, res) => {
     otp: req.body.otp,
     images: req.files?.images || [],
     video: req.files?.video?.[0] || null,
+    maxPhotoSizeBytes: MAX_GARAGE_BOOKING_INSPECTION_IMAGE_SIZE_BYTES,
   });
 
   return res
@@ -120,6 +124,7 @@ const confirmSelfDropArrival = asyncHandler(async (req, res) => {
     requestId: req.params.requestId,
     images: req.files?.images || [],
     video: req.files?.video?.[0] || null,
+    maxPhotoSizeBytes: MAX_GARAGE_BOOKING_INSPECTION_IMAGE_SIZE_BYTES,
   });
 
   return res
@@ -160,6 +165,7 @@ const markServiceCompleted = asyncHandler(async (req, res) => {
     requestId: req.params.requestId,
     images: req.files?.images || [],
     video: req.files?.video?.[0] || null,
+    maxPhotoSizeBytes: MAX_GARAGE_BOOKING_INSPECTION_IMAGE_SIZE_BYTES,
   });
 
   return res
@@ -218,6 +224,7 @@ const markDelivered = asyncHandler(async (req, res) => {
     requestId: req.params.requestId,
     images: req.files?.images || [],
     video: req.files?.video?.[0] || null,
+    maxPhotoSizeBytes: MAX_GARAGE_BOOKING_INSPECTION_IMAGE_SIZE_BYTES,
   });
 
   return res
