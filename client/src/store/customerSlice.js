@@ -18,6 +18,20 @@ const readArray = (key) => {
 const getDefaultVehicle = (vehicles = []) =>
   vehicles.find((item) => item.isDefault) || vehicles[0] || null;
 
+const getPreservedVehicle = (vehicles = [], currentVehicle = null) => {
+  const currentVehicleId = currentVehicle?.id;
+
+  if (currentVehicleId) {
+    const refreshedSelection = vehicles.find(
+      (item) => item?.id === currentVehicleId,
+    );
+
+    if (refreshedSelection) return refreshedSelection;
+  }
+
+  return getDefaultVehicle(vehicles);
+};
+
 const initialVehicles = readArray("rov_vehicles");
 
 const initialState = {
@@ -41,8 +55,10 @@ const customerSlice = createSlice({
     },
     setCustomerVehicles(state, action) {
       const vehicles = Array.isArray(action.payload) ? action.payload : [];
+      const currentVehicle = state.vehicle;
+
       state.vehicles = vehicles;
-      state.vehicle = getDefaultVehicle(vehicles);
+      state.vehicle = getPreservedVehicle(vehicles, currentVehicle);
     },
     setCustomerLocation(state, action) {
       state.location = action.payload || null;
@@ -52,9 +68,11 @@ const customerSlice = createSlice({
       const vehicles = Array.isArray(user?.vehicles) ? user.vehicles : [];
       const locations = Array.isArray(user?.locations) ? user.locations : [];
 
+      const currentVehicle = state.vehicle;
+
       state.user = user;
       state.vehicles = vehicles;
-      state.vehicle = getDefaultVehicle(vehicles);
+      state.vehicle = getPreservedVehicle(vehicles, currentVehicle);
 
       const validLocations = locations.filter(
         (item) => hasUsableIndiaCoordinates(item) && Boolean(getLocationAddress(item)),

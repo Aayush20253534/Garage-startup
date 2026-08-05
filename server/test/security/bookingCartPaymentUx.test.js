@@ -95,3 +95,25 @@ test("restoring an authenticated customer keeps the checkout cart", () => {
   );
   assert.match(restoreSession, /preserveCart: preserveCustomerCart/);
 });
+
+
+test("delayed post-login hydration preserves the first checkout cart", () => {
+  const appProvider = read("client/src/hooks/useApp.jsx");
+  const customerSlice = read("client/src/store/customerSlice.js");
+
+  assert.match(appProvider, /preservedHydrationContextKeysRef/);
+  assert.match(appProvider, /preserveCartForHydratedContext/);
+  assert.match(
+    appProvider,
+    /preservedHydrationContextKeysRef\.current\.has\(nextContextKey\)/,
+  );
+  assert.match(
+    appProvider,
+    /getVehicleSelectionFromList\([\s\S]*selectedVehicleRef\.current/,
+  );
+  assert.match(customerSlice, /getPreservedVehicle/);
+  assert.match(
+    customerSlice,
+    /state\.vehicle = getPreservedVehicle\(vehicles, currentVehicle\)/,
+  );
+});

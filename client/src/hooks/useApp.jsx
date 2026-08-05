@@ -224,6 +224,18 @@ const removeSessionCache = (key) => {
   localStorage.removeItem(key);
 };
 
+const getVehicleSelectionFromList = (vehicles = [], currentVehicle = null) => {
+  const safeVehicles = Array.isArray(vehicles) ? vehicles : [];
+  const currentVehicleId = currentVehicle?.id;
+
+  return (
+    safeVehicles.find((item) => item?.id === currentVehicleId) ||
+    safeVehicles.find((item) => item?.isDefault) ||
+    safeVehicles[0] ||
+    null
+  );
+};
+
 const getServiceCategoriesContextKey = (user, vehicle, location) =>
   JSON.stringify({
     scope: user?.id ? `customer:${user.id}` : "public",
@@ -386,10 +398,23 @@ export function AppProvider({ children }) {
   );
   const [authLoading, setAuthLoading] = useState(true);
 
+  // Async profile/dashboard responses must use the latest booking selection,
+  // not the vehicle/location captured when the request originally started.
+  const cartRef = useRef(cart);
+  const cartContextKeyRef = useRef(cartContextKey);
+  const selectedVehicleRef = useRef(vehicle);
+  const selectedLocationRef = useRef(location);
+
+  cartRef.current = cart;
+  cartContextKeyRef.current = cartContextKey;
+  selectedVehicleRef.current = vehicle;
+  selectedLocationRef.current = location;
+
   // Prevent duplicate session/profile requests when multiple components mount
   // together or the tab becomes visible repeatedly.
   const authRequestRef = useRef(null);
   const preserveCartContextChangeRef = useRef(false);
+  const preservedHydrationContextKeysRef = useRef(new Set());
   const garageRequestRef = useRef(null);
   const profileRequestRef = useRef(null);
   const dashboardRequestRef = useRef(null);
@@ -586,10 +611,16 @@ export function AppProvider({ children }) {
     localStorage.removeItem("rov_vehicles");
 
     dispatch(clearCustomerState());
+    selectedVehicleRef.current = null;
+    selectedLocationRef.current = null;
 
     if (!preserveCart) {
       setCart([]);
-      setCartContextKey(getCartPricingContextKey(null, null));
+      cartRef.current = [];
+      const emptyContextKey = getCartPricingContextKey(null, null);
+      setCartContextKey(emptyContextKey);
+      cartContextKeyRef.current = emptyContextKey;
+      preservedHydrationContextKeysRef.current.clear();
       removeSessionCache(CART_CACHE_KEY);
       removeSessionCache(CART_CONTEXT_CACHE_KEY);
     }
@@ -638,16 +669,36 @@ export function AppProvider({ children }) {
     clearSessionRole();
   };
 
+  const preserveCartForHydratedContext = (nextVehicle, nextLocation) => {
+    if (cartRef.current.length === 0) return;
+
+    const nextContextKey = getCartPricingContextKey(
+      nextVehicle,
+      nextLocation,
+    );
+
+    if (nextContextKey !== cartContextKeyRef.current) {
+      preservedHydrationContextKeysRef.current.add(nextContextKey);
+    }
+  };
+
   const syncVehicles = (list = []) => {
     const safeList = Array.isArray(list) ? list : [];
+    const selectedVehicle = getVehicleSelectionFromList(
+      safeList,
+      selectedVehicleRef.current,
+    );
 
-    const defaultVehicle =
-      safeList.find((item) => item.isDefault) || safeList[0] || null;
+    preserveCartForHydratedContext(
+      selectedVehicle,
+      selectedLocationRef.current,
+    );
+    selectedVehicleRef.current = selectedVehicle;
 
     dispatch(setCustomerVehicles(safeList));
 
     localStorage.setItem("rov_vehicles", JSON.stringify(safeList));
-    localStorage.setItem("rov_vehicle", JSON.stringify(defaultVehicle));
+    localStorage.setItem("rov_vehicle", JSON.stringify(selectedVehicle));
 
     return safeList;
   };
@@ -656,9 +707,26 @@ export function AppProvider({ children }) {
     const normalizedUser = normalizeSessionAccount(me);
     if (!normalizedUser) return null;
 
+    const nextVehicles = Array.isArray(normalizedUser.vehicles)
+      ? normalizedUser.vehicles
+      : [];
+    const nextVehicle = getVehicleSelectionFromList(
+      nextVehicles,
+      selectedVehicleRef.current,
+    );
+    const syncedLocation = getLocationStateFromUser(
+      normalizedUser,
+      selectedLocationRef.current,
+    );
+
+    preserveCartForHydratedContext(nextVehicle, syncedLocation);
+    selectedVehicleRef.current = nextVehicle;
+    if (syncedLocation) {
+      selectedLocationRef.current = syncedLocation;
+    }
+
     dispatch(syncCustomerBundle(normalizedUser));
 
-    const syncedLocation = getLocationStateFromUser(normalizedUser, location);
     if (syncedLocation) {
       dispatch(setCustomerLocation(syncedLocation));
     }
@@ -668,7 +736,7 @@ export function AppProvider({ children }) {
     localStorage.setItem("user", JSON.stringify(normalizedUser));
     localStorage.setItem("rov_user", JSON.stringify(normalizedUser));
 
-    syncVehicles(normalizedUser.vehicles || []);
+    syncVehicles(nextVehicles);
 
     return normalizedUser;
   };
@@ -1470,24 +1538,39 @@ export function AppProvider({ children }) {
 
     const nextContextKey = getCartPricingContextKey(vehicle, location);
 
+    const isHydratedContextChange =
+      preservedHydrationContextKeysRef.current.has(nextContextKey);
+
     if (cartContextKey && cartContextKey !== nextContextKey && cart.length > 0) {
-      if (preserveCartContextChangeRef.current) {
-        setCart((current) =>
-          current.map((item) => ({
+      if (
+        preserveCartContextChangeRef.current ||
+        isHydratedContextChange
+      ) {
+        setCart((current) => {
+          const nextCart = current.map((item) => ({
             ...item,
             pricingContextKey: nextContextKey,
-          })),
-        );
+          }));
+          cartRef.current = nextCart;
+          return nextCart;
+        });
         preserveCartContextChangeRef.current = false;
+        preservedHydrationContextKeysRef.current.delete(nextContextKey);
       } else {
         setCart([]);
+        cartRef.current = [];
       }
     }
 
     if (cartContextKey !== nextContextKey) {
       setCartContextKey(nextContextKey);
-    } else if (preserveCartContextChangeRef.current) {
-      preserveCartContextChangeRef.current = false;
+      cartContextKeyRef.current = nextContextKey;
+    } else {
+      preservedHydrationContextKeysRef.current.delete(nextContextKey);
+
+      if (preserveCartContextChangeRef.current) {
+        preserveCartContextChangeRef.current = false;
+      }
     }
   }, [
     cart.length,
@@ -1499,6 +1582,7 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (cart.length === 0) {
+      preservedHydrationContextKeysRef.current.clear();
       removeSessionCache(CART_CACHE_KEY);
     } else {
       setSessionCache(CART_CACHE_KEY, JSON.stringify(cart));
@@ -1554,18 +1638,32 @@ export function AppProvider({ children }) {
 
   const setVehicle = (value) => {
     const nextVehicle = typeof value === "function" ? value(vehicle) : value;
+    // A direct user choice is intentional and must not consume a stale
+    // background-hydration exemption.
+    preservedHydrationContextKeysRef.current.clear();
+    selectedVehicleRef.current = nextVehicle;
     dispatch(setCustomerVehicle(nextVehicle));
   };
 
   const setVehicles = (value) => {
     const nextVehicles =
       typeof value === "function" ? value(vehicles) : value;
+    const nextVehicle = getVehicleSelectionFromList(
+      nextVehicles,
+      selectedVehicleRef.current,
+    );
+
+    selectedVehicleRef.current = nextVehicle;
     dispatch(setCustomerVehicles(nextVehicles));
   };
 
   const setLocation = (value) => {
     const nextLocation =
       typeof value === "function" ? value(location) : value;
+    // A direct user choice is intentional and must not consume a stale
+    // background-hydration exemption.
+    preservedHydrationContextKeysRef.current.clear();
+    selectedLocationRef.current = nextLocation;
     dispatch(setCustomerLocation(nextLocation));
   };
 
@@ -1602,8 +1700,7 @@ export function AppProvider({ children }) {
       return { added: false, alreadyInCart: true };
     }
 
-    setCartContextKey(nextContextKey);
-    setCart([
+    const nextCart = [
       ...contextSafeCart,
       {
         ...service,
@@ -1612,18 +1709,31 @@ export function AppProvider({ children }) {
         ),
         pricingContextKey: nextContextKey,
       },
-    ]);
+    ];
+
+    setCartContextKey(nextContextKey);
+    cartContextKeyRef.current = nextContextKey;
+    setCart(nextCart);
+    cartRef.current = nextCart;
 
     return { added: true };
   };
 
   const removeFromCart = (id) => {
-    setCart((current) => current.filter((item) => item.id !== id));
+    setCart((current) => {
+      const nextCart = current.filter((item) => item.id !== id);
+      cartRef.current = nextCart;
+      return nextCart;
+    });
   };
 
   const clearCart = () => {
+    const nextContextKey = getCartPricingContextKey(vehicle, location);
     setCart([]);
-    setCartContextKey(getCartPricingContextKey(vehicle, location));
+    cartRef.current = [];
+    setCartContextKey(nextContextKey);
+    cartContextKeyRef.current = nextContextKey;
+    preservedHydrationContextKeysRef.current.clear();
   };
 
   const currentServiceCategoriesContextKey =
