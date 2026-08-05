@@ -111,7 +111,7 @@ export default function GarageLogin() {
         }
       />
       <main className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-4 sm:px-6 sm:py-8 lg:py-10">
-      <div className="mx-auto grid w-full max-w-5xl items-start gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(340px,0.65fr)] lg:items-center">
+      <div className="mx-auto grid w-full max-w-5xl items-start gap-5 2xl:max-w-[84rem] 2xl:gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(340px,0.65fr)] lg:items-center">
         <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
           <header className="border-b border-line bg-slate-50/80 px-5 py-5 sm:px-7 sm:py-6">
             <div className="flex items-start gap-3">

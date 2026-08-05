@@ -95,7 +95,7 @@ export default function SOSCheckoutScreen() {
 
   return (
     <div className="min-h-screen bg-gray-950 px-4 py-8 text-white sm:py-12">
-      <div className="mx-auto grid max-w-6xl gap-7 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="mx-auto grid max-w-6xl gap-7 lg:grid-cols-[minmax(0,1fr)_380px] 2xl:max-w-[92rem] 2xl:grid-cols-[minmax(0,1fr)_430px]">
         <main>
           <span className="inline-flex rounded-full bg-red-500/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-red-300">
             Emergency confirmation

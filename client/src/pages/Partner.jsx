@@ -232,7 +232,7 @@ export default function Partner() {
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
               {BENEFITS.map(({ icon: Icon, title, description }) => (
                 <article
                   key={title}
@@ -294,7 +294,7 @@ export default function Partner() {
         </section>
 
         <section className="container-x py-14 sm:py-16">
-          <div className="grid gap-10 lg:grid-cols-[1fr_420px] lg:items-start">
+          <div className="grid gap-10 lg:grid-cols-[1fr_420px] lg:items-start 2xl:grid-cols-[minmax(0,1fr)_500px]">
             <div>
               <h2 className="text-3xl font-bold leading-tight text-ink sm:text-4xl">
                 What you need before applying

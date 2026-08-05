@@ -320,7 +320,7 @@ export default function Home() {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5 2xl:grid-cols-5 2xl:gap-6">
               {Array.from({ length: 8 }).map((_, index) => (
                 <div
                   key={index}
@@ -329,7 +329,7 @@ export default function Home() {
               ))}
             </div>
           ) : categories.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5 2xl:grid-cols-5 2xl:gap-6">
               {categories.slice(0, 8).map((category) => {
                 const ui = CATEGORY_UI[category.name] || {};
                 const image = getCategoryThumbnailUrl(category);
@@ -517,7 +517,7 @@ export default function Home() {
               Loading popular services...
             </div>
           ) : (
-            <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 2xl:gap-6">
               {popularServices.map((service) => {
                 const image = getServiceThumbnailUrl(service);
                 const hasPrice = Boolean(user && service.priceRange);

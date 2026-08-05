@@ -47,7 +47,7 @@ export default function Warranty() {
         Service warranty cards
       </h2>
 
-      <div className="mt-5 grid lg:grid-cols-2 gap-5">
+      <div className="mt-5 grid gap-5 lg:grid-cols-2 2xl:gap-7">
         {CARDS.map((w) => (
           <div
             key={w.id}

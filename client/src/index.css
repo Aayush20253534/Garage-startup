@@ -310,3 +310,87 @@ h5 {
   width: 100% !important;
   height: 100% !important;
 }
+
+/* Large desktop responsiveness
+   ---------------------------------------------------------------
+   Existing mobile, tablet and regular-laptop layouts intentionally remain
+   unchanged. These rules start at Tailwind's 2xl breakpoint (1536px) and
+   progressively use the extra width available on desktop and ultra-wide
+   displays without allowing content to stretch indefinitely. */
+@media (min-width: 96rem) {
+  :root {
+    --rov-wide-gutter: clamp(2rem, 2.6vw, 4.5rem);
+    --rov-public-content-max: 112rem;
+    --rov-portal-content-max: 128rem;
+    --rov-portal-sidebar-width: 18rem;
+  }
+
+  .container-x {
+    padding-inline: var(--rov-wide-gutter);
+  }
+
+  .container-x:not([class*="max-w-"]) {
+    max-width: var(--rov-public-content-max);
+  }
+
+  .rov-dashboard-sidebar {
+    width: var(--rov-portal-sidebar-width);
+  }
+
+  .rov-dashboard-content {
+    margin-left: var(--rov-portal-sidebar-width);
+  }
+
+  .rov-dashboard-header-inner,
+  .rov-dashboard-account-strip,
+  .rov-dashboard-main {
+    width: 100%;
+    max-width: var(--rov-portal-content-max);
+    margin-inline: auto;
+    padding-inline: var(--rov-wide-gutter);
+  }
+
+  .rov-dashboard-main {
+    padding-top: 2rem;
+    padding-bottom: 2.5rem;
+  }
+
+  /* Portal pages commonly used laptop-sized max widths. Widen only the
+     top-level page wrapper, leaving forms, dialogs and readable text blocks
+     at their deliberate sizes. */
+  .rov-dashboard-main > .mx-auto.max-w-5xl {
+    max-width: 88rem;
+  }
+
+  .rov-dashboard-main > .mx-auto.max-w-6xl,
+  .rov-dashboard-main > .mx-auto.max-w-\[74rem\],
+  .rov-dashboard-main > [class*="max-w-[1200px]"],
+  .rov-dashboard-main > [class*="max-w-[1300px]"] {
+    max-width: 100rem;
+  }
+
+  .rov-dashboard-main > .mx-auto.max-w-7xl,
+  .rov-dashboard-main > [class*="max-w-[1400px]"],
+  .rov-dashboard-main > [class*="max-w-[1450px]"] {
+    max-width: 112rem;
+  }
+
+  .rov-dashboard-main > .mx-auto.max-w-4xl {
+    max-width: 78rem;
+  }
+}
+
+@media (min-width: 120rem) {
+  :root {
+    --rov-wide-gutter: clamp(3rem, 3vw, 6rem);
+    --rov-public-content-max: 120rem;
+    --rov-portal-content-max: 136rem;
+    --rov-portal-sidebar-width: 19rem;
+  }
+}
+
+@media (min-width: 160rem) {
+  html {
+    font-size: 17px;
+  }
+}

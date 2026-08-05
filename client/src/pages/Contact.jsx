@@ -142,7 +142,7 @@ export default function Contact() {
       />
 
       <div className="container-x py-4">
-      <div className="mx-auto max-w-6xl space-y-8 overflow-x-hidden">
+      <div className="mx-auto max-w-6xl space-y-8 overflow-x-hidden 2xl:max-w-[96rem]">
         <section className="text-center">
 
           <h1 className="mt-4 text-3xl font-bold text-ink sm:text-5xl">
@@ -180,7 +180,7 @@ export default function Contact() {
           })}
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1.35fr)_minmax(420px,0.65fr)] 2xl:gap-7">
           <div className="card-soft rounded-2xl p-4 shadow-sm sm:p-5">
             {sent ? (
               <div className="py-14 text-center">

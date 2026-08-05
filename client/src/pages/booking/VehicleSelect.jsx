@@ -368,7 +368,7 @@ export default function VehicleSelect() {
 
   if (hasVehicles && !showForm) {
     return (
-      <div className="container-x max-w-6xl py-8">
+      <div className="container-x max-w-6xl py-8 2xl:max-w-[96rem]">
         <div className="space-y-5">
           <div>
             <span className="inline-flex rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-ink">
@@ -411,7 +411,7 @@ export default function VehicleSelect() {
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {currentVehicles.map((item) => {
               const isActive = vehicle?.id === item.id || item.isDefault;
               const isSelecting = defaultLoadingId === item.id;
@@ -521,7 +521,7 @@ export default function VehicleSelect() {
   }
 
   return (
-    <div className="container-x max-w-5xl py-8">
+    <div className="container-x max-w-5xl py-8 2xl:max-w-[88rem]">
       <div className="space-y-5">
         <div>
           <div className="flex flex-wrap items-center gap-3">

@@ -286,7 +286,7 @@ export default function Services() {
           </h2>
 
           {loading ? (
-            <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 sm:grid-cols-3 sm:gap-5 md:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 2xl:grid-cols-5 2xl:gap-6">
               {Array.from({ length: 6 }).map(
                 (_, index) => (
                   <div
@@ -304,7 +304,7 @@ export default function Services() {
               )}
             </div>
           ) : filteredCategories.length > 0 ? (
-            <div className="grid grid-cols-1 items-start gap-4 min-[480px]:grid-cols-2 min-[480px]:gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-4">
+            <div className="grid grid-cols-1 items-start gap-4 min-[480px]:grid-cols-2 min-[480px]:gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 2xl:grid-cols-5 2xl:gap-6">
               {filteredCategories.map(
                 (category) => {
                   const ui =

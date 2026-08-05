@@ -138,7 +138,7 @@ export default function About() {
             </p>
           </div>
 
-          <div className="mt-8 grid gap-5 md:grid-cols-3">
+          <div className="mt-8 grid gap-5 md:grid-cols-3 2xl:gap-7">
             {VALUES.map(({ icon: Icon, title, description }) => (
               <article key={title} className="card-soft p-6">
                 <div className="grid h-12 w-12 place-items-center rounded-2xl bg-ink text-brand">

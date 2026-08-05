@@ -329,7 +329,7 @@ export default function ServiceSelect() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-4 lg:mt-8 lg:grid-cols-[260px_1fr_320px] lg:gap-6">
+      <div className="mt-6 grid gap-4 lg:mt-8 lg:grid-cols-[260px_1fr_320px] lg:gap-6 2xl:grid-cols-[300px_minmax(0,1fr)_360px] 2xl:gap-8">
         <aside className="-mx-5 overflow-x-auto border-y border-line bg-white px-5 py-3 shadow-sm lg:mx-0 lg:sticky lg:top-24 lg:h-fit lg:overflow-visible lg:rounded-[1.25rem] lg:border lg:p-3 lg:shadow-soft">
           <div className="flex min-w-max gap-2 lg:grid lg:min-w-0 lg:gap-1">
             {categories.map((category) => {

@@ -472,7 +472,7 @@ export default function CategoryDetail() {
         structuredData={structuredData}
       />
 
-      <div className="container-x max-w-6xl py-8">
+      <div className="container-x max-w-6xl py-8 2xl:max-w-[96rem]">
       <Link
         to="/services"
         className="mb-5 flex items-center gap-2 text-ink hover:opacity-80"
@@ -763,7 +763,7 @@ export default function CategoryDetail() {
               key={pkg.id}
               className="group overflow-hidden rounded-[20px] border border-gray-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_16px_36px_rgba(15,23,42,0.09)]"
             >
-              <div className="grid lg:grid-cols-[260px_minmax(0,1fr)_285px]">
+              <div className="grid lg:grid-cols-[260px_minmax(0,1fr)_285px] 2xl:grid-cols-[300px_minmax(0,1fr)_320px]">
                 <div className="relative aspect-[16/10] overflow-hidden bg-bg-soft lg:m-4 lg:aspect-auto lg:min-h-[250px] lg:rounded-2xl">
                   <SafeImage
                     src={serviceImage}

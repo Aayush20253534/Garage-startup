@@ -146,7 +146,7 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mx-auto w-full max-w-5xl"
+        className="mx-auto w-full max-w-5xl 2xl:max-w-[84rem]"
       >
         <div className="mb-7">
           <span className="chip-brand">Step 2 · Garage location</span>
@@ -167,7 +167,7 @@ export default function OnboardingStep2({ data, onChange, onNext, onBack }) {
 
         <form
           onSubmit={handleSubmit}
-          className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
+          className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_400px]"
         >
           <section className="card-soft space-y-6 p-5 sm:p-7">
             <LocationPicker

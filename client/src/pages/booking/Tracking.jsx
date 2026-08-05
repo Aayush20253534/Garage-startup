@@ -762,7 +762,7 @@ function Tracking() {
       />
 
       <div className="container-x py-8 sm:py-10 lg:py-12">
-        <div className="mx-auto w-full max-w-[74rem]">
+        <div className="mx-auto w-full max-w-[74rem] 2xl:max-w-[96rem]">
           <header className="max-w-3xl">
             <div className="flex flex-wrap items-center gap-3">
               <span className="chip-brand">Booking #{bookingCode}</span>
@@ -811,7 +811,7 @@ function Tracking() {
             <BookingElapsedTimer booking={booking} className="mt-5 max-w-3xl" />
           )}
 
-          <div className="mt-7 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-7">
+          <div className="mt-7 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-7 2xl:grid-cols-[minmax(0,1fr)_430px] 2xl:gap-9">
             <main className="min-w-0">
 
         {searching && (

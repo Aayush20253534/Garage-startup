@@ -303,7 +303,7 @@ export default function AddressForm() {
 
   if (shouldReuseSavedLocation) {
     return (
-      <div className="container-x mx-auto max-w-4xl py-10 sm:py-14">
+      <div className="container-x mx-auto max-w-4xl py-10 sm:py-14 2xl:max-w-[80rem]">
         <div className="card-soft rounded-2xl p-5 text-sm text-muted">
           Using your saved service location…
         </div>
@@ -312,8 +312,8 @@ export default function AddressForm() {
   }
 
   return (
-    <div className="container-x mx-auto max-w-4xl py-10 sm:py-14">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+    <div className="container-x mx-auto max-w-4xl py-10 sm:py-14 2xl:max-w-[80rem]">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] 2xl:grid-cols-[minmax(0,1fr)_320px] 2xl:gap-10">
         <main>
           <span className="chip-brand">Customer location</span>
           <h1 className="mt-3 text-3xl font-bold sm:text-4xl">

@@ -52,7 +52,7 @@ export default function SOSLocationScreen() {
 
   return (
     <div className="min-h-screen bg-gray-950 px-4 py-8 text-white sm:py-12">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-5xl 2xl:max-w-[84rem]">
         <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_300px]">
           <main>
             <span className="inline-flex rounded-full bg-red-500/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-red-300">

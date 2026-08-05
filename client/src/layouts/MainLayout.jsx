@@ -12,10 +12,10 @@ export default function MainLayout() {
   }, [pathname]);
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden">
+    <div className="rov-public-shell flex min-h-screen flex-col overflow-x-hidden">
       <Navbar />
 
-      <main className="min-w-0 flex-1 pt-16 sm:pt-20">
+      <main className="rov-public-main min-w-0 flex-1 pt-16 sm:pt-20">
         <Outlet />
       </main>
 

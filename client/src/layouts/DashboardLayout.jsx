@@ -231,7 +231,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
   return (
     <div
       className={[
-        "min-h-screen overflow-x-hidden bg-bg-soft",
+        "rov-dashboard-shell min-h-screen overflow-x-hidden bg-bg-soft",
         usesFixedPortalShell ? "lg:block" : "lg:flex",
       ].join(" ")}
     >
@@ -246,7 +246,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
 
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-line bg-white shadow-xl transition-transform duration-300",
+          "rov-dashboard-sidebar fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-line bg-white shadow-xl transition-transform duration-300",
           usesFixedPortalShell
             ? "lg:fixed lg:top-0 lg:z-30 lg:h-screen lg:w-[264px] lg:translate-x-0 lg:shadow-none"
             : "lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0 lg:shadow-none",
@@ -300,12 +300,12 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
 
       <div
         className={[
-          "min-w-0 flex-1 overflow-x-hidden",
+          "rov-dashboard-content min-w-0 flex-1 overflow-x-hidden",
           usesFixedPortalShell ? "lg:ml-[264px]" : "",
         ].join(" ")}
       >
         <header className="sticky top-0 z-20 border-b border-line bg-white/95 backdrop-blur-xl">
-          <div className="flex h-16 items-center px-3 sm:px-6 lg:px-8">
+          <div className="rov-dashboard-header-inner flex h-16 items-center px-3 sm:px-6 lg:px-8">
             <button
               type="button"
               aria-label="Open sidebar"
@@ -332,7 +332,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
 
         {isAdminPortal && account?.accountType === "STAFF" && (
           <section className="border-b border-line bg-white">
-            <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-3 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-7 xl:px-8">
+            <div className="rov-dashboard-account-strip mx-auto flex max-w-[1600px] flex-col gap-3 px-3 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-7 xl:px-8">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-ink text-white">
                   <FiUserCheck className="text-xl" />
@@ -366,7 +366,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         <main
           key={pathname}
           className={[
-            "w-full min-w-0 max-w-full overflow-x-hidden",
+            "rov-dashboard-main w-full min-w-0 max-w-full overflow-x-hidden",
             usesFixedPortalShell
               ? "mx-auto max-w-[1600px] px-3 pb-24 pt-4 sm:px-5 sm:pt-5 lg:px-7 lg:pb-8 lg:pt-7 xl:px-8"
               : "p-4 sm:p-6 lg:p-8",

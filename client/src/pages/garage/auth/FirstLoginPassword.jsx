@@ -127,7 +127,7 @@ export default function GarageFirstLoginPassword() {
         message="Saving your private password and finalizing first-time access."
       />
       <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:py-10">
-      <div className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-5xl items-center gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(340px,0.68fr)]">
+      <div className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-5xl items-center gap-5 2xl:max-w-[84rem] 2xl:gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(340px,0.68fr)]">
         <section className="rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-7 lg:p-8">
           <div className="flex items-center justify-between gap-4 border-b border-line pb-5">
             <Logo className="h-14 w-auto" />

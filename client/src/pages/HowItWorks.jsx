@@ -53,7 +53,7 @@ function HowItWorks() {
       />
 
       <div className="container-x py-10 sm:py-2">
-      <section className="mx-auto max-w-6xl space-y-8 overflow-x-hidden">
+      <section className="mx-auto max-w-6xl space-y-8 overflow-x-hidden 2xl:max-w-[96rem]">
         <div className="mx-auto max-w-2xl text-center">
 
           <h1 className="mt-4 text-3xl font-bold leading-tight text-ink sm:text-5xl">
@@ -66,7 +66,7 @@ function HowItWorks() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3 2xl:gap-6">
           {STEPS.map((step, index) => {
             const Icon = step.icon;
 
