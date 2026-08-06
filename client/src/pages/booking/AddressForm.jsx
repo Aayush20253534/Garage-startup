@@ -65,7 +65,7 @@ function UnsupportedCurrentLocationState({ details, onReset }) {
               We&apos;re not live at this location yet
             </h1>
             <p className="mx-auto mt-2 max-w-xl text-xs leading-5 text-muted sm:mt-3 sm:text-base sm:leading-7">
-              Your current GPS location is outside our active service area. We&apos;re expanding quickly and hope to serve this location soon.
+               Currently Outside your service Location.Reaching Your Location Soon.
             </p>
 
             {locationLabel && (
