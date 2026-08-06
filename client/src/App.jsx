@@ -682,6 +682,10 @@ const PrivacyPolicy = lazyPage(() => import("@/pages/legal/PrivacyPolicy"), "Pri
 const GaragePartnerTerms = lazyPage(() => import("@/pages/legal/GaragePartnerTerms"), "GaragePartnerTerms");
 const Checkout = lazyPage(() => import("@/pages/booking/Checkout"), "Checkout");
 const Tracking = lazyPage(() => import("@/pages/booking/Tracking"), "Tracking");
+const BookingVerification = lazyPage(
+  () => import("@/pages/booking/Verification"),
+  "BookingVerification",
+);
 
 const CustomerDashboard = lazyPage(
   () => import("@/pages/customer/Dashboard"),
@@ -875,6 +879,10 @@ const CustomerSupportTickets = lazyPage(
   () => import("@/pages/support/Tickets"),
   "CustomerSupportTickets",
 );
+const CustomerSupportLeads = lazyPage(
+  () => import("@/pages/support/Leads"),
+  "CustomerSupportLeads",
+);
 const CustomerSupportNotify = lazyPage(
   () => import("@/pages/support/Notify"),
   "CustomerSupportNotify",
@@ -922,6 +930,7 @@ import {
   FiHeadphones,
   FiUserCheck,
   FiBarChart2,
+  FiPhoneCall,
 } from "react-icons/fi";
 
 class AppErrorBoundary extends Component {
@@ -1096,6 +1105,7 @@ const adminItems = [
 
 const customerSupportItems = [
   { to: "/support", label: "Dashboard", icon: FiGrid },
+  { to: "/support/leads", label: "Leads", icon: FiPhoneCall },
   { to: "/support/tickets", label: "Support & Disputes", icon: FiHelpCircle },
   { to: "/support/notify", label: "Received Alerts", icon: FiBell },
   { to: "/support/notifications", label: "Send Notifications", icon: FiSend },
@@ -1263,6 +1273,15 @@ function AppRoutes() {
                     <Checkout />
                   </VehicleCheck>
                 </AddressCheck>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/booking/verification/:bookingId"
+            element={
+              <ProtectedRoute>
+                <BookingVerification />
               </ProtectedRoute>
             }
           />
@@ -1732,6 +1751,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <CustomerSupportDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/support/leads"
+            element={
+              <ProtectedRoute>
+                <CustomerSupportLeads />
               </ProtectedRoute>
             }
           />

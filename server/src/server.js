@@ -24,6 +24,10 @@ const {
   startSessionRetentionCleanup,
   stopSessionRetentionCleanup,
 } = require("./services/sessionRetention.service");
+const {
+  startBookingVerificationLeadWorker,
+  stopBookingVerificationLeadWorker,
+} = require("./services/bookingVerificationLeadWorker.service");
 
 const PORT = process.env.PORT || 5000;
 const SHUTDOWN_TIMEOUT_MS = Math.max(
@@ -107,6 +111,7 @@ const shutdown = async ({ signal, exitCode = 0, error = null }) => {
   stopSystemIssueAutoResolver();
   stopGarageApplicationEmailOutboxWorker();
   stopSessionRetentionCleanup();
+  stopBookingVerificationLeadWorker();
 
   const forceExitTimer = setTimeout(() => {
     console.error(`Forced shutdown after ${SHUTDOWN_TIMEOUT_MS}ms`);
@@ -158,11 +163,13 @@ const startServer = async () => {
     const systemIssueAutoResolver = startSystemIssueAutoResolver();
     startGarageApplicationEmailOutboxWorker();
     startSessionRetentionCleanup();
+    startBookingVerificationLeadWorker();
 
     server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log("Garage search worker started");
       console.log("Garage application email outbox worker started");
+      console.log("First-booking verification lead worker started");
       console.log(
         systemIssueAutoResolver
           ? "System issue auto resolver started"

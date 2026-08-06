@@ -23,6 +23,8 @@ const bookingLabel = (booking) =>
 const bookingPath = (booking) =>
   booking.status === "PENDING_PAYMENT"
     ? "/dashboard/pending-bookings"
+    : booking.status === "PENDING_VERIFICATION"
+      ? `/booking/verification/${booking.id}`
     : `/tracking?bookingId=${booking.id}`;
 
 const makeDerivedActivity = ({

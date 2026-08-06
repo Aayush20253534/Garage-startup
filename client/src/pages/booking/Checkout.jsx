@@ -36,6 +36,7 @@ import {
   FiAlertCircle,
   FiCheckCircle,
   FiCreditCard,
+  FiShield,
   FiMapPin,
   FiPhone,
   FiTrash2,
@@ -103,6 +104,7 @@ const isCartItemComingSoon = (item) =>
 const INDIA_PHONE_REGEX = /^\+91[6-9]\d{9}$/;
 const ACTIVE_VEHICLE_BOOKING_STATUSES = [
   "PENDING_PAYMENT",
+  "PENDING_VERIFICATION",
   "SEARCHING_GARAGE",
   "GARAGE_ASSIGNED",
   "CONFIRMED",
@@ -117,6 +119,8 @@ const getVehicleLabel = (vehicle) =>
 const getActiveBookingPath = (booking) =>
   booking?.status === "PENDING_PAYMENT"
     ? "/dashboard/pending-bookings"
+    : booking?.status === "PENDING_VERIFICATION"
+      ? `/booking/verification/${booking.id}`
     : "/dashboard/bookings";
 
 const getActiveVehicleBookingMessage = (booking, vehicle) => {
@@ -159,6 +163,7 @@ export default function Checkout() {
   const [activeVehicleBooking, setActiveVehicleBooking] = useState(null);
   const [editingAddress, setEditingAddress] = useState(false);
   const [wallet, setWallet] = useState(null);
+  const [firstBookingOffer, setFirstBookingOffer] = useState(null);
   const [useWallet, setUseWallet] = useState(false);
   const [paymentProgress, setPaymentProgress] = useState(null);
   const [fulfillmentType, setFulfillmentType] = useState(
@@ -188,7 +193,13 @@ export default function Checkout() {
   );
   const payAtGarageMin = subTotalMin;
   const payAtGarageMax = subTotalMax;
-  const payNowAmount = calculatePlatformFee(payAtGarageMax);
+  const standardPayNowAmount = calculatePlatformFee(payAtGarageMax);
+  const firstBookingOfferApplies = Boolean(
+    firstBookingOffer?.available &&
+      payAtGarageMax > 0 &&
+      payAtGarageMax <= Number(firstBookingOffer.maxEstimatedBill || 5000),
+  );
+  const payNowAmount = firstBookingOfferApplies ? 0 : standardPayNowAmount;
   const walletBalance = Number(wallet?.balance || 0);
   const walletAmountUsed = useWallet
     ? Math.min(walletBalance, payNowAmount)
@@ -225,6 +236,18 @@ export default function Checkout() {
 
   useEffect(() => {
     void loadWallet();
+    let active = true;
+    api
+      .get("/bookings/first-booking-offer")
+      .then((response) => {
+        if (active) setFirstBookingOffer(response.data?.data || null);
+      })
+      .catch(() => {
+        if (active) setFirstBookingOffer(null);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -596,6 +619,19 @@ export default function Checkout() {
         setPendingBooking(booking);
       }
 
+      if (
+        booking.status === "PENDING_VERIFICATION" ||
+        booking.verificationLead?.id
+      ) {
+        clearCart();
+        clearBookingCaches?.();
+        setPendingBooking(null);
+        nav(`/booking/verification/${booking.id}`, {
+          replace: true,
+        });
+        return;
+      }
+
       const paidBooking = await payForBooking({
         booking,
         useWallet,
@@ -651,9 +687,11 @@ export default function Checkout() {
       <div>
         <h1 className="text-3xl font-bold sm:text-4xl">Checkout</h1>
         <p className="mt-1 text-muted">
-          {isSelfDropOffBooking
-            ? "Pay the fee, visit the assigned garage, and collect your vehicle after service"
-            : "Pay the fee to start. The garage visits your address and pay them after service."}
+          {firstBookingOfferApplies
+            ? "Your first-booking platform fee is waived. Confirm the booking and complete a quick verification call before garage search begins."
+            : isSelfDropOffBooking
+              ? "Pay the fee, visit the assigned garage, and collect your vehicle after service"
+              : "Pay the fee to start. The garage visits your address and pay them after service."}
         </p>
 
         {error && (
@@ -779,8 +817,9 @@ export default function Checkout() {
                   Mobile number required
                 </h3>
                 <p className="mt-1 text-sm text-amber-800">
-                  Save your phone number first. Cashfree needs it to open the
-                  payment window.
+                  {firstBookingOfferApplies
+                    ? "Save your phone number so our verification specialist can call you after checkout."
+                    : "Save your phone number first. Cashfree needs it to open the payment window."}
                 </p>
               </div>
             </div>
@@ -926,6 +965,20 @@ export default function Checkout() {
 
         <hr className="my-4 border-line" />
 
+        {firstBookingOfferApplies && (
+          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-emerald-700 shadow-sm">
+                <FiShield />
+              </span>
+              <div>
+                <p className="font-extrabold text-emerald-900">First-booking platform fee waived</p>
+                <p className="mt-1 text-xs leading-5 text-emerald-800">After confirming, a Rovauto support specialist will call to verify the booking before garage search starts.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-2 flex items-center justify-between gap-3">
           <div className="font-semibold">Order Summary</div>
           {cart.length > 0 && (
@@ -975,12 +1028,13 @@ export default function Checkout() {
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
             <span className="text-muted">Platform fee</span>
-            <span className="whitespace-nowrap text-right font-semibold">
-              {formatRupees(payNowAmount)}
+            <span className={`whitespace-nowrap text-right font-semibold ${firstBookingOfferApplies ? "text-emerald-700" : ""}`}>
+              {firstBookingOfferApplies ? "Waived" : formatRupees(payNowAmount)}
             </span>
           </div>
         </div>
 
+        {!firstBookingOfferApplies && (
         <label
           className={`mt-4 flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition ${
             walletBalance > 0
@@ -1007,6 +1061,7 @@ export default function Checkout() {
             </span>
           </span>
         </label>
+        )}
 
         <div className="mt-4 rounded-xl border border-line bg-white p-3 text-sm">
           {useWallet && walletAmountUsed > 0 && (
@@ -1037,11 +1092,13 @@ export default function Checkout() {
           }
           className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-black shadow-sm shadow-brand/25 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <FiCreditCard />{" "}
+          {firstBookingOfferApplies ? <FiShield /> : <FiCreditCard />} {" "}
           {loading
-            ? cashfreePayNowAmount > 0
-              ? "Opening payment..."
-              : "Activating booking..."
+            ? firstBookingOfferApplies
+              ? "Creating verification request..."
+              : cashfreePayNowAmount > 0
+                ? "Opening payment..."
+                : "Activating booking..."
             : hasComingSoonItems
               ? "Remove Coming Soon Services"
               : cart.length === 0
@@ -1050,14 +1107,18 @@ export default function Checkout() {
                   ? "Complete active booking first"
                   : !hasSavedPhone
                     ? "Save phone to pay"
-                    : cashfreePayNowAmount > 0
-                      ? `Pay ${formatRupees(cashfreePayNowAmount)} Now`
-                      : "Pay with wallet"}
+                    : firstBookingOfferApplies
+                      ? "Confirm Free First Booking"
+                      : cashfreePayNowAmount > 0
+                        ? `Pay ${formatRupees(cashfreePayNowAmount)} Now`
+                        : "Pay with wallet"}
         </button>
         <div className="mt-3 text-center text-xs text-muted">
-          {isSelfDropOffBooking
-            ? "Pay only the platform fee now. Take the vehicle to the assigned garage and pay the final service amount there."
-            : "Pay only the platform fee now. The service amount is paid in cash at the garage after work is complete."}
+          {firstBookingOfferApplies
+            ? "No platform fee is charged. Garage search starts only after the support verification is approved."
+            : isSelfDropOffBooking
+              ? "Pay only the platform fee now. Take the vehicle to the assigned garage and pay the final service amount there."
+              : "Pay only the platform fee now. The service amount is paid in cash at the garage after work is complete."}
         </div>
       </aside>
       </div>

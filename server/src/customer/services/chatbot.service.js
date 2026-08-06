@@ -223,7 +223,7 @@ const getCustomerContext = async (userId) => {
       where: {
         userId,
         status: {
-          in: ["PENDING_PAYMENT", "SEARCHING_GARAGE", "GARAGE_ASSIGNED", "CONFIRMED", "IN_PROGRESS"],
+          in: ["PENDING_PAYMENT", "PENDING_VERIFICATION", "SEARCHING_GARAGE", "GARAGE_ASSIGNED", "CONFIRMED", "IN_PROGRESS"],
         },
       },
     }),

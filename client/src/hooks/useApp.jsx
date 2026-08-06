@@ -1117,7 +1117,7 @@ export function AppProvider({ children }) {
       const response = await api.get("/bookings", {
         params: {
           status:
-            "SEARCHING_GARAGE,GARAGE_ASSIGNED,CONFIRMED,IN_PROGRESS",
+            "PENDING_VERIFICATION,SEARCHING_GARAGE,GARAGE_ASSIGNED,CONFIRMED,IN_PROGRESS",
         },
       });
 

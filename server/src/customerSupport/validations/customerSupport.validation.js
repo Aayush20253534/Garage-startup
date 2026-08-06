@@ -10,6 +10,18 @@ const STATUSES = ["OPEN", "IN_REVIEW", "WAITING_CUSTOMER", "RESOLVED"];
 
 const ticketId = [param("ticketId").isUUID().withMessage("Invalid support ticket ID")];
 
+const leadId = [param("leadId").isUUID().withMessage("Invalid verification lead ID")];
+
+const listLeads = [
+  query("status").optional().isIn(["PENDING", "CLAIMED", "IN_CALL", "APPROVED", "REJECTED"]),
+  query("limit").optional().isInt({ min: 1, max: 100 }),
+];
+
+const leadDecision = [
+  ...leadId,
+  body("notes").optional({ nullable: true }).trim().isLength({ max: 3000 }),
+];
+
 const notificationId = [
   param("notificationId").isUUID().withMessage("Invalid notification ID"),
 ];
@@ -70,6 +82,9 @@ const sendNotification = [
 
 module.exports = {
   emailSearch,
+  leadDecision,
+  leadId,
+  listLeads,
   listTickets,
   notificationId,
   reply,

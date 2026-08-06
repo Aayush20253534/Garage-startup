@@ -34,6 +34,7 @@ import {
 } from "react-icons/fi";
 
 const activeStatuses = [
+  "PENDING_VERIFICATION",
   "SEARCHING_GARAGE",
   "GARAGE_ASSIGNED",
   "CONFIRMED",

@@ -107,6 +107,13 @@ const getHeaderCopy = (booking, remainingSeconds) => {
     };
   }
 
+  if (booking.status === "PENDING_VERIFICATION") {
+    return {
+      title: "Waiting for Booking Verification",
+      description: "Garage search starts after the Rovauto support team approves this first booking.",
+    };
+  }
+
   if (booking.status === "PENDING_PAYMENT") {
     return {
       title: "Preparing Garage Search",
@@ -512,6 +519,12 @@ function Tracking() {
   useEffect(() => {
     loadBooking({ initial: true });
   }, [loadBooking]);
+
+  useEffect(() => {
+    if (booking?.status === "PENDING_VERIFICATION" && booking?.id) {
+      navigate(`/booking/verification/${booking.id}`, { replace: true });
+    }
+  }, [booking?.id, booking?.status, navigate]);
 
   useEffect(() => {
     if (!bookingId || TERMINAL_STATUSES.has(booking?.status)) return undefined;

@@ -6,6 +6,7 @@ const args = process.argv.slice(2);
 
 const ACTIVE_BOOKING_STATUSES = [
   "PENDING_PAYMENT",
+  "PENDING_VERIFICATION",
   "SEARCHING_GARAGE",
   "GARAGE_ASSIGNED",
   "CONFIRMED",

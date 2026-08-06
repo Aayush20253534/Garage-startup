@@ -22,6 +22,14 @@ router.post("/push/subscriptions", controller.subscribePush);
 router.delete("/push/subscriptions", controller.unsubscribePush);
 
 router.get("/dashboard", controller.dashboard);
+
+router.get("/leads", rules.listLeads, validate, controller.listVerificationLeads);
+router.get("/leads/:leadId", rules.leadId, validate, controller.getVerificationLead);
+router.post("/leads/:leadId/claim", rules.leadId, validate, controller.claimVerificationLead);
+router.post("/leads/:leadId/call", rules.leadId, validate, controller.startVerificationCall);
+router.post("/leads/:leadId/approve", rules.leadDecision, validate, controller.approveVerificationLead);
+router.post("/leads/:leadId/reject", rules.leadDecision, validate, controller.rejectVerificationLead);
+
 router.get("/tickets", rules.listTickets, validate, controller.listTickets);
 router.get("/tickets/:ticketId", rules.ticketId, validate, controller.getTicket);
 router.post("/tickets/:ticketId/claim", rules.ticketId, validate, controller.claimTicket);

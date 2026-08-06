@@ -2,7 +2,59 @@ const asyncHandler = require("../../utils/asyncHandler");
 const ApiResponse = require("../../utils/apiResponse");
 const service = require("../services/customerSupport.service");
 const webPushService = require("../../services/webPush.service");
+const bookingVerificationLeadService = require("../../customer/services/bookingVerificationLead.service");
 
+
+
+const listVerificationLeads = asyncHandler(async (req, res) => {
+  const result = await bookingVerificationLeadService.listLeads(
+    req.query,
+    req.user.id,
+  );
+  return res.status(200).json(new ApiResponse(200, "Verification leads fetched", result));
+});
+
+const getVerificationLead = asyncHandler(async (req, res) => {
+  const result = await bookingVerificationLeadService.getSupportLead(
+    req.params.leadId,
+    req.user.id,
+  );
+  return res.status(200).json(new ApiResponse(200, "Verification lead fetched", result));
+});
+
+const claimVerificationLead = asyncHandler(async (req, res) => {
+  const result = await bookingVerificationLeadService.claimLead(
+    req.params.leadId,
+    req.user,
+  );
+  return res.status(200).json(new ApiResponse(200, "Verification lead claimed", result));
+});
+
+const startVerificationCall = asyncHandler(async (req, res) => {
+  const result = await bookingVerificationLeadService.startCall(
+    req.params.leadId,
+    req.user,
+  );
+  return res.status(200).json(new ApiResponse(200, "Verification call started", result));
+});
+
+const approveVerificationLead = asyncHandler(async (req, res) => {
+  const result = await bookingVerificationLeadService.approveLead(
+    req.params.leadId,
+    req.user,
+    req.body.notes,
+  );
+  return res.status(200).json(new ApiResponse(200, "Booking verification approved", result));
+});
+
+const rejectVerificationLead = asyncHandler(async (req, res) => {
+  const result = await bookingVerificationLeadService.rejectLead(
+    req.params.leadId,
+    req.user,
+    req.body.notes,
+  );
+  return res.status(200).json(new ApiResponse(200, "Booking rejected as suspicious", result));
+});
 
 const getPushPublicConfig = asyncHandler(async (_req, res) => {
   return res
@@ -125,7 +177,13 @@ const listEmailLogs = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  approveVerificationLead,
   claimTicket,
+  claimVerificationLead,
+  getVerificationLead,
+  listVerificationLeads,
+  rejectVerificationLead,
+  startVerificationCall,
   getPushPublicConfig,
   dashboard,
   getTicket,

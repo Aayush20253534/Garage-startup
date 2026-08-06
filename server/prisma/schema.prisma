@@ -24,6 +24,7 @@ model User {
   firebaseUid           String?                @unique
   termsAcceptedAt       DateTime?
   privacyAcceptedAt     DateTime?
+  firstBookingOfferConsumedAt DateTime?
   bookings              Booking[]
   complaints            Complaint[]
   locations             CustomerLocation[]
@@ -42,6 +43,7 @@ model User {
   trackingPoints        BookingTrackingPoint[]
   supportTickets        SupportTicket[]
   supportTicketMessages SupportTicketMessage[] @relation("SupportTicketUserMessages")
+  bookingVerificationLead BookingVerificationLead?
 
   @@unique([email, role])
   @@unique([phone, role])
@@ -242,6 +244,7 @@ model CustomerSupportAccount {
   pushSubscriptions CustomerSupportPushSubscription[]
   sessions          CustomerSupportSession[]
   emailLogs         CustomerSupportEmailLog[]
+  claimedVerificationLeads BookingVerificationLead[] @relation("VerificationLeadAssignee")
 
   @@index([isActive])
   @@index([lastLoginAt])
@@ -857,6 +860,7 @@ model Booking {
   walletTransactions    WalletTransaction[]
   escalations           BookingEscalation[]
   workerTasks           GarageWorkerTask[]
+  verificationLead      BookingVerificationLead?
 
   @@index([userId])
   @@index([garageId])
@@ -865,6 +869,34 @@ model Booking {
   @@index([status])
   @@index([requestType])
   @@index([fulfillmentType])
+}
+
+
+model BookingVerificationLead {
+  id                    String                        @id @default(uuid())
+  bookingId             String                        @unique
+  userId                String                        @unique
+  status                BookingVerificationLeadStatus @default(PENDING)
+  claimedById           String?
+  claimedAt             DateTime?
+  callStartedAt         DateTime?
+  callEndedAt           DateTime?
+  callDurationSeconds   Int?
+  verificationNotes     String?
+  approvedAt            DateTime?
+  rejectedAt            DateTime?
+  rejectionReason       String?
+  escalationAttemptedAt DateTime?
+  escalatedAt           DateTime?
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  booking               Booking                       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user                  User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  claimedBy             CustomerSupportAccount?       @relation("VerificationLeadAssignee", fields: [claimedById], references: [id], onDelete: SetNull)
+
+  @@index([status, claimedById, createdAt])
+  @@index([escalatedAt, escalationAttemptedAt, createdAt])
+  @@map("booking_verification_leads")
 }
 
 model AdminBookingEvent {
@@ -1787,6 +1819,7 @@ enum OtpPurpose {
 
 enum BookingStatus {
   PENDING_PAYMENT
+  PENDING_VERIFICATION
   CONFIRMED
   IN_PROGRESS
   COMPLETED
@@ -1794,6 +1827,15 @@ enum BookingStatus {
   SEARCHING_GARAGE
   GARAGE_ASSIGNED
   EXPIRED
+}
+
+
+enum BookingVerificationLeadStatus {
+  PENDING
+  CLAIMED
+  IN_CALL
+  APPROVED
+  REJECTED
 }
 
 enum NotificationType {

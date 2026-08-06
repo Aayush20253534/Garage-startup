@@ -18,6 +18,7 @@ const inputClass =
   "h-10 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-ink";
 const ACTIVE_VEHICLE_BOOKING_STATUSES = [
   "PENDING_PAYMENT",
+  "PENDING_VERIFICATION",
   "SEARCHING_GARAGE",
   "GARAGE_ASSIGNED",
   "CONFIRMED",
@@ -32,6 +33,8 @@ const getVehicleName = (vehicle) =>
 const getActiveBookingPath = (booking) =>
   booking?.status === "PENDING_PAYMENT"
     ? "/dashboard/pending-bookings"
+    : booking?.status === "PENDING_VERIFICATION"
+      ? `/booking/verification/${booking.id}`
     : "/dashboard/bookings";
 
 const getActiveBookingLabel = (booking) =>

@@ -15,6 +15,7 @@ const garageControllerService = require("../../garage/services/controller.servic
 const cityServicePriceRangeService = require("../../admin/services/cityServicePriceRange.service");
 const cityService = require("../../services/city.service");
 const { calculatePlatformFee } = require("../../utils/platformFee");
+const bookingVerificationLeadService = require("./bookingVerificationLead.service");
 const {
   ensureVehicleHasNoActiveBooking,
   isActiveVehicleBookingConflictError,
@@ -113,6 +114,17 @@ const bookingInclude = {
   inspectionImages: {
     orderBy: [{ phase: "asc" }, { mediaType: "asc" }, { order: "asc" }],
   },
+  verificationLead: {
+    select: {
+      id: true,
+      status: true,
+      claimedAt: true,
+      callStartedAt: true,
+      approvedAt: true,
+      rejectedAt: true,
+      createdAt: true,
+    },
+  },
 };
 
 const BOOKING_READ_CACHE_TTL_SECONDS = Number(
@@ -121,6 +133,7 @@ const BOOKING_READ_CACHE_TTL_SECONDS = Number(
 
 const ALLOWED_BOOKING_STATUSES = [
   "PENDING_PAYMENT",
+  "PENDING_VERIFICATION",
   "SEARCHING_GARAGE",
   "GARAGE_ASSIGNED",
   "CONFIRMED",
@@ -355,10 +368,9 @@ const createBooking = async (userId, data) => {
     totalServiceAmount,
     totalServiceMaxAmount,
   );
-  const handlingFee = calculatePlatformFee(serviceUpperLimit);
+  const standardHandlingFee = calculatePlatformFee(serviceUpperLimit);
 
   const walletAmountUsed = 0;
-  const payableAmount = handlingFee;
   let booking;
 
   try {
@@ -367,6 +379,38 @@ const createBooking = async (userId, data) => {
         await lockAndEnsureVehicleHasNoActiveBooking(userId, vehicleId, {
           tx,
         });
+
+        // Serialize first-booking eligibility across every vehicle owned by the
+        // customer. This prevents two simultaneous checkouts from both receiving
+        // the one-time platform-fee waiver.
+        await tx.$queryRaw`
+          SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE
+        `;
+
+        const [customer, existingBookingCount] = await Promise.all([
+          tx.user.findUnique({
+            where: { id: userId },
+            select: { firstBookingOfferConsumedAt: true },
+          }),
+          tx.booking.count({ where: { userId } }),
+        ]);
+
+        const firstBookingFeeWaived = Boolean(
+          customer &&
+          !customer.firstBookingOfferConsumedAt &&
+          existingBookingCount === 0 &&
+          serviceUpperLimit <=
+            bookingVerificationLeadService.FIRST_BOOKING_MAX_ESTIMATE
+        );
+        const handlingFee = firstBookingFeeWaived ? 0 : standardHandlingFee;
+        const payableAmount = handlingFee;
+
+        if (firstBookingFeeWaived) {
+          await tx.user.update({
+            where: { id: userId },
+            data: { firstBookingOfferConsumedAt: new Date() },
+          });
+        }
 
         return tx.booking.create({
           data: {
@@ -379,9 +423,11 @@ const createBooking = async (userId, data) => {
             endTime: endTime || null,
             requestType: "NORMAL",
             fulfillmentType,
-            status: "PENDING_PAYMENT",
+            status: firstBookingFeeWaived
+              ? "PENDING_VERIFICATION"
+              : "PENDING_PAYMENT",
 
-            // Payment verification starts the first 2-minute-30-second search round.
+            // Payment or support verification starts the garage-search rounds.
             searchExpiresAt: null,
 
             customerLatitude: Number(location.latitude),
@@ -407,6 +453,13 @@ const createBooking = async (userId, data) => {
                 };
               }),
             },
+            verificationLead: firstBookingFeeWaived
+              ? {
+                  create: {
+                    user: { connect: { id: userId } },
+                  },
+                }
+              : undefined,
           },
           include: bookingInclude,
         });
@@ -421,6 +474,18 @@ const createBooking = async (userId, data) => {
   }
 
   await invalidateBookingCaches(userId);
+
+  if (booking.verificationLead?.id) {
+    await bookingVerificationLeadService
+      .notifyLeadCreated(booking.verificationLead.id)
+      .catch((error) => {
+        console.error("[verification-lead] initial notification failed", {
+          bookingId: booking.id,
+          leadId: booking.verificationLead.id,
+          message: error.message,
+        });
+      });
+  }
 
   return prisma.booking.findUnique({
     where: { id: booking.id },
@@ -660,6 +725,7 @@ const cancelBooking = async (userId, bookingId) => {
 
     const cancellableStatuses = [
       "PENDING_PAYMENT",
+      "PENDING_VERIFICATION",
       "SEARCHING_GARAGE",
       "GARAGE_ASSIGNED",
       "CONFIRMED",
@@ -686,6 +752,20 @@ const cancelBooking = async (userId, bookingId) => {
         409,
         "This booking was changed by another request. Refresh and try again.",
       );
+    }
+
+    if (booking.status === "PENDING_VERIFICATION") {
+      await tx.bookingVerificationLead.updateMany({
+        where: {
+          bookingId,
+          status: { in: ["PENDING", "CLAIMED", "IN_CALL"] },
+        },
+        data: {
+          status: "REJECTED",
+          rejectedAt: new Date(),
+          rejectionReason: "Booking cancelled by customer",
+        },
+      });
     }
 
     await tx.garageBroadcastRequest.updateMany({
@@ -805,8 +885,16 @@ const cancelBooking = async (userId, bookingId) => {
   return cancellationResult.booking;
 };
 
+const getFirstBookingOffer = (userId) =>
+  bookingVerificationLeadService.getFirstBookingOffer(userId);
+
+const getBookingVerification = (userId, bookingId) =>
+  bookingVerificationLeadService.getCustomerVerification(userId, bookingId);
+
 module.exports = {
   createBooking,
+  getFirstBookingOffer,
+  getBookingVerification,
   getMyBookings,
   getPendingPaymentBookings,
   getBookingById,

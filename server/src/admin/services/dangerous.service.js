@@ -12,6 +12,7 @@ const { deleteFromCloudinary } = require("../../utils/cloudinaryUpload");
 
 const ACTIVE_BOOKING_STATUSES = [
   "PENDING_PAYMENT",
+  "PENDING_VERIFICATION",
   "SEARCHING_GARAGE",
   "GARAGE_ASSIGNED",
   "CONFIRMED",

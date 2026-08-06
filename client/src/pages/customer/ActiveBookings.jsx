@@ -6,6 +6,7 @@ import AcceptedGarageCard from "@/components/booking/AcceptedGarageCard";
 import BookingElapsedTimer from "@/components/booking/BookingElapsedTimer";
 import {
   FiNavigation,
+  FiPhoneCall,
   FiRefreshCw,
   FiTool,
   FiTruck,
@@ -24,6 +25,7 @@ const getGarageText = (booking) => {
   if (booking.garage?.name) return booking.garage.name;
 
   if (booking.status === "PENDING_PAYMENT") return "Preparing garage search";
+  if (booking.status === "PENDING_VERIFICATION") return "Waiting for verification";
   if (booking.status === "SEARCHING_GARAGE") return "Finding nearby garage";
 
   return "Garage not assigned yet";
@@ -53,6 +55,7 @@ const getAmount = (booking) => {
 };
 
 const ACTIVE_BOOKING_STATUSES = new Set([
+  "PENDING_VERIFICATION",
   "SEARCHING_GARAGE",
   "GARAGE_ASSIGNED",
   "CONFIRMED",
@@ -245,7 +248,15 @@ export default function ActiveBookings() {
                     </p>
                   </div>
 
-                  {isPaymentActionRequired ? (
+                  {booking.status === "PENDING_VERIFICATION" ? (
+                    <Link
+                      to={`/booking/verification/${booking.id}`}
+                      className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-amber-500 px-3.5 text-sm font-semibold text-black shadow-sm transition hover:bg-amber-400"
+                    >
+                      <FiPhoneCall />
+                      Verification
+                    </Link>
+                  ) : isPaymentActionRequired ? (
                     <Link
                       to="/tracking"
                       state={{ bookingId: booking.id }}

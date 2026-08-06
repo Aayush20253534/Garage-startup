@@ -33,6 +33,8 @@ router.post(
  */
 router.get("/service-history", bookingController.getServiceHistory);
 
+router.get("/first-booking-offer", bookingController.getFirstBookingOffer);
+
 router.get("/", bookingController.getMyBookings);
 
 /**
@@ -53,6 +55,13 @@ router.get(
   bookingIdValidation,
   validate,
   bookingController.getBookingSuccess
+);
+
+router.get(
+  "/:id/verification",
+  bookingIdValidation,
+  validate,
+  bookingController.getBookingVerification,
 );
 
 /**

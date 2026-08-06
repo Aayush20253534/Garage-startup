@@ -10,6 +10,24 @@ const createBooking = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Checkout booking created successfully", booking));
 });
 
+
+const getFirstBookingOffer = asyncHandler(async (req, res) => {
+  const result = await bookingService.getFirstBookingOffer(req.user.id);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "First-booking offer fetched", result));
+});
+
+const getBookingVerification = asyncHandler(async (req, res) => {
+  const result = await bookingService.getBookingVerification(
+    req.user.id,
+    req.params.id,
+  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Booking verification fetched", result));
+});
+
 const getMyBookings = asyncHandler(async (req, res) => {
   const bookings = await bookingService.getMyBookings(req.user.id, req.query);
 
@@ -97,6 +115,8 @@ const cancelBooking = asyncHandler(async (req, res) => {
 
 module.exports = {
   createBooking,
+  getFirstBookingOffer,
+  getBookingVerification,
   getMyBookings,
   getPendingPaymentBookings,
   getBookingById,

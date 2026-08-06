@@ -54,6 +54,31 @@ export const customerSupportApi = {
     return unwrap(await api.get("/customer-support/dashboard"));
   },
 
+
+  async getVerificationLeads(params = {}) {
+    return unwrap(await api.get("/customer-support/leads", { params }));
+  },
+
+  async getVerificationLead(leadId) {
+    return unwrap(await api.get(`/customer-support/leads/${leadId}`));
+  },
+
+  async claimVerificationLead(leadId) {
+    return unwrap(await api.post(`/customer-support/leads/${leadId}/claim`));
+  },
+
+  async startVerificationCall(leadId) {
+    return unwrap(await api.post(`/customer-support/leads/${leadId}/call`));
+  },
+
+  async approveVerificationLead(leadId, payload = {}) {
+    return unwrap(await api.post(`/customer-support/leads/${leadId}/approve`, payload));
+  },
+
+  async rejectVerificationLead(leadId, payload = {}) {
+    return unwrap(await api.post(`/customer-support/leads/${leadId}/reject`, payload));
+  },
+
   async getTickets(params = {}) {
     return unwrap(await api.get("/customer-support/tickets", { params }));
   },

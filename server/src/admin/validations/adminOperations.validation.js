@@ -11,6 +11,7 @@ const notificationTypes = [
 
 const bookingStatuses = [
   "PENDING_PAYMENT",
+  "PENDING_VERIFICATION",
   "CONFIRMED",
   "IN_PROGRESS",
   "COMPLETED",
