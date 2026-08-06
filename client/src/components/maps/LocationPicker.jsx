@@ -224,22 +224,40 @@ export default function LocationPicker({
         message="Using GPS to place you in the correct service area."
       />
       <div className="space-y-3">
-      <div>
-        <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
+        <div className="min-w-0">
           <label
             className={`text-sm font-semibold ${dark ? "text-white" : "text-ink"}`}
           >
             {label}
           </label>
-          {coordinate && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-600">
-              <FiCheckCircle /> Location confirmed
-            </span>
-          )}
+          <p className={`mt-1 text-xs leading-5 ${dark ? "text-gray-400" : "text-muted"}`}>
+            {helper}
+          </p>
         </div>
-        <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-muted"}`}>
-          {helper}
-        </p>
+        {coordinate && (
+          <div
+            className={`inline-flex shrink-0 items-center gap-2.5 self-start border-l-[3px] px-3 py-2 text-left ${
+              dark
+                ? "border-emerald-400 bg-emerald-400/10 text-emerald-200"
+                : "border-emerald-600 bg-emerald-50 text-emerald-800"
+            }`}
+          >
+            <FiCheckCircle className="shrink-0 text-base" />
+            <span>
+              <span className="block text-xs font-extrabold leading-4">
+                Location confirmed
+              </span>
+              <span
+                className={`block text-[10px] font-medium leading-4 ${
+                  dark ? "text-emerald-200/70" : "text-emerald-700/75"
+                }`}
+              >
+                Pin ready for service
+              </span>
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="relative">
@@ -268,7 +286,7 @@ export default function LocationPicker({
             });
           }}
           placeholder="Search house, street, landmark, or area"
-          className={`w-full rounded-2xl border py-3.5 pl-11 pr-12 text-sm outline-none transition ${
+          className={`w-full rounded-lg border py-3.5 pl-11 pr-12 text-sm outline-none transition ${
             dark
               ? "border-gray-700 bg-gray-900 text-white placeholder:text-gray-500 focus:border-yellow-400"
               : "border-line bg-white text-ink focus:border-ink"
@@ -330,7 +348,7 @@ export default function LocationPicker({
           type="button"
           onClick={useCurrentLocation}
           disabled={locating || selecting}
-          className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition disabled:opacity-60 ${
+          className={`inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-bold transition disabled:opacity-60 ${
             dark
               ? "border-gray-700 bg-gray-800 text-white hover:border-yellow-400"
               : "border-line bg-white text-ink hover:border-ink"
