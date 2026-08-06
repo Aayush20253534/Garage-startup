@@ -42,84 +42,42 @@ const formatUnsupportedAddress = (details = {}) => {
   return parts.join(", ");
 };
 
-function ServiceAreaUnavailableIllustration() {
-  return (
-    <svg viewBox="0 0 360 280" className="mx-auto h-auto w-full max-w-[18rem]" role="img" aria-label="Location unavailable illustration">
-      <defs>
-        <linearGradient id="rovauto-unavailable-bg" x1="0%" x2="100%" y1="0%" y2="100%">
-          <stop offset="0%" stopColor="#fff7cc" />
-          <stop offset="100%" stopColor="#f5f7fb" />
-        </linearGradient>
-      </defs>
-      <rect x="16" y="16" width="328" height="248" rx="28" fill="url(#rovauto-unavailable-bg)" />
-      <path d="M56 226h248" stroke="#d8dee8" strokeWidth="4" strokeLinecap="round" />
-      <g opacity="0.7">
-        <circle cx="78" cy="72" r="10" fill="#fde047" />
-        <circle cx="292" cy="58" r="8" fill="#d9f99d" />
-        <circle cx="302" cy="202" r="10" fill="#fee2e2" />
-      </g>
-      <g transform="translate(96 44)">
-        <ellipse cx="84" cy="190" rx="70" ry="16" fill="#d9dee7" />
-        <rect x="92" y="66" width="70" height="84" rx="26" fill="#f4b38f" />
-        <path d="M89 82c6-28 20-42 44-42 22 0 37 14 42 40l-2 10H90z" fill="#121826" />
-        <path d="M78 58c18-24 39-34 64-34 27 0 48 11 66 34-10 14-22 21-39 21H117c-17 0-29-7-39-21z" fill="#f472b6" />
-        <rect x="66" y="150" width="118" height="68" rx="30" fill="#4c9a53" />
-        <rect x="105" y="150" width="42" height="16" rx="8" fill="#f472b6" />
-        <circle cx="114" cy="98" r="18" fill="#f9fafb" stroke="#f472b6" strokeWidth="5" />
-        <circle cx="150" cy="98" r="18" fill="#f9fafb" stroke="#f472b6" strokeWidth="5" />
-        <path d="M132 97h0.1" stroke="#1f2937" strokeWidth="7" strokeLinecap="round" />
-        <path d="M150 97h0.1" stroke="#1f2937" strokeWidth="7" strokeLinecap="round" />
-        <path d="M132 98h-8" stroke="#f472b6" strokeWidth="4" strokeLinecap="round" />
-        <path d="M158 98h8" stroke="#f472b6" strokeWidth="4" strokeLinecap="round" />
-        <path d="M133 122c9 6 18 6 27 0" stroke="#7c2d12" strokeWidth="4" strokeLinecap="round" fill="none" />
-        <path d="M139 124v10" stroke="#7c2d12" strokeWidth="4" strokeLinecap="round" />
-        <path d="M131 137c8 6 16 6 24 0" stroke="#111827" strokeWidth="4" strokeLinecap="round" fill="none" />
-        <g transform="rotate(-20 56 176)">
-          <rect x="22" y="168" width="56" height="14" rx="7" fill="#121826" />
-          <ellipse cx="20" cy="173" rx="26" ry="18" fill="#565f6b" />
-          <circle cx="72" cy="175" r="12" fill="#f4b38f" />
-        </g>
-        <g transform="rotate(20 208 176)">
-          <rect x="186" y="168" width="56" height="14" rx="7" fill="#121826" />
-          <ellipse cx="242" cy="173" rx="26" ry="18" fill="#565f6b" />
-          <circle cx="182" cy="175" r="12" fill="#f4b38f" />
-        </g>
-      </g>
-    </svg>
-  );
-}
-
 function UnsupportedCurrentLocationState({ details, onReset }) {
   const locationLabel = formatUnsupportedAddress(details);
 
   return (
-    <div className="mx-auto max-w-3xl py-6 sm:py-8">
-      <div className="overflow-hidden rounded-[2rem] border border-line bg-white shadow-soft">
-        <div className="border-b border-line bg-[linear-gradient(135deg,#fffdf2_0%,#ffffff_65%,#f7fafc_100%)] px-5 py-6 sm:px-8 sm:py-8">
+    <div className="mx-auto flex h-[calc(100dvh-8rem)] max-w-3xl items-center py-1 sm:block sm:h-auto sm:py-8">
+      <div className="w-full overflow-hidden rounded-2xl border border-line bg-white shadow-soft sm:rounded-[2rem]">
+        <div className="border-b border-line bg-[linear-gradient(135deg,#fffdf2_0%,#ffffff_65%,#f7fafc_100%)] px-4 py-3 sm:px-8 sm:py-8">
           <div className="mx-auto max-w-2xl text-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] text-amber-700">
-              <FiCompass className="text-sm" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-amber-700 sm:gap-2 sm:px-3 sm:text-[11px] sm:tracking-[0.25em]">
+              <FiCompass className="text-xs sm:text-sm" />
               Expanding service areas
             </span>
-            <div className="mt-6">
-              <ServiceAreaUnavailableIllustration />
-            </div>
-            <h1 className="mt-5 text-3xl font-black tracking-tight text-ink sm:text-4xl">
+
+            <img
+              src="/caricature/caricature.png"
+              alt="Rovauto service area is expanding"
+              className="mx-auto mt-2 h-[clamp(7.5rem,21dvh,10rem)] w-full max-w-[16rem] object-contain sm:mt-6 sm:h-auto sm:max-w-[18rem]"
+            />
+
+            <h1 className="mt-1 text-[clamp(1.55rem,7.5vw,2rem)] font-black leading-[1.08] tracking-tight text-ink sm:mt-5 sm:text-4xl">
               We&apos;re not live at this location yet
             </h1>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-muted sm:text-base">
-              It looks like your current GPS location is outside our active service area. We&apos;re expanding quickly and should be back here soon.
+            <p className="mx-auto mt-2 max-w-xl text-xs leading-5 text-muted sm:mt-3 sm:text-base sm:leading-7">
+              Your current GPS location is outside our active service area. We&apos;re expanding quickly and hope to serve this location soon.
             </p>
+
             {locationLabel && (
-              <div className="mx-auto mt-5 flex max-w-xl items-start gap-3 rounded-2xl border border-line bg-bg-soft px-4 py-3 text-left">
-                <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/15 text-brand-dark">
+              <div className="mx-auto mt-2 flex max-w-xl items-center gap-2 rounded-xl border border-line bg-bg-soft px-3 py-2 text-left sm:mt-5 sm:items-start sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand/15 text-sm text-brand-dark sm:mt-0.5 sm:h-10 sm:w-10 sm:rounded-xl sm:text-base">
                   <FiMapPin />
                 </span>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
+                <div className="min-w-0">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted sm:text-xs sm:tracking-[0.2em]">
                     Current location detected
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-ink sm:text-base">
+                  <p className="mt-0.5 truncate text-xs font-semibold text-ink sm:mt-1 sm:text-base">
                     {locationLabel}
                   </p>
                 </div>
@@ -128,18 +86,23 @@ function UnsupportedCurrentLocationState({ details, onReset }) {
           </div>
         </div>
 
-        <div className="grid gap-4 px-5 py-5 sm:px-8 sm:py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div className="rounded-2xl border border-line bg-bg-soft px-4 py-4 text-left">
-            <h2 className="text-sm font-bold text-ink sm:text-base">Want to continue with a supported area?</h2>
+        <div className="px-4 py-3 sm:grid sm:gap-4 sm:px-8 sm:py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="hidden rounded-2xl border border-line bg-bg-soft px-4 py-4 text-left sm:block">
+            <h2 className="text-base font-bold text-ink">Want to continue with a supported area?</h2>
             <p className="mt-1 text-sm leading-6 text-muted">
-              Tap below to change the address manually, search a supported area, or move the map pin to the location where you need service.
+              Change the address manually, search a supported area, or move the map pin to where you need service.
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+
+          <p className="mb-2 text-center text-[11px] leading-4 text-muted sm:hidden">
+            Choose another address to continue booking.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-3 lg:flex-col">
             <button
               type="button"
               onClick={onReset}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-ink px-5 py-3 text-sm font-bold text-white transition hover:bg-ink/90"
+              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-2.5 text-xs font-bold text-white transition hover:bg-ink/90 sm:min-h-0 sm:gap-2 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm"
             >
               <FiNavigation />
               Change location
@@ -147,7 +110,7 @@ function UnsupportedCurrentLocationState({ details, onReset }) {
             <button
               type="button"
               onClick={() => window.history.back()}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-line bg-white px-5 py-3 text-sm font-bold text-ink transition hover:border-ink"
+              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2.5 text-xs font-bold text-ink transition hover:border-ink sm:min-h-0 sm:gap-2 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm"
             >
               <FiArrowLeft />
               Go back
@@ -464,7 +427,11 @@ export default function AddressForm() {
   }
 
   return (
-    <div className="container-x mx-auto max-w-4xl py-10 sm:py-14 2xl:max-w-[80rem]">
+    <div
+      className={`container-x mx-auto max-w-4xl 2xl:max-w-[80rem] ${
+        unsupportedCurrentLocation ? "py-0 sm:py-8" : "py-10 sm:py-14"
+      }`}
+    >
       {unsupportedCurrentLocation ? (
         <UnsupportedCurrentLocationState
           details={unsupportedCurrentLocation}
