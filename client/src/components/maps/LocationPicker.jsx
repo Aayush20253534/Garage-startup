@@ -11,7 +11,7 @@ import {
   getAddressLineFromPlace,
   reverseGeocodeCoordinates,
 } from "@/utils/address";
-import { requireAvailableCityName } from "@/utils/cityAvailability";
+import { UNAVAILABLE_CITY_MESSAGE, requireAvailableCityName } from "@/utils/cityAvailability";
 import CustomerLoginLoader from "@/components/auth/CustomerLoginLoader";
 import MapPanel from "./MapPanel";
 
@@ -28,6 +28,7 @@ const getDisplayValue = (value = {}) =>
 export default function LocationPicker({
   value = {},
   onChange,
+  onUnsupportedCurrentLocation,
   label = "Search address",
   helper = "Search, select, then drag the pin to the exact entrance.",
   dark = false,
@@ -161,11 +162,13 @@ export default function LocationPicker({
   const resolveDraggedLocation = async (
     nextCoordinate,
     source = "MANUAL",
+    options = {},
   ) => {
     setSelecting(true);
     setError("");
+    let parsed = null;
     try {
-      const parsed = await reverseGeocodeCoordinates(nextCoordinate);
+      parsed = await reverseGeocodeCoordinates(nextCoordinate);
       const formattedAddress = parsed.fullAddress || parsed.displayName || parsed.address || query;
       const next = await attachAvailableCity({
         ...value,
@@ -181,8 +184,24 @@ export default function LocationPicker({
       selectedTextRef.current = formattedAddress;
       setQuery(formattedAddress);
       onChange?.(next);
+      return next;
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Could not resolve this pin location");
+      const nextError = err.response?.data?.message || err.message || "Could not resolve this pin location";
+      if (!options.silentError) {
+        setError(nextError);
+      }
+      if (options.throwOnError) {
+        if (parsed && typeof err === "object" && err) {
+          err.locationContext = {
+            ...parsed,
+            latitude: nextCoordinate.latitude,
+            longitude: nextCoordinate.longitude,
+            source,
+          };
+        }
+        throw err;
+      }
+      return null;
     } finally {
       setSelecting(false);
     }
@@ -198,11 +217,27 @@ export default function LocationPicker({
     setError("");
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        const coordinate = {
+          latitude: Number(position.coords.latitude.toFixed(6)),
+          longitude: Number(position.coords.longitude.toFixed(6)),
+        };
+
         try {
-          await resolveDraggedLocation({
-            latitude: Number(position.coords.latitude.toFixed(6)),
-            longitude: Number(position.coords.longitude.toFixed(6)),
-          }, "GPS");
+          await resolveDraggedLocation(coordinate, "GPS", {
+            silentError: true,
+            throwOnError: true,
+          });
+        } catch (err) {
+          const nextError = err.response?.data?.message || err.message || "Unable to access current location";
+          if (nextError === UNAVAILABLE_CITY_MESSAGE && typeof onUnsupportedCurrentLocation === "function") {
+            onUnsupportedCurrentLocation({
+              message: nextError,
+              coordinate,
+              ...(err.locationContext || {}),
+            });
+          } else {
+            setError(nextError);
+          }
         } finally {
           setLocating(false);
         }
