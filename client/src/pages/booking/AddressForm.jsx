@@ -98,23 +98,28 @@ function UnsupportedCurrentLocationState({ details, onReset }) {
             Choose another address to continue booking.
           </p>
 
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-3 lg:flex-col">
-            <button
-              type="button"
-              onClick={onReset}
-              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-2.5 text-xs font-bold text-white transition hover:bg-ink/90 sm:min-h-0 sm:gap-2 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm"
-            >
-              <FiNavigation />
-              Change location
-            </button>
-            <button
-              type="button"
-              onClick={() => window.history.back()}
-              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2.5 text-xs font-bold text-ink transition hover:border-ink sm:min-h-0 sm:gap-2 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm"
-            >
-              <FiArrowLeft />
-              Go back
-            </button>
+          <div className="space-y-2 sm:space-y-3">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-3 lg:flex-col">
+              <button
+                type="button"
+                onClick={onReset}
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-2.5 text-xs font-bold text-white transition hover:bg-ink/90 sm:min-h-0 sm:gap-2 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm"
+              >
+                <FiNavigation />
+                Change location
+              </button>
+              <button
+                type="button"
+                onClick={() => window.history.back()}
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2.5 text-xs font-bold text-ink transition hover:border-ink sm:min-h-0 sm:gap-2 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm"
+              >
+                <FiArrowLeft />
+                Go back
+              </button>
+            </div>
+            <p className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-muted sm:text-xs sm:tracking-[0.12em]">
+              Gaadi Apki, Guarantee Hamari
+            </p>
           </div>
         </div>
       </div>
