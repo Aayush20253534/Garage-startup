@@ -117,8 +117,8 @@ function UnsupportedCurrentLocationState({ details, onReset }) {
                 Go back
               </button>
             </div>
-            <p className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-muted sm:text-xs sm:tracking-[0.12em]">
-              Gaadi Apki, Guarantee Hamari
+            <p className="text-center text-sm font-extrabold tracking-wide text-green-600 sm:text-base">
+               Gaadi Apki, Guarantee Hamari
             </p>
           </div>
         </div>
