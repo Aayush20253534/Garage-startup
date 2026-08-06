@@ -64,10 +64,6 @@ function UnsupportedCurrentLocationState({ details, onReset }) {
             <h1 className="mt-1 text-[clamp(1.55rem,7.5vw,2rem)] font-black leading-[1.08] tracking-tight text-ink sm:mt-5 sm:text-4xl">
               We&apos;re not live at this location yet
             </h1>
-            <p className="mx-auto mt-2 max-w-xl text-xs leading-5 text-muted sm:mt-3 sm:text-base sm:leading-7">
-               Currently Outside your service Location.Reaching Your Location Soon.
-            </p>
-
             {locationLabel && (
               <div className="mx-auto mt-2 flex max-w-xl items-center gap-2 rounded-xl border border-line bg-bg-soft px-3 py-2 text-left sm:mt-5 sm:items-start sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand/15 text-sm text-brand-dark sm:mt-0.5 sm:h-10 sm:w-10 sm:rounded-xl sm:text-base">
