@@ -141,7 +141,7 @@ export default function AdminVehicles() {
           </div>
           <h1 className="mt-2 text-2xl font-extrabold text-ink sm:text-3xl">Vehicles</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
-            View registered customer names, vehicle numbers, and RC verification status across customer accounts.
+            View the RC registered name from vehicle verification separately from the Rovauto account name, vehicle number, and verification status.
           </p>
         </div>
 
@@ -307,10 +307,11 @@ export default function AdminVehicles() {
         ) : data.items?.length ? (
           <>
             <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[1050px] text-left text-sm">
+              <table className="w-full min-w-[1180px] text-left text-sm">
                 <thead className="border-b border-line bg-bg-soft text-xs uppercase tracking-wide text-muted">
                   <tr>
                     <th className="px-4 py-3">Registered name</th>
+                    <th className="px-4 py-3">Account name</th>
                     <th className="px-4 py-3">Vehicle no.</th>
                     <th className="px-4 py-3">Vehicle</th>
                     <th className="px-4 py-3">Verification</th>
@@ -323,6 +324,14 @@ export default function AdminVehicles() {
                     const meta = verificationMeta(vehicle);
                     return (
                       <tr key={vehicle.id} className="align-top hover:bg-bg-soft/60">
+                        <td className="px-4 py-4">
+                          <div className="font-bold text-ink">
+                            {vehicle.rcOwnerNameMasked || (vehicle.registrationVerified ? "Not available" : "Not verified")}
+                          </div>
+                          <div className="mt-1 text-xs text-muted">
+                            {vehicle.registrationVerified ? "RC owner from Way2API" : "Verify RC to fetch owner"}
+                          </div>
+                        </td>
                         <td className="px-4 py-4">
                           <div className="font-bold text-ink">{vehicle.user?.name || "Unknown customer"}</div>
                           <div className="mt-1 text-xs text-muted">{vehicle.user?.email || vehicle.user?.phone || "—"}</div>
@@ -366,7 +375,10 @@ export default function AdminVehicles() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted">
-                          <FiUser /> Registered name: {vehicle.user?.name || "Unknown customer"}
+                          <FiUser /> Registered name: {vehicle.rcOwnerNameMasked || (vehicle.registrationVerified ? "Not available" : "Not verified")}
+                        </div>
+                        <div className="mt-1 text-xs font-semibold text-muted">
+                          Account name: {vehicle.user?.name || "Unknown customer"}
                         </div>
                         <div className="mt-2 break-all text-lg font-extrabold tracking-wide text-ink">
                           {vehicle.registrationNumber || "Registration not provided"}
