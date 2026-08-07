@@ -16,26 +16,50 @@ const router = express.Router();
 
 router.use(protect);
 
+const CUSTOMER_VEHICLE_DAILY_LIMIT = 3;
+const CUSTOMER_VEHICLE_DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 const registrationVerificationRateLimit = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 5,
-  fallbackMax: 3,
-  name: "vehicle-registration-verification",
+  windowMs: CUSTOMER_VEHICLE_DAILY_WINDOW_MS,
+  max: CUSTOMER_VEHICLE_DAILY_LIMIT,
+  fallbackMax: CUSTOMER_VEHICLE_DAILY_LIMIT,
+  name: "customer-vehicle-registration-daily",
   keyGenerator: (req) => `customer:${req.user.id}`,
-  message: "Too many vehicle verification attempts. Please try again later.",
+  message:
+    "You can verify or change a vehicle registration number up to 3 times in 24 hours. Please try again later.",
 });
+
+const vehicleCreationRateLimit = rateLimit({
+  windowMs: CUSTOMER_VEHICLE_DAILY_WINDOW_MS,
+  max: CUSTOMER_VEHICLE_DAILY_LIMIT,
+  fallbackMax: CUSTOMER_VEHICLE_DAILY_LIMIT,
+  name: "customer-vehicle-create-daily",
+  keyGenerator: (req) => `customer:${req.user.id}`,
+  message:
+    "You can add up to 3 vehicles in 24 hours. Please try again later.",
+});
+
+const registrationChangeRateLimit = (req, res, next) => {
+  if (req.body?.registrationNumber === undefined) return next();
+  return registrationVerificationRateLimit(req, res, next);
+};
 
 router.post(
   "/verify-registration",
-  registrationVerificationRateLimit,
   verifyRegistrationValidation,
   validate,
+  registrationVerificationRateLimit,
   vehicleController.verifyVehicleRegistration,
 );
 
 router
   .route("/")
-  .post(createVehicleValidation, validate, vehicleController.createVehicle)
+  .post(
+    createVehicleValidation,
+    validate,
+    vehicleCreationRateLimit,
+    vehicleController.createVehicle,
+  )
   .get(vehicleController.getMyVehicles);
 
 router.patch(
@@ -48,7 +72,12 @@ router.patch(
 router
   .route("/:id")
   .get(vehicleIdValidation, validate, vehicleController.getVehicleById)
-  .patch(updateVehicleValidation, validate, vehicleController.updateVehicle)
+  .patch(
+    updateVehicleValidation,
+    validate,
+    registrationChangeRateLimit,
+    vehicleController.updateVehicle,
+  )
   .delete(vehicleIdValidation, validate, vehicleController.deleteVehicle);
 
 module.exports = router;

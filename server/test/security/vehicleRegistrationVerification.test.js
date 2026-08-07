@@ -64,8 +64,12 @@ test("Way2API stays server-side, uses bearer auth, and verification is rate limi
   assert.match(parser, /maker_description/);
   assert.match(parser, /maker_model/);
   assert.match(env, /requireVariables\(\["WAY2API_API_KEY"\]\)/);
-  assert.match(routes, /windowMs:\s*10 \* 60 \* 1000/);
-  assert.match(routes, /max:\s*5/);
+  assert.match(routes, /CUSTOMER_VEHICLE_DAILY_LIMIT = 3/);
+  assert.match(routes, /CUSTOMER_VEHICLE_DAILY_WINDOW_MS = 24 \* 60 \* 60 \* 1000/);
+  assert.match(routes, /name: "customer-vehicle-registration-daily"/);
+  assert.match(routes, /name: "customer-vehicle-create-daily"/);
+  assert.match(routes, /registrationChangeRateLimit/);
+  assert.match(routes, /req\.body\?\.registrationNumber === undefined/);
   assert.match(clientVerification, /api\.post\("\/vehicles\/verify-registration"/);
   assert.doesNotMatch(clientVerification, /WAY2API_API_KEY/);
   assert.doesNotMatch(service, /MASTERS_INDIA_/);
