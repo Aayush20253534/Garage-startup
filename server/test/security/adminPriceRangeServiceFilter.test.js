@@ -54,3 +54,21 @@ test("vehicle brand and model filters work independently of service selection", 
     /disabled=\{!filterServiceId \|\| loadingFilterOptions\}/,
   );
 });
+
+
+test("vehicle model filter is scoped to the selected vehicle brand", () => {
+  const page = read("client/src/pages/admin/Revenue.jsx");
+
+  assert.match(
+    page,
+    /const selectedFilterVehicleBrand = filterVehicleOptions\.find\([\s\S]*?brand\.value === filterVehicleBrand/,
+  );
+  assert.match(
+    page,
+    /const filterVehicleModels = filterVehicleBrand[\s\S]*?selectedFilterVehicleBrand\?\.models \|\| \[\][\s\S]*?: filterVehicleModelOptions/,
+  );
+  assert.match(
+    page,
+    /setFilterVehicleBrand\(event\.target\.value\);[\s\S]*?setFilterVehicleModel\(""\);/,
+  );
+});

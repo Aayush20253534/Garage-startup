@@ -940,7 +940,12 @@ export default function Revenue({ pageMode = "ranges" }) {
   );
 
   const vehicleModels = selectedVehicleBrand?.models || [];
-  const filterVehicleModels = filterVehicleModelOptions;
+  const selectedFilterVehicleBrand = filterVehicleOptions.find(
+    (brand) => brand.value === filterVehicleBrand,
+  );
+  const filterVehicleModels = filterVehicleBrand
+    ? selectedFilterVehicleBrand?.models || []
+    : filterVehicleModelOptions;
   const filterCoverageMessage = loadingFilterOptions
     ? "Loading vehicle brands and models configured in approved price ranges..."
     : filterOptionRangeCount > 0
@@ -2003,7 +2008,10 @@ export default function Revenue({ pageMode = "ranges" }) {
 
           <select
             value={filterVehicleBrand}
-            onChange={(event) => setFilterVehicleBrand(event.target.value)}
+            onChange={(event) => {
+              setFilterVehicleBrand(event.target.value);
+              setFilterVehicleModel("");
+            }}
             disabled={loadingFilterOptions}
             className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none transition focus:border-ink disabled:cursor-not-allowed disabled:bg-bg-soft disabled:text-muted"
             aria-label="Filter price ranges by configured vehicle brand"
