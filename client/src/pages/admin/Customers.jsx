@@ -316,7 +316,7 @@ export default function Customers() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 overflow-x-hidden">
+    <div className="admin-page space-y-4 overflow-x-hidden pb-8">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-ink">Customers</h2>
@@ -350,7 +350,7 @@ export default function Customers() {
         </div>
       )}
 
-      <section className="card-soft rounded-2xl p-4 shadow-sm">
+      <section className="admin-panel p-4">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -419,7 +419,7 @@ export default function Customers() {
         </div>
       </section>
 
-      <section className="card-soft rounded-2xl p-4 shadow-sm">
+      <section className="admin-panel p-4">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
           <label className="relative min-w-0">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -453,7 +453,7 @@ export default function Customers() {
         </div>
       </section>
 
-      <section className="card-soft overflow-hidden rounded-2xl shadow-sm">
+      <section className="admin-panel overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
           <div>
             <p className="text-sm font-bold text-ink">Customer login activity</p>
@@ -500,11 +500,11 @@ export default function Customers() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1320px] text-sm">
+          <table className="w-full min-w-[1180px] text-xs">
             <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 {!isIntern && (
-                  <th className="w-12 px-4 py-3 font-bold">Select</th>
+                  <th className="w-10 px-3 py-2.5 font-bold">Select</th>
                 )}
                 {[
                   "Name",
@@ -521,7 +521,7 @@ export default function Customers() {
                 ].map((heading) => (
                   <th
                     key={heading}
-                    className="whitespace-nowrap px-4 py-3 font-bold"
+                    className="whitespace-nowrap px-3 py-2.5 font-bold"
                   >
                     {heading}
                   </th>
@@ -543,7 +543,7 @@ export default function Customers() {
                     className="border-t border-line transition hover:bg-bg-soft/70"
                   >
                     {!isIntern && (
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <input
                           type="checkbox"
                           aria-label={`Select ${customer.name || customer.email || "customer"}`}
@@ -552,33 +552,33 @@ export default function Customers() {
                         />
                       </td>
                     )}
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
+                    <td className="whitespace-nowrap px-3 py-2.5 font-semibold text-ink">
                       {customer.name || "-"}
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-muted">
                       {customer.email || "-"}
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-muted">
                       {customer.phone || "-"}
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-muted">
                       <span title={customer.displayAddress || undefined}>
                         {customer.displayCity || "-"}
                       </span>
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold">
+                    <td className="whitespace-nowrap px-3 py-2.5 font-semibold">
                       {customer._count?.bookings || 0}
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold">
+                    <td className="whitespace-nowrap px-3 py-2.5 font-semibold">
                       {customer._count?.vehicles || 0}
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-3">
+                    <td className="whitespace-nowrap px-3 py-2.5">
                       <div className="flex flex-col items-start gap-1">
                         <span
                           className={[
@@ -626,7 +626,7 @@ export default function Customers() {
                       </div>
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-3">
+                    <td className="whitespace-nowrap px-3 py-2.5">
                       <div className="flex flex-col items-start gap-1">
                         <span
                           className="rounded-lg border border-line bg-white px-2.5 py-1 text-xs font-bold text-ink"
@@ -642,7 +642,7 @@ export default function Customers() {
                       </div>
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-3">
+                    <td className="whitespace-nowrap px-3 py-2.5">
                       <span
                         className={[
                           "rounded-full px-2.5 py-1 text-xs font-bold",
@@ -656,7 +656,7 @@ export default function Customers() {
                     </td>
 
 
-                    <td className="whitespace-nowrap px-4 py-3">
+                    <td className="whitespace-nowrap px-3 py-2.5">
                       {isIntern ? (
                         <span className="text-xs text-muted">Admin only</span>
                       ) : (
@@ -681,7 +681,7 @@ export default function Customers() {
                       )}
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-3">
+                    <td className="whitespace-nowrap px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         <button
                           type="button"

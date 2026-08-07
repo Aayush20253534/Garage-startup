@@ -10,11 +10,6 @@ const readJson = (key, fallback = null) => {
   }
 };
 
-const readArray = (key) => {
-  const value = readJson(key, []);
-  return Array.isArray(value) ? value : [];
-};
-
 const getDefaultVehicle = (vehicles = []) =>
   vehicles.find((item) => item.isDefault) || vehicles[0] || null;
 
@@ -32,14 +27,12 @@ const getPreservedVehicle = (vehicles = [], currentVehicle = null) => {
   return getDefaultVehicle(vehicles);
 };
 
-const initialVehicles = readArray("rov_vehicles");
-
 const initialState = {
   // Authentication is restored from the HttpOnly cookie through /auth/me.
   // Cached localStorage data must never be treated as proof of authentication.
   user: null,
-  vehicles: initialVehicles,
-  vehicle: readJson("rov_vehicle", getDefaultVehicle(initialVehicles)),
+  vehicles: [],
+  vehicle: readJson("rov_vehicle", null),
   location: readJson("rov_location", null),
 };
 

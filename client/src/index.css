@@ -394,3 +394,88 @@ h5 {
     font-size: 17px;
   }
 }
+
+/* Admin portal system -------------------------------------------------------
+   Compact, consistent surfaces keep dense operational data readable without
+   allowing individual cards/tables to stretch the page beyond the viewport. */
+.admin-page {
+  width: 100%;
+  min-width: 0;
+  max-width: 92rem;
+  margin-inline: auto;
+}
+
+.admin-panel {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--color-line, #e5e7eb);
+  border-radius: 0.875rem;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.045);
+}
+
+.admin-btn-secondary,
+.admin-btn-danger {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+  padding-inline: 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  transition: 160ms ease;
+}
+
+.admin-btn-secondary {
+  border: 1px solid var(--color-line, #e5e7eb);
+  background: #fff;
+  color: var(--color-ink, #111827);
+}
+
+.admin-btn-secondary:hover:not(:disabled) {
+  border-color: var(--color-ink, #111827);
+  background: var(--color-bg-soft, #f8fafc);
+}
+
+.admin-btn-danger {
+  border: 1px solid #dc2626;
+  background: #dc2626;
+  color: #fff;
+}
+
+.admin-btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.admin-btn-secondary:disabled,
+.admin-btn-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.rov-dashboard-main > * {
+  min-width: 0;
+}
+
+@media (min-width: 96rem) {
+  .admin-page {
+    max-width: 94rem;
+  }
+
+  .rov-dashboard-sidebar {
+    width: 15.5rem;
+  }
+
+  .rov-dashboard-content {
+    margin-left: 15.5rem;
+  }
+
+  .rov-dashboard-header-inner,
+  .rov-dashboard-account-strip,
+  .rov-dashboard-main {
+    max-width: 94rem;
+    padding-inline: clamp(1.5rem, 2vw, 2.5rem);
+  }
+}

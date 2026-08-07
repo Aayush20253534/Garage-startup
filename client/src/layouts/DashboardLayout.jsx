@@ -203,7 +203,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
         onClick={closeSidebar}
         className={({ isActive }) =>
           [
-            "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
+            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition",
             isActive
               ? "bg-ink text-white shadow-sm"
               : "text-ink/70 hover:bg-bg-soft hover:text-ink",
@@ -246,14 +246,16 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
 
       <aside
         className={[
-          "rov-dashboard-sidebar fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-line bg-white shadow-xl transition-transform duration-300",
+          "rov-dashboard-sidebar fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col border-r border-line bg-white shadow-xl transition-transform duration-300",
           usesFixedPortalShell
-            ? "lg:fixed lg:top-0 lg:z-30 lg:h-screen lg:w-[264px] lg:translate-x-0 lg:shadow-none"
+            ? isStaffPortal
+              ? "lg:fixed lg:top-0 lg:z-30 lg:h-screen lg:w-[248px] lg:translate-x-0 lg:shadow-none"
+              : "lg:fixed lg:top-0 lg:z-30 lg:h-screen lg:w-[264px] lg:translate-x-0 lg:shadow-none"
             : "lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0 lg:shadow-none",
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
-        <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-line px-4">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-3.5">
           {renderPortalBrand({ compact: true })}
 
           <button
@@ -266,24 +268,24 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-3 py-4">
+        <nav className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-2.5 py-3">
           <div className="grid gap-1">
             {visibleItems.map((item) => renderNavItem(item))}
           </div>
         </nav>
 
-        <div className="shrink-0 border-t border-line bg-white p-4">
+        <div className="shrink-0 border-t border-line bg-white p-3">
           {isCustomerPortal ? (
             <Link
               to="/dashboard/profile"
               onClick={closeSidebar}
               aria-label="Open customer profile"
-              className="flex items-center gap-3 rounded-xl bg-bg-soft px-3 py-3 transition hover:bg-line/60 focus:outline-none focus:ring-2 focus:ring-brand/50"
+              className="flex items-center gap-3 rounded-lg bg-bg-soft px-3 py-2.5 transition hover:bg-line/60 focus:outline-none focus:ring-2 focus:ring-brand/50"
             >
               {accountSummary}
             </Link>
           ) : (
-            <div className="flex items-center gap-3 rounded-xl bg-bg-soft px-3 py-3">
+            <div className="flex items-center gap-3 rounded-lg bg-bg-soft px-3 py-2.5">
               {accountSummary}
             </div>
           )}
@@ -291,7 +293,7 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
+            className="mt-2.5 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:border-ink hover:bg-bg-soft"
           >
             <FiLogOut /> Logout
           </button>
@@ -301,11 +303,15 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
       <div
         className={[
           "rov-dashboard-content min-w-0 flex-1 overflow-x-hidden",
-          usesFixedPortalShell ? "lg:ml-[264px]" : "",
+          usesFixedPortalShell
+            ? isStaffPortal
+              ? "lg:ml-[248px]"
+              : "lg:ml-[264px]"
+            : "",
         ].join(" ")}
       >
         <header className="sticky top-0 z-20 border-b border-line bg-white/95 backdrop-blur-xl">
-          <div className="rov-dashboard-header-inner flex h-16 items-center px-3 sm:px-6 lg:px-8">
+          <div className="rov-dashboard-header-inner flex h-[60px] items-center px-3 sm:px-5 lg:px-6">
             <button
               type="button"
               aria-label="Open sidebar"
@@ -332,29 +338,29 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
 
         {isAdminPortal && account?.accountType === "STAFF" && (
           <section className="border-b border-line bg-white">
-            <div className="rov-dashboard-account-strip mx-auto flex max-w-[1600px] flex-col gap-3 px-3 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-7 xl:px-8">
+            <div className="rov-dashboard-account-strip mx-auto flex max-w-[1480px] flex-col gap-2.5 px-3 py-2.5 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-6">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-ink text-white">
-                  <FiUserCheck className="text-xl" />
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-ink text-white">
+                  <FiUserCheck className="text-base" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-muted">Currently signed in</p>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Currently signed in</p>
                     <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-extrabold uppercase text-green-700">
                       <span className="h-1.5 w-1.5 rounded-full bg-green-600" /> Active session
                     </span>
                   </div>
-                  <p className="mt-1 truncate text-base font-extrabold text-ink">{accountName || "Staff account"}</p>
-                  <p className="truncate text-sm text-muted">{accountIdentifier}</p>
+                  <p className="mt-0.5 truncate text-sm font-extrabold text-ink">{accountName || "Staff account"}</p>
+                  <p className="truncate text-xs text-muted">{accountIdentifier}</p>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                <span className="inline-flex items-center gap-2 rounded-xl border border-line bg-bg-soft px-3 py-2 text-xs font-extrabold text-ink">
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-bg-soft px-2.5 text-[11px] font-extrabold text-ink">
                   <FiShield /> {accountRole}
                 </span>
                 {accountLoginId && (
-                  <span className="rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-muted">
+                  <span className="inline-flex h-8 items-center rounded-lg border border-line bg-white px-2.5 text-[11px] font-semibold text-muted">
                     Login ID: <span className="font-extrabold text-ink">{accountLoginId}</span>
                   </span>
                 )}
@@ -368,7 +374,9 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
           className={[
             "rov-dashboard-main w-full min-w-0 max-w-full overflow-x-hidden",
             usesFixedPortalShell
-              ? "mx-auto max-w-[1600px] px-3 pb-24 pt-4 sm:px-5 sm:pt-5 lg:px-7 lg:pb-8 lg:pt-7 xl:px-8"
+              ? isStaffPortal
+                ? "mx-auto max-w-[1480px] px-3 pb-20 pt-4 sm:px-5 lg:px-6 lg:pb-7 lg:pt-5"
+                : "mx-auto max-w-[1600px] px-3 pb-24 pt-4 sm:px-5 sm:pt-5 lg:px-7 lg:pb-8 lg:pt-7 xl:px-8"
               : "p-4 sm:p-6 lg:p-8",
           ].join(" ")}
         >

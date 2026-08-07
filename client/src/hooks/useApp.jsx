@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDispatch, useSelector } from "react-redux";
 import api from "@/api/axios";
 import { garageApi } from "@/api/garage";
@@ -21,6 +22,12 @@ import {
   selectGarageState,
   setGarage,
 } from "@/store/garageSlice";
+import {
+  selectBookingState,
+  setBookingCart,
+  setBookingCartContext,
+} from "@/store/bookingSlice";
+import { queryKeys } from "@/lib/query/queryKeys";
 import { getCartPricingContextKey } from "@/utils/bookingCart";
 import {
   normalizeServiceFulfillmentMode,
@@ -184,25 +191,6 @@ const readJson = (key, fallback = null) => {
   }
 };
 
-const readNumber = (key, fallback = null) => {
-  const value = Number(localStorage.getItem(key));
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-};
-
-const readSessionJson = (key, fallback = null) => {
-  try {
-    const value = sessionStorage.getItem(key) || localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const readSessionNumber = (key, fallback = null) => {
-  const value = Number(sessionStorage.getItem(key) || localStorage.getItem(key));
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-};
-
 const setSessionCache = (key, value) => {
   try {
     sessionStorage.setItem(key, value);
@@ -235,15 +223,6 @@ const getVehicleSelectionFromList = (vehicles = [], currentVehicle = null) => {
     null
   );
 };
-
-const getServiceCategoriesContextKey = (user, vehicle, location) =>
-  JSON.stringify({
-    scope: user?.id ? `customer:${user.id}` : "public",
-    vehicleId: user?.id ? vehicle?.id || null : null,
-    city: user?.id
-      ? String(location?.city || "").trim().toLowerCase() || null
-      : null,
-  });
 
 
 const getStoredSessionRole = () => {
@@ -384,218 +363,55 @@ const isProtectedPath = (pathname = window.location.pathname) => {
 export function AppProvider({ children }) {
   const dispatch = useDispatch();
 
+  const queryClient = useQueryClient();
   const { user, vehicle, vehicles, location } =
     useSelector(selectCustomerState);
   const { garage: garageUser } = useSelector(selectGarageState);
-
-  const [cart, setCart] = useState(() => {
-    const storedCart = readSessionJson(CART_CACHE_KEY, []);
-    return Array.isArray(storedCart) ? storedCart : [];
-  });
-  const [cartContextKey, setCartContextKey] = useState(() =>
-    sessionStorage.getItem(CART_CONTEXT_CACHE_KEY) ||
-    getCartPricingContextKey(vehicle, location),
-  );
+  const { cart, cartContextKey } = useSelector(selectBookingState);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Async profile/dashboard responses must use the latest booking selection,
-  // not the vehicle/location captured when the request originally started.
+  // Redux owns customer-created booking state. Server-owned API data is kept
+  // in TanStack Query instead of hand-written browser/session caches.
   const cartRef = useRef(cart);
-  const cartContextKeyRef = useRef(cartContextKey);
+  const cartContextKeyRef = useRef(
+    cartContextKey || getCartPricingContextKey(vehicle, location),
+  );
   const selectedVehicleRef = useRef(vehicle);
   const selectedLocationRef = useRef(location);
 
   cartRef.current = cart;
-  cartContextKeyRef.current = cartContextKey;
+  cartContextKeyRef.current =
+    cartContextKey || getCartPricingContextKey(vehicle, location);
   selectedVehicleRef.current = vehicle;
   selectedLocationRef.current = location;
 
-  // Prevent duplicate session/profile requests when multiple components mount
-  // together or the tab becomes visible repeatedly.
   const authRequestRef = useRef(null);
   const preserveCartContextChangeRef = useRef(false);
   const preservedHydrationContextKeysRef = useRef(new Set());
   const garageRequestRef = useRef(null);
-  const profileRequestRef = useRef(null);
-  const dashboardRequestRef = useRef(null);
-  const vehiclesRequestRef = useRef(null);
-  const activeBookingsRequestRef = useRef(null);
-  const serviceHistoryRequestRef = useRef(null);
-  const serviceCategoriesRequestRef = useRef({
-    contextKey: null,
-    request: null,
-  });
   const customerPreloadRef = useRef({
     userId: null,
     cancel: null,
     secondaryScheduled: false,
   });
 
-  const [dashboardCache, setDashboardCache] = useState(() =>
-    readSessionJson("rov_dashboard", null),
-  );
-  const [dashboardFetchedAt, setDashboardFetchedAt] = useState(() =>
-    readSessionNumber("rov_dashboard_time", null),
-  );
+  const setCart = useCallback((value) => {
+    const nextCart =
+      typeof value === "function" ? value(cartRef.current) : value;
+    const safeCart = Array.isArray(nextCart) ? nextCart : [];
+    cartRef.current = safeCart;
+    dispatch(setBookingCart(safeCart));
+  }, [dispatch]);
 
-  const [serviceCategoriesCache, setServiceCategoriesCache] = useState(() =>
-    readJson("rov_service_categories", null),
-  );
-  const [serviceCategoriesFetchedAt, setServiceCategoriesFetchedAt] = useState(
-    () => readNumber("rov_service_categories_time", null),
-  );
-  const [serviceCategoriesCacheKey, setServiceCategoriesCacheKey] = useState(
-    () =>
-      localStorage.getItem("rov_service_categories_context") ||
-      (readJson("rov_service_categories", null) ? "public" : null),
-  );
-
-  const [vehicleMetaCache, setVehicleMetaCache] = useState(() =>
-    readJson("rov_vehicle_meta", null),
-  );
-  const [vehicleMetaFetchedAt, setVehicleMetaFetchedAt] = useState(() =>
-    readNumber("rov_vehicle_meta_time", null),
-  );
-
-  const [vehiclesCache, setVehiclesCache] = useState(() =>
-    readSessionJson("rov_vehicles_cache", null),
-  );
-  const [vehiclesFetchedAt, setVehiclesFetchedAt] = useState(() =>
-    readSessionNumber("rov_vehicles_cache_time", null),
-  );
-
-  const [activeBookingsCache, setActiveBookingsCache] = useState(() =>
-    readSessionJson("rov_active_bookings", null),
-  );
-  const [activeBookingsFetchedAt, setActiveBookingsFetchedAt] = useState(() =>
-    readSessionNumber("rov_active_bookings_time", null),
-  );
-
-  const [serviceHistoryCache, setServiceHistoryCache] = useState(() =>
-    readSessionJson("rov_service_history", null),
-  );
-  const [serviceHistoryFetchedAt, setServiceHistoryFetchedAt] = useState(() =>
-    readSessionNumber("rov_service_history_time", null),
-  );
-
-  const [profileCache, setProfileCache] = useState(() =>
-    readSessionJson("rov_profile", null),
-  );
-  const [profileFetchedAt, setProfileFetchedAt] = useState(() =>
-    readSessionNumber("rov_profile_time", null),
-  );
-
-  const clearDashboardCache = () => {
-    setDashboardCache(null);
-    setDashboardFetchedAt(null);
-    removeSessionCache("rov_dashboard");
-    removeSessionCache("rov_dashboard_time");
-  };
-
-  const saveDashboardCache = (data, fetchedAt) => {
-    setDashboardCache(data);
-    setDashboardFetchedAt(fetchedAt);
-    setSessionCache("rov_dashboard", JSON.stringify(data));
-    setSessionCache("rov_dashboard_time", String(fetchedAt));
-  };
-
-  const clearServiceCategoriesCache = () => {
-    setServiceCategoriesCache(null);
-    setServiceCategoriesFetchedAt(null);
-    setServiceCategoriesCacheKey(null);
-    serviceCategoriesRequestRef.current = {
-      contextKey: null,
-      request: null,
-    };
-    localStorage.removeItem("rov_service_categories");
-    localStorage.removeItem("rov_service_categories_time");
-    localStorage.removeItem("rov_service_categories_context");
-  };
-
-  const saveServiceCategoriesCache = (data, fetchedAt, contextKey) => {
-    setServiceCategoriesCache(data);
-    setServiceCategoriesFetchedAt(fetchedAt);
-    setServiceCategoriesCacheKey(contextKey);
-    localStorage.setItem("rov_service_categories", JSON.stringify(data));
-    localStorage.setItem("rov_service_categories_time", String(fetchedAt));
-    localStorage.setItem("rov_service_categories_context", contextKey);
-  };
-
-  const clearVehicleMetaCache = () => {
-    setVehicleMetaCache(null);
-    setVehicleMetaFetchedAt(null);
-    localStorage.removeItem("rov_vehicle_meta");
-    localStorage.removeItem("rov_vehicle_meta_time");
-  };
-
-  const saveVehicleMetaCache = (data, fetchedAt) => {
-    setVehicleMetaCache(data);
-    setVehicleMetaFetchedAt(fetchedAt);
-    localStorage.setItem("rov_vehicle_meta", JSON.stringify(data));
-    localStorage.setItem("rov_vehicle_meta_time", String(fetchedAt));
-  };
-
-  const clearVehiclesCache = () => {
-    setVehiclesCache(null);
-    setVehiclesFetchedAt(null);
-    removeSessionCache("rov_vehicles_cache");
-    removeSessionCache("rov_vehicles_cache_time");
-  };
-
-  const saveVehiclesCache = (data, fetchedAt) => {
-    setVehiclesCache(data);
-    setVehiclesFetchedAt(fetchedAt);
-    setSessionCache("rov_vehicles_cache", JSON.stringify(data));
-    setSessionCache("rov_vehicles_cache_time", String(fetchedAt));
-  };
-
-  const clearActiveBookingsCache = () => {
-    setActiveBookingsCache(null);
-    setActiveBookingsFetchedAt(null);
-    removeSessionCache("rov_active_bookings");
-    removeSessionCache("rov_active_bookings_time");
-  };
-
-  const saveActiveBookingsCache = (data, fetchedAt) => {
-    setActiveBookingsCache(data);
-    setActiveBookingsFetchedAt(fetchedAt);
-    setSessionCache("rov_active_bookings", JSON.stringify(data));
-    setSessionCache("rov_active_bookings_time", String(fetchedAt));
-  };
-
-  const clearServiceHistoryCache = () => {
-    setServiceHistoryCache(null);
-    setServiceHistoryFetchedAt(null);
-    removeSessionCache("rov_service_history");
-    removeSessionCache("rov_service_history_time");
-  };
-
-  const saveServiceHistoryCache = (data, fetchedAt) => {
-    setServiceHistoryCache(data);
-    setServiceHistoryFetchedAt(fetchedAt);
-    setSessionCache("rov_service_history", JSON.stringify(data));
-    setSessionCache("rov_service_history_time", String(fetchedAt));
-  };
-
-  const clearProfileCache = () => {
-    setProfileCache(null);
-    setProfileFetchedAt(null);
-    removeSessionCache("rov_profile");
-    removeSessionCache("rov_profile_time");
-  };
-
-  const saveProfileCache = (data, fetchedAt) => {
-    setProfileCache(data);
-    setProfileFetchedAt(fetchedAt);
-    setSessionCache("rov_profile", JSON.stringify(data));
-    setSessionCache("rov_profile_time", String(fetchedAt));
-  };
-
-  const clearBookingCaches = () => {
-    clearDashboardCache();
-    clearActiveBookingsCache();
-    clearServiceHistoryCache();
-  };
+  const setCartContextKey = useCallback((value) => {
+    const nextValue =
+      typeof value === "function"
+        ? value(cartContextKeyRef.current)
+        : value;
+    const safeValue = String(nextValue || "");
+    cartContextKeyRef.current = safeValue;
+    dispatch(setBookingCartContext(safeValue));
+  }, [dispatch]);
 
   const clearCustomerSession = ({
     clearRole = true,
@@ -666,6 +482,7 @@ export function AppProvider({ children }) {
   const clearAllLocalSessions = () => {
     clearCustomerSession({ clearRole: false });
     clearGarageSession({ clearRole: false });
+    queryClient.clear();
     clearSessionRole();
   };
 
@@ -697,7 +514,6 @@ export function AppProvider({ children }) {
 
     dispatch(setCustomerVehicles(safeList));
 
-    localStorage.setItem("rov_vehicles", JSON.stringify(safeList));
     localStorage.setItem("rov_vehicle", JSON.stringify(selectedVehicle));
 
     return safeList;
@@ -765,6 +581,152 @@ export function AppProvider({ children }) {
     localStorage.setItem("rov_user", JSON.stringify(normalizedUser));
 
     return normalizedUser;
+  };
+
+  const customerScopeId = user?.role === "CUSTOMER" ? user.id : null;
+  const dashboardQueryKey = queryKeys.customer.dashboard(customerScopeId);
+  const vehiclesQueryKey = queryKeys.customer.vehicles(customerScopeId);
+  const activeBookingsQueryKey = queryKeys.customer.activeBookings(customerScopeId);
+  const serviceHistoryQueryKey = queryKeys.customer.serviceHistory(customerScopeId);
+  const profileQueryKey = queryKeys.customer.profile(customerScopeId);
+  const serviceCategoriesQueryKey = queryKeys.customer.serviceCategories({
+    userId: customerScopeId,
+    vehicleId: customerScopeId ? vehicle?.id : null,
+    city: customerScopeId ? location?.city : null,
+  });
+  const vehicleMetaQueryKey = queryKeys.customer.vehicleMeta;
+
+  const loadDashboardFromApi = async () => {
+    const response = await api.get("/dashboard/customer");
+    const data = response.data.data;
+
+    if (data?.user) {
+      syncUserData({
+        ...data.user,
+        vehicles: data.vehicles || data.user.vehicles || [],
+      });
+    }
+
+    if (Array.isArray(data?.vehicles)) {
+      syncVehicles(data.vehicles);
+      queryClient.setQueryData(vehiclesQueryKey, data.vehicles);
+    }
+
+    return data;
+  };
+
+  const loadVehiclesFromApi = async () => {
+    const response = await api.get("/vehicles");
+    const data = response.data.data || [];
+    syncVehicles(data);
+    return data;
+  };
+
+  const loadActiveBookingsFromApi = async () => {
+    const response = await api.get("/bookings", {
+      params: {
+        status:
+          "PENDING_VERIFICATION,SEARCHING_GARAGE,GARAGE_ASSIGNED,CONFIRMED,IN_PROGRESS",
+      },
+    });
+    return response.data.data || [];
+  };
+
+  const loadServiceHistoryFromApi = async () => {
+    const response = await api.get("/bookings", {
+      params: { status: "COMPLETED" },
+    });
+    return response.data.data || [];
+  };
+
+  const loadProfileFromApi = async () => {
+    const response = await api.get("/customer/profile");
+    const data = response.data.data;
+    syncUserData(data);
+    return data;
+  };
+
+  const loadServiceCategoriesFromApi = async () => {
+    const params = customerScopeId
+      ? {
+          ...(vehicle?.id && { vehicleId: vehicle.id }),
+          ...(location?.city && { city: location.city }),
+        }
+      : {};
+    const response = await api.get("/services/categories", { params });
+    return Array.isArray(response.data?.data) ? response.data.data : [];
+  };
+
+  const loadVehicleMetaFromApi = async () => {
+    const response = await api.get("/vehicle-meta/brands");
+    return response.data.data || [];
+  };
+
+  const dashboardQuery = useQuery({
+    queryKey: dashboardQueryKey,
+    queryFn: loadDashboardFromApi,
+    enabled: false,
+    staleTime: DASHBOARD_CACHE_TTL,
+  });
+  const vehiclesQuery = useQuery({
+    queryKey: vehiclesQueryKey,
+    queryFn: loadVehiclesFromApi,
+    enabled: false,
+    staleTime: VEHICLES_CACHE_TTL,
+  });
+  const activeBookingsQuery = useQuery({
+    queryKey: activeBookingsQueryKey,
+    queryFn: loadActiveBookingsFromApi,
+    enabled: false,
+    staleTime: ACTIVE_BOOKINGS_CACHE_TTL,
+  });
+  const serviceHistoryQuery = useQuery({
+    queryKey: serviceHistoryQueryKey,
+    queryFn: loadServiceHistoryFromApi,
+    enabled: false,
+    staleTime: SERVICE_HISTORY_CACHE_TTL,
+  });
+  const profileQuery = useQuery({
+    queryKey: profileQueryKey,
+    queryFn: loadProfileFromApi,
+    enabled: false,
+    staleTime: PROFILE_CACHE_TTL,
+  });
+  const serviceCategoriesQuery = useQuery({
+    queryKey: serviceCategoriesQueryKey,
+    queryFn: loadServiceCategoriesFromApi,
+    enabled: false,
+    staleTime: SERVICES_CACHE_TTL,
+  });
+  const vehicleMetaQuery = useQuery({
+    queryKey: vehicleMetaQueryKey,
+    queryFn: loadVehicleMetaFromApi,
+    enabled: false,
+    staleTime: VEHICLE_META_CACHE_TTL,
+  });
+
+  const clearDashboardCache = () =>
+    queryClient.removeQueries({ queryKey: queryKeys.customer.dashboard(customerScopeId) });
+  const clearVehiclesCache = () =>
+    queryClient.removeQueries({ queryKey: queryKeys.customer.vehicles(customerScopeId) });
+  const clearActiveBookingsCache = () =>
+    queryClient.removeQueries({ queryKey: queryKeys.customer.activeBookings(customerScopeId) });
+  const clearServiceHistoryCache = () =>
+    queryClient.removeQueries({ queryKey: queryKeys.customer.serviceHistory(customerScopeId) });
+  const clearProfileCache = () =>
+    queryClient.removeQueries({ queryKey: queryKeys.customer.profile(customerScopeId) });
+  const clearServiceCategoriesCache = () =>
+    queryClient.removeQueries({ queryKey: ["services", "categories"] });
+  const clearVehicleMetaCache = () =>
+    queryClient.removeQueries({ queryKey: vehicleMetaQueryKey });
+
+  const saveVehiclesCache = (data) =>
+    queryClient.setQueryData(vehiclesQueryKey, Array.isArray(data) ? data : []);
+
+  const clearBookingCaches = () => {
+    clearDashboardCache();
+    clearActiveBookingsCache();
+    clearServiceHistoryCache();
   };
 
   const login = (userData) => {
@@ -1009,296 +971,54 @@ export function AppProvider({ children }) {
     }
   };
 
-  const fetchDashboard = async ({ force = false } = {}) => {
-    const now = Date.now();
-
-    if (
-      !force &&
-      dashboardCache &&
-      dashboardFetchedAt &&
-      now - dashboardFetchedAt < DASHBOARD_CACHE_TTL
-    ) {
-      return dashboardCache;
-    }
-
-    if (dashboardRequestRef.current) {
-      if (!force) return dashboardRequestRef.current;
-      await dashboardRequestRef.current.catch(() => null);
-    }
-
-    let request;
-    request = (async () => {
-      const response = await api.get("/dashboard/customer");
-      const data = response.data.data;
-      const fetchedAt = Date.now();
-
-      saveDashboardCache(data, fetchedAt);
-
-      if (data.user) {
-        syncUserData({
-          ...data.user,
-          vehicles: data.vehicles || data.user.vehicles || [],
-        });
-      }
-
-      if (data.vehicles) {
-        syncVehicles(data.vehicles);
-        saveVehiclesCache(data.vehicles, fetchedAt);
-      }
-
-      return data;
-    })().finally(() => {
-      if (dashboardRequestRef.current === request) {
-        dashboardRequestRef.current = null;
-      }
+  const fetchDashboard = ({ force = false } = {}) =>
+    queryClient.fetchQuery({
+      queryKey: dashboardQueryKey,
+      queryFn: loadDashboardFromApi,
+      staleTime: force ? 0 : DASHBOARD_CACHE_TTL,
     });
 
-    dashboardRequestRef.current = request;
-    return request;
-  };
-
-  const fetchVehicles = async ({ force = false } = {}) => {
-    const now = Date.now();
-
-    if (
-      !force &&
-      vehiclesCache &&
-      vehiclesFetchedAt &&
-      now - vehiclesFetchedAt < VEHICLES_CACHE_TTL
-    ) {
-      syncVehicles(vehiclesCache);
-      return vehiclesCache;
-    }
-
-    if (vehiclesRequestRef.current) {
-      if (!force) return vehiclesRequestRef.current;
-      await vehiclesRequestRef.current.catch(() => null);
-    }
-
-    let request;
-    request = (async () => {
-      const response = await api.get("/vehicles");
-      const data = response.data.data || [];
-      const fetchedAt = Date.now();
-
-      saveVehiclesCache(data, fetchedAt);
-      syncVehicles(data);
-
-      return data;
-    })().finally(() => {
-      if (vehiclesRequestRef.current === request) {
-        vehiclesRequestRef.current = null;
-      }
+  const fetchVehicles = ({ force = false } = {}) =>
+    queryClient.fetchQuery({
+      queryKey: vehiclesQueryKey,
+      queryFn: loadVehiclesFromApi,
+      staleTime: force ? 0 : VEHICLES_CACHE_TTL,
     });
 
-    vehiclesRequestRef.current = request;
-    return request;
-  };
-
-  const fetchActiveBookings = async ({ force = false } = {}) => {
-    const now = Date.now();
-
-    if (
-      !force &&
-      activeBookingsCache &&
-      activeBookingsFetchedAt &&
-      now - activeBookingsFetchedAt < ACTIVE_BOOKINGS_CACHE_TTL
-    ) {
-      return activeBookingsCache;
-    }
-
-    if (activeBookingsRequestRef.current) {
-      if (!force) return activeBookingsRequestRef.current;
-      await activeBookingsRequestRef.current.catch(() => null);
-    }
-
-    let request;
-    request = (async () => {
-      const response = await api.get("/bookings", {
-        params: {
-          status:
-            "PENDING_VERIFICATION,SEARCHING_GARAGE,GARAGE_ASSIGNED,CONFIRMED,IN_PROGRESS",
-        },
-      });
-
-      const data = response.data.data || [];
-      const fetchedAt = Date.now();
-
-      saveActiveBookingsCache(data, fetchedAt);
-
-      return data;
-    })().finally(() => {
-      if (activeBookingsRequestRef.current === request) {
-        activeBookingsRequestRef.current = null;
-      }
+  const fetchActiveBookings = ({ force = false } = {}) =>
+    queryClient.fetchQuery({
+      queryKey: activeBookingsQueryKey,
+      queryFn: loadActiveBookingsFromApi,
+      staleTime: force ? 0 : ACTIVE_BOOKINGS_CACHE_TTL,
     });
 
-    activeBookingsRequestRef.current = request;
-    return request;
-  };
-
-  const fetchServiceHistory = async ({ force = false } = {}) => {
-    const now = Date.now();
-
-    if (
-      !force &&
-      serviceHistoryCache &&
-      serviceHistoryFetchedAt &&
-      now - serviceHistoryFetchedAt < SERVICE_HISTORY_CACHE_TTL
-    ) {
-      return serviceHistoryCache;
-    }
-
-    if (serviceHistoryRequestRef.current) {
-      if (!force) return serviceHistoryRequestRef.current;
-      await serviceHistoryRequestRef.current.catch(() => null);
-    }
-
-    let request;
-    request = (async () => {
-      const response = await api.get("/bookings", {
-        params: {
-          status: "COMPLETED",
-        },
-      });
-
-      const data = response.data.data || [];
-      const fetchedAt = Date.now();
-
-      saveServiceHistoryCache(data, fetchedAt);
-
-      return data;
-    })().finally(() => {
-      if (serviceHistoryRequestRef.current === request) {
-        serviceHistoryRequestRef.current = null;
-      }
+  const fetchServiceHistory = ({ force = false } = {}) =>
+    queryClient.fetchQuery({
+      queryKey: serviceHistoryQueryKey,
+      queryFn: loadServiceHistoryFromApi,
+      staleTime: force ? 0 : SERVICE_HISTORY_CACHE_TTL,
     });
 
-    serviceHistoryRequestRef.current = request;
-    return request;
-  };
-
-  const fetchProfile = async ({ force = false } = {}) => {
-    const now = Date.now();
-
-    if (
-      !force &&
-      profileCache &&
-      profileFetchedAt &&
-      now - profileFetchedAt < PROFILE_CACHE_TTL
-    ) {
-      return profileCache;
-    }
-
-    if (profileRequestRef.current) {
-      return profileRequestRef.current;
-    }
-
-    let request;
-    request = (async () => {
-      const response = await api.get("/customer/profile");
-      const data = response.data.data;
-      const fetchedAt = Date.now();
-
-      saveProfileCache(data, fetchedAt);
-      syncUserData(data);
-
-      return data;
-    })().finally(() => {
-      if (profileRequestRef.current === request) {
-        profileRequestRef.current = null;
-      }
+  const fetchProfile = ({ force = false } = {}) =>
+    queryClient.fetchQuery({
+      queryKey: profileQueryKey,
+      queryFn: loadProfileFromApi,
+      staleTime: force ? 0 : PROFILE_CACHE_TTL,
     });
 
-    profileRequestRef.current = request;
-    return request;
-  };
+  const fetchServiceCategories = ({ force = false } = {}) =>
+    queryClient.fetchQuery({
+      queryKey: serviceCategoriesQueryKey,
+      queryFn: loadServiceCategoriesFromApi,
+      staleTime: force ? 0 : SERVICES_CACHE_TTL,
+    });
 
-  const fetchServiceCategories = async ({ force = false } = {}) => {
-    const now = Date.now();
-    const contextKey = getServiceCategoriesContextKey(
-      user,
-      vehicle,
-      location,
-    );
-
-    const params = user
-      ? {
-          ...(vehicle?.id && { vehicleId: vehicle.id }),
-          ...(location?.city && { city: location.city }),
-        }
-      : {};
-
-    const hasFreshMatchingCache = Boolean(
-      !force &&
-        Array.isArray(serviceCategoriesCache) &&
-        serviceCategoriesCacheKey === contextKey &&
-        serviceCategoriesFetchedAt &&
-        now - serviceCategoriesFetchedAt < SERVICES_CACHE_TTL,
-    );
-
-    if (hasFreshMatchingCache) {
-      return serviceCategoriesCache;
-    }
-
-    if (
-      !force &&
-      serviceCategoriesRequestRef.current.contextKey === contextKey &&
-      serviceCategoriesRequestRef.current.request
-    ) {
-      return serviceCategoriesRequestRef.current.request;
-    }
-
-    let request;
-
-    request = api
-      .get("/services/categories", { params })
-      .then((response) => {
-        const data = Array.isArray(response.data?.data)
-          ? response.data.data
-          : [];
-        const fetchedAt = Date.now();
-
-        saveServiceCategoriesCache(data, fetchedAt, contextKey);
-        return data;
-      })
-      .finally(() => {
-        if (serviceCategoriesRequestRef.current.request === request) {
-          serviceCategoriesRequestRef.current = {
-            contextKey: null,
-            request: null,
-          };
-        }
-      });
-
-    serviceCategoriesRequestRef.current = {
-      contextKey,
-      request,
-    };
-
-    return request;
-  };
-
-  const fetchVehicleMeta = async ({ force = false } = {}) => {
-    const now = Date.now();
-
-    if (
-      !force &&
-      vehicleMetaCache &&
-      vehicleMetaFetchedAt &&
-      now - vehicleMetaFetchedAt < VEHICLE_META_CACHE_TTL
-    ) {
-      return vehicleMetaCache;
-    }
-
-    const response = await api.get("/vehicle-meta/brands");
-    const data = response.data.data || [];
-    const fetchedAt = Date.now();
-
-    saveVehicleMetaCache(data, fetchedAt);
-
-    return data;
-  };
+  const fetchVehicleMeta = ({ force = false } = {}) =>
+    queryClient.fetchQuery({
+      queryKey: vehicleMetaQueryKey,
+      queryFn: loadVehicleMetaFromApi,
+      staleTime: force ? 0 : VEHICLE_META_CACHE_TTL,
+    });
 
   const preloadCustomerData = ({
     force = false,
@@ -1621,12 +1341,6 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (user?.role === "CUSTOMER") {
-      localStorage.setItem("rov_vehicles", JSON.stringify(vehicles));
-    }
-  }, [user?.role, vehicles]);
-
-  useEffect(() => {
-    if (user?.role === "CUSTOMER") {
       localStorage.setItem("rov_location", JSON.stringify(location));
     }
   }, [user?.role, location]);
@@ -1736,15 +1450,6 @@ export function AppProvider({ children }) {
     preservedHydrationContextKeysRef.current.clear();
   };
 
-  const currentServiceCategoriesContextKey =
-    getServiceCategoriesContextKey(user, vehicle, location);
-  const hasFreshServiceCategoriesCache = Boolean(
-    Array.isArray(serviceCategoriesCache) &&
-      serviceCategoriesCacheKey === currentServiceCategoriesContextKey &&
-      serviceCategoriesFetchedAt &&
-      Date.now() - serviceCategoriesFetchedAt < SERVICES_CACHE_TTL,
-  );
-
   const value = {
     user,
     garage: garageUser,
@@ -1758,45 +1463,26 @@ export function AppProvider({ children }) {
     isAuthenticated: Boolean(user),
     isGarageAuthenticated: Boolean(garageUser),
 
-    dashboardCache,
-    dashboardFetchedAt,
-    serviceCategoriesCache: hasFreshServiceCategoriesCache
-      ? serviceCategoriesCache
-      : null,
-    serviceCategoriesFetchedAt: hasFreshServiceCategoriesCache
-      ? serviceCategoriesFetchedAt
-      : null,
-    vehicleMetaCache,
-    vehicleMetaFetchedAt,
-    vehiclesCache,
-    vehiclesFetchedAt,
-    activeBookingsCache,
-    activeBookingsFetchedAt,
-    serviceHistoryCache,
-    serviceHistoryFetchedAt,
-    profileCache,
-    profileFetchedAt,
+    dashboardCache: dashboardQuery.data ?? null,
+    dashboardFetchedAt: dashboardQuery.dataUpdatedAt || null,
+    serviceCategoriesCache: serviceCategoriesQuery.data ?? null,
+    serviceCategoriesFetchedAt: serviceCategoriesQuery.dataUpdatedAt || null,
+    vehicleMetaCache: vehicleMetaQuery.data ?? null,
+    vehicleMetaFetchedAt: vehicleMetaQuery.dataUpdatedAt || null,
+    vehiclesCache: vehiclesQuery.data ?? null,
+    vehiclesFetchedAt: vehiclesQuery.dataUpdatedAt || null,
+    activeBookingsCache: activeBookingsQuery.data ?? null,
+    activeBookingsFetchedAt: activeBookingsQuery.dataUpdatedAt || null,
+    serviceHistoryCache: serviceHistoryQuery.data ?? null,
+    serviceHistoryFetchedAt: serviceHistoryQuery.dataUpdatedAt || null,
+    profileCache: profileQuery.data ?? null,
+    profileFetchedAt: profileQuery.dataUpdatedAt || null,
 
     setUser,
     setVehicle,
     setVehicles,
     setCart,
     setLocation,
-
-    setDashboardCache,
-    setDashboardFetchedAt,
-    setServiceCategoriesCache,
-    setServiceCategoriesFetchedAt,
-    setVehicleMetaCache,
-    setVehicleMetaFetchedAt,
-    setVehiclesCache,
-    setVehiclesFetchedAt,
-    setActiveBookingsCache,
-    setActiveBookingsFetchedAt,
-    setServiceHistoryCache,
-    setServiceHistoryFetchedAt,
-    setProfileCache,
-    setProfileFetchedAt,
 
     login,
     logout,
