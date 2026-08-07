@@ -25,6 +25,7 @@ model User {
   termsAcceptedAt       DateTime?
   privacyAcceptedAt     DateTime?
   firstBookingOfferConsumedAt DateTime?
+  vehicleRegistrationRequired Boolean                @default(false)
   bookings              Booking[]
   complaints            Complaint[]
   locations             CustomerLocation[]
@@ -456,14 +457,25 @@ model Vehicle {
   model              String
   year               Int
   fuelType           FuelType
-  registrationNumber String?
-  isDefault          Boolean   @default(false)
+  registrationNumber                String?
+  registrationVerified              Boolean   @default(false)
+  registrationVerifiedAt            DateTime?
+  registrationVerificationProvider  String?
+  rcOwnerNameMasked                  String?
+  rcMaker                            String?
+  rcModel                            String?
+  rcFuelType                         String?
+  rcVehicleClass                     String?
+  rcStatus                           String?
+  isDefault                         Boolean   @default(false)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   bookings           Booking[]
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([registrationNumber])
+  @@index([registrationVerified])
 }
 
 model CustomerLocation {

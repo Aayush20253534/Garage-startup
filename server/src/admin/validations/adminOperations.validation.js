@@ -152,6 +152,26 @@ const customerQuerySchema = [
     .isBoolean(),
 ];
 
+
+const vehicleQuerySchema = [
+  query("search")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage("Search cannot exceed 120 characters"),
+  query("verificationStatus")
+    .optional({ nullable: true, checkFalsy: true })
+    .isIn(["VERIFIED", "UNVERIFIED", "MISSING"]),
+  query("page")
+    .optional({ nullable: true, checkFalsy: true })
+    .isInt({ min: 1, max: 100000 })
+    .toInt(),
+  query("limit")
+    .optional({ nullable: true, checkFalsy: true })
+    .isInt({ min: 1, max: 100 })
+    .toInt(),
+];
+
 const bookingQuerySchema = [
   query("search")
     .optional({ nullable: true, checkFalsy: true })
@@ -308,6 +328,7 @@ module.exports = {
   manualBookingOverrideSchema,
   customerIdParamSchema,
   customerQuerySchema,
+  vehicleQuerySchema,
   deleteCustomersSchema,
   updateCustomerStatusSchema,
   reassignBookingGarageSchema,

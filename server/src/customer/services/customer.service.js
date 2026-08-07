@@ -12,6 +12,13 @@ const {
   uploadToCloudinary,
   deleteFromCloudinary,
 } = require("../../utils/cloudinaryUpload");
+const {
+  normalizeRegistrationNumber,
+  getRegistrationRequirement,
+  getVerifiedRegistrationData,
+  toVehicleVerificationFields,
+  clearedVehicleVerificationFields,
+} = require("./vehicleRegistration.service");
 
 const PROFILE_CACHE_TTL = 5 * 60;
 const AVATAR_MAX_BYTES = 7 * 1024 * 1024;
@@ -49,6 +56,27 @@ const completeOnboarding = async (userId, { vehicle, location }) => {
     throw new ApiError(403, "Please verify email before onboarding");
   }
 
+  const registrationRequired = await getRegistrationRequirement(prisma, userId);
+  const registrationNumber = normalizeRegistrationNumber(vehicle.registrationNumber);
+  if (registrationRequired && !registrationNumber) {
+    throw new ApiError(
+      400,
+      "Registration number verification is required for your vehicle",
+    );
+  }
+
+  const registrationVerification = registrationNumber
+    ? await getVerifiedRegistrationData({
+        registrationNumber,
+        brand: vehicle.brand,
+        model: vehicle.model,
+        fuelType: vehicle.fuelType,
+      })
+    : null;
+  const registrationFields = registrationVerification
+    ? toVehicleVerificationFields(registrationVerification)
+    : clearedVehicleVerificationFields();
+
   const locationCity = await cityService.requireActiveCityFromLocation(location);
   const locationAddress = cityService.ensureAddressContainsCity(
     location.address || location.city || "",
@@ -73,7 +101,8 @@ const completeOnboarding = async (userId, { vehicle, location }) => {
         model: vehicle.model,
         year: Number(vehicle.year),
         fuelType: vehicle.fuelType,
-        registrationNumber: vehicle.registrationNumber || null,
+        registrationNumber: registrationNumber || null,
+        ...registrationFields,
         isDefault: true,
       },
     });
@@ -114,6 +143,7 @@ const completeOnboarding = async (userId, { vehicle, location }) => {
         role: true,
         isEmailVerified: true,
         isOnboarded: true,
+        vehicleRegistrationRequired: true,
       },
     });
 
@@ -147,6 +177,7 @@ const getProfile = async (userId) => {
       isPhoneVerified: true,
       isOnboarded: true,
       isActive: true,
+      vehicleRegistrationRequired: true,
 
       customerProfile: true,
 
@@ -229,6 +260,7 @@ const updateProfile = async (userId, data) => {
         isPhoneVerified: true,
         isOnboarded: true,
         isActive: true,
+        vehicleRegistrationRequired: true,
         createdAt: true,
         updatedAt: true,
       },

@@ -80,6 +80,16 @@ const validateEnvironment = () => {
 
   requireOneOf(["EMAIL_FROM", "RESEND_FROM_EMAIL"]);
   requireOneOf(["CLIENT_URL", "FRONTEND_URL"]);
+
+  const vehicleRegistrationVerificationEnabled =
+    clean(process.env.VEHICLE_REGISTRATION_VERIFICATION_ENABLED || "true")
+      .toLowerCase() !== "false";
+  if (!vehicleRegistrationVerificationEnabled) {
+    throw new Error(
+      "VEHICLE_REGISTRATION_VERIFICATION_ENABLED cannot be disabled in production",
+    );
+  }
+  requireVariables(["WAY2API_API_KEY"]);
   requireEmail("ADMIN_2FA_EMAIL");
 
   requireHttpsUrl("CASHFREE_NOTIFY_URL");

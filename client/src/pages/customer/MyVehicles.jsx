@@ -3,10 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import SafeImage from "@/components/common/SafeImage";
+import RegistrationVerificationField from "@/components/vehicle/RegistrationVerificationField";
 import { getOptimizedImageUrl } from "@/utils/imageCache";
 import {
   FiAlertCircle,
   FiCheckCircle,
+  FiEdit3,
   FiPlus,
   FiRefreshCw,
   FiTrash2,
@@ -27,6 +29,7 @@ const getVehicleTitle = (savedVehicle) =>
 
 export default function MyVehicles() {
   const {
+    user,
     vehicles,
     vehicle,
     setVehicle,
@@ -45,7 +48,12 @@ export default function MyVehicles() {
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const [defaultLoadingId, setDefaultLoadingId] = useState(null);
+  const [editingVehicleId, setEditingVehicleId] = useState(null);
+  const [editRegistrationNumber, setEditRegistrationNumber] = useState("");
+  const [editRegistrationVerified, setEditRegistrationVerified] = useState(false);
+  const [savingRegistrationId, setSavingRegistrationId] = useState(null);
 
+  const registrationRequired = user?.vehicleRegistrationRequired === true;
   const safeVehicles = Array.isArray(vehicles) ? vehicles : [];
   const modelImageByVehicle = useMemo(() => {
     const catalog = Array.isArray(vehicleMetaCache) ? vehicleMetaCache : [];
@@ -148,6 +156,47 @@ export default function MyVehicles() {
       setError(err.response?.data?.message || "Failed to delete vehicle");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const startRegistrationEdit = (savedVehicle) => {
+    setEditingVehicleId(savedVehicle.id);
+    setEditRegistrationNumber(savedVehicle.registrationNumber || "");
+    setEditRegistrationVerified(savedVehicle.registrationVerified === true);
+    setError("");
+  };
+
+  const cancelRegistrationEdit = () => {
+    setEditingVehicleId(null);
+    setEditRegistrationNumber("");
+    setEditRegistrationVerified(false);
+  };
+
+  const saveRegistration = async (savedVehicle) => {
+    const hasRegistrationNumber = Boolean(editRegistrationNumber.trim());
+    if (registrationRequired && !hasRegistrationNumber) {
+      setError("Registration number verification is required for your account");
+      return;
+    }
+    if (hasRegistrationNumber && !editRegistrationVerified) {
+      setError("Verify the registration number before saving it");
+      return;
+    }
+
+    try {
+      setSavingRegistrationId(savedVehicle.id);
+      setError("");
+      await api.patch(`/vehicles/${savedVehicle.id}`, {
+        registrationNumber: editRegistrationNumber.trim() || null,
+      });
+      clearVehiclesCache?.();
+      clearDashboardCache?.();
+      await loadVehicles({ force: true });
+      cancelRegistrationEdit();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update registration number");
+    } finally {
+      setSavingRegistrationId(null);
     }
   };
 
@@ -272,6 +321,21 @@ export default function MyVehicles() {
                       >
                         {savedVehicle.registrationNumber || "Not provided"}
                       </div>
+                      <div className={`text-[10px] font-bold uppercase tracking-wide ${
+                        savedVehicle.registrationVerified
+                          ? "text-green-700"
+                          : savedVehicle.registrationNumber
+                            ? "text-amber-700"
+                            : "text-muted"
+                      }`}>
+                        {savedVehicle.registrationVerified
+                          ? "RC verified"
+                          : savedVehicle.registrationNumber
+                            ? "Not verified"
+                            : registrationRequired
+                              ? "Verification required"
+                              : "Registration optional"}
+                      </div>
                     </div>
 
                     <div className="mt-3 hidden min-w-0 grid-cols-2 gap-2 sm:grid">
@@ -300,6 +364,21 @@ export default function MyVehicles() {
                       </div>
                       <div className="mt-1 min-w-0 break-all text-sm font-semibold text-ink">
                         {savedVehicle.registrationNumber || "Not provided"}
+                      </div>
+                      <div className={`mt-1 text-[11px] font-bold uppercase tracking-wide ${
+                        savedVehicle.registrationVerified
+                          ? "text-green-700"
+                          : savedVehicle.registrationNumber
+                            ? "text-amber-700"
+                            : "text-muted"
+                      }`}>
+                        {savedVehicle.registrationVerified
+                          ? "RC verified"
+                          : savedVehicle.registrationNumber
+                            ? "Not verified"
+                            : registrationRequired
+                              ? "Verification required"
+                              : "Optional for your account"}
                       </div>
                     </div>
                   </div>
@@ -343,6 +422,52 @@ export default function MyVehicles() {
                     </span>
                   </button>
                 </div>
+
+                {editingVehicleId === savedVehicle.id ? (
+                  <div className="mt-3 rounded-xl border border-line bg-white p-3 sm:p-4">
+                    <RegistrationVerificationField
+                      value={editRegistrationNumber}
+                      onChange={setEditRegistrationNumber}
+                      brand={savedVehicle.brand}
+                      model={savedVehicle.model}
+                      fuelType={savedVehicle.fuelType}
+                      required={registrationRequired}
+                      initiallyVerified={savedVehicle.registrationVerified === true}
+                      onVerificationChange={setEditRegistrationVerified}
+                    />
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={cancelRegistrationEdit}
+                        disabled={savingRegistrationId === savedVehicle.id}
+                        className="h-9 rounded-lg border border-line text-xs font-bold text-ink transition hover:border-ink disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => saveRegistration(savedVehicle)}
+                        disabled={savingRegistrationId === savedVehicle.id}
+                        className="h-9 rounded-lg bg-ink text-xs font-bold text-white transition hover:bg-ink/90 disabled:opacity-50"
+                      >
+                        {savingRegistrationId === savedVehicle.id ? "Saving..." : "Save registration"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => startRegistrationEdit(savedVehicle)}
+                    className="mt-2 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
+                  >
+                    <FiEdit3 />
+                    {savedVehicle.registrationNumber
+                      ? savedVehicle.registrationVerified
+                        ? "Update registration"
+                        : "Verify registration"
+                      : "Add registration number"}
+                  </button>
+                )}
               </article>
             );
           })}

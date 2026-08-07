@@ -5,6 +5,7 @@ import { FUEL_TYPES } from "@/data/vehicles";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import SafeImage from "@/components/common/SafeImage";
+import RegistrationVerificationField from "@/components/vehicle/RegistrationVerificationField";
 import { getOptimizedImageUrl } from "@/utils/imageCache";
 import {
   FiAlertCircle,
@@ -47,6 +48,7 @@ export default function VehicleSelect() {
   const detailsSectionRef = useRef(null);
 
   const {
+    user,
     vehicle,
     vehicles,
     setVehicle,
@@ -63,6 +65,7 @@ export default function VehicleSelect() {
   const [fuel, setFuel] = useState(null);
   const [year, setYear] = useState(new Date().getFullYear());
   const [registrationNumber, setRegistrationNumber] = useState("");
+  const [registrationVerified, setRegistrationVerified] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [brandLoading, setBrandLoading] = useState(false);
@@ -77,6 +80,7 @@ export default function VehicleSelect() {
   const selectedActiveBooking = vehicle?.id
     ? activeBookingsByVehicleId[vehicle.id]
     : null;
+  const registrationRequired = user?.vehicleRegistrationRequired === true;
 
   const syncVehicleState = (list = []) => {
     const safeList = Array.isArray(list) ? list : [];
@@ -297,6 +301,17 @@ export default function VehicleSelect() {
       setVehicle?.(nextVehicle);
     }
 
+    if (
+      registrationRequired &&
+      nextVehicle &&
+      (!nextVehicle.registrationNumber || !nextVehicle.registrationVerified)
+    ) {
+      setError(
+        "Verify this vehicle's registration number from My Vehicles before booking a service.",
+      );
+      return;
+    }
+
     const blockingBooking = nextVehicle?.id
       ? activeBookingsByVehicleId[nextVehicle.id]
       : selectedActiveBooking;
@@ -316,6 +331,16 @@ export default function VehicleSelect() {
   const confirm = async () => {
     if (!brand || !model || !fuel || !year) {
       setError("Please select brand, model, fuel type, and year");
+      return;
+    }
+
+    const hasRegistrationNumber = Boolean(registrationNumber.trim());
+    if (registrationRequired && !hasRegistrationNumber) {
+      setError("Registration number verification is required for your account");
+      return;
+    }
+    if (hasRegistrationNumber && !registrationVerified) {
+      setError("Verify the registration number before continuing");
       return;
     }
 
@@ -464,6 +489,11 @@ export default function VehicleSelect() {
                       <div className="mt-1 text-xs text-muted">
                         Year: {item.year || "-"}
                       </div>
+                      {item.registrationVerified && (
+                        <div className="mt-1 text-[11px] font-bold text-green-700">
+                          RC verified
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -697,20 +727,15 @@ export default function VehicleSelect() {
                     />
                   </label>
 
-                  <label className="grid gap-1.5 text-sm font-semibold text-ink">
-                    Registration Number{" "}
-                    <span className="text-xs font-normal text-muted">
-                      optional
-                    </span>
-                    <input
-                      value={registrationNumber}
-                      onChange={(event) =>
-                        setRegistrationNumber(event.target.value.toUpperCase())
-                      }
-                      placeholder="DL 3C AB 1234"
-                      className={inputClass}
-                    />
-                  </label>
+                  <RegistrationVerificationField
+                    value={registrationNumber}
+                    onChange={setRegistrationNumber}
+                    brand={brand?.name}
+                    model={model?.name}
+                    fuelType={fuel?.value}
+                    required={registrationRequired}
+                    onVerificationChange={setRegistrationVerified}
+                  />
                 </div>
                 </Block>
               </div>
@@ -749,6 +774,7 @@ export default function VehicleSelect() {
                     <div className="text-sm text-muted">
                       {fuel.label} · {year}
                       {registrationNumber ? ` · ${registrationNumber}` : ""}
+                      {registrationVerified ? " · RC verified" : ""}
                     </div>
                   </div>
 

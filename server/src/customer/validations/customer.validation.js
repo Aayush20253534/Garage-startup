@@ -1,4 +1,8 @@
 const { body } = require("express-validator");
+const {
+  normalizeRegistrationNumber,
+  isValidRegistrationNumber,
+} = require("../../utils/vehicleRegistration");
 
 const onboardingValidation = [
   body("vehicle.brand")
@@ -26,7 +30,9 @@ const onboardingValidation = [
 
   body("vehicle.registrationNumber")
     .optional({ nullable: true, checkFalsy: true })
-    .trim(),
+    .customSanitizer(normalizeRegistrationNumber)
+    .custom((value) => isValidRegistrationNumber(value))
+    .withMessage("Enter a valid registration number using 5 to 11 letters and numbers"),
 
   body("location.latitude")
     .notEmpty()

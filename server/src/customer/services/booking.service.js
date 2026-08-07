@@ -246,10 +246,25 @@ const createBooking = async (userId, data) => {
       id: vehicleId,
       userId,
     },
+    include: {
+      user: {
+        select: { vehicleRegistrationRequired: true },
+      },
+    },
   });
 
   if (!vehicle) {
     throw new ApiError(404, "Vehicle not found");
+  }
+
+  if (
+    vehicle.user?.vehicleRegistrationRequired === true &&
+    (!vehicle.registrationNumber || !vehicle.registrationVerified)
+  ) {
+    throw new ApiError(
+      409,
+      "Verify this vehicle's registration number before booking a service",
+    );
   }
 
   await ensureVehicleHasNoActiveBooking(userId, vehicleId);

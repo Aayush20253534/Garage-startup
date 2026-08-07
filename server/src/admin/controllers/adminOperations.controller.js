@@ -9,6 +9,14 @@ const listCustomers = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Customers fetched successfully", customers));
 });
 
+
+const listVehicles = asyncHandler(async (req, res) => {
+  const vehicles = await service.listVehicles(req.query);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Vehicles fetched successfully", vehicles));
+});
+
 const deleteCustomers = asyncHandler(async (req, res) => {
   const result = await service.deleteCustomers({
     customerIds: req.body.customerIds,
@@ -206,6 +214,7 @@ module.exports = {
   getOperationsDashboard,
   listBookings,
   listCustomers,
+  listVehicles,
   listPayments,
   manualOverrideBooking,
   searchWalletTransferRecipients,

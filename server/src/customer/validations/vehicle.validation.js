@@ -1,8 +1,19 @@
 const { body, param } = require("express-validator");
+const {
+  normalizeRegistrationNumber,
+  isValidRegistrationNumber,
+} = require("../../utils/vehicleRegistration");
 
 const vehicleIdValidation = [
   param("id").isUUID().withMessage("Invalid vehicle ID"),
 ];
+
+const optionalRegistrationValidation = () =>
+  body("registrationNumber")
+    .optional({ nullable: true, checkFalsy: true })
+    .customSanitizer(normalizeRegistrationNumber)
+    .custom((value) => isValidRegistrationNumber(value))
+    .withMessage("Enter a valid registration number using 5 to 11 letters and numbers");
 
 const createVehicleValidation = [
   body("brand")
@@ -28,9 +39,7 @@ const createVehicleValidation = [
     .isIn(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"])
     .withMessage("Invalid fuel type"),
 
-  body("registrationNumber")
-    .optional({ nullable: true, checkFalsy: true })
-    .trim(),
+  optionalRegistrationValidation(),
 
   body("isDefault")
     .optional()
@@ -64,9 +73,7 @@ const updateVehicleValidation = [
     .isIn(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"])
     .withMessage("Invalid fuel type"),
 
-  body("registrationNumber")
-    .optional({ nullable: true, checkFalsy: true })
-    .trim(),
+  optionalRegistrationValidation(),
 
   body("isDefault")
     .optional()
@@ -74,8 +81,24 @@ const updateVehicleValidation = [
     .withMessage("isDefault must be true or false"),
 ];
 
+const verifyRegistrationValidation = [
+  body("registrationNumber")
+    .notEmpty()
+    .withMessage("Registration number is required")
+    .customSanitizer(normalizeRegistrationNumber)
+    .custom((value) => isValidRegistrationNumber(value))
+    .withMessage("Enter a valid registration number using 5 to 11 letters and numbers"),
+  body("brand").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 120 }),
+  body("model").optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 160 }),
+  body("fuelType")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isIn(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"]),
+];
+
 module.exports = {
   vehicleIdValidation,
   createVehicleValidation,
   updateVehicleValidation,
+  verifyRegistrationValidation,
 };

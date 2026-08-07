@@ -146,6 +146,7 @@ const toSafeUser = (user) => ({
   isEmailVerified: user.isEmailVerified,
   isPhoneVerified: user.isPhoneVerified,
   isOnboarded: user.isOnboarded,
+  vehicleRegistrationRequired: user.vehicleRegistrationRequired === true,
   mustChangePassword: false,
 });
 
@@ -218,6 +219,7 @@ const getAuthUserById = async (userId) => {
       isPhoneVerified: true,
       isOnboarded: true,
       isActive: true,
+      vehicleRegistrationRequired: true,
       passwordChangedAt: true,
       customerProfile: true,
       vehicles: {
@@ -591,6 +593,7 @@ const verifyOtp = async (
         isEmailVerified: true,
         isPhoneVerified: false,
         authProvider: "PASSWORD",
+        vehicleRegistrationRequired: pendingSignup.role === "CUSTOMER",
         termsAcceptedAt: pendingSignup.termsAcceptedAt,
         privacyAcceptedAt: pendingSignup.privacyAcceptedAt,
         ...(pendingSignup.role === "CUSTOMER" && {
@@ -1029,6 +1032,7 @@ const googleAuth = async (
         isEmailVerified: true,
         isPhoneVerified: false,
         authProvider: "GOOGLE",
+        vehicleRegistrationRequired: userRole === "CUSTOMER",
         firebaseUid,
         termsAcceptedAt: new Date(),
         privacyAcceptedAt: new Date(),

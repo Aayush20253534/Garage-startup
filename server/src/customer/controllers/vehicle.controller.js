@@ -10,6 +10,18 @@ const createVehicle = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Vehicle created successfully", vehicle));
 });
 
+
+const verifyVehicleRegistration = asyncHandler(async (req, res) => {
+  const verification = await vehicleService.verifyVehicleRegistration(
+    req.user.id,
+    req.body,
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Registration verification completed", verification));
+});
+
 const getMyVehicles = asyncHandler(async (req, res) => {
   const vehicles = await vehicleService.getMyVehicles(req.user.id);
 
@@ -62,6 +74,7 @@ const setDefaultVehicle = asyncHandler(async (req, res) => {
 
 module.exports = {
   createVehicle,
+  verifyVehicleRegistration,
   getMyVehicles,
   getVehicleById,
   updateVehicle,

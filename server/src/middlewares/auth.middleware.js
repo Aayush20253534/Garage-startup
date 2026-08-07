@@ -184,6 +184,7 @@ const getActiveAccount = async (accountId, accountType, role = null) => {
         isEmailVerified: true,
         isPhoneVerified: true,
         isOnboarded: true,
+        vehicleRegistrationRequired: true,
         createdAt: true,
         passwordChangedAt: true,
       },

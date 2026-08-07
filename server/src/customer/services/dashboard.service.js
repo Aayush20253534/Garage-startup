@@ -123,6 +123,7 @@ const getCustomerDashboard = async (userId) => {
           isPhoneVerified: true,
           isOnboarded: true,
           isActive: true,
+          vehicleRegistrationRequired: true,
           customerProfile: true,
           vehicles: {
             orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],

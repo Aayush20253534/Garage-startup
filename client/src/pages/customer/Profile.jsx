@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useApp } from "@/hooks/useApp";
 import api from "@/api/axios";
 import CitySelect from "@/components/common/CitySelect";
@@ -23,6 +24,7 @@ import {
   FiMapPin,
   FiNavigation,
   FiSave,
+  FiTruck,
   FiX,
 } from "react-icons/fi";
 
@@ -742,6 +744,30 @@ export default function Profile() {
           {saving ? "Saving..." : "Save Changes"}
         </button>
       </form>
+
+      <section className="card-soft mt-4 grid gap-4 p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-ink">
+            <FiTruck />
+          </span>
+          <div className="min-w-0">
+            <h3 className="font-bold text-ink">Vehicle registration</h3>
+            <p className="mt-1 text-sm leading-6 text-muted">
+              {user?.vehicleRegistrationRequired
+                ? "Registration verification is required for vehicles on this account before booking."
+                : "Your existing account can keep using saved vehicles without a registration number. You can add and RC-verify one whenever you choose."}
+            </p>
+          </div>
+        </div>
+
+        <Link
+          to="/dashboard/vehicles"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-bold text-ink transition hover:border-ink hover:bg-bg-soft sm:w-fit"
+        >
+          <FiCheckCircle />
+          Manage vehicle registration
+        </Link>
+      </section>
 
       {locationOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4 py-6">

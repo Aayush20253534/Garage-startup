@@ -164,6 +164,79 @@ const listCustomers = async (query = {}) => {
   return attachCustomerSessionStatus(customers);
 };
 
+const listVehicles = async (query = {}) => {
+  const page = Math.max(1, Number(query.page || 1));
+  const limit = Math.min(100, Math.max(1, Number(query.limit || 40)));
+  const search = String(query.search || "").trim();
+  const verificationStatus = String(query.verificationStatus || "").trim();
+
+  const where = {
+    ...(search && {
+      OR: [
+        { registrationNumber: { contains: search, mode: "insensitive" } },
+        { brand: { contains: search, mode: "insensitive" } },
+        { model: { contains: search, mode: "insensitive" } },
+        { user: { is: { name: { contains: search, mode: "insensitive" } } } },
+        { user: { is: { email: { contains: search, mode: "insensitive" } } } },
+        { user: { is: { phone: { contains: search, mode: "insensitive" } } } },
+      ],
+    }),
+    ...(verificationStatus === "VERIFIED" && { registrationVerified: true }),
+    ...(verificationStatus === "UNVERIFIED" && {
+      registrationVerified: false,
+      registrationNumber: { not: null },
+    }),
+    ...(verificationStatus === "MISSING" && { registrationNumber: null }),
+  };
+
+  const [items, total] = await Promise.all([
+    prisma.vehicle.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        brand: true,
+        model: true,
+        year: true,
+        fuelType: true,
+        registrationNumber: true,
+        registrationVerified: true,
+        registrationVerifiedAt: true,
+        registrationVerificationProvider: true,
+        rcOwnerNameMasked: true,
+        rcMaker: true,
+        rcModel: true,
+        rcFuelType: true,
+        rcVehicleClass: true,
+        rcStatus: true,
+        isDefault: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            vehicleRegistrationRequired: true,
+            createdAt: true,
+          },
+        },
+      },
+    }),
+    prisma.vehicle.count({ where }),
+  ]);
+
+  return {
+    items,
+    total,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+  };
+};
+
 const deleteCustomers = async ({ customerIds = [], requestedById = null } = {}) =>
   dangerousService.deleteCustomerUsersByIds({
     userIds: customerIds,
@@ -2309,6 +2382,7 @@ module.exports = {
   searchWalletTransferRecipients,
   listBookings,
   listCustomers,
+  listVehicles,
   reassignBookingGarage,
   searchEmailUsers,
   sendUserEmail,

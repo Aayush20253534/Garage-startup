@@ -270,6 +270,10 @@ export const adminApi = {
     return unwrap(await api.get("/admin/customers", { params }));
   },
 
+  async getVehicles(params = {}) {
+    return unwrap(await api.get("/admin/vehicles", { params }));
+  },
+
   async deleteCustomers(customerIds = []) {
     return unwrap(
       await api.delete("/admin/customers", { data: { customerIds } }),

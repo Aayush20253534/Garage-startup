@@ -809,6 +809,10 @@ const AdminCustomers = lazyPage(
   () => import("@/pages/admin/Customers"),
   "AdminCustomers",
 );
+const AdminVehicles = lazyPage(
+  () => import("@/pages/admin/Vehicles"),
+  "AdminVehicles",
+);
 const AdminGarages = lazyPage(
   () => import("@/pages/admin/Garages"),
   "AdminGarages",
@@ -1091,6 +1095,7 @@ const adminItems = [
   },
   { to: "/admin/payments", label: "Payments", icon: FiCreditCard },
   { to: "/admin/customers", label: "Customers", icon: FiUsers },
+  { to: "/admin/vehicles", label: "Vehicles", icon: FiTruck },
   { to: "/admin/bookings", label: "Bookings", icon: FiCalendar },
   { to: "/admin/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/admin/system-health", label: "System Health", icon: FiActivity },
@@ -1118,6 +1123,7 @@ const internItems = [
   { to: "/intern/garages", label: "Garages", icon: FiHome },
   { to: "/intern/revenue", label: "Price Ranges", icon: FiDollarSign },
   { to: "/intern/customers", label: "Customers", icon: FiUsers },
+  { to: "/intern/vehicles", label: "Vehicles", icon: FiTruck },
   { to: "/intern/bookings", label: "Bookings", icon: FiCalendar },
   { to: "/intern/pending-bookings", label: "Pending Bookings", icon: FiClock },
   { to: "/intern/system-health", label: "System Health", icon: FiActivity },
@@ -1524,6 +1530,14 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/admin/vehicles"
+            element={
+              <ProtectedRoute>
+                <AdminVehicles />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/cars"
             element={
               <ProtectedRoute>
@@ -1669,6 +1683,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminCustomers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/vehicles"
+            element={
+              <ProtectedRoute>
+                <AdminVehicles />
               </ProtectedRoute>
             }
           />
