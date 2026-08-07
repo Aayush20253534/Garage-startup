@@ -1,4 +1,8 @@
 const { body, param, query } = require("express-validator");
+const {
+  normalizeRegistrationNumber,
+  REGISTRATION_NUMBER_PATTERN,
+} = require("../../utils/vehicleRegistration");
 
 const notificationTypes = [
   "BOOKING",
@@ -152,6 +156,14 @@ const customerQuerySchema = [
     .isBoolean(),
 ];
 
+
+const vehicleRegistrationLookupSchema = [
+  query("registrationNumber")
+    .trim()
+    .customSanitizer(normalizeRegistrationNumber)
+    .matches(REGISTRATION_NUMBER_PATTERN)
+    .withMessage("Enter a valid vehicle registration number"),
+];
 
 const vehicleQuerySchema = [
   query("search")
@@ -329,6 +341,7 @@ module.exports = {
   customerIdParamSchema,
   customerQuerySchema,
   vehicleQuerySchema,
+  vehicleRegistrationLookupSchema,
   deleteCustomersSchema,
   updateCustomerStatusSchema,
   reassignBookingGarageSchema,

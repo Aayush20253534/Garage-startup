@@ -17,6 +17,15 @@ const listVehicles = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Vehicles fetched successfully", vehicles));
 });
 
+const lookupVehicleRegistration = asyncHandler(async (req, res) => {
+  const result = await service.lookupVehicleRegistration(
+    req.query.registrationNumber,
+  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Vehicle registration found", result));
+});
+
 const deleteCustomers = asyncHandler(async (req, res) => {
   const result = await service.deleteCustomers({
     customerIds: req.body.customerIds,
@@ -215,6 +224,7 @@ module.exports = {
   listBookings,
   listCustomers,
   listVehicles,
+  lookupVehicleRegistration,
   listPayments,
   manualOverrideBooking,
   searchWalletTransferRecipients,

@@ -108,7 +108,26 @@ test("admin and intern portals expose a read-only vehicle registry", () => {
   assert.match(app, /to: "\/intern\/vehicles", label: "Vehicles"/);
   assert.match(adminRoutes, /"\/vehicles"[\s\S]{0,120}controller\.listVehicles/);
   assert.match(adminService, /vehicleRegistrationRequired: true/);
-  assert.match(adminPage, /Registered user/);
+  assert.match(adminPage, /Registered name/);
   assert.match(adminPage, /Vehicle no\./);
   assert.match(adminPage, /RC verified/);
+});
+
+test("admin vehicle registry supports exact registration-to-phone lookup", () => {
+  const adminApi = read("client/src/api/admin.js");
+  const adminPage = read("client/src/pages/admin/Vehicles.jsx");
+  const adminRoutes = read("server/src/admin/routes/adminOperations.routes.js");
+  const adminController = read("server/src/admin/controllers/adminOperations.controller.js");
+  const adminService = read("server/src/admin/services/adminOperations.service.js");
+  const adminValidation = read("server/src/admin/validations/adminOperations.validation.js");
+
+  assert.match(adminApi, /lookupVehicleRegistration/);
+  assert.match(adminApi, /\/admin\/vehicles\/lookup/);
+  assert.match(adminPage, /Registration contact lookup/);
+  assert.match(adminPage, /Registered phone/);
+  assert.match(adminRoutes, /"\/vehicles\/lookup"[\s\S]{0,180}controller\.lookupVehicleRegistration/);
+  assert.match(adminController, /service\.lookupVehicleRegistration/);
+  assert.match(adminService, /where: \{ registrationNumber: normalizedRegistration \}/);
+  assert.match(adminService, /phone: true/);
+  assert.match(adminValidation, /vehicleRegistrationLookupSchema/);
 });

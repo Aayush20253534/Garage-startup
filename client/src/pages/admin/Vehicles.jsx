@@ -5,6 +5,7 @@ import {
   FiRefreshCw,
   FiSearch,
   FiShield,
+  FiPhone,
   FiTruck,
   FiUser,
 } from "react-icons/fi";
@@ -62,6 +63,10 @@ export default function AdminVehicles() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lookupRegistration, setLookupRegistration] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+  const [lookupResult, setLookupResult] = useState(null);
 
   const load = async ({ targetPage = page } = {}) => {
     try {
@@ -99,6 +104,35 @@ export default function AdminVehicles() {
     setSubmittedSearch(search.trim());
   };
 
+  const submitRegistrationLookup = async (event) => {
+    event.preventDefault();
+    const registrationNumber = lookupRegistration
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+
+    if (registrationNumber.length < 5 || registrationNumber.length > 11) {
+      setLookupResult(null);
+      setLookupError("Enter a valid registration number");
+      return;
+    }
+
+    try {
+      setLookupLoading(true);
+      setLookupError("");
+      const result = await adminApi.lookupVehicleRegistration(registrationNumber);
+      setLookupRegistration(registrationNumber);
+      setLookupResult(result);
+    } catch (err) {
+      setLookupResult(null);
+      setLookupError(
+        err.response?.data?.message ||
+          "No Rovauto customer is linked to this registration number",
+      );
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[96rem] space-y-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -108,7 +142,7 @@ export default function AdminVehicles() {
           </div>
           <h1 className="mt-2 text-2xl font-extrabold text-ink sm:text-3xl">Vehicles</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
-            View the registered Rovauto customer, vehicle number, and RC verification status across customer accounts.
+            View registered customer names, vehicle numbers, and RC verification status across customer accounts.
           </p>
         </div>
 
@@ -137,6 +171,87 @@ export default function AdminVehicles() {
           <p className="mt-2 text-2xl font-extrabold text-ink">{summary.missing}</p>
         </div>
       </div>
+
+      <section className="card-soft rounded-2xl p-4 sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Registration contact lookup</p>
+            <h2 className="mt-1 text-lg font-extrabold text-ink">Find customer by vehicle number</h2>
+            <p className="mt-1 text-sm text-muted">
+              Enter an exact registration number to see the registered Rovauto name and phone number linked to that vehicle.
+            </p>
+          </div>
+
+          <form onSubmit={submitRegistrationLookup} className="flex w-full max-w-xl flex-col gap-2 sm:flex-row">
+            <label className="relative min-w-0 flex-1">
+              <FiTruck className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                value={lookupRegistration}
+                onChange={(event) => {
+                  setLookupRegistration(event.target.value.toUpperCase());
+                  setLookupError("");
+                  setLookupResult(null);
+                }}
+                maxLength={16}
+                placeholder="e.g. UP70AB1234"
+                className="h-11 w-full rounded-lg border border-line bg-white pl-10 pr-3 text-sm font-bold uppercase tracking-wide outline-none transition focus:border-ink"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={lookupLoading}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-ink px-5 text-sm font-bold text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {lookupLoading ? <FiRefreshCw className="animate-spin" /> : <FiSearch />}
+              Check registration
+            </button>
+          </form>
+        </div>
+
+        {lookupError && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {lookupError}
+          </div>
+        )}
+
+        {lookupResult?.matches?.length > 0 && (
+          <div className="mt-4 grid gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted">
+                {lookupResult.registrationNumber} · {lookupResult.total} linked {lookupResult.total === 1 ? "account" : "accounts"}
+              </p>
+              <span className="rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-[11px] font-bold text-green-700">
+                Rovauto database match
+              </span>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              {lookupResult.matches.map((vehicle) => (
+                <article key={vehicle.id} className="rounded-2xl border border-line bg-bg-soft p-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Registered name</p>
+                      <p className="mt-1 text-base font-extrabold text-ink">{vehicle.user?.name || "Unknown customer"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Registered phone</p>
+                      <p className="mt-1 flex items-center gap-2 text-base font-extrabold text-ink">
+                        <FiPhone className="text-brand-dark" />
+                        {vehicle.user?.phone || "Not available"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 border-t border-line pt-3 text-xs text-muted">
+                    <span className="font-bold text-ink">{vehicle.brand} {vehicle.model}</span>
+                    {vehicle.user?.email ? ` · ${vehicle.user.email}` : ""}
+                    {vehicle.rcOwnerNameMasked ? ` · RC owner ${vehicle.rcOwnerNameMasked}` : ""}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       <form onSubmit={submitSearch} className="card-soft grid gap-3 rounded-2xl p-4 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
         <label className="relative min-w-0">
@@ -184,7 +299,7 @@ export default function AdminVehicles() {
               <table className="w-full min-w-[1050px] text-left text-sm">
                 <thead className="border-b border-line bg-bg-soft text-xs uppercase tracking-wide text-muted">
                   <tr>
-                    <th className="px-4 py-3">Registered user</th>
+                    <th className="px-4 py-3">Registered name</th>
                     <th className="px-4 py-3">Vehicle no.</th>
                     <th className="px-4 py-3">Vehicle</th>
                     <th className="px-4 py-3">Verification</th>
@@ -240,7 +355,7 @@ export default function AdminVehicles() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted">
-                          <FiUser /> {vehicle.user?.name || "Unknown customer"}
+                          <FiUser /> Registered name: {vehicle.user?.name || "Unknown customer"}
                         </div>
                         <div className="mt-2 break-all text-lg font-extrabold tracking-wide text-ink">
                           {vehicle.registrationNumber || "Registration not provided"}

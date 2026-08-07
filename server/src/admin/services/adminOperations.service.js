@@ -8,6 +8,7 @@ const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const dangerousService = require("./dangerous.service");
 const garageControllerService = require("../../garage/services/controller.service");
 const { setBookingActorContext } = require("./bookingActorContext.service");
+const { normalizeRegistrationNumber } = require("../../utils/vehicleRegistration");
 
 let resend;
 if (process.env.RESEND_API_KEY) {
@@ -234,6 +235,51 @@ const listVehicles = async (query = {}) => {
     page,
     limit,
     totalPages: Math.max(1, Math.ceil(total / limit)),
+  };
+};
+
+const lookupVehicleRegistration = async (registrationNumber) => {
+  const normalizedRegistration = normalizeRegistrationNumber(registrationNumber);
+
+  const vehicles = await prisma.vehicle.findMany({
+    where: { registrationNumber: normalizedRegistration },
+    orderBy: { createdAt: "asc" },
+    take: 20,
+    select: {
+      id: true,
+      brand: true,
+      model: true,
+      year: true,
+      fuelType: true,
+      registrationNumber: true,
+      registrationVerified: true,
+      registrationVerifiedAt: true,
+      registrationVerificationProvider: true,
+      rcOwnerNameMasked: true,
+      createdAt: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          vehicleRegistrationRequired: true,
+        },
+      },
+    },
+  });
+
+  if (!vehicles.length) {
+    throw new ApiError(
+      404,
+      "No Rovauto customer is linked to this registration number",
+    );
+  }
+
+  return {
+    registrationNumber: normalizedRegistration,
+    total: vehicles.length,
+    matches: vehicles,
   };
 };
 
@@ -2383,6 +2429,7 @@ module.exports = {
   listBookings,
   listCustomers,
   listVehicles,
+  lookupVehicleRegistration,
   reassignBookingGarage,
   searchEmailUsers,
   sendUserEmail,

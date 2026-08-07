@@ -13,6 +13,7 @@ const {
   customerIdParamSchema,
   customerQuerySchema,
   vehicleQuerySchema,
+  vehicleRegistrationLookupSchema,
   deleteCustomersSchema,
   updateCustomerStatusSchema,
   paymentQuerySchema,
@@ -41,6 +42,12 @@ router.get(
   vehicleQuerySchema,
   validate,
   controller.listVehicles,
+);
+router.get(
+  "/vehicles/lookup",
+  vehicleRegistrationLookupSchema,
+  validate,
+  controller.lookupVehicleRegistration,
 );
 router.delete(
   "/customers",

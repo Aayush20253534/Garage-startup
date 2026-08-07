@@ -274,6 +274,14 @@ export const adminApi = {
     return unwrap(await api.get("/admin/vehicles", { params }));
   },
 
+  async lookupVehicleRegistration(registrationNumber) {
+    return unwrap(
+      await api.get("/admin/vehicles/lookup", {
+        params: { registrationNumber },
+      }),
+    );
+  },
+
   async deleteCustomers(customerIds = []) {
     return unwrap(
       await api.delete("/admin/customers", { data: { customerIds } }),
