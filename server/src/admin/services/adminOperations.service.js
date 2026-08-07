@@ -1052,6 +1052,148 @@ const manualOverrideBooking = async ({ bookingId, payload, staff }) => {
   return getBookingDetails(bookingId);
 };
 
+const getCustomerLoginHistory = async (userId) => {
+  const now = new Date();
+
+  const [customer, sessions] = await Promise.all([
+    prisma.user.findFirst({
+      where: { id: userId, role: "CUSTOMER" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        isActive: true,
+        createdAt: true,
+      },
+    }),
+    prisma.userSession.findMany({
+      where: { userId },
+      orderBy: [{ lastSeenAt: "desc" }, { createdAt: "desc" }],
+    }),
+  ]);
+
+  if (!customer) throw new ApiError(404, "Customer not found");
+
+  const knownDevices = new Set();
+  const activeDeviceMap = new Map();
+  let activeSessionCount = 0;
+
+  const sessionHistory = sessions.map((session) => {
+    const deviceKey = getSessionDeviceKey(session);
+    const isActive = !session.revokedAt && session.expiresAt > now;
+    knownDevices.add(deviceKey);
+
+    if (isActive) {
+      activeSessionCount += 1;
+      const existing = activeDeviceMap.get(deviceKey);
+
+      if (!existing) {
+        activeDeviceMap.set(deviceKey, {
+          key: deviceKey,
+          deviceId: session.deviceId || null,
+          userAgent: session.userAgent || null,
+          firstLoginAt: session.createdAt,
+          lastSeenAt: session.lastSeenAt,
+          expiresAt: session.expiresAt,
+          sessionCount: 1,
+        });
+      } else {
+        existing.sessionCount += 1;
+        if (session.createdAt < existing.firstLoginAt) {
+          existing.firstLoginAt = session.createdAt;
+        }
+        if (session.lastSeenAt > existing.lastSeenAt) {
+          existing.lastSeenAt = session.lastSeenAt;
+          existing.userAgent = session.userAgent || existing.userAgent;
+          existing.deviceId = session.deviceId || existing.deviceId;
+        }
+        if (session.expiresAt > existing.expiresAt) {
+          existing.expiresAt = session.expiresAt;
+        }
+      }
+    }
+
+    return {
+      id: session.id,
+      deviceId: session.deviceId || null,
+      userAgent: session.userAgent || null,
+      createdAt: session.createdAt,
+      lastSeenAt: session.lastSeenAt,
+      expiresAt: session.expiresAt,
+      revokedAt: session.revokedAt,
+      isActive,
+      status: isActive ? "ACTIVE" : session.revokedAt ? "REVOKED" : "EXPIRED",
+    };
+  });
+
+  const activeDevices = Array.from(activeDeviceMap.values()).sort(
+    (left, right) => right.lastSeenAt - left.lastSeenAt,
+  );
+
+  return {
+    customer,
+    summary: {
+      activeDeviceCount: activeDevices.length,
+      activeSessionCount,
+      knownDeviceCount: knownDevices.size,
+      totalSessionCount: sessionHistory.length,
+    },
+    activeDevices,
+    sessions: sessionHistory,
+  };
+};
+
+const logoutCustomerFromAllDevices = async ({
+  userId,
+  requestedById = null,
+}) => {
+  const customer = await prisma.user.findFirst({
+    where: { id: userId, role: "CUSTOMER" },
+    select: { id: true, name: true, email: true },
+  });
+
+  if (!customer) throw new ApiError(404, "Customer not found");
+
+  const now = new Date();
+  const result = await prisma.$transaction(async (tx) => {
+    const revokedSessions = await tx.userSession.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: now },
+      },
+      data: { revokedAt: now },
+    });
+
+    // A device that has been force-logged-out must not continue receiving
+    // customer web-push notifications under the old authenticated browser.
+    const removedPushSubscriptions = await tx.pushSubscription.deleteMany({
+      where: { userId },
+    });
+
+    return {
+      revokedSessionCount: revokedSessions.count,
+      removedPushSubscriptionCount: removedPushSubscriptions.count,
+    };
+  });
+
+  await invalidateCustomerCache(userId);
+
+  console.info("[admin] Customer logged out from all devices", {
+    requestedById,
+    userId,
+    revokedSessionCount: result.revokedSessionCount,
+    removedPushSubscriptionCount: result.removedPushSubscriptionCount,
+  });
+
+  return {
+    customer,
+    ...result,
+    loggedOutAt: now,
+  };
+};
+
 const getCustomerProfile = async (userId) => {
   const now = new Date();
   const customer = await prisma.user.findFirst({
@@ -2418,6 +2560,8 @@ module.exports = {
   setCustomerActiveStatus,
   getBookingDetails,
   getCustomerProfile,
+  getCustomerLoginHistory,
+  logoutCustomerFromAllDevices,
   getDashboardStats,
   getOperationsDashboard,
   listPayments,

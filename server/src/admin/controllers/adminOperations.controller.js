@@ -123,6 +123,23 @@ const addBookingAdminNote = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Internal note added successfully", booking));
 });
 
+const getCustomerLoginHistory = asyncHandler(async (req, res) => {
+  const result = await service.getCustomerLoginHistory(req.params.userId);
+  return res.status(200).json(
+    new ApiResponse(200, "Customer login history fetched successfully", result),
+  );
+});
+
+const logoutCustomerFromAllDevices = asyncHandler(async (req, res) => {
+  const result = await service.logoutCustomerFromAllDevices({
+    userId: req.params.userId,
+    requestedById: req.user.id,
+  });
+  return res.status(200).json(
+    new ApiResponse(200, "Customer logged out from all devices", result),
+  );
+});
+
 const getCustomerProfile = asyncHandler(async (req, res) => {
   const customer = await service.getCustomerProfile(req.params.userId);
   return res
@@ -219,6 +236,8 @@ module.exports = {
   setCustomerActiveStatus,
   getBookingDetails,
   getCustomerProfile,
+  getCustomerLoginHistory,
+  logoutCustomerFromAllDevices,
   getDashboardStats,
   getOperationsDashboard,
   listBookings,

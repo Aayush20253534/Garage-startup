@@ -809,6 +809,10 @@ const AdminCustomers = lazyPage(
   () => import("@/pages/admin/Customers"),
   "AdminCustomers",
 );
+const AdminCustomerLoginHistory = lazyPage(
+  () => import("@/pages/admin/CustomerLoginHistory"),
+  "AdminCustomerLoginHistory",
+);
 const AdminVehicles = lazyPage(
   () => import("@/pages/admin/Vehicles"),
   "AdminVehicles",
@@ -1530,6 +1534,14 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/admin/customers/:userId/login-history"
+            element={
+              <ProtectedRoute>
+                <AdminCustomerLoginHistory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/vehicles"
             element={
               <ProtectedRoute>
@@ -1683,6 +1695,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminCustomers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/intern/customers/:userId/login-history"
+            element={
+              <ProtectedRoute>
+                <AdminCustomerLoginHistory />
               </ProtectedRoute>
             }
           />

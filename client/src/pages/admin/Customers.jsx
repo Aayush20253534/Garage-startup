@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { adminApi } from "@/api/admin";
 import { useApp } from "@/hooks/useApp";
 import { cityApi } from "@/api/cities";
@@ -7,6 +8,7 @@ import CustomerActivityProfileModal from "@/components/admin/CustomerActivityPro
 import { resetCityAvailabilityCache } from "@/utils/cityAvailability";
 import {
   FiCheckCircle,
+  FiClock,
   FiEye,
   FiLock,
   FiMapPin,
@@ -139,6 +141,7 @@ const formatDeviceCount = (count) =>
   `${count || 0} ${count === 1 ? "device" : "devices"}`;
 
 export default function Customers() {
+  const navigate = useNavigate();
   const { user } = useApp();
   const isIntern = user?.role === "INTERN";
   const [customers, setCustomers] = useState([]);
@@ -497,7 +500,7 @@ export default function Customers() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1140px] text-sm">
+          <table className="w-full min-w-[1320px] text-sm">
             <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 {!isIntern && (
@@ -514,7 +517,7 @@ export default function Customers() {
                   "Devices",
                   "Status",
                   "Access",
-                  "Profile",
+                  "Actions",
                 ].map((heading) => (
                   <th
                     key={heading}
@@ -679,14 +682,28 @@ export default function Customers() {
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCustomerId(customer.id)}
-                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-white px-3 text-xs font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
-                      >
-                        <FiEye />
-                        View profile
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCustomerId(customer.id)}
+                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-white px-3 text-xs font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
+                        >
+                          <FiEye />
+                          View profile
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(
+                              `${isIntern ? "/intern" : "/admin"}/customers/${customer.id}/login-history`,
+                            )
+                          }
+                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-white px-3 text-xs font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
+                        >
+                          <FiClock />
+                          View login history
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

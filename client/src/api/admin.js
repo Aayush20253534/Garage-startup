@@ -298,6 +298,14 @@ export const adminApi = {
     return unwrap(await api.get(`/admin/customers/${userId}/profile`));
   },
 
+  async getCustomerLoginHistory(userId) {
+    return unwrap(await api.get(`/admin/customers/${userId}/login-history`));
+  },
+
+  async logoutCustomerFromAllDevices(userId) {
+    return unwrap(await api.post(`/admin/customers/${userId}/logout-all`));
+  },
+
   async getBookings(params = {}) {
     return unwrap(await api.get("/admin/bookings", { params }));
   },

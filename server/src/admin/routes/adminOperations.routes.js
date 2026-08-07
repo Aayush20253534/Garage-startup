@@ -76,6 +76,20 @@ router.patch(
   controller.setCustomerActiveStatus,
 );
 router.get(
+  "/customers/:userId/login-history",
+  customerIdParamSchema,
+  validate,
+  controller.getCustomerLoginHistory,
+);
+router.post(
+  "/customers/:userId/logout-all",
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
+  customerIdParamSchema,
+  validate,
+  controller.logoutCustomerFromAllDevices,
+);
+
+router.get(
   "/customers/:userId/profile",
   customerIdParamSchema,
   validate,
