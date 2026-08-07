@@ -5,7 +5,10 @@ const {
   normalizeRegistrationNumber,
   isValidRegistrationNumber,
 } = require("../../utils/vehicleRegistration");
-const { parseWay2ApiVehicle } = require("../../utils/way2apiRc");
+const {
+  parseWay2ApiVehicle,
+  parseWay2ApiAdminVehicle,
+} = require("../../utils/way2apiRc");
 
 const PROVIDER = "WAY2API_RC";
 const DEFAULT_URL = "https://app.way2api.com/api/v1/rc/verify";
@@ -155,7 +158,7 @@ const isNotFoundMessage = (message) =>
     clean(message),
   );
 
-const requestProvider = async (registrationNumber) => {
+const requestProvider = async (registrationNumber, { adminView = false } = {}) => {
   const config = ensureConfigured();
 
   let response;
@@ -239,7 +242,9 @@ const requestProvider = async (registrationNumber) => {
     );
   }
 
-  const vehicle = parseWay2ApiVehicle(result);
+  const vehicle = adminView
+    ? parseWay2ApiAdminVehicle(result)
+    : parseWay2ApiVehicle(result);
   if (!vehicle.registrationNumber || (!vehicle.maker && !vehicle.model)) {
     throw new ApiError(
       503,
@@ -285,6 +290,21 @@ const lookupRegistration = async (registrationNumber, { force = false } = {}) =>
     result.verified ? SUCCESS_CACHE_TTL_SECONDS : NOT_FOUND_CACHE_TTL_SECONDS,
   );
   return result;
+};
+
+const lookupRegistrationForAdmin = async (registrationNumber) => {
+  const normalized = normalizeRegistrationNumber(registrationNumber);
+  if (!isValidRegistrationNumber(normalized)) {
+    throw new ApiError(
+      400,
+      "Enter a valid registration number using 5 to 11 letters and numbers",
+    );
+  }
+
+  // Deliberately perform a live provider lookup here instead of reading the
+  // customer's Rovauto vehicle record. Full owner names are not written to the
+  // database or the shared verification cache.
+  return requestProvider(normalized, { adminView: true });
 };
 
 const verifyRegistration = async ({ registrationNumber, brand, model, fuelType }) => {
@@ -370,6 +390,7 @@ module.exports = {
   normalizeRegistrationNumber,
   compareVehicleDetails,
   lookupRegistration,
+  lookupRegistrationForAdmin,
   verifyRegistration,
   getRegistrationRequirement,
   getVerifiedRegistrationData,

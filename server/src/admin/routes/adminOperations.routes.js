@@ -4,6 +4,7 @@ const controller = require("../controllers/adminOperations.controller");
 const { protect } = require("../../middlewares/auth.middleware");
 const { authorizeRoles } = require("../../middlewares/role.middleware");
 const validate = require("../../middlewares/validate.middleware");
+const rateLimit = require("../../middlewares/rateLimit.middleware");
 const {
   adminWalletTransferSchema,
   addBookingNoteSchema,
@@ -25,6 +26,15 @@ const {
 
 const router = express.Router();
 
+const vehicleRcLookupRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  fallbackMax: 10,
+  name: "admin-way2api-vehicle-rc-lookup",
+  keyGenerator: (req) => `admin:${req.user?.id || req.ip}`,
+  message: "Too many RC lookups. Please try again later.",
+});
+
 router.use(protect);
 router.use(authorizeRoles("ADMIN", "SUB_ADMIN", "INTERN"));
 
@@ -45,6 +55,8 @@ router.get(
 );
 router.get(
   "/vehicles/lookup",
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
+  vehicleRcLookupRateLimit,
   vehicleRegistrationLookupSchema,
   validate,
   controller.lookupVehicleRegistration,

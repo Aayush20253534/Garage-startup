@@ -5,7 +5,6 @@ import {
   FiRefreshCw,
   FiSearch,
   FiShield,
-  FiPhone,
   FiTruck,
   FiUser,
 } from "react-icons/fi";
@@ -126,7 +125,7 @@ export default function AdminVehicles() {
       setLookupResult(null);
       setLookupError(
         err.response?.data?.message ||
-          "No Rovauto customer is linked to this registration number",
+          "Could not fetch this registration from Way2API",
       );
     } finally {
       setLookupLoading(false);
@@ -175,10 +174,10 @@ export default function AdminVehicles() {
       <section className="card-soft rounded-2xl p-4 sm:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Registration contact lookup</p>
-            <h2 className="mt-1 text-lg font-extrabold text-ink">Find customer by vehicle number</h2>
-            <p className="mt-1 text-sm text-muted">
-              Enter an exact registration number to see the registered Rovauto name and phone number linked to that vehicle.
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Live RC lookup</p>
+            <h2 className="mt-1 text-lg font-extrabold text-ink">Check registered vehicle owner</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              Enter a registration number to fetch the RC owner and vehicle details directly from Way2API. This lookup does not use Rovauto customer records.
             </p>
           </div>
 
@@ -214,41 +213,53 @@ export default function AdminVehicles() {
           </div>
         )}
 
-        {lookupResult?.matches?.length > 0 && (
-          <div className="mt-4 grid gap-3">
+        {lookupResult?.registrationNumber && (
+          <div className="mt-4 rounded-2xl border border-line bg-bg-soft p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-bold uppercase tracking-wide text-muted">
-                {lookupResult.registrationNumber} · {lookupResult.total} linked {lookupResult.total === 1 ? "account" : "accounts"}
-              </p>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">
+                  {lookupResult.registrationNumber}
+                </p>
+                <h3 className="mt-1 text-xl font-extrabold text-ink">
+                  {lookupResult.ownerName || "Owner name not available"}
+                </h3>
+              </div>
               <span className="rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-[11px] font-bold text-green-700">
-                Rovauto database match
+                Live Way2API RC match
               </span>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-2">
-              {lookupResult.matches.map((vehicle) => (
-                <article key={vehicle.id} className="rounded-2xl border border-line bg-bg-soft p-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Registered name</p>
-                      <p className="mt-1 text-base font-extrabold text-ink">{vehicle.user?.name || "Unknown customer"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Registered phone</p>
-                      <p className="mt-1 flex items-center gap-2 text-base font-extrabold text-ink">
-                        <FiPhone className="text-brand-dark" />
-                        {vehicle.user?.phone || "Not available"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 border-t border-line pt-3 text-xs text-muted">
-                    <span className="font-bold text-ink">{vehicle.brand} {vehicle.model}</span>
-                    {vehicle.user?.email ? ` · ${vehicle.user.email}` : ""}
-                    {vehicle.rcOwnerNameMasked ? ` · RC owner ${vehicle.rcOwnerNameMasked}` : ""}
-                  </div>
-                </article>
-              ))}
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-line bg-white p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Registered owner</p>
+                <p className="mt-1 font-extrabold text-ink">{lookupResult.ownerName || "Not available"}</p>
+              </div>
+              <div className="rounded-xl border border-line bg-white p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Registered phone</p>
+                <p className="mt-1 font-extrabold text-muted">Not supplied by Way2API</p>
+              </div>
+              <div className="rounded-xl border border-line bg-white p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Vehicle</p>
+                <p className="mt-1 font-extrabold text-ink">
+                  {[lookupResult.vehicle?.maker, lookupResult.vehicle?.model].filter(Boolean).join(" · ") || "Not available"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-line bg-white p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted">RC status</p>
+                <p className="mt-1 font-extrabold text-ink">{lookupResult.vehicle?.status || "Not available"}</p>
+              </div>
             </div>
+
+            <div className="mt-3 grid gap-2 text-xs text-muted sm:grid-cols-2 lg:grid-cols-4">
+              <p><span className="font-bold text-ink">Fuel:</span> {lookupResult.vehicle?.fuelType || "—"}</p>
+              <p><span className="font-bold text-ink">Class:</span> {lookupResult.vehicle?.vehicleClass || "—"}</p>
+              <p><span className="font-bold text-ink">Registered at:</span> {lookupResult.vehicle?.registeredAt || "—"}</p>
+              <p><span className="font-bold text-ink">Registration date:</span> {lookupResult.vehicle?.registrationDate || "—"}</p>
+            </div>
+
+            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800">
+              Way2API&apos;s Vehicle RC API currently documents the RC owner name but no registered mobile/phone field, so Rovauto cannot truthfully show the phone number from this provider.
+            </p>
           </div>
         )}
       </section>

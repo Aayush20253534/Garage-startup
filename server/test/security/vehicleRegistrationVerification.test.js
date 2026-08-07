@@ -14,6 +14,7 @@ const {
 const {
   maskOwnerName,
   parseWay2ApiVehicle,
+  parseWay2ApiAdminVehicle,
 } = require("../../src/utils/way2apiRc");
 
 test("registration numbers are normalized before RC verification", () => {
@@ -96,6 +97,19 @@ test("Way2API owner PII is masked and only the RC fields Rovauto needs are mappe
   assert.equal(Object.hasOwn(mapped, "presentAddress"), false);
   assert.equal(Object.hasOwn(mapped, "chassisNumber"), false);
   assert.equal(Object.hasOwn(mapped, "engineNumber"), false);
+
+  const adminMapped = parseWay2ApiAdminVehicle({
+    rc_number: "UP70AB1234",
+    owner_name: "Vivek Kumar Singh",
+    maker_description: "MARUTI SUZUKI INDIA LTD",
+    maker_model: "BALENO DELTA",
+    fuel_type: "PETROL",
+    present_address: "must never be mapped",
+    vehicle_chasi_number: "must never be mapped",
+  });
+  assert.equal(adminMapped.ownerName, "Vivek Kumar Singh");
+  assert.equal(Object.hasOwn(adminMapped, "presentAddress"), false);
+  assert.equal(Object.hasOwn(adminMapped, "chassisNumber"), false);
 });
 
 test("admin and intern portals expose a read-only vehicle registry", () => {
@@ -113,21 +127,23 @@ test("admin and intern portals expose a read-only vehicle registry", () => {
   assert.match(adminPage, /RC verified/);
 });
 
-test("admin vehicle registry supports exact registration-to-phone lookup", () => {
+test("admin RC lookup calls Way2API instead of resolving customer phone from Rovauto", () => {
   const adminApi = read("client/src/api/admin.js");
   const adminPage = read("client/src/pages/admin/Vehicles.jsx");
   const adminRoutes = read("server/src/admin/routes/adminOperations.routes.js");
-  const adminController = read("server/src/admin/controllers/adminOperations.controller.js");
   const adminService = read("server/src/admin/services/adminOperations.service.js");
-  const adminValidation = read("server/src/admin/validations/adminOperations.validation.js");
+  const registrationService = read(
+    "server/src/customer/services/vehicleRegistration.service.js",
+  );
 
   assert.match(adminApi, /lookupVehicleRegistration/);
-  assert.match(adminApi, /\/admin\/vehicles\/lookup/);
-  assert.match(adminPage, /Registration contact lookup/);
-  assert.match(adminPage, /Registered phone/);
-  assert.match(adminRoutes, /"\/vehicles\/lookup"[\s\S]{0,180}controller\.lookupVehicleRegistration/);
-  assert.match(adminController, /service\.lookupVehicleRegistration/);
-  assert.match(adminService, /where: \{ registrationNumber: normalizedRegistration \}/);
-  assert.match(adminService, /phone: true/);
-  assert.match(adminValidation, /vehicleRegistrationLookupSchema/);
+  assert.match(adminPage, /Live RC lookup/);
+  assert.match(adminPage, /Live Way2API RC match/);
+  assert.match(adminPage, /Not supplied by Way2API/);
+  assert.match(adminRoutes, /admin-way2api-vehicle-rc-lookup/);
+  assert.match(adminRoutes, /authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
+  assert.match(adminService, /lookupRegistrationForAdmin/);
+  assert.doesNotMatch(adminService, /where: \{ registrationNumber: normalizedRegistration \}/);
+  assert.match(registrationService, /requestProvider\(normalized, \{ adminView: true \}\)/);
+  assert.match(adminService, /registeredPhone: null/);
 });

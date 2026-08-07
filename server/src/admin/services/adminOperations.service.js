@@ -8,7 +8,7 @@ const invalidateCustomerCache = require("../../utils/invalidateCustomerCache");
 const dangerousService = require("./dangerous.service");
 const garageControllerService = require("../../garage/services/controller.service");
 const { setBookingActorContext } = require("./bookingActorContext.service");
-const { normalizeRegistrationNumber } = require("../../utils/vehicleRegistration");
+const vehicleRegistrationService = require("../../customer/services/vehicleRegistration.service");
 
 let resend;
 if (process.env.RESEND_API_KEY) {
@@ -239,47 +239,32 @@ const listVehicles = async (query = {}) => {
 };
 
 const lookupVehicleRegistration = async (registrationNumber) => {
-  const normalizedRegistration = normalizeRegistrationNumber(registrationNumber);
+  const result = await vehicleRegistrationService.lookupRegistrationForAdmin(
+    registrationNumber,
+  );
 
-  const vehicles = await prisma.vehicle.findMany({
-    where: { registrationNumber: normalizedRegistration },
-    orderBy: { createdAt: "asc" },
-    take: 20,
-    select: {
-      id: true,
-      brand: true,
-      model: true,
-      year: true,
-      fuelType: true,
-      registrationNumber: true,
-      registrationVerified: true,
-      registrationVerifiedAt: true,
-      registrationVerificationProvider: true,
-      rcOwnerNameMasked: true,
-      createdAt: true,
-      user: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          email: true,
-          vehicleRegistrationRequired: true,
-        },
-      },
-    },
-  });
-
-  if (!vehicles.length) {
-    throw new ApiError(
-      404,
-      "No Rovauto customer is linked to this registration number",
-    );
+  if (!result.verified) {
+    throw new ApiError(404, "Vehicle registration was not found by Way2API");
   }
 
   return {
-    registrationNumber: normalizedRegistration,
-    total: vehicles.length,
-    matches: vehicles,
+    provider: result.provider,
+    registrationNumber: result.registrationNumber,
+    ownerName: result.vehicle?.ownerName || null,
+    registeredPhone: null,
+    phoneAvailable: false,
+    phoneUnavailableReason:
+      "Way2API Vehicle RC Verification does not return the registered phone number.",
+    vehicle: {
+      maker: result.vehicle?.maker || null,
+      model: result.vehicle?.model || null,
+      fuelType: result.vehicle?.fuelType || null,
+      vehicleClass: result.vehicle?.vehicleClass || null,
+      status: result.vehicle?.status || null,
+      registrationDate: result.vehicle?.registrationDate || null,
+      registeredAt: result.vehicle?.registeredAt || null,
+      insuranceUpto: result.vehicle?.insuranceUpto || null,
+    },
   };
 };
 
