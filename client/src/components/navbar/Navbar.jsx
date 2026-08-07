@@ -65,6 +65,7 @@ export default function Navbar() {
   const [notificationsError, setNotificationsError] = useState("");
   const notificationsRef = useRef(null);
   const mobileNotificationsRef = useRef(null);
+  const profileRef = useRef(null);
 
   const { user, vehicle, cart = [], logout } = useApp();
   const { unreadCount } = useUnreadNotifications();
@@ -193,6 +194,27 @@ export default function Navbar() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [notificationsOpen]);
+
+  useEffect(() => {
+    if (!profileOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (profileRef.current?.contains(event.target)) return;
+      setProfileOpen(false);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setProfileOpen(false);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [profileOpen]);
 
   useEffect(() => {
     if (!open) {
@@ -508,7 +530,7 @@ export default function Navbar() {
                 )}
               </div>
 
-              <div className="relative">
+              <div ref={profileRef} className="relative">
                 <button
                   type="button"
                   onClick={() => {
