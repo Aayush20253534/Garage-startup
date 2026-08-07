@@ -121,6 +121,7 @@ export default function AdminVehicles() {
       const result = await adminApi.lookupVehicleRegistration(registrationNumber);
       setLookupRegistration(registrationNumber);
       setLookupResult(result);
+      await load({ targetPage: page });
     } catch (err) {
       setLookupResult(null);
       setLookupError(
@@ -326,7 +327,7 @@ export default function AdminVehicles() {
                       <tr key={vehicle.id} className="align-top hover:bg-bg-soft/60">
                         <td className="px-4 py-4">
                           <div className="font-bold text-ink">
-                            {vehicle.rcOwnerNameMasked || (vehicle.registrationVerified ? "Not available" : "Not verified")}
+                            {vehicle.rcOwnerName || (vehicle.registrationVerified ? "Run live RC lookup to fetch owner" : "Not verified")}
                           </div>
                           <div className="mt-1 text-xs text-muted">
                             {vehicle.registrationVerified ? "RC owner from Way2API" : "Verify RC to fetch owner"}
@@ -375,7 +376,7 @@ export default function AdminVehicles() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted">
-                          <FiUser /> Registered name: {vehicle.rcOwnerNameMasked || (vehicle.registrationVerified ? "Not available" : "Not verified")}
+                          <FiUser /> Registered name: {vehicle.rcOwnerName || (vehicle.registrationVerified ? "Run live RC lookup to fetch owner" : "Not verified")}
                         </div>
                         <div className="mt-1 text-xs font-semibold text-muted">
                           Account name: {vehicle.user?.name || "Unknown customer"}

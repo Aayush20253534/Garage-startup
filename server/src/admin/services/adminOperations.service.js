@@ -175,6 +175,7 @@ const listVehicles = async (query = {}) => {
     ...(search && {
       OR: [
         { registrationNumber: { contains: search, mode: "insensitive" } },
+        { rcOwnerName: { contains: search, mode: "insensitive" } },
         { brand: { contains: search, mode: "insensitive" } },
         { model: { contains: search, mode: "insensitive" } },
         { user: { is: { name: { contains: search, mode: "insensitive" } } } },
@@ -206,6 +207,7 @@ const listVehicles = async (query = {}) => {
         registrationVerified: true,
         registrationVerifiedAt: true,
         registrationVerificationProvider: true,
+        rcOwnerName: true,
         rcOwnerNameMasked: true,
         rcMaker: true,
         rcModel: true,
@@ -245,6 +247,16 @@ const lookupVehicleRegistration = async (registrationNumber) => {
 
   if (!result.verified) {
     throw new ApiError(404, "Vehicle registration was not found by Way2API");
+  }
+
+  // A live admin lookup is authoritative for the RC owner name. Persist it for
+  // any Rovauto vehicle already linked to this registration so the Vehicles
+  // table can show the full registered owner without another provider call.
+  if (result.vehicle?.ownerName) {
+    await prisma.vehicle.updateMany({
+      where: { registrationNumber: result.registrationNumber },
+      data: { rcOwnerName: result.vehicle.ownerName },
+    });
   }
 
   return {

@@ -461,6 +461,7 @@ model Vehicle {
   registrationVerified              Boolean   @default(false)
   registrationVerifiedAt            DateTime?
   registrationVerificationProvider  String?
+  rcOwnerName                       String?
   rcOwnerNameMasked                  String?
   rcMaker                            String?
   rcModel                            String?

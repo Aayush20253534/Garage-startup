@@ -16,7 +16,9 @@ const maskOwnerName = (value) =>
 
 const parseWay2ApiVehicle = (result = {}) => ({
   registrationNumber: normalizeRegistrationNumber(result.rc_number),
-  // Booking/customer flows only retain a masked owner name.
+  // Keep the full provider owner name server-side for admin records while
+  // preserving the masked variant for customer-facing verification UI.
+  ownerName: clean(result.owner_name) || null,
   ownerNameMasked: maskOwnerName(result.owner_name),
   maker: clean(result.maker_description) || null,
   model: clean(result.maker_model) || null,

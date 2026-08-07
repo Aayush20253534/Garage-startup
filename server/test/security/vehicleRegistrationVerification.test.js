@@ -71,7 +71,7 @@ test("Way2API stays server-side, uses bearer auth, and verification is rate limi
   assert.doesNotMatch(service, /MASTERS_INDIA_/);
 });
 
-test("Way2API owner PII is masked and only the RC fields Rovauto needs are mapped", () => {
+test("Way2API keeps full RC owner server-side while preserving a masked customer-facing owner", () => {
   assert.equal(maskOwnerName("Vivek Kumar Singh"), "V***k K***r S***h");
 
   const mapped = parseWay2ApiVehicle({
@@ -90,6 +90,7 @@ test("Way2API owner PII is masked and only the RC fields Rovauto needs are mappe
   });
 
   assert.equal(mapped.registrationNumber, "UP70AB1234");
+  assert.equal(mapped.ownerName, "Vivek Kumar Singh");
   assert.equal(mapped.ownerNameMasked, "V***k K***r S***h");
   assert.equal(mapped.maker, "MARUTI SUZUKI INDIA LTD");
   assert.equal(mapped.model, "BALENO DELTA");
@@ -145,5 +146,10 @@ test("admin RC lookup calls Way2API instead of resolving customer phone from Rov
   assert.match(adminService, /lookupRegistrationForAdmin/);
   assert.doesNotMatch(adminService, /where: \{ registrationNumber: normalizedRegistration \}/);
   assert.match(registrationService, /requestProvider\(normalized, \{ adminView: true \}\)/);
+  assert.match(adminService, /data: \{ rcOwnerName: result\.vehicle\.ownerName \}/);
+  assert.match(adminService, /rcOwnerName: true/);
+  assert.match(adminPage, /vehicle\.rcOwnerName/);
+  assert.match(adminPage, /await load\(\{ targetPage: page \}\)/);
+  assert.match(registrationService, /rcOwnerName: verification\.vehicle\?\.ownerName \|\| null/);
   assert.match(adminService, /registeredPhone: null/);
 });
