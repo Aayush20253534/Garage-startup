@@ -1,6 +1,6 @@
 # Rovauto Database Design
 
-> Schema reference verified against `server/prisma/schema.prisma` on 30 July 2026.
+> Schema reference verified against `server/prisma/schema.prisma` on 8 August 2026.
 
 ## 1. Platform and conventions
 
@@ -12,10 +12,10 @@
 - Timestamps are stored in UTC and formatted at the client boundary.
 - Redis is not the durable source for bookings, sessions, tasks, or payments.
 
-The repository currently contains 52 checked-in migration directories. The latest is:
+The repository currently contains 57 checked-in migration directories. The latest is:
 
 ```text
-20260729103000_add_pseudo_average_rating
+20260807174500_add_full_rc_owner_name
 ```
 
 ## 2. Domain map
@@ -66,6 +66,10 @@ Support and operations
 
 Session rows support revocation and retention cleanup. Disabling controller accounts revokes active controller sessions for that garage.
 
+### UserSession and admin login history
+
+`UserSession` retains `userAgent`, `deviceId`, `lastSeenAt`, `expiresAt`, `revokedAt`, and timestamps. Admin Login History is a projection over these rows; no separate login-history table is required. Active device count is computed by grouping non-revoked, non-expired sessions by device identity. Logout-all writes `revokedAt` to active customer sessions rather than deleting history immediately; normal retention cleanup eventually removes sufficiently old revoked/expired sessions.
+
 ## 4. Customer and vehicle models
 
 ### Vehicle
@@ -90,6 +94,30 @@ A customer `Vehicle` stores brand, model, year, fuel type, registration, and def
 - active state
 
 Model images are catalogue assets. A saved customer vehicle references brand/model text rather than a foreign key, so UI matching is case-insensitive and must retain a fallback when metadata changes.
+
+### Customer registration-compatibility flag
+
+`User.vehicleRegistrationRequired` is the migration-safe account-level switch:
+
+- migration default `false` protects every pre-existing customer;
+- new customer creation paths explicitly set `true`;
+- booking/vehicle services enforce RC verification only when this flag is true.
+
+`User.firstBookingOfferConsumedAt` records one-time first-booking offer consumption so the verification/waiver path cannot be replayed by simply abandoning a lead.
+
+### Vehicle RC verification fields
+
+`Vehicle` stores the minimum RC verification projection needed by Rovauto:
+
+- `registrationNumber`
+- `registrationVerified`
+- `registrationVerifiedAt`
+- `registrationVerificationProvider`
+- `rcOwnerName` (full, admin-authorised use)
+- `rcOwnerNameMasked` (customer-safe presentation)
+- `rcMaker`, `rcModel`, `rcFuelType`, `rcVehicleClass`, `rcStatus`
+
+Registration number and verification state are indexed. Rovauto intentionally does not persist provider-returned chassis/engine/address fields when they are not required for product behaviour.
 
 ## 5. Garage and capability models
 
@@ -134,6 +162,7 @@ Current `BookingStatus` values:
 
 ```text
 PENDING_PAYMENT
+PENDING_VERIFICATION
 SEARCHING_GARAGE
 CONFIRMED
 GARAGE_ASSIGNED     compatibility
@@ -161,6 +190,12 @@ Important timestamps:
 `BookingFinalPaymentMethod` is `CASH` or `UPI`. `finalPaymentAmount` is the amount declared by the customer after physical payment; this record is not itself a payment-rail transaction. The garage confirmation transaction changes the booking to `COMPLETED`.
 
 `BookingService` snapshots estimated/final prices for each selected service.
+
+### BookingVerificationLead
+
+The one-to-one `BookingVerificationLead` record coordinates eligible first-booking approval before garage search. It stores lead status, claim/call/decision timestamps, support ownership/notes and escalation metadata required by the support workflow. `BookingStatus.PENDING_VERIFICATION` is the corresponding booking lifecycle state.
+
+The lead and `User.firstBookingOfferConsumedAt` are separate concerns: the lead represents operational review; the user timestamp prevents reuse of the one-time acquisition offer.
 
 ## 7. Fulfilment enums
 
@@ -314,6 +349,17 @@ Never infer payment truth solely from a frontend redirect.
 - System issues can be resolved/ignored/deleted through authorised operations.
 - Media deletion must coordinate Cloudinary cleanup with database state.
 
+### Latest registration migrations
+
+```text
+20260806090000_add_pending_verification_status
+20260806090100_add_first_booking_verification_leads
+20260807160000_add_vehicle_registration_verification
+20260807174500_add_full_rc_owner_name
+```
+
+As of this snapshot there are **57** checked-in migration directories. Do not collapse or rewrite historical migrations that have been applied to shared environments.
+
 ## 15. Migration workflow
 
 Development:
@@ -335,7 +381,7 @@ npm run prisma:check-client
 
 Never edit an already-applied migration. Add a repair migration when production history and schema diverge.
 
-The repository currently contains 52 migration directories. Recent migrations:
+The repository currently contains 57 migration directories. Recent migrations:
 
 ```text
 20260725003000_add_service_fulfillment_type
@@ -348,6 +394,11 @@ The repository currently contains 52 migration directories. Recent migrations:
 20260728183000_add_self_drop_tracking_phase
 20260729100000_add_platform_pseudo_data
 20260729103000_add_pseudo_average_rating
+20260731153000_make_garage_controller_email_optional
+20260806090000_add_pending_verification_status
+20260806090100_add_first_booking_verification_leads
+20260807160000_add_vehicle_registration_verification
+20260807174500_add_full_rc_owner_name
 ```
 
 ## 16. Backup and recovery

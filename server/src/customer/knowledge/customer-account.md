@@ -1,6 +1,6 @@
 # Customer Account, Vehicles, and Warranty
 
-> Customer-help knowledge updated on 30 July 2026.
+> Customer-help knowledge updated on 8 August 2026.
 
 ## Account access
 
@@ -24,6 +24,14 @@ Price ranges and garage eligibility may depend on this information. Mark the veh
 
 A catalogue image may appear for the vehicle model. Image matching is based on brand/model names. The booking still works when no image is available.
 
+### Registration verification
+
+For newer accounts, the registration number must be verified before a newly added vehicle can be saved/used for booking. Existing/legacy customers are not forced to add a number and may verify voluntarily from My Vehicles.
+
+Rovauto may compare the RC maker/model/fuel with the vehicle you selected. If they do not match, correct the vehicle details instead of retrying random registration numbers. Vehicle creation and registration verification/change are limited to three attempts each in a rolling 24-hour period to prevent abuse.
+
+The RC provider may return an owner name for verification. Customer-facing screens should not treat this as proof that the logged-in Rovauto account holder is the legal owner, and the provider does not supply a registered phone number in the current integration.
+
 ## Changing vehicle or city
 
 Changing the selected vehicle, city, or location can change service availability and price ranges. Review the cart again before checkout.
@@ -36,4 +44,4 @@ The card is active for 30 days and then displays expired. Use the Claim button/s
 
 ## Account security
 
-Use a unique password, sign out on shared devices, and report unexpected login/session behaviour. Do not give garage workers access to your customer account.
+Use a unique password, sign out on shared devices, and report unexpected login/session behaviour. Do not give garage workers access to your customer account. Authorised Rovauto administrators can review retained session/device history and revoke all active sessions when account security requires it.

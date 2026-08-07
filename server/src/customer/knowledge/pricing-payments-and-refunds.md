@@ -1,6 +1,6 @@
 # Pricing, Payments, and Refunds
 
-> Customer-help knowledge updated on 30 July 2026.
+> Customer-help knowledge updated on 8 August 2026.
 
 ## Price ranges
 
@@ -8,9 +8,13 @@ Rovauto can show an approved estimated range based on city, service, vehicle bra
 
 When no approved range exists, checkout should be blocked rather than showing a made-up price.
 
+## First-booking platform-fee waiver
+
+An eligible first booking whose estimated service total is within Rovauto's configured verification limit may receive a one-time platform-fee waiver. That booking can wait for support verification before garage search. The waiver is not a promise that all garage/service charges are free, and it cannot be repeatedly claimed by recreating the booking.
+
 ## Payment
 
-Use the payment page opened from Rovauto between 10:00 AM and 12:00 AM midnight IST. Payment is confirmed only after the backend verifies the provider order/status. Outside payment hours, keep the pending booking and return after 10:00 AM. Do not pay again only because a browser redirect was slow; reopen the pending booking or contact support first.
+For bookings that owe a platform fee, use the payment page opened from Rovauto between 10:00 AM and 12:00 AM midnight IST. An eligible fee-waived first booking goes to support verification instead of Cashfree platform-fee payment. For paid bookings, payment is confirmed only after the backend verifies the provider order/status. Outside payment hours, keep the pending booking and return after 10:00 AM. Do not pay again only because a browser redirect was slow; reopen the pending booking or contact support first.
 
 ## Wallet
 

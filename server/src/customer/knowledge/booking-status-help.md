@@ -1,10 +1,14 @@
 # Booking Status Help
 
-> Customer-help knowledge updated on 30 July 2026.
+> Customer-help knowledge updated on 8 August 2026.
 
 ## Pending payment
 
 Your booking exists but payment has not been confirmed. Open the pending booking and continue payment between 10:00 AM and 12:00 AM midnight IST. Avoid creating repeated bookings for the same service unless support confirms the previous one is unusable.
+
+## Waiting for verification
+
+`PENDING_VERIFICATION` means an eligible first booking is waiting for Rovauto support review before garage search. The support team may call the customer to confirm the booking. No garage is being searched yet. After approval, the booking proceeds to normal garage search; a suspicious rejection is handled through the support/escalation flow.
 
 ## Searching for a garage
 

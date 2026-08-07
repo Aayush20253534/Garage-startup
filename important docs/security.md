@@ -1,6 +1,6 @@
 # Rovauto Security Design
 
-> Security reference synchronized with the codebase on 30 July 2026.
+> Security reference synchronized with the codebase on 8 August 2026.
 
 ## 1. Objectives
 
@@ -64,6 +64,16 @@ Security properties:
 
 Current implementation does not bind the task to one device. Forwarded-link risk remains a residual risk and should be reduced later with optional device binding/PIN or a native worker app.
 
+### Customer vehicle RC verification
+
+- Way2API credentials are server-only and never exposed through `VITE_*`, query cache, Redux, logs, or admin response payloads.
+- New customer accounts are marked `vehicleRegistrationRequired=true`; the migration default remains false so legacy accounts are not unexpectedly locked out.
+- Vehicle create and registration verify/change routes have independent 3-per-24-hour customer limits.
+- Provider maker/model/fuel is matched against the selected Rovauto vehicle before verification is accepted.
+- Full `rcOwnerName` is retained only because authorised admin Vehicles needs it; customer-facing UI should prefer `rcOwnerNameMasked`.
+- Do not store unnecessary RC provider fields such as address, engine number, or chassis number.
+- Admin live RC lookup is an explicit, rate-limited provider action. Way2API does not provide a registered phone field, so the application must never label the Rovauto account phone as an RC phone.
+
 ## 4. Authorization matrix
 
 | Capability | Customer | Garage owner | Controller | Worker link | Intern | Sub-admin | Main admin | Support |
@@ -78,6 +88,10 @@ Current implementation does not bind the task to one device. Forwarded-link risk
 | Customer support tickets | Own | Limited booking context | Limited | No | Permitted views | Yes | Yes | Assigned support scope |
 
 Backend service ownership is authoritative; UI visibility is not security.
+
+### Admin customer session visibility and revocation
+
+Admin Login History reads retained `UserSession` records and exposes active-device/session metadata only to authenticated staff routes. `ADMIN` and `SUB_ADMIN` can revoke all customer sessions; `INTERN` is read-only for that mutation. Revocation must remain server-authoritative and should clear relevant push subscriptions. Device/user-agent strings are operational metadata and must not be treated as proof of physical device identity.
 
 ## 5. CSRF and CORS
 
@@ -167,6 +181,13 @@ The public `/warranty` route contains only mock/design data and must never load 
 
 The service-history PDF is generated only after authenticated booking data reaches the customer browser. It is not uploaded to Rovauto, but the downloaded file contains personal, vehicle, garage, payment, and timing information; the UI must describe it as sensitive and avoid automatic sharing. Video URLs and public IDs must not be written to analytics or issue reports with worker tokens or personal identifiers.
 
+## 13A. Frontend state/cache security
+
+- TanStack Query and Redux live in browser JavaScript memory; neither is a trust boundary.
+- Do not place JWTs, OTPs, provider credentials, full live RC payloads, payment secrets, or unnecessary admin data in persisted Redux/localStorage/IndexedDB.
+- Logout/account switching clears QueryClient data so one user cannot see another user's cached server state.
+- Browser HTTP cache settings do not disable React Query memory, but sensitive responses must still be protected by normal authentication/authorization and appropriate HTTP headers.
+
 ## 14. Client, mobile, and container secrets
 
 - `VITE_*` and `EXPO_PUBLIC_*` are public. Google Maps browser configuration is returned through the public-safe maps config endpoint from server-side environment values.
@@ -200,7 +221,7 @@ The service-history PDF is generated only after authenticated booking data reach
 ## 17. Release security gate
 
 - Prisma validation/generation and all migrations pass.
-- All 74 security/regression test files (275 current cases) pass.
+- All 80 security/regression test files (301 current cases) pass.
 - Client build passes.
 - Role/IDOR checks for changed routes pass.
 - Provider webhook signatures are enabled.

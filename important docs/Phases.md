@@ -1,6 +1,6 @@
 # Rovauto Delivery Phases
 
-> Roadmap synchronized with the repository on 30 July 2026. The planned launch date referenced by the team is 1 August 2026.
+> Roadmap synchronized with the repository on 8 August 2026. The earlier 1 August launch target is historical planning context; current production rollout status must be verified operationally rather than inferred from this document.
 
 ## Guiding principles
 
@@ -12,7 +12,7 @@
 
 ## Phase 0 — Implemented baseline
 
-Status verified on 30 July 2026.
+Status verified against the code on 8 August 2026.
 
 Current code includes:
 
@@ -28,6 +28,10 @@ Current code includes:
 - Vehicle model catalogue photos shown in customer My Vehicles.
 - Combined System Health for admin, sub-admin, and intern.
 - Customer real Warranty Center derived from completed bookings with a 30-day countdown.
+- Way2API-backed vehicle RC verification with legacy-account compatibility, 3-per-24-hour customer limits, admin vehicle registry/live RC lookup, and separate RC registered-name/account-name presentation.
+- Eligible first-booking support verification with `PENDING_VERIFICATION`, one-time fee waiver, claim/call/approve/reject workflow, and unclaimed-lead escalation.
+- Admin customer Login History with current-device grouping, retained sessions, and ADMIN/SUB_ADMIN logout-all.
+- Redux Toolkit + TanStack Query frontend state split, plus a compact admin shell/table system designed to avoid page-level overflow.
 - Prisma migrations, security/regression tests, backup/recovery scripts, and deployment smoke checks.
 
 ## Phase 1 — Launch gate
@@ -51,14 +55,22 @@ Current code includes:
 - Upload a real phone video, wait for Cloudinary processing, confirm inline playback/retry/open behaviour, and verify “Uploaded” appears only after persistence.
 - Download a service-history PDF and review every section in black and white on mobile and desktop.
 
-- Apply all production migrations through `20260729103000_add_pseudo_average_rating`.
+- Apply all production migrations through `20260807174500_add_full_rc_owner_name`.
 - Build all frontend shells and test direct URL refresh.
-- Run all 74 security/regression test files (275 current `test(...)` cases).
+- Run all 80 security/regression test files (301 current `test(...)` cases).
 - Validate Cashfree, Resend, Cloudinary, WhatsApp, Maps, Firebase, Web Push, Redis, and PostgreSQL in System Health.
 - Test one end-to-end pickup booking and one end-to-end self-drop booking.
 - Test both controller-enabled and controller-disabled garages.
 - Verify 5-15 photos plus one video on pickup and delivery.
 - Verify customer Warranty Center after booking completion.
+
+### Verification and session readiness
+
+- Configure and smoke-test the server-only Way2API key; test a valid RC, invalid/not-found RC, mismatch, upstream timeout, and customer 3/24-hour limit.
+- Verify a pre-migration customer can continue without an RC and a newly created customer cannot save/use an unverified required vehicle.
+- Test one eligible first booking through support approval before garage search and verify the free-offer cannot be reused.
+- In Admin Customers, confirm Login History groups current devices correctly and ADMIN/SUB_ADMIN logout-all invalidates existing browser sessions while INTERN remains read-only.
+- With browser HTTP cache disabled, verify migrated React Query screens reuse application-memory data during route navigation and clear it on logout/account switch.
 
 ### Operations
 

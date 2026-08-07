@@ -1,6 +1,6 @@
 # Pickup and Self Drop-off System
 
-> Behaviour verified against the codebase on 30 July 2026.
+> Behaviour verified against the codebase on 8 August 2026.
 
 ## 1. Independent configuration layers
 
@@ -19,6 +19,10 @@ SELF_DROP_OFF
 ```
 
 `Service.fulfillmentType` describes the service. `Booking.fulfillmentType` stores the booking snapshot. `Garage.fulfillmentMode` describes the garage.
+
+### Preconditions shared with all fulfilment modes
+
+Before pickup/self-drop logic begins, the customer must satisfy the normal account/vehicle rules. For customer accounts with `vehicleRegistrationRequired=true`, the selected vehicle must have a verified RC registration. Legacy accounts created before the RC feature remain optional. Eligible first bookings may also pause in `PENDING_VERIFICATION` for support approval before garage search; this does not change the later pickup/self-drop lifecycle.
 
 ## 2. Customer checkout
 
@@ -137,6 +141,10 @@ After completion, both fulfilment methods appear in compact Service History card
 
 
 After garage payment confirmation completes the booking, the protected Warranty Center derives a 30-day warranty card showing services, vehicle, garage, activation, expiry, and remaining days. The public mock warranty page remains separate.
+
+## 8A. Cross-cutting abuse protection
+
+Vehicle creation and RC verification/change are server-limited to three attempts per customer per rolling 24 hours. These limits happen before fulfilment selection and must not be bypassed by switching between pickup and self drop-off.
 
 ## 9. Database deployment
 

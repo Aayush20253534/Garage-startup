@@ -1,10 +1,12 @@
 # Services, Tracking, Warranty, and Support
 
-> Customer-help knowledge updated on 30 July 2026.
+> Customer-help knowledge updated on 8 August 2026.
 
 ## Service availability
 
-Services can depend on city, category restrictions, vehicle, fuel type, fulfilment method, approved pricing, and garage capability. A service being visible does not always mean it can be booked for every vehicle/location.
+Services can depend on city, category restrictions, vehicle, fuel type, fulfilment method, approved pricing, garage capability, and whether a newer account has completed required vehicle-registration verification. A service being visible does not always mean it can be booked for every vehicle/location.
+
+A required registration check happens before booking/garage assignment. Existing legacy customers may remain registration-optional. Eligible first bookings can also wait for support approval before garage search.
 
 ## Garage assignment
 

@@ -1,6 +1,6 @@
 # Rovauto Recovery, Rollback, and Incident Runbook
 
-> Runbook synchronized with the repository on 30 July 2026.
+> Runbook synchronized with the repository on 8 August 2026.
 
 ## 1. Objectives and ownership
 
@@ -73,7 +73,7 @@ docker compose down
 For the current schema, production must include migration:
 
 ```text
-20260728090000_add_garage_worker_task_mode
+20260807174500_add_full_rc_owner_name
 ```
 
 ## 4. Backup procedure
@@ -156,6 +156,27 @@ After schema/feature releases, add targeted smoke flows.
 - Completed customer booking appears at `/dashboard/warranty`.
 - Public `/warranty` remains mock and unauthenticated.
 - Active/expired calculation matches activation + 30 days.
+
+### Vehicle registration / Way2API
+
+- Verify `WAY2API_API_KEY` exists only on the server and the RC endpoint can return one known valid staging/test registration before making registration compulsory for new customers.
+- Test one legacy customer (`vehicleRegistrationRequired=false`) to ensure missing registration does not block existing use.
+- Test one newly created customer to ensure an unverified required vehicle is blocked and a verified vehicle succeeds.
+- Confirm customer vehicle-create and RC verify/change rate limits return `429` after 3 attempts in a rolling 24-hour window without continuing provider calls.
+- Admin live RC lookup must show provider owner data and must state that registered phone is unavailable rather than using the Rovauto account phone.
+
+### First-booking verification
+
+- Create an eligible first booking and confirm `PENDING_VERIFICATION` is visible before garage search.
+- Claim/call/approve through Support and verify search begins only after approval.
+- Confirm the one-time offer is consumed and cannot be reused by abandoning/recreating the lead.
+- Check escalation mail/worker behaviour for an intentionally unclaimed lead.
+
+### Customer session management
+
+- Open Admin Customer Login History and confirm current-device/session counts are plausible.
+- Use logout-all with a non-production test customer and confirm all old browser sessions are rejected afterward.
+- Verify INTERN can inspect history but cannot trigger logout-all.
 
 ## 8. Backend rollback
 
@@ -245,6 +266,17 @@ Use only when repair/rollback against the current database is impossible.
 - A working domains-list probe does not prove a particular email send succeeded.
 - Do not bypass staff 2FA by sharing sessions/passwords.
 - Restore provider/configuration or use an approved operational recovery path.
+
+## 14A. Frontend state/cache incident
+
+If a deployment shows stale/cross-account frontend data:
+
+1. Reproduce with browser HTTP cache disabled; TanStack Query should still behave consistently because its cache is application memory.
+2. Verify query keys include the correct customer/admin scope.
+3. Verify mutations invalidate/update the expected keys.
+4. Verify logout calls `queryClient.clear()` and account switching does not reuse the previous user's queries.
+5. Check Redux only for client-owned selection/cart state; do not repair a server-state issue by adding another localStorage cache.
+6. If necessary, roll back the frontend while keeping the newer database schema when compatible.
 
 ## 15. Database/PostGIS/Redis outage
 

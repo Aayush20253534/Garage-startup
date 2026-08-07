@@ -1,6 +1,6 @@
 # Rovauto Server
 
-> Backend reference verified against the repository on 30 July 2026.
+> Backend reference verified against the repository on 8 August 2026.
 
 The server is a Node.js 22+/Express 5 API backed by PostgreSQL/PostGIS through Prisma 7 and by Redis for cache, rate limits, and operational coordination. It owns authentication, authorization, bookings, payments, garage dispatch, tracking, evidence, worker-task links, customer warranty projections, support, integrations, and background jobs.
 
@@ -25,7 +25,7 @@ src/
 
 ## Startup and background work
 
-Production startup generates/checks the Prisma client before launching `src/server.js`. The Docker entrypoint instead runs `prisma migrate deploy` with bounded retries, checks the generated client, and then executes `src/server.js` as the non-root `node` user. Critical configuration is validated before normal traffic. In-process jobs currently include garage search, garage-application email outbox processing, session cleanup, issue auto-resolution, and scheduled operational work.
+Production startup generates/checks the Prisma client before launching `src/server.js`. The Docker entrypoint instead runs `prisma migrate deploy` with bounded retries, checks the generated client, and then executes `src/server.js` as the non-root `node` user. Critical configuration is validated before normal traffic. In-process jobs currently include garage search, garage-application email outbox processing, first-booking verification-lead escalation, session cleanup, issue auto-resolution, and scheduled operational work.
 
 Because workers share the web process, deployment with multiple replicas must preserve idempotency and distributed claiming. Redis is not a durable job queue.
 
@@ -55,12 +55,16 @@ The public worker-task endpoints are rate-limited and token-scoped. Manager endp
 - The mobile client is being built around bearer tokens; production backend support for that contract must be explicitly completed and tested.
 - Worker-task links are not accounts. Their authority is the hash-matched, expiring token for one booking stage.
 
+## Admin customer session operations
+
+`GET /api/v1/admin/customers/:userId/login-history` projects retained `UserSession` rows into active devices plus complete retained session history. `POST /api/v1/admin/customers/:userId/logout-all` is restricted to `ADMIN`/`SUB_ADMIN` and revokes all active customer sessions; intern access to history is read-only.
+
 ## Marketplace flow
 
-1. Customer selects city, vehicle, services, and fulfilment type.
-2. The server validates service restrictions and approved price ranges.
-3. The server enforces the daily payment window from 10:00 AM inclusive until 12:00 AM midnight exclusive in `Asia/Kolkata`.
-4. Payment/wallet reconciliation creates or confirms the booking.
+1. Customer selects city, an eligible vehicle, services, and fulfilment type; required-account RC verification is enforced before booking use.
+2. The server validates service restrictions and approved price ranges and creates the booking snapshot.
+3. If the customer qualifies for the one-time first-booking waiver, the booking enters `PENDING_VERIFICATION` with handling/platform fee `0`; support approval moves it directly to `SEARCHING_GARAGE` without a Cashfree platform-fee payment.
+4. Otherwise the booking enters `PENDING_PAYMENT`; payment creation/resume is allowed only from 10:00 AM inclusive until 12:00 AM midnight exclusive in `Asia/Kolkata`, and verified payment moves it to `SEARCHING_GARAGE`.
 5. Progressive garage search checks distance, operational status, fulfilment, brand/model/service scopes, exclusions, and availability.
 6. A compatible garage accepts atomically and pays the garage acceptance fee.
 7. With controller accounts enabled, existing controller dispatch/assignment runs.
@@ -70,6 +74,25 @@ The public worker-task endpoints are rate-limited and token-scoped. Manager endp
 11. The garage/controller/worker shares the delivery route and confirms arrival near the customer.
 12. The customer submits Cash or UPI plus the amount paid; the booking remains pending until the garage confirms receipt.
 13. Payment confirmation atomically completes the booking, stops the timer, releases the controller, and activates the 30-day Warranty Center card.
+
+## Customer RC registration verification
+
+`POST /api/v1/vehicles/verify-registration` validates/normalizes an RC through the server-side Way2API integration. The browser never calls Way2API directly.
+
+- `User.vehicleRegistrationRequired=false` is the migration default for existing customers.
+- New customer signup paths set the flag to `true`.
+- Required customers must have a verified registration before a new vehicle can be saved/used for booking.
+- Vehicle creation: max 3 attempts/customer/rolling 24 hours.
+- Registration verification/change: shared max 3 attempts/customer/rolling 24 hours.
+- Way2API maker/model/fuel mismatch is rejected.
+- Full owner name is stored for authorised admin use; customer presentation can use the masked value.
+- The provider result does not include an RC registered phone number. Admin must not substitute the Rovauto account phone.
+
+Admin Vehicles supports list/filter plus a separately rate-limited live RC lookup for authorised staff.
+
+## First-booking verification
+
+Eligible first bookings up to `FIRST_BOOKING_FREE_MAX_ESTIMATE` can receive the one-time platform-fee waiver and enter `PENDING_VERIFICATION`. `BookingVerificationLead` coordinates the support claim/call/approve/reject flow. The offer is consumed when the lead is created, not when the agent later approves it. The lead escalation worker emails the configured admin address when an eligible lead remains unclaimed past the configured delay.
 
 ## Garage capability rules
 
@@ -127,8 +150,12 @@ Activation prefers `customerAcceptedAt`, then `deliveredAt`, then `updatedAt`. C
 | Push/Firebase | Firebase Admin and VAPID settings |
 | Search/jobs | garage search, outbox, session cleanup, issue resolver |
 | AI | Groq model, timeout, and chatbot rate settings |
+| Vehicle RC | `VEHICLE_REGISTRATION_VERIFICATION_ENABLED`, `WAY2API_API_KEY`, `WAY2API_RC_URL`, `WAY2API_RC_TIMEOUT_MS` |
+| First booking verification | `FIRST_BOOKING_FREE_MAX_ESTIMATE`, lead escalation/worker interval, admin escalation email |
 | Integration Health | check cache/timeout overrides where configured |
 | Recovery | backup directory, recovery database, deployment smoke variables |
+
+Production environment validation requires vehicle registration verification to remain enabled and requires `WAY2API_API_KEY`.
 
 Do not commit `.env`. `VITE_*` and `EXPO_PUBLIC_*` are client-visible and are not server secret storage. Maps browser values stay in `server/.env` and are projected through `/api/v1/maps/config`. Service-history PDFs are generated client-side and need no server environment variable or database model.
 
@@ -173,10 +200,10 @@ docker compose down
 
 The Compose database is `postgis/postgis:16-3.5-alpine`; this is required by the geospatial migration history.
 
-The current schema contains 52 checked-in migration directories. The latest migration is:
+The current schema contains 57 checked-in migration directories. The latest migration is:
 
 ```text
-20260729103000_add_pseudo_average_rating
+20260807174500_add_full_rc_owner_name
 ```
 
 ## Security and API conventions
@@ -193,7 +220,7 @@ The current schema contains 52 checked-in migration directories. The latest migr
 
 ## Tests
 
-`npm test` currently runs 74 security/regression test files containing 275 `test(...)` cases. Recent coverage includes:
+`npm test` currently runs 80 security/regression test files containing 301 `test(...)` cases. Recent coverage includes:
 
 - Garage controller enable/disable behaviour
 - Worker task token hashing, access, lifecycle, evidence, and tracking
@@ -203,6 +230,9 @@ The current schema contains 52 checked-in migration directories. The latest migr
 - Vehicle model photos
 - System Health access and provider probes
 - Customer warranty derivation
+- First-booking verification leads and `PENDING_VERIFICATION` flow
+- Way2API RC verification, legacy/new-account compatibility, rate limits, admin Vehicles lookup/full-owner handling
+- Admin customer login history and logout-all session revocation
 
 The suite is focused source/regression coverage, not complete integration or E2E coverage. Before production, validate Prisma, apply migrations on staging, build the client, run smoke tests, and manually exercise login, payment, dispatch, handover, tracking, delivery, and warranty display.
 

@@ -1,6 +1,6 @@
 # Rovauto Web Client
 
-> Frontend reference verified against the repository on 30 July 2026.
+> Frontend reference verified against the repository on 8 August 2026.
 
 The web client is one React/Vite application serving public visitors, customers, garage owners, garage controllers, no-account workers, administrators, interns, and customer-support agents. Role-specific HTML/PWA shells boot the same route tree from `src/main.jsx` and `src/App.jsx`.
 
@@ -51,7 +51,8 @@ src/
 |-- main.jsx                        React bootstrap
 |-- api/                            Axios client and domain wrappers
 |-- hooks/useApp.jsx                Shared application orchestration
-|-- store/                          Redux state
+|-- store/                          Redux client/session/booking state
+|-- lib/query/                      TanStack Query client and shared query keys
 |-- pages/                          Route-level pages by actor
 |-- components/                     Shared and domain components
 |-- utils/                          Auth, payment, maps, media, PWA, activity, recovery
@@ -72,6 +73,20 @@ Relevant recent pages/components:
 - `pages/customer/ServiceHistory.jsx`
 - `utils/cloudinaryVideo.js`
 - `utils/serviceHistoryPdf.js`
+
+## State management
+
+Rovauto deliberately separates frontend state by ownership:
+
+- **TanStack Query 5** owns the fetch/cache lifecycle for backend data such as customer dashboard/profile/vehicles, active/history bookings, service categories, vehicle metadata, admin vehicles, and admin customer login history.
+- **Redux Toolkit** owns shared browser interaction/session state used across distant routes, including the selected customer vehicle/location, cart and cart pricing context, plus existing actor state required by the current shell.
+- **Local component state or URL search params** owns forms, dropdowns, modals, one-page search fields, and transient filters.
+
+`src/lib/query/queryClient.js` uses a 60-second default stale time, 30-minute garbage-collection window, no refetch on window focus, refetch on reconnect, and bounded retries for retryable failures. Domain hooks can override stale time. The cache is in JavaScript memory and is independent of the browser HTTP cache.
+
+`useApp.jsx` still exposes compatibility loader/cache-named methods, but those customer loaders now use `QueryClient` fetch/remove/set operations rather than the previous ad-hoc browser API caches. Do not introduce another localStorage cache for the same server resources. Logout clears the QueryClient.
+
+The booking cart is Redux-owned and persisted only to `sessionStorage` for navigation/refresh continuity; it remains guarded by vehicle/location pricing context so background profile hydration cannot silently corrupt or erase a valid same-context cart.
 
 ## API client rules
 
@@ -99,6 +114,7 @@ The public worker-task wrapper in `src/api/workerTasks.js` sends the secure toke
 - Missing approved pricing blocks checkout.
 - Payment creation/recovery is available from 10:00 AM inclusive to 12:00 AM midnight exclusive in `Asia/Kolkata`; `src/utils/serviceHours.js` provides the immediate UI guard while the server enforces the same boundary.
 - `PENDING_PAYMENT` can resume payment.
+- `PENDING_VERIFICATION` is the fee-waived eligible first-booking support-review state; garage search starts only after support approval.
 - Successful payment moves a normal booking into garage search.
 - Garage acceptance normally writes `CONFIRMED`; `GARAGE_ASSIGNED` is compatibility state.
 - Verified handover with required media moves the booking to `IN_PROGRESS`.
@@ -118,6 +134,15 @@ The public worker-task wrapper in `src/api/workerTasks.js` sends the secure toke
 - Service History keeps summary cards minimal. Full timing, payment, customer, vehicle, garage, service, evidence, rating, and note data is available in a black-and-white A4 PDF generated locally without a new server endpoint or npm dependency.
 - Pending count and payment state are presented as compact rectangular corner cards, not large capsule badges.
 - Hindi voice is implemented with browser `speechSynthesis`; unsupported browsers show a clear error rather than silently failing.
+
+## Current admin UI conventions
+
+- Admin content is rendered in a constrained workspace rather than stretching cards to the full viewport width.
+- Summary cards should be compact and comparable in height.
+- Tables own their horizontal scrolling; the overall admin page should not overflow horizontally.
+- Customer Login History uses compact security summary cards, active-device cards, and a retained-session table.
+- Admin Vehicles separates **RC Registered Name** (Way2API) from **Account Name** (Rovauto user), and its live RC lookup clearly states that Way2API does not provide a registered phone number.
+- Main admin/sub-admin may revoke all customer sessions from Login History; intern access is read-only for that action.
 
 ## Environment
 

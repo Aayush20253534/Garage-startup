@@ -1,6 +1,6 @@
 # Rovauto
 
-> Repository documentation verified against the codebase on 30 July 2026.
+> Repository documentation verified against the codebase on 8 August 2026.
 
 Rovauto is a multi-surface vehicle-service marketplace for customers, garage owners, garage controllers, no-account garage workers, customer-support agents, interns, sub-admins, and main administrators. The system combines city- and vehicle-aware service discovery, Cashfree payments, progressive garage dispatch, garage wallet fees, pickup/self-drop fulfilment, live tracking, inspection evidence, operational health monitoring, and customer support.
 
@@ -13,9 +13,9 @@ Rovauto is a multi-surface vehicle-service marketplace for customers, garage own
 | Garage owner | Garage profile and media, services and vehicle scopes, booking requests, wallet, controller management when enabled, no-account worker task assignment when controllers are disabled, pickup/return/delivery tracking, inspection media, and final-payment confirmation |
 | Garage controller | Garage-scoped login, availability, assigned bookings, limited customer data, booking handling, tracking, evidence, and history |
 | No-account worker | Secure booking-specific WhatsApp task link, Hindi/English instructions, browser voice guidance, pickup/return/delivery tracking, pickup handover OTP, self-drop arrival evidence without OTP, required photo/video evidence, customer-arrival confirmation, and payment-receipt confirmation without a Rovauto account |
-| Customer support | Separate authentication/session, ticket claim/release/reply, outbound notifications and email history, and push subscriptions |
-| Intern | Price-range operations, staff-authorised operational pages, and the same System Health centre used by admins |
-| Admin/Sub-admin | Customers, bookings, garages, fulfilment and controller settings, services, cities, price operations, support, worker-task intervention, System Health, and permitted staff administration |
+| Customer support | Separate authentication/session, ticket claim/release/reply, first-booking verification lead queue with claim/call/approve/reject, outbound notifications and email history, and push subscriptions |
+| Intern | Price-range operations, read-only customer session-history/vehicle registry access where permitted, staff-authorised operational pages, and the same System Health centre used by admins |
+| Admin/Sub-admin | Customers, customer login-history/session revocation, bookings, garages, vehicle registry/live RC lookup, fulfilment and controller settings, services, cities, price operations, support, worker-task intervention, System Health, and permitted staff administration |
 | Main admin | All admin capabilities plus main-admin-only account and dangerous-operation controls |
 
 ## Architecture
@@ -29,7 +29,7 @@ flowchart TD
     Services --> Prisma["Prisma 7"]
     Prisma --> DB[(PostgreSQL/PostGIS)]
     Services --> Redis[(Redis)]
-    Services --> Providers["Cashfree, Cloudinary, Google Maps, Firebase, Resend, WhatsApp, Web Push, Groq"]
+    Services --> Providers["Cashfree, Cloudinary, Google Maps, Firebase, Resend, WhatsApp, Web Push, Groq, Way2API"]
     Jobs["In-process workers"] --> Services
 ```
 
@@ -50,12 +50,31 @@ PostgreSQL is the source of truth. Redis is used for cache, rate limits, and ope
 - A shared elapsed timer starts at garage acceptance; final Cash/UPI details remain pending until garage confirmation completes the booking.
 - Customer warranty cards appear for completed bookings for 30 days, then remain visible as expired.
 - System Health combines System Issues and Integration Health for main admin, sub-admin, and intern roles.
+- New customer accounts require a Way2API-backed RC registration check before saving/using a vehicle; customers that existed when the migration was introduced remain optional for backward compatibility. Customer vehicle creation and RC verification/change are each limited to 3 attempts per rolling 24 hours.
+- Admin Vehicles separates the Way2API RC registered owner from the Rovauto account name, supports explicit live RC lookup for authorised staff, and never substitutes the Rovauto account phone as an RC-registered phone because Way2API does not return that field.
+- Admin customer profiles expose retained login/session history, currently logged devices, and an ADMIN/SUB_ADMIN logout-from-all-devices action.
+- Eligible first bookings with estimated service total up to the configured limit enter `PENDING_VERIFICATION`; support claims/calls/approves the lead before garage search and the one-time platform-fee offer is consumed when the lead is created.
 
 ## Technology
 
+### Vehicle registration verification (Way2API)
+
+Production configuration requires registration verification to remain enabled and requires a real Way2API key. Development can omit exercising the provider only when the relevant flow is not being tested:
+
+```env
+VEHICLE_REGISTRATION_VERIFICATION_ENABLED=true
+WAY2API_API_KEY=<server-only-api-key>
+WAY2API_RC_URL=https://app.way2api.com/api/v1/rc/verify
+WAY2API_RC_TIMEOUT_MS=12000
+```
+
+Do not put the API key in `client/.env` or any `VITE_*` value. Production environment validation rejects `VEHICLE_REGISTRATION_VERIFICATION_ENABLED=false` and rejects a missing `WAY2API_API_KEY`. Existing customer accounts created before the registration migration keep `vehicleRegistrationRequired=false`; new customer signup paths set it to `true`.
+
+The first-booking verification worker also uses the documented `FIRST_BOOKING_*` server variables.
+
 ### Web client
 
-- React 18.3, React Router 6, Redux Toolkit, Axios, and Vite 5
+- React 18.3, React Router 6, Redux Toolkit/React Redux for client-owned state, TanStack Query 5 for server-state caching, Axios, and Vite 5
 - Tailwind CSS 4, Framer Motion, React Icons, and React Helmet Async
 - Five role-aware HTML/PWA shells: public/customer, garage, admin, intern, and customer support
 - Firebase browser authentication for Google sign-in
@@ -66,8 +85,8 @@ PostgreSQL is the source of truth. Redis is used for cache, rate limits, and ope
 - Node.js 22+, Express 5, Prisma 7, PostgreSQL/PostGIS, and Redis
 - HttpOnly browser sessions backed by revocable database session records
 - Argon2 passwords, staff two-factor challenges, OTP attempt controls, CSRF, CORS, Helmet, rate limits, and request correlation IDs
-- Cashfree, Cloudinary, Firebase Admin, Google Maps, Groq, Resend, WhatsApp Cloud API, web push, and optional SMS providers
-- 74 Node security/regression test files under `server/test/security` (275 current `test(...)` cases)
+- Cashfree, Cloudinary, Firebase Admin, Google Maps, Groq, Resend, WhatsApp Cloud API, web push, Way2API RC verification, and optional SMS providers
+- 80 Node security/regression test files under `server/test/security` (301 current `test(...)` cases)
 
 ### Mobile
 
@@ -200,6 +219,20 @@ npm run start
 
 The current API fallback is `https://api.rovauto.com/api/v1`. Set `EXPO_PUBLIC_API_URL` for local or staging work.
 
+## Frontend state ownership
+
+The web client now uses three different state layers deliberately:
+
+| State | Owner | Examples |
+| --- | --- | --- |
+| Server/API data | TanStack Query | dashboard, profile, vehicles fetch lifecycle, active/history bookings, service categories, vehicle catalogue, admin vehicles, customer login history |
+| Shared client-owned interaction state | Redux Toolkit | authenticated customer/garage UI state, selected vehicle/location, booking cart and cart pricing context |
+| Page-local UI | React component state / URL params | forms, modals, dropdowns, transient filters |
+
+TanStack Query is an application-memory cache and does not depend on the browser HTTP cache. PostgreSQL remains authoritative; Redis remains the shared backend cache/rate-limit layer. Some legacy Redux fields mirror server data for compatibility, but new server-state fetch/cache logic should use query keys and invalidation instead of creating another localStorage cache.
+
+Logout clears the QueryClient so cached data cannot cross accounts. Authentication itself remains server/session-cookie authoritative.
+
 ## Health endpoints
 
 | Endpoint | Purpose |
@@ -257,7 +290,7 @@ npm run build
 git diff --check
 ```
 
-When a migration exists, apply `npm run prisma:deploy` before starting application code that depends on it. The current latest migration is `20260729103000_add_pseudo_average_rating`; 52 migration directories are checked in.
+When a migration exists, apply `npm run prisma:deploy` before starting application code that depends on it. The current latest migration is `20260807174500_add_full_rc_owner_name`; 57 migration directories are checked in.
 
 ## Deployment notes
 

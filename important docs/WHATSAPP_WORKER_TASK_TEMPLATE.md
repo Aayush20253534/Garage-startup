@@ -1,6 +1,6 @@
 # WhatsApp Worker Task Assignment Template
 
-> Template contract verified against the worker-task implementation on 30 July 2026.
+> Template contract verified against the worker-task implementation on 8 August 2026.
 
 Use this template only for garages where **Controller accounts enabled** is switched off. Permanent controller notifications continue using their existing templates when controller accounts are enabled.
 
@@ -106,6 +106,10 @@ The WhatsApp template itself is not dynamically translated. A separate Hindi Wha
 
 - For pickup/delivery bookings, track from garage to customer and upload delivery evidence.
 - For self-drop bookings, the task records ready-for-self-pickup evidence at the garage.
+
+## Privacy boundary with RC verification
+
+Vehicle RC verification and admin live RC lookup are separate from the worker-task template. Do not add full RC owner names, provider responses, customer account contact data, Way2API credentials, or verification metadata to WhatsApp worker-task templates. A worker task needs only the minimum booking/task context required for physical handover/delivery.
 
 ## Template-change checklist
 

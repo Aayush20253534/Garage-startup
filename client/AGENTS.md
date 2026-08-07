@@ -7,7 +7,12 @@
 
 # Client change rules
 
-> Rules synchronized with the web client on 30 July 2026.
+> Rules synchronized with the web client on 8 August 2026.
+
+- State ownership is intentional: use TanStack Query for backend-owned fetch/cache state, Redux Toolkit for shared client-owned interaction state, and component/URL state for page-local UI. Do not add a second localStorage cache for data already managed by TanStack Query.
+- Reuse `src/lib/query/queryClient.js` and `src/lib/query/queryKeys.js`. Mutations that change server data must invalidate/update the affected query keys.
+- Logout/account switching must clear TanStack Query data. Do not persist sensitive admin/customer server responses through Redux Persist, localStorage, or IndexedDB without a specific reviewed requirement.
+- Keep booking cart/cart-context changes in the booking Redux slice. Preserve the selected vehicle/location semantics in the customer slice and the post-login hydration safeguards.
 
 - The web application is React 18 + Vite 5 and uses `src/App.jsx` as the shared route tree.
 - Preserve the five document shells: `index.html`, `garage.html`, `admin.html`, `intern.html`, and `support.html`.
@@ -16,7 +21,7 @@
 - Keep public `/warranty` separate from protected `/dashboard/warranty`.
 - Keep `/worker-task/:token` public but token-scoped; do not wrap it in normal garage/customer authentication.
 - When changing garage navigation, preserve controller hiding while `controllerAccountsEnabled` is false.
-- Use rectangular operational controls in admin pages and retain responsive, loading, empty, retry, and permission-denied states.
+- Use compact rectangular operational controls in admin pages, constrain wide tables inside their own overflow containers, and retain responsive, loading, empty, retry, and permission-denied states. Avoid page-level horizontal overflow and oversized stat/header cards.
 - Validate changed JSX with the production build or TypeScript `transpileModule`, then run relevant source-regression tests under `server/test/security`.
 
 - Keep inspection video upload states distinct: local selection is “ready to upload”; only persisted booking media is “uploaded”. Preserve H.264-compatible playback, retry, and direct-open fallbacks.

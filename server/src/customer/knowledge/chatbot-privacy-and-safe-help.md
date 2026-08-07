@@ -1,6 +1,6 @@
 # Chatbot Privacy and Safe Help
 
-> Customer-help knowledge updated on 30 July 2026.
+> Customer-help knowledge updated on 8 August 2026.
 
 The Rovauto chatbot can explain customer booking, payment, pickup/self-drop, tracking, warranty, account, service, and support processes using approved help documents and limited account/booking signals.
 
@@ -13,6 +13,7 @@ Do not send:
 - card, UPI PIN, or banking credentials;
 - access/session tokens;
 - full government identity documents;
+- full RC-provider responses, chassis/engine numbers, or another person's vehicle registration details;
 - downloaded service-history PDFs or inspection-video links unless an authorised support agent specifically requests the minimum necessary information;
 - another person's private information;
 - secure worker-task links.
@@ -27,6 +28,7 @@ The chatbot cannot:
 - override a booking, garage, price, refund, or warranty decision;
 - reveal internal admin, infrastructure, or security information;
 - expose another customer or garage's data;
+- expose admin login/session history or full RC-owner details from staff-only tools;
 - guarantee live worker location when the worker's phone is not updating;
 - provide mechanical diagnosis that replaces physical inspection.
 

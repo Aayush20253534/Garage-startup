@@ -1,14 +1,16 @@
 # Booking Flow
 
-> Customer-help knowledge updated on 30 July 2026.
+> Customer-help knowledge updated on 8 August 2026.
 
 ## Before booking
 
-You need to be signed in, have a selected saved service location, and have at least one vehicle in My Vehicles. Choose the correct city and vehicle before adding services because availability and estimated price ranges can depend on them.
+You need to be signed in, have a selected saved service location, and have at least one vehicle in My Vehicles. Newer customer accounts may also require the vehicle registration number to be verified before that vehicle can be used. Customers whose accounts pre-date this requirement can continue without it and may verify later from My Vehicles. Choose the correct city and vehicle before adding services because availability and estimated price ranges can depend on them.
 
 During normal booking, Rovauto uses the selected saved service location and does not request the customer's current browser GPS. To change it, explicitly edit, confirm, and save the service address before checkout.
 
 Vehicle model photos may appear in My Vehicles when Rovauto has an image for the saved brand and model. A missing image does not affect booking eligibility.
+
+Registration verification checks the vehicle registration against the configured RC provider and may compare maker/model/fuel with the saved vehicle. A customer can add vehicles or attempt registration verification only a limited number of times per 24 hours, so enter the correct details rather than repeatedly trying random numbers.
 
 ## Selecting services
 
@@ -33,9 +35,15 @@ For self drop-off, the customer gets one live route from their current/home loca
 
 ## Checkout and payment
 
-The online checkout amount is the Rovauto platform fee. The checkout summary also shows selected services, estimated ranges, wallet use where available, and the fulfilment method. Complete payment through the supported payment flow. A payment page or redirect alone does not prove payment; wait for Rovauto to confirm it.
+For a normal paid booking, the online checkout amount is the Rovauto platform fee. The checkout summary also shows selected services, estimated ranges, wallet use where available, and the fulfilment method. Complete payment through the supported payment flow. A payment page or redirect alone does not prove payment; wait for Rovauto to confirm it.
+
+For an eligible fee-waived first booking, there is no Cashfree platform-fee payment to complete; confirming the booking creates the support-verification step instead. Garage search starts after support approval.
 
 A pending payment booking may be resumed instead of creating repeated bookings. Payments can be started or resumed daily from 10:00 AM inclusive until 12:00 AM midnight exclusive in Indian Standard Time. Outside that window, keep the booking and retry during payment hours.
+
+## First-booking verification
+
+Some eligible first bookings with an estimated service total within Rovauto's configured limit receive a one-time platform-fee waiver and are reviewed by the support team before garage search. The booking shows **Waiting for verification** while this happens. Garage search starts only after support approval. If support rejects the booking as suspicious, follow the message/support instructions instead of creating repeated bookings to bypass the review.
 
 ## Garage search
 

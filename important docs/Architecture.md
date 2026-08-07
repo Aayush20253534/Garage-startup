@@ -1,6 +1,6 @@
 # Rovauto Solution Architecture
 
-> Code-verified architecture snapshot: 30 July 2026.
+> Code-verified architecture snapshot: 8 August 2026.
 
 ## 1. Purpose and boundaries
 
@@ -61,6 +61,27 @@ Important routes:
 
 The shared Axios client manages cookies, CSRF, request IDs, bounded safe retries, and issue reporting. The worker-task API wrapper is unauthenticated but token-scoped. Service-history PDF generation is a client-side read/export operation, and Cloudinary video URLs are normalised client-side for H.264 MP4 playback while retaining an original-source fallback.
 
+### Frontend state ownership
+
+The web client uses layered state rather than treating browser HTTP cache as application state:
+
+```text
+React component / route
+  ├─ local state or URL params      -> form/dropdown/page-only state
+  ├─ Redux Toolkit                 -> shared client-owned selection/cart/session UI
+  └─ TanStack Query                -> backend-owned API data and invalidation
+                                      |
+                                      v
+                                    Axios
+                                      |
+                                      v
+Express API -> Redis -> PostgreSQL
+```
+
+Current TanStack Query keys cover customer dashboard, vehicles, active/history bookings, profile, service categories, vehicle catalogue, admin vehicles and admin customer login history. Redux owns the booking cart/cart-context and continues to hold the selected vehicle/location and existing actor state. Some server data is mirrored into Redux for backward compatibility, but TanStack Query is the preferred fetch/cache owner for new server-state work.
+
+TanStack Query cache is per running browser application and survives route navigation but not a full application restart unless explicitly persisted. Redis is shared by backend requests from every user. Neither replaces PostgreSQL as source of truth.
+
 ## 4. Server request pipeline
 
 ```text
@@ -109,13 +130,18 @@ A `GarageWorkerTask` is not an identity account. It grants temporary capability 
 
 ```mermaid
 flowchart TD
-    A[Select city, vehicle, services] --> B[Validate restrictions and price ranges]
+    A[Select city, verified/eligible vehicle, services] --> B[Validate restrictions, registration rule and price ranges]
     B --> C[Choose pickup or self drop]
-    C --> D[Create/reuse pending booking]
-    D --> T{10:00 AM-12:00 AM IST?}
-    T -->|No| D
-    T -->|Yes| E[Wallet and Cashfree payment]
-    E --> F[SEARCHING_GARAGE]
+    C --> D[Create booking]
+    D --> V{Eligible first booking <= configured estimate?}
+    V -->|Yes| W[PENDING_VERIFICATION; platform fee waived]
+    W --> X[Support claims/calls/approves]
+    X --> F[SEARCHING_GARAGE]
+    V -->|No| Y[PENDING_PAYMENT]
+    Y --> T{10:00 AM-12:00 AM IST?}
+    T -->|No| Y
+    T -->|Yes| E[Wallet and Cashfree platform-fee payment]
+    E --> F
     F --> G[Progressive eligible-garage dispatch]
     G --> H[Garage accepts atomically]
     H --> I[CONFIRMED + elapsed timer starts]
@@ -130,6 +156,30 @@ flowchart TD
 ```
 
 Missing approved pricing blocks checkout. Payment actions are accepted from 10:00 AM inclusive until midnight exclusive in `Asia/Kolkata`; the browser guard improves feedback but the backend check is authoritative. Payment and garage acceptance are idempotent/transactional boundaries.
+
+## 6A. Vehicle registration verification
+
+`User.vehicleRegistrationRequired` is the durable compatibility switch. The migration default is `false`, preserving existing customers; customer accounts created after the feature set it to `true`.
+
+For required accounts:
+
+1. Customer enters a normalized registration number while adding/editing a vehicle.
+2. Browser calls Rovauto, never Way2API directly.
+3. Server applies the customer RC-verification rate limit (maximum 3 attempts in a rolling 24-hour window).
+4. `vehicleRegistration.service` calls Way2API with the server-only Bearer API key and validates the structured result.
+5. Maker/model/fuel are compared with the Rovauto vehicle selection; mismatch does not verify the vehicle.
+6. Full RC owner name is stored for authorised admin use, while a masked version is available for customer-facing presentation.
+7. A new required-account vehicle cannot be saved/used for booking until verified. Legacy accounts may keep an unverified/missing registration and may opt in later.
+
+Vehicle creation has a separate maximum of 3 attempts per rolling 24 hours. Registration verification and registration changes share their own 3-per-24-hour bucket.
+
+Admin Vehicles exposes an explicit live Way2API lookup for authorised staff. It does not use the Rovauto account phone as an RC phone; Way2API's documented RC result does not supply that field.
+
+## 6B. First-booking verification lead
+
+Eligible first bookings are defined by zero previous bookings/unused first-booking offer and a maximum estimated service total controlled by `FIRST_BOOKING_FREE_MAX_ESTIMATE` (default 5000). When eligible, the one-time offer is consumed when the verification lead is created, the platform fee is waived, and the booking enters `PENDING_VERIFICATION` before garage search.
+
+Customer Support sees a shared lead queue. The first agent claims the lead, may start the call timer, records optional notes, then approves or rejects. Approval continues the booking toward garage search; suspicious rejection creates the configured escalation path. Unclaimed leads are escalated by the background lead worker after the configured delay (default 2 minutes).
 
 ## 7. Fulfilment and garage eligibility
 
@@ -278,6 +328,12 @@ Backend access is `ADMIN`, `SUB_ADMIN`, and `INTERN`. Provider secrets are never
 
 Cashfree creates/reuses provider orders and webhook verification finalises payment. Customer wallet contribution and payment settlement must remain idempotent. Garage acceptance charges are recorded in garage wallet ledgers. Refund/cancellation logic must reconcile provider and wallet state through durable transactions rather than UI assumptions.
 
+## 13A. Admin customer security operations
+
+Admin customer profiles link to a dedicated Login History view backed by `UserSession` rows. The server groups active sessions into currently logged devices using device ID/user-agent identity and returns both active-device summaries and retained individual sessions with `ACTIVE`, `REVOKED`, or `EXPIRED` state.
+
+`ADMIN` and `SUB_ADMIN` can revoke all active sessions for a customer. The action also removes stale customer web-push subscriptions used by the implementation so logged-out browsers do not continue receiving account notifications. `INTERN` can inspect the history but cannot execute the destructive logout-all action. Session-history visibility is bounded by the server's retention cleanup policy.
+
 ## 14. Support and issue flow
 
 - Customers create support/dispute tickets and complaints.
@@ -289,7 +345,9 @@ Cashfree creates/reuses provider orders and webhook verification finalises payme
 ## 15. Caching and consistency
 
 - PostgreSQL remains authoritative.
-- Redis cache invalidation follows domain mutations for cities, services, garages, pricing, and related public views.
+- TanStack Query is the per-browser application-memory server-state cache and request-deduplication layer for migrated client resources.
+- Redux is not the API cache; it owns shared client interaction/selection state, with limited compatibility mirrors where the existing app still expects them.
+- Redis is the shared backend cache/rate-limit/coordination layer and cache invalidation follows domain mutations for cities, services, garages, pricing, and related public views.
 - Critical acceptance, OTP, payment, and moderation decisions are revalidated transactionally.
 - Integration Health uses a short server cache unless `force=true` is authorised.
 - Worker-task status is synchronised against token expiry and booking state when read.
@@ -306,6 +364,7 @@ Cashfree creates/reuses provider orders and webhook verification finalises payme
 | WhatsApp Cloud API | Garage/controller/customer notifications and worker-task templates |
 | Web Push | Browser notifications |
 | Groq | RAG answer generation over approved Markdown knowledge |
+| Way2API | Vehicle RC registration verification and authorised live admin RC lookup |
 
 Each provider has timeout, error translation, and secret-redaction requirements. Health probes are read-only.
 
@@ -318,6 +377,7 @@ Current in-process responsibilities include:
 - Session-retention cleanup
 - System-issue auto-resolution
 - Scheduled price/availability operational work
+- First-booking verification-lead escalation worker
 
 Before horizontal scaling, every worker needs distributed claiming or leader election and durable retry/dead-letter behaviour where loss is unacceptable.
 

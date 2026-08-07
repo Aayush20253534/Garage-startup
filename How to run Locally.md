@@ -1,8 +1,14 @@
-# Rovauto — Docker Setup and Run Guide
+# Rovauto — Local Development and Docker Run Guide
+
+> Guide synchronized with the repository on 8 August 2026.
 
 This guide explains how to start the Rovauto project with Docker Desktop on Windows.
 
 ## Requirements
+
+Current frontend dependencies include Redux Toolkit/React Redux and TanStack Query. Always run `npm ci` after pulling a change that modifies `client/package-lock.json`.
+
+The current Prisma history has **57 migrations**; the latest is `20260807174500_add_full_rc_owner_name`. Use `npm run prisma:deploy` in deployment-like environments and `npm run prisma:migrate` only for local migration authoring.
 
 Before running the project, make sure the following are installed:
 
@@ -157,6 +163,21 @@ docker compose ps
 
 ---
 
+## Optional Way2API RC verification locally
+
+Vehicle RC verification is server-side. To exercise it locally, set these in `server/.env`:
+
+```env
+VEHICLE_REGISTRATION_VERIFICATION_ENABLED=true
+WAY2API_API_KEY=<your-key>
+WAY2API_RC_URL=https://app.way2api.com/api/v1/rc/verify
+WAY2API_RC_TIMEOUT_MS=12000
+```
+
+If you do not have a real provider key, do not invent one and do not expose a placeholder in the client. Provider-dependent RC verification will not work until the server has a valid key. Production startup requires the feature enabled and a real `WAY2API_API_KEY`; this local note is not a production bypass. Existing pre-migration customers remain optional; new accounts are registration-required by the backend.
+
+The first-booking lead flow uses `FIRST_BOOKING_FREE_MAX_ESTIMATE`, `FIRST_BOOKING_LEAD_ESCALATION_MINUTES`, `FIRST_BOOKING_LEAD_WORKER_INTERVAL_MS`, and `FIRST_BOOKING_VERIFICATION_ADMIN_EMAIL` when that feature is exercised.
+
 # Second Time / After Setup
 
 Use these steps after the initial setup and successful build.
@@ -246,6 +267,16 @@ docker compose logs --tail 100
 ```
 
 ---
+
+## Manual web-client validation after state-management changes
+
+```powershell
+cd client
+npm ci
+npm run build
+```
+
+Verify navigation with browser HTTP cache disabled as well as enabled. TanStack Query caching should continue to work because it is held by the running React application, not by the HTTP cache. Also test logout/login between two users to confirm query data is cleared.
 
 # Stop the Project
 

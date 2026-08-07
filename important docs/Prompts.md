@@ -1,6 +1,6 @@
 # Rovauto Engineering Prompts
 
-> Prompt library synchronized with the codebase on 30 July 2026.
+> Prompt library synchronized with the codebase on 8 August 2026.
 
 These prompts are templates for code assistants. Always attach the latest complete codebase or state the exact base commit/patch. Require evidence for every claim.
 
@@ -27,6 +27,11 @@ Important current behaviour:
 - Customer warranties are derived from completed bookings for 30 days; there is no Warranty table.
 - System Health combines System Issues and Integration Health for ADMIN, SUB_ADMIN, and INTERN.
 - VehicleModel supports imageUrl/imagePublicId and customer vehicle cards show matching model images.
+- Web frontend state ownership: TanStack Query for backend/API server state, Redux Toolkit for shared client-owned selection/cart/session UI, component/URL state for local UI. Do not duplicate the same server resource into new ad-hoc localStorage caches.
+- Way2API RC verification is server-only. Existing customers remain optional through `vehicleRegistrationRequired=false`; new customer accounts are required. Vehicle create and RC verify/change are each limited to 3 attempts per 24 hours.
+- Admin Vehicles distinguishes RC registered owner from Rovauto account name; Way2API does not provide an RC-registered phone, so do not substitute the account phone.
+- Eligible first bookings can enter `PENDING_VERIFICATION` and require support approval before garage search.
+- Admin customer Login History projects retained `UserSession` data; logout-all is ADMIN/SUB_ADMIN only.
 
 Do not weaken authorization, CSRF, provider signature checks, wallet/payment idempotency, or privacy.
 Return an incremental patch and a complete ZIP. State migrations and tests truthfully.
@@ -154,6 +159,27 @@ Cover loading, empty, error, retry, disabled, permission, and mobile states.
 Retain public/private route separation.
 Use model/service images through existing safe image helpers and fallbacks.
 Validate JSX and run the production build when dependencies are available.
+```
+
+## 8A. Frontend state-management change
+
+```text
+Before editing state management, classify every value:
+- backend-owned/server state -> TanStack Query
+- shared frontend interaction/selection state -> Redux Toolkit
+- page-local form/modal/filter -> component state or URL params
+
+Reuse queryKeys/queryClient, invalidate affected queries after mutations, clear query data on account logout, and do not persist sensitive server responses. Preserve booking cart context rules and test with browser HTTP cache disabled.
+```
+
+## 8B. Vehicle registration / RC verification change
+
+```text
+Preserve legacy compatibility through User.vehicleRegistrationRequired.
+Never expose WAY2API_API_KEY to the browser.
+Enforce provider calls, maker/model/fuel match, 3-per-24-hour limits, and booking guard on the server.
+Keep RC registered owner distinct from Rovauto account identity. Do not claim RC phone verification because Way2API does not return a registered phone field.
+Test valid, not-found, mismatch, provider error, legacy optional, new-account required, rate-limit, and admin live lookup paths.
 ```
 
 ## 9. Payment or wallet change

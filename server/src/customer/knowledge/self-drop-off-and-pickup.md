@@ -1,6 +1,8 @@
 # Pickup, Self Drop-off, and Worker Tracking
 
-> Customer-help knowledge updated on 30 July 2026.
+> Customer-help knowledge updated on 8 August 2026.
+
+Before either fulfilment method begins, a newer account may need a verified vehicle registration. An eligible first booking may also wait for support verification before any garage is assigned. These checks happen before the pickup/self-drop journey and do not change the handover rules below.
 
 ## Pickup and delivery
 

@@ -1,6 +1,6 @@
 # Rovauto Error Handling and Resilience
 
-> Error policy synchronized with the codebase on 30 July 2026.
+> Error policy synchronized with the codebase on 8 August 2026.
 
 ## 1. Goals
 
@@ -82,6 +82,8 @@ The shared Axios client:
 
 Every page should implement loading, empty, retry, permission-denied, and offline/network states.
 
+TanStack Query owns migrated server-state loading/error/refetch lifecycle; do not add duplicate manual browser caches around the same query. Query retries stay bounded and do not retry ordinary non-retryable 4xx responses. Logout clears the QueryClient.
+
 ## 7. Domain error matrix
 
 | Domain | Examples | Expected handling |
@@ -94,6 +96,8 @@ Every page should implement loading, empty, retry, permission-denied, and offlin
 | Worker task | invalid token, expired, revoked, wrong stage, controllers enabled | `404`, `410`, or `409` as appropriate |
 | Tracking | permission denied, stale token, invalid coordinates | clear worker message; preserve booking destination |
 | Warranty | no completed bookings | successful empty list, not an error |
+| Vehicle RC | invalid format, not found, selected vehicle mismatch, 3/24-hour limit, Way2API timeout/auth/upstream error | distinguish customer input from provider outage; `429` for abuse limit; never mark verified on provider failure |
+| Admin sessions | customer missing, already-revoked sessions, logout-all failure | return safe customer/session state; logout-all is idempotent for already inactive sessions |
 | Provider health | not configured/degraded/outage | report status without secrets; do not mutate provider state |
 
 ## 8. Payment resilience
@@ -178,6 +182,7 @@ Warranty calculation is a read projection. Errors reading completed bookings ret
 | Firebase | reject Google sign-in verification |
 | Web Push | notification may continue through other channels |
 | Groq | chatbot uses local retrieval/fallback response path |
+| Way2API | reject/not-found/mismatch cleanly; on timeout/auth/upstream failure keep the vehicle unverified and return a retryable provider error without leaking the API key |
 
 ## 13. Container startup and background errors
 
@@ -223,6 +228,15 @@ Actor and route metadata must be privacy-minimised. Auto-resolution probes are r
 Integration Health is read-only and available to `ADMIN`, `SUB_ADMIN`, and `INTERN`. Checks return operational/degraded/outage/not-configured states. Secrets and tokens are redacted; phone numbers and optional metadata are masked.
 
 Health probes must not send customer messages, create payments, mutate provider resources, or expose configuration values.
+
+## 16A. Customer abuse-limit behaviour
+
+The customer vehicle routes intentionally use separate rolling 24-hour buckets:
+
+- vehicle create: maximum 3 attempts;
+- registration verify/change: maximum 3 attempts shared across verification and registration changes.
+
+Requests that fail basic route validation should fail before consuming provider quota where the route ordering permits. A `429` must include a stable user-facing message and must not make a Way2API call after the limit has been reached.
 
 ## 17. Testing checklist
 

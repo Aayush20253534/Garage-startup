@@ -1,6 +1,6 @@
 # Garage Partner, Controller, Worker Task, and Booking Flow
 
-> Operational flow verified against the repository on 30 July 2026.
+> Operational flow verified against the repository on 8 August 2026.
 
 ## 1. Partner application and approval
 
