@@ -297,15 +297,9 @@ export default function Register() {
                     <FcGoogle className="text-2xl" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-brand-dark">
-                      Google signup
-                    </p>
                     <h2 id="google-consent-title" className="mt-0.5 text-xl font-black tracking-tight text-ink sm:text-2xl">
                       One quick confirmation
                     </h2>
-                    <p className="mt-1 text-sm leading-5 text-muted">
-                      Review Rovauto's legal terms before we open Google and create your customer account.
-                    </p>
                   </div>
                 </div>
                 <button
@@ -343,9 +337,6 @@ export default function Register() {
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-bold text-ink">I agree to the Terms and Conditions</span>
-                    <span className="mt-1 block text-xs leading-5 text-muted">
-                      The rules for using Rovauto, bookings, payments and account responsibilities.
-                    </span>
                   </span>
                 </label>
                 <Link
@@ -380,9 +371,6 @@ export default function Register() {
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-bold text-ink">I agree to the Privacy Policy</span>
-                    <span className="mt-1 block text-xs leading-5 text-muted">
-                      How Rovauto handles account, vehicle and service information.
-                    </span>
                   </span>
                 </label>
                 <Link
@@ -393,13 +381,6 @@ export default function Register() {
                 >
                   Read Privacy Policy <FiExternalLink />
                 </Link>
-              </div>
-
-              <div className="flex items-start gap-2.5 rounded-2xl bg-bg-soft px-3.5 py-3 text-xs leading-5 text-muted">
-                <FiShield className="mt-0.5 shrink-0 text-brand-dark" />
-                <p>
-                  Google verifies your identity. Rovauto never receives your Google password, and your account is created only after both confirmations above.
-                </p>
               </div>
             </div>
 
