@@ -99,7 +99,7 @@ test("customer PWA uses the full Rovauto brand lockup and refreshes installed ap
 });
 
 
-test("admin, intern, garage and support PWAs use the same Rovauto brand and update in place", () => {
+test("admin, intern, garage and support PWAs use role-specific Rovauto branding and update in place", () => {
   const portals = ["admin", "intern", "garage", "support"];
 
   for (const portal of portals) {
@@ -110,13 +110,22 @@ test("admin, intern, garage and support PWAs use the same Rovauto brand and upda
 
     assert.equal(manifest.background_color, "#ffffff");
     assert.equal(manifest.theme_color, "#111111");
-    assert.ok(iconSources.has("/rovauto-brand-v3-icon-192.png"));
-    assert.ok(iconSources.has("/rovauto-brand-v3-icon-512.png"));
-    assert.ok(iconSources.has("/rovauto-brand-v3-icon-maskable-512.png"));
-    assert.match(html, new RegExp(`${portal}\\.webmanifest\\?v=20260808-brand-v3`));
-    assert.match(html, /rovauto-brand-v3-apple-touch-icon\.png/);
+    assert.ok(iconSources.has(`/${portal}-brand-v4-icon-192.png`));
+    assert.ok(iconSources.has(`/${portal}-brand-v4-icon-512.png`));
+    assert.ok(iconSources.has(`/${portal}-brand-v4-icon-maskable-512.png`));
+    assert.match(
+      html,
+      new RegExp(`${portal}\\.webmanifest\\?v=20260808-role-brand-v4`),
+    );
+    assert.match(
+      html,
+      new RegExp(`${portal}-brand-v4-apple-touch-icon\\.png`),
+    );
     assert.match(worker, new RegExp(`rovauto-${portal}-shell-v2`));
-    assert.match(worker, /rovauto-brand-v3-icon-512\.png/);
+    assert.match(
+      worker,
+      new RegExp(`${portal}-brand-v4-icon-512\\.png`),
+    );
   }
 
   // Keep each manifest ID/scope stable so an already-installed PWA is updated
@@ -126,7 +135,6 @@ test("admin, intern, garage and support PWAs use the same Rovauto brand and upda
   assert.equal(JSON.parse(read("client/public/garage.webmanifest")).id, "/garage-app");
   assert.equal(JSON.parse(read("client/public/support.webmanifest")).id, "/support-app");
 });
-
 test("all service workers provide a navigation fetch handler and offline fallback", () => {
   for (const file of [
     "sw.js",
