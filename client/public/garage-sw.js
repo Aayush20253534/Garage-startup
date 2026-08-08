@@ -1,7 +1,7 @@
 const GARAGE_IMAGE_CACHE_PREFIX = "rovauto-garage-cloudinary-images-";
 const OFFLINE_URL = "/offline.html";
 const SHELL_CACHE_PREFIX = "rovauto-garage-shell-";
-const SHELL_CACHE = "rovauto-garage-shell-v1";
+const SHELL_CACHE = "rovauto-garage-shell-v2";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -105,7 +105,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: payload.body || payload.message || "You have a new garage update.",
-      icon: "/garage-icon-512.png",
+      icon: "/garage-brand-v4-icon-512.png",
       badge: "/garage-notification-badge-96.png",
       tag: payload.tag || "rovauto-garage-notification",
       renotify: true,

@@ -1,7 +1,7 @@
 const LEGACY_IMAGE_CACHE_PREFIX = "rovauto-admin-cloudinary-images-";
 const OFFLINE_URL = "/offline.html";
 const SHELL_CACHE_PREFIX = "rovauto-admin-shell-";
-const SHELL_CACHE = "rovauto-admin-shell-v1";
+const SHELL_CACHE = "rovauto-admin-shell-v2";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -93,7 +93,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: payload.body || payload.message || "You have a new Rovauto update.",
-      icon: payload.icon || "/admin-icon-512.png",
+      icon: payload.icon || "/admin-brand-v4-icon-512.png",
       badge: payload.badge || "/admin-notification-badge-96.png",
       tag: payload.tag || "rovauto-admin-notification",
       renotify: true,

@@ -12,39 +12,39 @@
     "minimal-ui"
   ],
   "orientation": "portrait-primary",
-  "background_color": "#f8fafc",
-  "theme_color": "#0f172a",
+  "background_color": "#ffffff",
+  "theme_color": "#111111",
   "categories": [
     "business",
     "productivity"
   ],
   "icons": [
     {
-      "src": "/admin-icon-192.png?brand=20260808",
+      "src": "/admin-brand-v4-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/admin-icon-512.png?brand=20260808",
+      "src": "/admin-brand-v4-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/admin-icon-1024.png?brand=20260808",
+      "src": "/admin-brand-v4-icon-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/admin-icon-maskable-512.png?brand=20260808",
+      "src": "/admin-brand-v4-icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/admin-icon-maskable-1024.png?brand=20260808",
+      "src": "/admin-brand-v4-icon-maskable-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "maskable"
@@ -57,7 +57,7 @@
       "url": "/admin",
       "icons": [
         {
-          "src": "/admin-icon-192.png?brand=20260808",
+          "src": "/admin-brand-v4-icon-192.png",
           "sizes": "192x192"
         }
       ]
@@ -68,7 +68,7 @@
       "url": "/admin/bookings",
       "icons": [
         {
-          "src": "/admin-icon-192.png?brand=20260808",
+          "src": "/admin-brand-v4-icon-192.png",
           "sizes": "192x192"
         }
       ]
@@ -79,7 +79,7 @@
       "url": "/admin/support-tickets",
       "icons": [
         {
-          "src": "/admin-icon-192.png?brand=20260808",
+          "src": "/admin-brand-v4-icon-192.png",
           "sizes": "192x192"
         }
       ]
@@ -90,7 +90,7 @@
       "url": "/admin/system-issues",
       "icons": [
         {
-          "src": "/admin-icon-192.png?brand=20260808",
+          "src": "/admin-brand-v4-icon-192.png",
           "sizes": "192x192"
         }
       ]
