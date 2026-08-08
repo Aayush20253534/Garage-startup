@@ -50,6 +50,54 @@ test("all PWA manifests include install-compatible metadata and icons", () => {
   }
 });
 
+test("customer PWA uses the full Rovauto brand lockup and refreshes installed apps", () => {
+  const manifest = JSON.parse(read("client/public/site.webmanifest"));
+  const index = read("client/index.html");
+  const installCard = read("client/src/components/pwa/CustomerPwaInstall.jsx");
+  const workerRegistration = read("client/src/utils/imageCache.js");
+  const worker = read("client/public/sw.js");
+  const offline = read("client/public/offline.html");
+  const iconSources = new Set(manifest.icons.map((icon) => icon.src));
+
+  assert.equal(manifest.id, "/");
+  assert.equal(manifest.start_url, "/?pwa=customer");
+  assert.ok(iconSources.has("/rovauto-brand-v2-icon-192.png"));
+  assert.ok(iconSources.has("/rovauto-brand-v2-icon-512.png"));
+  assert.ok(iconSources.has("/rovauto-brand-v2-icon-maskable-512.png"));
+  assert.match(index, /site\.webmanifest\?v=20260808-brand-v2/);
+  assert.match(index, /rovauto-brand-v2-apple-touch-icon\.png/);
+  assert.match(installCard, /rovauto-brand-v2-icon-512\.png/);
+  assert.match(worker, /rovauto-customer-shell-v2/);
+  assert.match(worker, /rovauto-brand-v2-icon-512\.png/);
+  assert.match(offline, /rovauto-brand-lockup-v2\.png/);
+  assert.match(offline, /Gaadi Apki Guarantee hamari/);
+
+  // Existing installed PWAs must check for the just-deployed worker without
+  // asking the customer to uninstall/reinstall the app.
+  assert.match(workerRegistration, /updateViaCache: "none"/);
+  assert.match(workerRegistration, /registration\.update\(\)/);
+  assert.match(workerRegistration, /window\.addEventListener\("pageshow", checkForUpdate\)/);
+  assert.match(workerRegistration, /window\.addEventListener\("online", checkForUpdate\)/);
+  assert.match(workerRegistration, /document\.addEventListener\("visibilitychange", checkWhenVisible\)/);
+  assert.match(workerRegistration, /controllerchange/);
+
+  for (const icon of [
+    "rovauto-brand-v2-icon-192.png",
+    "rovauto-brand-v2-icon-512.png",
+    "rovauto-brand-v2-icon-1024.png",
+    "rovauto-brand-v2-icon-maskable-512.png",
+    "rovauto-brand-v2-icon-maskable-1024.png",
+    "rovauto-brand-v2-apple-touch-icon.png",
+    "rovauto-brand-lockup-v2.png",
+  ]) {
+    assert.equal(
+      fs.existsSync(path.join(root, "client/public", icon)),
+      true,
+      `${icon} must ship with the customer PWA`,
+    );
+  }
+});
+
 test("all service workers provide a navigation fetch handler and offline fallback", () => {
   for (const file of [
     "sw.js",

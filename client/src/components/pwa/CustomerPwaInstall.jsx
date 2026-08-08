@@ -5,7 +5,7 @@ export default function CustomerPwaInstall({ compact = false }) {
     <AppInstallCard
       appName="Rovauto"
       description="Add Rovauto to your phone for quicker bookings, full-screen access, and app notifications."
-      icon="/icon-512.png"
+      icon="/rovauto-brand-v2-icon-512.png"
       promptKey="__ROVAUTO_INSTALL_PROMPT__"
       promptEvent="rovauto-install-ready"
       installedStorageKey="rovauto_customer_pwa_installed"

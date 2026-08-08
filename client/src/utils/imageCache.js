@@ -159,6 +159,35 @@ const getAppBuildId = () => {
 const getVersionedWorkerScriptUrl = (config) =>
   `${config.scriptUrl}?build=${encodeURIComponent(getAppBuildId())}`;
 
+const SERVICE_WORKER_UPDATE_COOLDOWN_MS = 5 * 60 * 1000;
+const SERVICE_WORKER_UPDATE_INTERVAL_MS = 30 * 60 * 1000;
+
+const installServiceWorkerUpdateChecks = (registration) => {
+  if (!registration || typeof window === "undefined") return;
+
+  let lastCheckAt = Date.now();
+  const checkForUpdate = () => {
+    if (navigator.onLine === false) return;
+
+    const now = Date.now();
+    if (now - lastCheckAt < SERVICE_WORKER_UPDATE_COOLDOWN_MS) return;
+    lastCheckAt = now;
+    void registration.update().catch(() => {});
+  };
+
+  const checkWhenVisible = () => {
+    if (document.visibilityState === "visible") checkForUpdate();
+  };
+
+  // Installed PWAs can stay open for hours or be resumed from Android's recent
+  // apps screen. Re-check the worker whenever the app returns to the foreground
+  // or connectivity comes back, plus periodically while it remains open.
+  window.addEventListener("pageshow", checkForUpdate);
+  window.addEventListener("online", checkForUpdate);
+  document.addEventListener("visibilitychange", checkWhenVisible);
+  window.setInterval(checkForUpdate, SERVICE_WORKER_UPDATE_INTERVAL_MS);
+};
+
 const registrationUsesExpectedWorker = (registration, config) => {
   const scriptUrl = getRegistrationScriptUrl(registration);
   if (!scriptUrl) return true;
@@ -272,7 +301,8 @@ export const registerImageCacheWorker = () => {
     );
 
     try {
-      await getRovautoServiceWorkerRegistration();
+      const registration = await getRovautoServiceWorkerRegistration();
+      installServiceWorkerUpdateChecks(registration);
       window.dispatchEvent(new Event("rovauto-service-worker-ready"));
     } catch (error) {
       navigator.serviceWorker.removeEventListener(
