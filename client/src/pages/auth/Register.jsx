@@ -452,10 +452,6 @@ export default function Register() {
             {loadingAction === "GOOGLE" ? "Connecting..." : "Continue with Google"}
           </button>
 
-          <p className="-mt-1 text-center text-[11px] leading-4 text-muted">
-            A quick Terms & Privacy confirmation appears before Google opens.
-          </p>
-
           <div className="flex items-center gap-3 text-xs text-muted">
             <span className="h-px flex-1 bg-line" />
             or create with phone OTP
