@@ -70,7 +70,6 @@ const getIncludes = (service) => {
 const GUEST_FUEL_TYPES = [
   { label: "Petrol", value: "PETROL" },
   { label: "Diesel", value: "DIESEL" },
-  { label: "Electric", value: "ELECTRIC" },
   { label: "CNG", value: "CNG" },
   { label: "Hybrid", value: "HYBRID" },
   { label: "Other", value: "OTHER" },

@@ -1,8 +1,11 @@
 const { body, param } = require("express-validator");
+const FUEL_TYPES = require("../../constants/fuelTypes");
 const {
   normalizeRegistrationNumber,
   isValidRegistrationNumber,
 } = require("../../utils/vehicleRegistration");
+
+const acceptedFuelTypes = Object.values(FUEL_TYPES);
 
 const vehicleIdValidation = [
   param("id").isUUID().withMessage("Invalid vehicle ID"),
@@ -36,7 +39,7 @@ const createVehicleValidation = [
     .trim()
     .notEmpty()
     .withMessage("Fuel type is required")
-    .isIn(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"])
+    .isIn(acceptedFuelTypes)
     .withMessage("Invalid fuel type"),
 
   optionalRegistrationValidation(),
@@ -70,7 +73,7 @@ const updateVehicleValidation = [
   body("fuelType")
     .optional()
     .trim()
-    .isIn(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"])
+    .isIn(acceptedFuelTypes)
     .withMessage("Invalid fuel type"),
 
   optionalRegistrationValidation(),
@@ -93,7 +96,7 @@ const verifyRegistrationValidation = [
   body("fuelType")
     .optional({ nullable: true, checkFalsy: true })
     .trim()
-    .isIn(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"]),
+    .isIn(acceptedFuelTypes),
 ];
 
 module.exports = {

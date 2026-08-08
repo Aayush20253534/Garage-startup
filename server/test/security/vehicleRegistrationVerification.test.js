@@ -143,7 +143,7 @@ test("admin RC lookup calls Way2API instead of resolving customer phone from Rov
 
   assert.match(adminApi, /lookupVehicleRegistration/);
   assert.match(adminPage, /Live RC lookup/);
-  assert.match(adminPage, /Live Way2API RC match/);
+  assert.match(adminPage, /Live Way2API match/);
   assert.match(adminPage, /Not supplied by Way2API/);
   assert.match(adminRoutes, /admin-way2api-vehicle-rc-lookup/);
   assert.match(adminRoutes, /authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
@@ -153,7 +153,7 @@ test("admin RC lookup calls Way2API instead of resolving customer phone from Rov
   assert.match(adminService, /data: \{ rcOwnerName: result\.vehicle\.ownerName \}/);
   assert.match(adminService, /rcOwnerName: true/);
   assert.match(adminPage, /vehicle\.rcOwnerName/);
-  assert.match(adminPage, /await load\(\{ targetPage: page \}\)/);
+  assert.match(adminPage, /queryClient\.invalidateQueries\(\{ queryKey: \["admin", "vehicles"\] \}\)/);
   assert.match(registrationService, /rcOwnerName: verification\.vehicle\?\.ownerName \|\| null/);
   assert.match(adminService, /registeredPhone: null/);
 });

@@ -25,7 +25,6 @@ const fuelTypes = [
   "",
   "PETROL",
   "DIESEL",
-  "ELECTRIC",
   "HYBRID",
   "CNG",
   "OTHER",

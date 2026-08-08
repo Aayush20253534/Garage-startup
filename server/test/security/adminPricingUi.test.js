@@ -54,7 +54,7 @@ test("pricing control shows untouched services and exact brand, model, and fuel 
   assert.match(controlCenter, /coverageFilters\.fuelType/);
   assert.match(controlCenter, /modelResultsTruncated/);
   assert.match(controlCenter, /Registered vehicle fuel combinations/);
-  assert.match(revenue, /"ELECTRIC"/);
-  assert.match(vehicleData, /Electric/);
-  assert.match(validation, /"ELECTRIC"/);
+  assert.doesNotMatch(revenue, /"ELECTRIC"/);
+  assert.doesNotMatch(vehicleData, /Electric|ELECTRIC/);
+  assert.doesNotMatch(validation, /"ELECTRIC"/);
 });

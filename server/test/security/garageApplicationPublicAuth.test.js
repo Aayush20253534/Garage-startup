@@ -45,7 +45,10 @@ test("public garage GPS reverse geocoding does not require a login session", () 
     "only reverse geocoding should be public",
   );
   assert.match(addressClient, /skipSessionExpiryMessage: true/);
-  assert.match(picker, /resolveDraggedLocation\([\s\S]*"GPS"\)/);
+  assert.match(
+    picker,
+    /resolveDraggedLocation\(coordinate, "GPS", \{[\s\S]*silentError: true,[\s\S]*throwOnError: true,[\s\S]*\}\)/,
+  );
 });
 
 test("garage identity checks never collide with customer or staff accounts", () => {

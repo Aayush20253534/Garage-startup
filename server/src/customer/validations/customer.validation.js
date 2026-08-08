@@ -1,8 +1,11 @@
 const { body } = require("express-validator");
+const FUEL_TYPES = require("../../constants/fuelTypes");
 const {
   normalizeRegistrationNumber,
   isValidRegistrationNumber,
 } = require("../../utils/vehicleRegistration");
+
+const acceptedFuelTypes = Object.values(FUEL_TYPES);
 
 const onboardingValidation = [
   body("vehicle.brand")
@@ -25,7 +28,7 @@ const onboardingValidation = [
     .trim()
     .notEmpty()
     .withMessage("Fuel type is required")
-    .isIn(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "OTHER"])
+    .isIn(acceptedFuelTypes)
     .withMessage("Invalid fuel type"),
 
   body("vehicle.registrationNumber")

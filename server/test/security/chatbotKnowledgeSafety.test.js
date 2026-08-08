@@ -96,7 +96,7 @@ test("customer knowledge documents the current safe booking experience", () => {
   assert.match(knowledge, /Self drop-off & pickup/i);
   assert.match(knowledge, /most services let the customer choose/i);
   assert.match(knowledge, /support the selected handover mode/i);
-  assert.match(knowledge, /Live pickup tracking is not used/i);
+  assert.match(knowledge, /customer is not asked to share live journey location/i);
   assert.match(knowledge, /Ready for customer pickup/i);
   assert.match(knowledge, /Confirm Vehicle Collection/i);
   assert.match(knowledge, /online checkout amount is the Rovauto platform fee/i);

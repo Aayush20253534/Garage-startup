@@ -300,6 +300,7 @@ test("garage services page renders only grouped admin assignments", () => {
   assert.match(ownerService, /garageId: garage\.id,[\s\S]*isActive: true/);
   assert.match(ownerService, /service:[\s\S]*isActive: true/);
   assert.match(servicesPage, /Assigned services/);
-  assert.match(servicesPage, /Allocated vehicle coverage/);
-  assert.match(servicesPage, /Unassigned catalogue services are never shown/);
+  assert.match(servicesPage, /Allocation rules/);
+  assert.match(servicesPage, /safeAssignments\.forEach/);
+  assert.match(servicesPage, /assignedServices\.map/);
 });

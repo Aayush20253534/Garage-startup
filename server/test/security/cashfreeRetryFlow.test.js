@@ -50,7 +50,20 @@ test("booking payment reconciles popup errors and preloads Cashfree in parallel"
   );
 
   assert.match(paymentClient, /let cashfreeSdkPromise = null/);
-  assert.match(paymentClient, /const cashfreeReadyPromise = loadCashfreeCheckout\(\)/);
+  assert.match(paymentClient, /let cashfreeReadyPromise = null/);
+  assert.match(
+    paymentClient,
+    /if \(!walletOnlyExpected\)[\s\S]*cashfreeReadyPromise = loadCashfreeCheckout\(\)\.catch/,
+  );
+  assert.match(
+    paymentClient,
+    /if \(!cashfreeReadyPromise\)[\s\S]*cashfreeReadyPromise = loadCashfreeCheckout\(\)\.catch/,
+  );
+  assert.ok(
+    paymentClient.indexOf("cashfreeReadyPromise = loadCashfreeCheckout()") <
+      paymentClient.indexOf("const result = await requestBookingPaymentOrder"),
+    "gateway checkout should start loading before the payment-order request",
+  );
   assert.match(paymentClient, /reconcileCheckoutAttempt\(booking\.id\)/);
   assert.match(paymentClient, /VERIFY_RETRY_DELAYS_MS/);
   assert.match(paymentService, /isReusableCashfreeOrder/);
