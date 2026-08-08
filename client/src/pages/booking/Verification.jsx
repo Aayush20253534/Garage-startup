@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "@/api/axios";
 import {
+  FiAlertTriangle,
   FiCheckCircle,
   FiClock,
   FiHeadphones,
@@ -103,6 +104,9 @@ export default function BookingVerification() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const [now, setNow] = useState(Date.now());
 
   const load = async ({ silent = false } = {}) => {
@@ -167,6 +171,33 @@ export default function BookingVerification() {
       : lead?.status === "CLAIMED"
         ? "Agent assigned"
         : "Waiting for support";
+  const canCancel =
+    booking?.status === "PENDING_VERIFICATION" &&
+    ["PENDING", "CLAIMED", "IN_CALL"].includes(lead?.status);
+
+  const cancelBooking = async () => {
+    if (!bookingId || !canCancel || cancelling) return;
+
+    try {
+      setCancelling(true);
+      setCancelError("");
+      await api.patch(`/bookings/${bookingId}/cancel`);
+      setCancelOpen(false);
+      navigate("/dashboard/bookings", { replace: true });
+    } catch (err) {
+      const message =
+        err.response?.data?.message ||
+        err.message ||
+        "We could not cancel this booking. Please refresh and try again.";
+      setCancelError(message);
+
+      if (err.response?.status === 409 || err.response?.status === 400) {
+        void load({ silent: true });
+      }
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   if (loading && !data) {
     return (
@@ -437,6 +468,20 @@ export default function BookingVerification() {
               >
                 <FiRefreshCw /> Refresh status
               </button>
+
+              {canCancel && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCancelError("");
+                    setCancelOpen(true);
+                  }}
+                  className="mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-transparent bg-transparent text-sm font-bold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                >
+                  <FiXCircle /> Cancel booking
+                </button>
+              )}
+
               <p className="mt-3 text-center text-[11px] leading-4 text-muted">
                 This page also refreshes automatically every few seconds.
               </p>
@@ -444,6 +489,74 @@ export default function BookingVerification() {
           </div>
         </div>
       </div>
+
+      {cancelOpen && canCancel && (
+        <div
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-black/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-verification-booking-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !cancelling) {
+              setCancelOpen(false);
+              setCancelError("");
+            }
+          }}
+        >
+          <div className="w-full max-w-md border border-black/10 bg-white p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:rounded-2xl sm:p-6">
+            <div className="flex items-start gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-red-50 text-xl text-red-600">
+                <FiAlertTriangle />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-red-600">
+                  Cancel first booking
+                </p>
+                <h2
+                  id="cancel-verification-booking-title"
+                  className="mt-1 text-xl font-black text-ink"
+                >
+                  Cancel this booking?
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  Verification will stop immediately and support will no longer
+                  process this request. You can create a new booking later if
+                  needed.
+                </p>
+              </div>
+            </div>
+
+            {cancelError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm leading-5 text-red-700">
+                {cancelError}
+              </div>
+            )}
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-2 sm:flex-row-reverse">
+              <button
+                type="button"
+                onClick={() => void cancelBooking()}
+                disabled={cancelling}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 sm:order-2"
+              >
+                <FiXCircle />
+                {cancelling ? "Cancelling..." : "Yes, cancel booking"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCancelOpen(false);
+                  setCancelError("");
+                }}
+                disabled={cancelling}
+                className="inline-flex h-11 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-bold text-ink transition hover:bg-bg-soft disabled:opacity-60 sm:order-1"
+              >
+                Keep booking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

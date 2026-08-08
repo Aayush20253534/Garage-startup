@@ -27,6 +27,7 @@ test("free checkout waits for support approval before garage search", () => {
     "server/src/customer/services/bookingVerificationLead.service.js",
   );
   const verificationPage = read("client/src/pages/booking/Verification.jsx");
+  const bookingService = read("server/src/customer/services/booking.service.js");
 
   const freeBranch = checkout.indexOf('booking.status === "PENDING_VERIFICATION"');
   const paymentCall = checkout.indexOf("const paidBooking = await payForBooking");
@@ -36,6 +37,10 @@ test("free checkout waits for support approval before garage search", () => {
   assert.match(leadService, /broadcastBookingToNearbyGarages/);
   assert.match(verificationPage, /data\?\.trackingReady/);
   assert.match(verificationPage, /navigate\("\/tracking"/);
+  assert.match(verificationPage, /Cancel booking/);
+  assert.match(verificationPage, /api\.patch\(`\/bookings\/\$\{bookingId\}\/cancel`\)/);
+  assert.match(verificationPage, /booking\?\.status === "PENDING_VERIFICATION"/);
+  assert.match(bookingService, /rejectionReason: "Booking cancelled by customer"/);
 });
 
 test("support lead claim, call timer, decisions, and escalation are exposed", () => {
