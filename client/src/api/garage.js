@@ -4,6 +4,33 @@ import { normalizeMediaCollection } from "@/utils/mediaUrl";
 
 const unwrap = (response) => response.data?.data ?? response.data;
 const GARAGE_MINIMUM_ACTIVATION_BALANCE = 100;
+const MIN_EVIDENCE_UPLOAD_TIMEOUT_MS = 2 * 60 * 1000;
+const MAX_EVIDENCE_UPLOAD_TIMEOUT_MS = 15 * 60 * 1000;
+const ASSUMED_SLOW_UPLOAD_BYTES_PER_SECOND = 64 * 1024;
+
+const getUploadFile = (value) => value?.file || value || null;
+const getEvidenceUploadTimeoutMs = (images = [], video = null) => {
+  const totalBytes = [
+    ...images.map(getUploadFile),
+    getUploadFile(video),
+  ]
+    .filter(Boolean)
+    .reduce((total, file) => total + Number(file?.size || 0), 0);
+
+  if (totalBytes <= 0) return MIN_EVIDENCE_UPLOAD_TIMEOUT_MS;
+
+  // The global Axios timeout is intentionally short for normal API calls, but
+  // mobile inspection uploads can legitimately take several minutes. Budget
+  // for roughly 0.5 Mbps upstream plus one minute of server-side processing.
+  const estimatedMs =
+    60 * 1000 +
+    Math.ceil((totalBytes / ASSUMED_SLOW_UPLOAD_BYTES_PER_SECOND) * 1000);
+
+  return Math.min(
+    MAX_EVIDENCE_UPLOAD_TIMEOUT_MS,
+    Math.max(MIN_EVIDENCE_UPLOAD_TIMEOUT_MS, estimatedMs),
+  );
+};
 
 export const normalizeGarage = (garage) => {
   if (!garage) return null;
@@ -465,6 +492,7 @@ export const garageApi = {
         formData,
         {
           onUploadProgress: requestOptions?.onUploadProgress,
+          timeout: getEvidenceUploadTimeoutMs(images, video),
         },
       ),
     );
@@ -490,6 +518,7 @@ export const garageApi = {
         formData,
         {
           onUploadProgress: requestOptions?.onUploadProgress,
+          timeout: getEvidenceUploadTimeoutMs(images, video),
         },
       ),
     );
@@ -521,6 +550,7 @@ export const garageApi = {
         formData,
         {
           onUploadProgress: requestOptions?.onUploadProgress,
+          timeout: getEvidenceUploadTimeoutMs(images, video),
         },
       ),
     );
@@ -558,6 +588,9 @@ export const garageApi = {
       await api.post(
         `/garage/requests/${requestId}/mark-service-complete`,
         formData,
+        {
+          timeout: getEvidenceUploadTimeoutMs(images, video),
+        },
       ),
     );
   },

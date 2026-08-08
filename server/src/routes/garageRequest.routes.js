@@ -54,8 +54,8 @@ router.post(
 
 router.post(
   "/:requestId/verify-handover-otp",
-  inspectionMediaFields,
   upload.registerUploadCleanup,
+  inspectionMediaFields,
   upload.validateUploadedFiles,
   verifyHandoverOtpSchema,
   validate,
@@ -65,8 +65,8 @@ router.post(
 
 router.post(
   "/:requestId/confirm-self-drop-arrival",
-  inspectionMediaFields,
   upload.registerUploadCleanup,
+  inspectionMediaFields,
   upload.validateUploadedFiles,
   markDeliveredSchema,
   validate,
@@ -82,8 +82,8 @@ router.post(
 
 router.post(
   "/:requestId/mark-service-complete",
-  inspectionMediaFields,
   upload.registerUploadCleanup,
+  inspectionMediaFields,
   upload.validateUploadedFiles,
   markDeliveredSchema,
   validate,
@@ -106,8 +106,8 @@ router.post(
 
 router.post(
   "/:requestId/mark-delivered",
-  inspectionMediaFields,
   upload.registerUploadCleanup,
+  inspectionMediaFields,
   upload.validateUploadedFiles,
   markDeliveredSchema,
   validate,

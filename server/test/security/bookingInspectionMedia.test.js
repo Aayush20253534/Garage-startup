@@ -10,6 +10,7 @@ test("booking inspection evidence accepts 5 to 15 photos and requires one 50 MB 
   const constantsSource = readSource("src/garage/constants.js");
   const routeSource = readSource("src/routes/garageRequest.routes.js");
   const lifecycleSource = readSource("src/services/bookingLifecycle.service.js");
+  const uploadSource = readSource("src/middlewares/upload.middleware.js");
 
   assert.match(constantsSource, /MIN_BOOKING_INSPECTION_IMAGES = 5/);
   assert.match(constantsSource, /MAX_BOOKING_INSPECTION_IMAGES = 15/);
@@ -25,6 +26,13 @@ test("booking inspection evidence accepts 5 to 15 photos and requires one 50 MB 
   assert.match(lifecycleSource, /files\.length > MAX_INSPECTION_PHOTO_COUNT/);
   assert.match(lifecycleSource, /Exactly one car inspection video is required/);
   assert.match(lifecycleSource, /car inspection video must be 50 MB or less/);
+  assert.match(lifecycleSource, /INSPECTION_UPLOAD_CONCURRENCY/);
+  assert.match(lifecycleSource, /eager_async: true/);
+  assert.match(uploadSource, /req\.once\("aborted", cleanup\)/);
+  assert.match(
+    routeSource,
+    /verify-handover-otp"[\s\S]*upload\.registerUploadCleanup,[\s\S]*inspectionMediaFields,/,
+  );
 });
 
 test("garage UI blocks start and completion until photo range and video are present", () => {
@@ -32,6 +40,9 @@ test("garage UI blocks start and completion until photo range and video are pres
   const apiSource = readSource("../client/src/api/garage.js");
   const videoUploadSource = readSource(
     "../client/src/components/garage/VideoUpload.jsx",
+  );
+  const imageUploadSource = readSource(
+    "../client/src/components/garage/ImageUpload.jsx",
   );
 
   assert.match(detailSource, /min=\{5\}/);
@@ -41,7 +52,12 @@ test("garage UI blocks start and completion until photo range and video are pres
   assert.match(detailSource, /preServiceImages\.length < 5/);
   assert.match(detailSource, /postServiceImages\.length > 15/);
   assert.match(apiSource, /formData\.append\("video", videoFile\)/);
+  assert.match(apiSource, /getEvidenceUploadTimeoutMs/);
+  assert.match(apiSource, /MAX_EVIDENCE_UPLOAD_TIMEOUT_MS = 15 \* 60 \* 1000/);
   assert.match(videoUploadSource, /MAX_VIDEO_SIZE_MB = 50/);
+  assert.match(imageUploadSource, /OPTIMIZED_MAX_EDGE = 1920/);
+  assert.match(imageUploadSource, /canvas\.toBlob/);
+  assert.match(imageUploadSource, /optimized for faster mobile upload/);
 });
 
 test("garage account inspection photos allow 5 MB while worker links keep the 1 MB default", () => {

@@ -394,6 +394,43 @@ const isCompleteInspectionMedia = ({ images, videos }) =>
   images.length <= MAX_INSPECTION_PHOTO_COUNT &&
   videos.length === REQUIRED_INSPECTION_VIDEO_COUNT;
 
+const getInspectionUploadConcurrency = () => {
+  const configured = Number(process.env.INSPECTION_UPLOAD_CONCURRENCY || 4);
+  if (!Number.isFinite(configured)) return 4;
+  return Math.min(6, Math.max(1, Math.floor(configured)));
+};
+
+const settleWithConcurrency = async (items, mapper, concurrency) => {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  const worker = async () => {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) return;
+
+      try {
+        results[index] = {
+          status: "fulfilled",
+          value: await mapper(items[index], index),
+        };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(concurrency, Math.max(1, items.length)) },
+      () => worker(),
+    ),
+  );
+
+  return results;
+};
+
 const uploadInspectionMedia = async ({
   bookingId,
   garageId,
@@ -422,24 +459,50 @@ const uploadInspectionMedia = async ({
   let uploadedVideo = null;
 
   try {
-    for (const file of images) {
-      const uploaded = await uploadToCloudinary(
-        getUploadSource(file),
-        INSPECTION_IMAGE_FOLDER,
-        "image",
-      );
-      uploadedImages.push(uploaded);
-    }
-
-    uploadedVideo = await uploadToCloudinary(
+    // The request body has already reached Rovauto at this point. Upload the
+    // independent Cloudinary assets concurrently instead of serially sending
+    // every photo and only then starting the video. A small concurrency cap
+    // keeps memory/network pressure predictable on a single Render instance.
+    const videoUploadPromise = uploadToCloudinary(
       getUploadSource(video),
       INSPECTION_VIDEO_FOLDER,
       "video",
       {
         eager: [INSPECTION_VIDEO_EAGER_TRANSFORMATION],
-        eager_async: false,
+        // Transcoding must not hold the booking mutation open. The browser
+        // already builds a compatible H.264 delivery URL for video playback.
+        eager_async: true,
       },
-    );
+    )
+      .then((value) => ({ status: "fulfilled", value }))
+      .catch((reason) => ({ status: "rejected", reason }));
+
+    const [imageResults, videoResult] = await Promise.all([
+      settleWithConcurrency(
+        images,
+        (file) =>
+          uploadToCloudinary(
+            getUploadSource(file),
+            INSPECTION_IMAGE_FOLDER,
+            "image",
+          ),
+        getInspectionUploadConcurrency(),
+      ),
+      videoUploadPromise,
+    ]);
+
+    for (const result of imageResults) {
+      if (result.status === "fulfilled") uploadedImages.push(result.value);
+    }
+    if (videoResult.status === "fulfilled") {
+      uploadedVideo = videoResult.value;
+    }
+
+    const failedUpload =
+      imageResults.find((result) => result.status === "rejected") ||
+      (videoResult.status === "rejected" ? videoResult : null);
+
+    if (failedUpload) throw failedUpload.reason;
 
     await prisma.$transaction([
       prisma.bookingInspectionImage.createMany({

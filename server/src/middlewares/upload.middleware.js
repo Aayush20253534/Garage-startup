@@ -176,17 +176,23 @@ const cleanupUploadedTempFiles = async (req) => {
 };
 
 const registerUploadCleanup = (req, res, next) => {
-  let cleanupStarted = false;
+  let cleanupChain = Promise.resolve();
 
   const cleanup = () => {
-    if (cleanupStarted) return;
-    cleanupStarted = true;
-
-    cleanupUploadedTempFiles(req).catch((error) => {
-      console.error("Failed to clean up temporary upload files:", error.message);
-    });
+    // Cleanup is intentionally repeatable. An `aborted` event can arrive while
+    // Multer is still unwinding and attaching file metadata, so the later
+    // response `close` pass gets another chance to remove anything that was
+    // not visible during the first pass.
+    cleanupChain = cleanupChain
+      .then(() => cleanupUploadedTempFiles(req))
+      .catch((error) => {
+        console.error("Failed to clean up temporary upload files:", error.message);
+      });
   };
 
+  // Register before Multer starts consuming the body so partial disk files are
+  // also removed when a mobile browser aborts a slow upload.
+  req.once("aborted", cleanup);
   res.once("finish", cleanup);
   res.once("close", cleanup);
   return next();
