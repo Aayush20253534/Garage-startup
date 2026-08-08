@@ -2,7 +2,7 @@ export default function SupportBrand({ compact = false, className = "" }) {
   return (
     <div className={["flex min-w-0 items-center gap-3", className].join(" ")}>
       <img
-        src="/support-icon-512.png"
+        src="/support-brand-v4-icon-512.png"
         alt="Rovauto Support"
         width="512"
         height="512"

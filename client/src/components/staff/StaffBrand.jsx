@@ -2,12 +2,12 @@ const PORTAL_BRAND = {
   admin: {
     name: "Rovauto Admin",
     caption: "Platform operations",
-    icon: "/admin-icon-512.png",
+    icon: "/admin-brand-v4-icon-512.png",
   },
   intern: {
     name: "Rovauto Intern",
     caption: "Operations workspace",
-    icon: "/intern-icon-512.png",
+    icon: "/intern-brand-v4-icon-512.png",
   },
 };
 
