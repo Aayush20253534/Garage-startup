@@ -106,13 +106,26 @@ const bookingIdValidation = [
   param("bookingId").isUUID().withMessage("Invalid booking ID"),
 ];
 
+const optionalTelemetryNumber = (field, { min, max }) =>
+  body(field)
+    .optional({ nullable: true })
+    .customSanitizer((value) => {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) && numeric >= min && numeric <= max
+        ? numeric
+        : null;
+    });
+
 const trackingPointValidation = [
   ...bookingIdValidation,
   body("latitude").isFloat(SERVICE_AREA_LAT),
   body("longitude").isFloat(SERVICE_AREA_LNG),
-  body("heading").optional({ nullable: true }).isFloat({ min: 0, max: 360 }),
-  body("speedKph").optional({ nullable: true }).isFloat({ min: 0, max: 300 }),
-  body("accuracyM").optional({ nullable: true }).isFloat({ min: 0, max: 10000 }),
+  // Browser geolocation implementations occasionally emit negative/sentinel
+  // values for optional telemetry. Keep the essential coordinates strict but
+  // discard invalid optional telemetry instead of rejecting a live GPS fix.
+  optionalTelemetryNumber("heading", { min: 0, max: 360 }),
+  optionalTelemetryNumber("speedKph", { min: 0, max: 300 }),
+  optionalTelemetryNumber("accuracyM", { min: 0, max: 10000 }),
   body("recordedAt").optional({ nullable: true }).isISO8601(),
 ];
 

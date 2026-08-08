@@ -377,15 +377,39 @@ export default function WorkerTask() {
           if (sendingLocationRef.current || now - lastLocationSentRef.current < 8000) return;
           sendingLocationRef.current = true;
           try {
+            const rawHeading = position.coords.heading;
+            const rawSpeedMps = position.coords.speed;
+            const rawAccuracyM = position.coords.accuracy;
+            const heading =
+              rawHeading === null || rawHeading === undefined
+                ? null
+                : Number(rawHeading);
+            const speedMps =
+              rawSpeedMps === null || rawSpeedMps === undefined
+                ? null
+                : Number(rawSpeedMps);
+            const speedKph = Number.isFinite(speedMps) ? speedMps * 3.6 : null;
+            const accuracyM =
+              rawAccuracyM === null || rawAccuracyM === undefined
+                ? null
+                : Number(rawAccuracyM);
+
             await workerTaskApi.sendLocation(token, {
               latitude: position.coords.latitude,
               longitude: position.coords.longitude,
-              accuracyM: position.coords.accuracy,
-              heading: Number.isFinite(position.coords.heading) ? position.coords.heading : null,
-              speedKph: Number.isFinite(position.coords.speed)
-                ? position.coords.speed * 3.6
-                : null,
-              recordedAt: new Date(position.timestamp).toISOString(),
+              accuracyM:
+                Number.isFinite(accuracyM) && accuracyM >= 0 && accuracyM <= 10000
+                  ? accuracyM
+                  : null,
+              heading:
+                Number.isFinite(heading) && heading >= 0 && heading <= 360
+                  ? heading
+                  : null,
+              speedKph:
+                Number.isFinite(speedKph) && speedKph >= 0 && speedKph <= 300
+                  ? speedKph
+                  : null,
+              recordedAt: new Date(position.timestamp || Date.now()).toISOString(),
             });
             lastLocationSentRef.current = now;
             setLocationSentAt(new Date());

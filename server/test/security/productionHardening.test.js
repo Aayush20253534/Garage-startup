@@ -195,3 +195,21 @@ test("production client excludes the legacy hero PNG and splits large shared dep
   assert.match(vite, /"vendor-state"/);
   assert.doesNotMatch(home, /from "framer-motion"/);
 });
+
+test("frontend diagnostics carry CSRF and inspection video previews are allowed by CSP", () => {
+  const reporter = read("../client/src/utils/errorReporter.js");
+  const csrf = read("../client/src/api/csrf.js");
+  const firebase = read("../client/firebase.json");
+  const vercel = read("../client/vercel.json");
+  const mapPanel = read("../client/src/components/maps/MapPanel.jsx");
+  const trackingValidation = read("src/maps/validations/maps.validation.js");
+
+  assert.match(reporter, /ensureCsrfToken/);
+  assert.match(reporter, /\[CSRF_HEADER_NAME\]: csrfToken/);
+  assert.match(csrf, /\/csrf-token/);
+  assert.match(firebase, /media-src 'self' blob:/);
+  assert.match(vercel, /media-src 'self' blob:/);
+  assert.doesNotMatch(mapPanel, /new maps\.DirectionsService/);
+  assert.doesNotMatch(mapPanel, /new maps\.DirectionsRenderer/);
+  assert.match(trackingValidation, /optionalTelemetryNumber\("speedKph"/);
+});

@@ -98,7 +98,11 @@ export default function LiveBookingTracking({
   const sendPosition = async (position) => {
     const latitude = Number(position?.coords?.latitude);
     const longitude = Number(position?.coords?.longitude);
-    const accuracyM = Number(position?.coords?.accuracy);
+    const rawAccuracy = position?.coords?.accuracy;
+    const accuracyM =
+      rawAccuracy === null || rawAccuracy === undefined
+        ? null
+        : Number(rawAccuracy);
     const now = Date.now();
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -140,18 +144,41 @@ export default function LiveBookingTracking({
       lastSentAccuracyRef.current = accuracyM;
     }
 
-    const speedMps = Number(position.coords.speed);
+    const rawHeading = position.coords.heading;
+    const heading =
+      rawHeading === null || rawHeading === undefined
+        ? null
+        : Number(rawHeading);
+    const rawSpeedMps = position.coords.speed;
+    const speedMps =
+      rawSpeedMps === null || rawSpeedMps === undefined
+        ? null
+        : Number(rawSpeedMps);
+    const speedKph = Number.isFinite(speedMps) ? speedMps * 3.6 : null;
+
+    // Some mobile WebViews expose -1/NaN-like sentinel values for optional
+    // geolocation telemetry. Coordinates are essential, but optional heading,
+    // speed and accuracy must never make the whole live-location request fail.
+    const safeHeading =
+      Number.isFinite(heading) && heading >= 0 && heading <= 360
+        ? heading
+        : null;
+    const safeSpeedKph =
+      Number.isFinite(speedKph) && speedKph >= 0 && speedKph <= 300
+        ? speedKph
+        : null;
+    const safeAccuracyM =
+      Number.isFinite(accuracyM) && accuracyM >= 0 && accuracyM <= 10000
+        ? accuracyM
+        : null;
+
     try {
       await mapsApi.updateBookingTracking(bookingId, {
         latitude: Number(latitude.toFixed(7)),
         longitude: Number(longitude.toFixed(7)),
-        heading: Number.isFinite(Number(position.coords.heading))
-          ? Number(position.coords.heading)
-          : null,
-        speedKph: Number.isFinite(speedMps) ? speedMps * 3.6 : null,
-        accuracyM: Number.isFinite(accuracyM)
-          ? accuracyM
-          : null,
+        heading: safeHeading,
+        speedKph: safeSpeedKph,
+        accuracyM: safeAccuracyM,
         recordedAt: new Date(recordedAtMs).toISOString(),
       });
       setError("");

@@ -75,3 +75,25 @@ test("controller management tolerates body-less requests and uses structured car
   assert.match(managementUi, /grid gap-4 md:grid-cols-2 xl:grid-cols-3/);
   assert.match(dashboardUi, /Combined garage history/);
 });
+
+test("garage controller notifications satisfy the database owner invariant and alert failures stay observed", () => {
+  const notificationService = read("server/src/customer/services/notification.service.js");
+  const requestService = read("server/src/services/garageRequest.service.js");
+  const migration = read(
+    "server/prisma/migrations/20260808163000_fix_notification_owner_constraint_for_garage_controllers/migration.sql",
+  );
+  const packageJson = JSON.parse(read("server/package.json"));
+
+  assert.match(notificationService, /hasGarageControllerTarget/);
+  assert.match(
+    migration,
+    /num_nonnulls\("userId", "garageOwnerId", "garageControllerId"\) = 1/,
+  );
+  assert.match(requestService, /run: \(\) =>[\s\S]*createNotification/);
+  assert.match(
+    requestService,
+    /Promise\.allSettled\([\s\S]*Promise\.resolve\(\)\.then\(job\.run\)/,
+  );
+  assert.doesNotMatch(requestService, /alertJobs\.map\(\(job\) => job\.promise\)/);
+  assert.match(packageJson.scripts.start, /prisma:deploy/);
+});

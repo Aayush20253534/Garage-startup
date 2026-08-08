@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getApiBaseUrl } from "@/api/baseUrl";
+import { CSRF_HEADER_NAME, ensureCsrfToken } from "@/api/csrf";
 import { reportApiFailure } from "@/utils/errorReporter";
 
 const apiBaseUrl = getApiBaseUrl();
@@ -72,66 +73,8 @@ const SUPPORT_USER_KEY = "rov_support_user";
 const SESSION_EXPIRED_EVENT = "rovauto:session-expired";
 const AUTH_NOTICE_KEY = "rov_auth_notice";
 const CUSTOMER_BLOCKED_CODE = "CUSTOMER_BLOCKED";
-const CSRF_COOKIE_NAME = "rovautoCsrf";
-const CSRF_HEADER_NAME = "X-CSRF-Token";
-let csrfTokenCache = "";
-let csrfTokenRequest = null;
 const SESSION_ERROR_PATTERN =
   /authentication token missing|authentication required|invalid account session|account no longer exists|invalid or expired token|invalid or expired session|session expired/i;
-
-const readCookie = (name) => {
-  if (typeof document === "undefined") return "";
-
-  return document.cookie
-    .split(";")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(`${name}=`))
-    ?.slice(name.length + 1) || "";
-};
-
-const ensureCsrfToken = async ({ forceRefresh = false } = {}) => {
-  if (forceRefresh) {
-    csrfTokenCache = "";
-  }
-
-  if (!forceRefresh && csrfTokenCache) return csrfTokenCache;
-
-  const current = readCookie(CSRF_COOKIE_NAME);
-  if (!forceRefresh && current) {
-    csrfTokenCache = decodeURIComponent(current);
-    return csrfTokenCache;
-  }
-
-  if (!csrfTokenRequest) {
-    csrfTokenRequest = axios
-      .get(`${apiBaseUrl}/csrf-token`, {
-        withCredentials: true,
-        timeout: API_TIMEOUT_MS,
-        headers: {
-          Accept: "application/json",
-        },
-      })
-      .then((response) => {
-        // Cross-subdomain cookies are not readable through document.cookie.
-        // The endpoint therefore returns the same token for the request header.
-        const issuedFromResponse = String(
-          response.data?.data?.token || "",
-        ).trim();
-        const issuedFromCookie = readCookie(CSRF_COOKIE_NAME);
-        const issued =
-          issuedFromResponse ||
-          (issuedFromCookie ? decodeURIComponent(issuedFromCookie) : "");
-
-        csrfTokenCache = issued;
-        return issued;
-      })
-      .finally(() => {
-        csrfTokenRequest = null;
-      });
-  }
-
-  return csrfTokenRequest;
-};
 
 const api = axios.create({
   baseURL: apiBaseUrl,

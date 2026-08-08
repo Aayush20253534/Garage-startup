@@ -482,13 +482,14 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
           garageId: request.garage.id,
           requestId: request.id,
           bookingId: booking.id,
-          promise: sendGarageBookingRequestWhatsapp({
-            garage: request.garage,
-            to: controller.phone,
-            request,
-            booking,
-            acceptFee,
-          }),
+          run: () =>
+            sendGarageBookingRequestWhatsapp({
+              garage: request.garage,
+              to: controller.phone,
+              request,
+              booking,
+              acceptFee,
+            }),
         });
         alertJobs.push({
           channel: "in_app_notification",
@@ -496,11 +497,53 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
           garageId: request.garage.id,
           requestId: request.id,
           bookingId: booking.id,
-          promise: notificationService.createNotification({
-            garageControllerId: controller.id,
+          run: () =>
+            notificationService.createNotification({
+              garageControllerId: controller.id,
+              type: "BOOKING",
+              title: "New nearby booking request",
+              message: controllerMessage,
+              link: `/garage/magic/${request.id}`,
+              metadata: {
+                bookingId: booking.id,
+                requestId: request.id,
+                garageId: request.garage.id,
+                action: "ACCEPT_GARAGE_REQUEST",
+                acceptFee,
+              },
+            }),
+        });
+      }
+    } else if (request.garage?.ownerId) {
+      alertJobs.push({
+        channel: "whatsapp_fallback",
+        garageId: request.garage.id,
+        requestId: request.id,
+        bookingId: booking.id,
+        run: () =>
+          sendGarageBookingRequestWhatsapp({
+            garage: request.garage,
+            request,
+            booking,
+            acceptFee,
+          }),
+      });
+      alertJobs.push({
+        channel: "in_app_notification",
+        garageId: request.garage.id,
+        requestId: request.id,
+        bookingId: booking.id,
+        run: () =>
+          notificationService.createNotification({
+            garageOwnerId: request.garage.ownerId,
             type: "BOOKING",
             title: "New nearby booking request",
-            message: controllerMessage,
+            message: `${fulfillmentLabel}. ${booking.vehicle?.brand || "Vehicle"} ${
+              booking.vehicle?.model || ""
+            } needs ${booking.services
+              .map((item) => item.service?.name)
+              .filter(Boolean)
+              .join(", ") || "garage service"}. The search expands every 2 minutes 30 seconds; you can accept while this booking is still unassigned.${feeMessage}`,
             link: `/garage/magic/${request.id}`,
             metadata: {
               bookingId: booking.id,
@@ -510,51 +553,17 @@ const sendGarageRequestAlerts = async ({ requests, booking }) => {
               acceptFee,
             },
           }),
-        });
-      }
-    } else if (request.garage?.ownerId) {
-      alertJobs.push({
-        channel: "whatsapp_fallback",
-        garageId: request.garage.id,
-        requestId: request.id,
-        bookingId: booking.id,
-        promise: sendGarageBookingRequestWhatsapp({
-          garage: request.garage,
-          request,
-          booking,
-          acceptFee,
-        }),
-      });
-      alertJobs.push({
-        channel: "in_app_notification",
-        garageId: request.garage.id,
-        requestId: request.id,
-        bookingId: booking.id,
-        promise: notificationService.createNotification({
-          garageOwnerId: request.garage.ownerId,
-          type: "BOOKING",
-          title: "New nearby booking request",
-          message: `${fulfillmentLabel}. ${booking.vehicle?.brand || "Vehicle"} ${
-            booking.vehicle?.model || ""
-          } needs ${booking.services
-            .map((item) => item.service?.name)
-            .filter(Boolean)
-            .join(", ") || "garage service"}. The search expands every 2 minutes 30 seconds; you can accept while this booking is still unassigned.${feeMessage}`,
-          link: `/garage/magic/${request.id}`,
-          metadata: {
-            bookingId: booking.id,
-            requestId: request.id,
-            garageId: request.garage.id,
-            action: "ACCEPT_GARAGE_REQUEST",
-            acceptFee,
-          },
-        }),
       });
     }
   }
 
+  // Store jobs as thunks and start them only after Promise.allSettled is ready
+  // to observe every rejection. Creating the promises inside the loop leaves a
+  // window where a fast database/provider failure can be reported by Node as an
+  // unhandledRejection before allSettled is attached, which intentionally
+  // terminates the production process.
   const results = await Promise.allSettled(
-    alertJobs.map((job) => job.promise),
+    alertJobs.map((job) => Promise.resolve().then(job.run)),
   );
 
   await Promise.allSettled(

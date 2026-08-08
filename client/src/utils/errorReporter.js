@@ -1,4 +1,5 @@
 import { getSystemIssueReportUrl } from "@/api/baseUrl";
+import { CSRF_HEADER_NAME, ensureCsrfToken } from "@/api/csrf";
 
 const reportUrl = getSystemIssueReportUrl();
 const recentReports = new Map();
@@ -118,26 +119,41 @@ const postIssue = async (payload) => {
   if (import.meta.env.VITE_ERROR_REPORTING_ENABLED === "false") return;
   if (shouldThrottle(payload)) return;
 
-  try {
-    await fetch(reportUrl, {
+  const body = JSON.stringify({
+    ...payload,
+    title: redactSensitiveText(payload.title).slice(0, 180),
+    message: redactSensitiveText(payload.message).slice(0, 2000),
+    stack: payload.stack
+      ? redactSensitiveText(payload.stack).slice(0, 12000)
+      : null,
+    route: payload.route ? stripQueryAndFragment(payload.route).slice(0, 500) : null,
+    endpoint: payload.endpoint
+      ? stripQueryAndFragment(payload.endpoint).slice(0, 500)
+      : null,
+    metadata: sanitizeMetadata(payload.metadata || {}),
+  });
+
+  const send = async (forceRefresh = false) => {
+    const csrfToken = await ensureCsrfToken({ forceRefresh });
+    return fetch(reportUrl, {
       method: "POST",
       credentials: "include",
       keepalive: true,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payload,
-        title: redactSensitiveText(payload.title).slice(0, 180),
-        message: redactSensitiveText(payload.message).slice(0, 2000),
-        stack: payload.stack
-          ? redactSensitiveText(payload.stack).slice(0, 12000)
-          : null,
-        route: payload.route ? stripQueryAndFragment(payload.route).slice(0, 500) : null,
-        endpoint: payload.endpoint
-          ? stripQueryAndFragment(payload.endpoint).slice(0, 500)
-          : null,
-        metadata: sanitizeMetadata(payload.metadata || {}),
-      }),
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {}),
+      },
+      body,
     });
+  };
+
+  try {
+    const response = await send();
+    // The reporter uses native fetch to avoid the Axios error interceptor loop,
+    // so mirror the normal API client's single CSRF refresh on stale cookies.
+    if (response.status === 403) {
+      await send(true);
+    }
   } catch {
     // Error reporting must never break the customer or garage flow.
   }

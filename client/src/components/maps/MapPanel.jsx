@@ -266,54 +266,25 @@ export default function MapPanel({
             strokeWeight: 5,
           });
           overlaysRef.current.push(polyline);
-        } else if (
-          originPosition &&
-          destinationPosition &&
-          maps.DirectionsService &&
-          maps.DirectionsRenderer
-        ) {
-          // The server Routes API remains the primary source. If its polyline
-          // is temporarily unavailable, use the browser Maps service so the
-          // garage still sees a road-following route instead of only two pins.
-          const directionsRenderer = new maps.DirectionsRenderer({
+        } else if (originPosition && destinationPosition) {
+          // Route geometry is computed by the backend Routes API. Do not fall
+          // back to the legacy browser DirectionsService/Renderer: those APIs
+          // are deprecated and also require an additional browser-key service
+          // permission. When the server route is temporarily unavailable, keep
+          // the map useful with the observed GPS trail (or a direct guide line)
+          // and let the existing "Directions" link open Google Maps.
+          const observedPath = points.map(toPosition).filter(Boolean);
+          const path = observedPath.length > 1
+            ? observedPath
+            : [originPosition, destinationPosition];
+          const polyline = new maps.Polyline({
             map,
-            suppressMarkers: true,
-            preserveViewport: true,
-            polylineOptions: {
-              strokeColor: dark ? "#facc15" : "#111827",
-              strokeOpacity: 0.9,
-              strokeWeight: 5,
-            },
+            path,
+            strokeColor: dark ? "#facc15" : "#111827",
+            strokeOpacity: observedPath.length > 1 ? 0.85 : 0.55,
+            strokeWeight: 4,
           });
-          overlaysRef.current.push(directionsRenderer);
-
-          const directionsService = new maps.DirectionsService();
-          directionsService.route(
-            {
-              origin: originPosition,
-              destination: destinationPosition,
-              travelMode: maps.TravelMode.DRIVING,
-              provideRouteAlternatives: false,
-            },
-            (result, status) => {
-              if (!active || status !== maps.DirectionsStatus.OK || !result) {
-                return;
-              }
-
-              directionsRenderer.setDirections(result);
-              const primaryRoute = result.routes?.[0];
-              const primaryLeg = primaryRoute?.legs?.[0];
-              const overviewPolyline =
-                typeof primaryRoute?.overview_polyline === "string"
-                  ? primaryRoute.overview_polyline
-                  : null;
-              onRouteResolvedRef.current?.({
-                distanceMeters: Number(primaryLeg?.distance?.value || 0),
-                durationSeconds: Number(primaryLeg?.duration?.value || 0),
-                encodedPolyline: overviewPolyline,
-              });
-            },
-          );
+          overlaysRef.current.push(polyline);
         } else if (points.length > 1) {
           const path = points.map(toPosition).filter(Boolean);
           const polyline = new maps.Polyline({
