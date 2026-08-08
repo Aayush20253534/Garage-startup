@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import api from "@/api/axios";
 import { FcGoogle } from "react-icons/fc";
-import { FiEye, FiEyeOff } from "react-icons/fi";
+import { FiCheck, FiExternalLink, FiEye, FiEyeOff, FiShield, FiX } from "react-icons/fi";
 import startGoogleAuth, { completeGoogleRedirectAuth } from "@/utils/googleAuth";
 import { hasSavedUserLocation } from "@/utils/signupLocation";
 import { useApp } from "@/hooks/useApp";
@@ -44,6 +44,7 @@ export default function Register() {
   const [error, setError] = useState(state?.message || "");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [googleConsentOpen, setGoogleConsentOpen] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     password: false,
     confirmPassword: false,
@@ -189,17 +190,51 @@ export default function Register() {
     }
   };
 
+  const openGoogleConsent = () => {
+    if (actionLockRef.current) return;
+    setError("");
+    setGoogleConsentOpen(true);
+  };
+
+  const closeGoogleConsent = () => {
+    if (actionLockRef.current) return;
+    setGoogleConsentOpen(false);
+  };
+
+  useEffect(() => {
+    if (!googleConsentOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !actionLockRef.current) {
+        setGoogleConsentOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [googleConsentOpen]);
+
   const handleGoogleAuth = async () => {
     if (actionLockRef.current) return;
 
+    if (!acceptedTerms || !acceptedPrivacy) {
+      setGoogleConsentOpen(true);
+      return;
+    }
+
     actionLockRef.current = true;
+    setGoogleConsentOpen(false);
     setError("");
     setLoadingAction("GOOGLE");
 
     try {
-      if (!acceptedTerms || !acceptedPrivacy) {
-        throw new Error("Accept the Terms and Conditions and Privacy Policy to continue with Google.");
-      }
       const data = await startGoogleAuth("CUSTOMER", {
         mode: "SIGNUP",
         acceptedTerms,
@@ -243,6 +278,153 @@ export default function Register() {
             : "Saving your account securely before OTP verification."
         }
       />
+      {googleConsentOpen && (
+        <div
+          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="google-consent-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeGoogleConsent();
+          }}
+        >
+          <section className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] border border-line bg-white shadow-2xl sm:max-w-lg sm:rounded-[28px]">
+            <div className="border-b border-line px-5 pb-4 pt-4 sm:px-6 sm:pt-5">
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line sm:hidden" />
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-line bg-bg-soft">
+                    <FcGoogle className="text-2xl" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-brand-dark">
+                      Google signup
+                    </p>
+                    <h2 id="google-consent-title" className="mt-0.5 text-xl font-black tracking-tight text-ink sm:text-2xl">
+                      One quick confirmation
+                    </h2>
+                    <p className="mt-1 text-sm leading-5 text-muted">
+                      Review Rovauto's legal terms before we open Google and create your customer account.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeGoogleConsent}
+                  disabled={loading}
+                  aria-label="Close Google signup confirmation"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted transition hover:bg-bg-soft hover:text-ink disabled:opacity-50"
+                >
+                  <FiX />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3 px-5 py-4 sm:px-6 sm:py-5">
+              <div className={`rounded-2xl border p-4 transition ${
+                acceptedTerms
+                  ? "border-brand/70 bg-brand/10"
+                  : "border-line bg-white hover:border-ink/30 hover:bg-bg-soft/60"
+              }`}>
+                <label htmlFor="google-terms-consent" className="flex cursor-pointer items-start gap-3">
+                  <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border ${
+                    acceptedTerms
+                      ? "border-brand-dark bg-brand text-black"
+                      : "border-line bg-white"
+                  }`}>
+                    {acceptedTerms && <FiCheck className="text-sm" />}
+                  </span>
+                  <input
+                    id="google-terms-consent"
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(event) => setAcceptedTerms(event.target.checked)}
+                    className="sr-only"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-ink">I agree to the Terms and Conditions</span>
+                    <span className="mt-1 block text-xs leading-5 text-muted">
+                      The rules for using Rovauto, bookings, payments and account responsibilities.
+                    </span>
+                  </span>
+                </label>
+                <Link
+                  to="/terms-and-conditions"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-8 mt-2 inline-flex items-center gap-1 text-xs font-bold text-ink underline underline-offset-2"
+                >
+                  Read Terms and Conditions <FiExternalLink />
+                </Link>
+              </div>
+
+              <div className={`rounded-2xl border p-4 transition ${
+                acceptedPrivacy
+                  ? "border-brand/70 bg-brand/10"
+                  : "border-line bg-white hover:border-ink/30 hover:bg-bg-soft/60"
+              }`}>
+                <label htmlFor="google-privacy-consent" className="flex cursor-pointer items-start gap-3">
+                  <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border ${
+                    acceptedPrivacy
+                      ? "border-brand-dark bg-brand text-black"
+                      : "border-line bg-white"
+                  }`}>
+                    {acceptedPrivacy && <FiCheck className="text-sm" />}
+                  </span>
+                  <input
+                    id="google-privacy-consent"
+                    type="checkbox"
+                    checked={acceptedPrivacy}
+                    onChange={(event) => setAcceptedPrivacy(event.target.checked)}
+                    className="sr-only"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-ink">I agree to the Privacy Policy</span>
+                    <span className="mt-1 block text-xs leading-5 text-muted">
+                      How Rovauto handles account, vehicle and service information.
+                    </span>
+                  </span>
+                </label>
+                <Link
+                  to="/privacy-policy"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-8 mt-2 inline-flex items-center gap-1 text-xs font-bold text-ink underline underline-offset-2"
+                >
+                  Read Privacy Policy <FiExternalLink />
+                </Link>
+              </div>
+
+              <div className="flex items-start gap-2.5 rounded-2xl bg-bg-soft px-3.5 py-3 text-xs leading-5 text-muted">
+                <FiShield className="mt-0.5 shrink-0 text-brand-dark" />
+                <p>
+                  Google verifies your identity. Rovauto never receives your Google password, and your account is created only after both confirmations above.
+                </p>
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 border-t border-line bg-white/95 px-5 py-4 backdrop-blur sm:px-6">
+              <button
+                type="button"
+                onClick={handleGoogleAuth}
+                disabled={loading || !acceptedTerms || !acceptedPrivacy}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-black text-black transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <FcGoogle className="text-xl" />
+                Continue with Google
+              </button>
+              <button
+                type="button"
+                onClick={closeGoogleConsent}
+                disabled={loading}
+                className="mt-2 h-9 w-full rounded-lg text-xs font-bold text-muted transition hover:bg-bg-soft hover:text-ink disabled:opacity-50"
+              >
+                Use another signup method
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       <div className="container-x grid min-h-[80vh] gap-12 py-10 sm:py-16 lg:grid-cols-2">
       <div className="hidden lg:block">
         <h1 className="mt-38 text-5xl font-bold leading-tight">
@@ -262,13 +444,17 @@ export default function Register() {
         <form onSubmit={submit} className="mt-5 grid gap-2.5">
           <button
             type="button"
-            onClick={handleGoogleAuth}
-            disabled={loading || !acceptedTerms || !acceptedPrivacy}
+            onClick={openGoogleConsent}
+            disabled={loading}
             className="flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FcGoogle className="text-xl" />
             {loadingAction === "GOOGLE" ? "Connecting..." : "Continue with Google"}
           </button>
+
+          <p className="-mt-1 text-center text-[11px] leading-4 text-muted">
+            A quick Terms & Privacy confirmation appears before Google opens.
+          </p>
 
           <div className="flex items-center gap-3 text-xs text-muted">
             <span className="h-px flex-1 bg-line" />

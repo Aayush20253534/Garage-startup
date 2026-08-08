@@ -56,10 +56,16 @@ test("mobile account cards replace the duplicate My Vehicles drawer button", () 
 test("Google login cannot create accounts while Google signup requires consent", () => {
   const service = read("src/customer/services/auth.service.js");
   const googleClient = read("../client/src/utils/googleAuth.js");
+  const register = read("../client/src/pages/auth/Register.jsx");
   assert.match(service, /mode === "LOGIN"/);
   assert.match(service, /GOOGLE_SIGNUP_REQUIRED/);
   assert.match(service, /authProvider !== "GOOGLE"/);
   assert.match(googleClient, /mode: options\.mode \|\| "LOGIN"/);
+  assert.match(register, /const \[googleConsentOpen, setGoogleConsentOpen\]/);
+  assert.match(register, /onClick=\{openGoogleConsent\}/);
+  assert.match(register, /aria-modal="true"/);
+  assert.match(register, /onClick=\{handleGoogleAuth\}/);
+  assert.match(register, /disabled=\{loading \|\| !acceptedTerms \|\| !acceptedPrivacy\}/);
 });
 
 test("admins have full garage detail and per-photo management routes", () => {
