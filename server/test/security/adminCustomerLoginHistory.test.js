@@ -23,7 +23,8 @@ test("admin customer login history exposes active devices and retained sessions"
   assert.match(api, /getCustomerLoginHistory\(userId\)/);
   assert.match(page, /Currently logged devices/);
   assert.match(page, /Session history/);
-  assert.match(page, /All retained login sessions across every recorded browser or device/);
+  assert.match(page, /Retained sessions across recorded browsers and devices/);
+  assert.match(page, /queryKeys\.admin\.customerLoginHistory\(userId\)/);
   assert.match(customers, /View login history/);
   assert.match(app, /\/admin\/customers\/:userId\/login-history/);
   assert.match(app, /\/intern\/customers\/:userId\/login-history/);
@@ -46,7 +47,9 @@ test("logout from all devices revokes active sessions and removes customer push 
   assert.match(service, /tx\.pushSubscription\.deleteMany/);
   assert.match(service, /invalidateCustomerCache\(userId\)/);
   assert.match(api, /logoutCustomerFromAllDevices\(userId\)/);
-  assert.match(page, /Log out from all devices/);
+  assert.match(page, /logoutCustomerFromAllDevices\(userId\)/);
+  assert.match(page, /Log out all devices/);
+  assert.match(page, /disabled=\{logoutAllMutation\.isPending \|\| !summary\.activeSessionCount\}/);
   assert.match(page, /const isIntern = user\?\.role === "INTERN"/);
   assert.match(page, /!isIntern &&/);
 });
