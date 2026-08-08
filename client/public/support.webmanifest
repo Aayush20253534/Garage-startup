@@ -20,31 +20,31 @@
   ],
   "icons": [
     {
-      "src": "/support-icon-192.png",
+      "src": "/support-icon-192.png?brand=20260808",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/support-icon-512.png",
+      "src": "/support-icon-512.png?brand=20260808",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/support-icon-1024.png",
+      "src": "/support-icon-1024.png?brand=20260808",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/support-icon-maskable-512.png",
+      "src": "/support-icon-maskable-512.png?brand=20260808",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/support-icon-maskable-1024.png",
+      "src": "/support-icon-maskable-1024.png?brand=20260808",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "maskable"
@@ -57,7 +57,7 @@
       "url": "/support",
       "icons": [
         {
-          "src": "/support-icon-192.png",
+          "src": "/support-icon-192.png?brand=20260808",
           "sizes": "192x192"
         }
       ]
@@ -68,7 +68,7 @@
       "url": "/support/tickets",
       "icons": [
         {
-          "src": "/support-icon-192.png",
+          "src": "/support-icon-192.png?brand=20260808",
           "sizes": "192x192"
         }
       ]
@@ -79,7 +79,7 @@
       "url": "/support/notify",
       "icons": [
         {
-          "src": "/support-icon-192.png",
+          "src": "/support-icon-192.png?brand=20260808",
           "sizes": "192x192"
         }
       ]
