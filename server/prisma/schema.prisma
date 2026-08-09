@@ -612,6 +612,7 @@ model Service {
   isComingSoon Boolean  @default(false)
   isPopular    Boolean  @default(false)
   popularOrder Int?
+  displayOrder Int @default(0)
   fulfillmentType ServiceFulfillmentType @default(BOTH)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -628,6 +629,7 @@ model Service {
   priceSchedules   PriceRangeSchedule[]
 
   @@index([categoryId])
+  @@index([categoryId, displayOrder])
   @@index([isActive])
   @@index([isComingSoon])
   @@index([isPopular, popularOrder])

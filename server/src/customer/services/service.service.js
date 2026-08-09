@@ -283,7 +283,11 @@ const getServiceCategories = async (options = {}) => {
             orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
           },
         },
-        orderBy: { name: "asc" },
+        orderBy: [
+          { displayOrder: "asc" },
+          { name: "asc" },
+          { createdAt: "asc" },
+        ],
       },
     },
     orderBy: { name: "asc" },
@@ -350,7 +354,13 @@ const getServices = async (query = {}, options = {}) => {
         orderBy: [{ isThumbnail: "desc" }, { order: "asc" }],
       },
     },
-    orderBy: { name: "asc" },
+    orderBy: safeCategoryId
+      ? [
+          { displayOrder: "asc" },
+          { name: "asc" },
+          { createdAt: "asc" },
+        ]
+      : { name: "asc" },
   });
 
   const availableServices = await filterServicesByAvailabilityRules(services, context || {});

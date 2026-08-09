@@ -73,6 +73,16 @@ const createServiceSchema = [
   ...restrictedCityIdsSchema,
 ];
 
+const reorderCategoryServicesSchema = [
+  ...categoryIdSchema,
+  body("serviceIds")
+    .isArray({ min: 1, max: 500 })
+    .withMessage("serviceIds must contain the complete ordered service list"),
+  body("serviceIds.*")
+    .isUUID()
+    .withMessage("Each service ID must be valid"),
+];
+
 const updatePopularServicesSchema = [
   body("serviceIds")
     .isArray({ max: 6 })
@@ -107,6 +117,7 @@ module.exports = {
   categoryQuerySchema,
   createCategorySchema,
   createServiceSchema,
+  reorderCategoryServicesSchema,
   serviceIdSchema,
   updateCategorySchema,
   updatePopularServicesSchema,

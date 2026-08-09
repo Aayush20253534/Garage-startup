@@ -10,6 +10,7 @@ const {
   categoryQuerySchema,
   createCategorySchema,
   createServiceSchema,
+  reorderCategoryServicesSchema,
   serviceIdSchema,
   updateCategorySchema,
   updatePopularServicesSchema,
@@ -49,6 +50,13 @@ router.delete(
   categoryIdSchema,
   validate,
   controller.deactivateCategory,
+);
+router.put(
+  "/categories/:categoryId/service-order",
+  authorizeRoles("ADMIN", "SUB_ADMIN"),
+  reorderCategoryServicesSchema,
+  validate,
+  controller.reorderCategoryServices,
 );
 router.post(
   "/categories/:categoryId/thumbnail",

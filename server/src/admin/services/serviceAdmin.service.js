@@ -47,7 +47,11 @@ const categoryInclude = {
         include: { city: true },
       },
     },
-    orderBy: { name: "asc" },
+    orderBy: [
+      { displayOrder: "asc" },
+      { name: "asc" },
+      { createdAt: "asc" },
+    ],
   },
 };
 
@@ -223,9 +227,16 @@ const createService = async (payload) => {
     payload.restrictedCityIds,
   );
 
+  const lastService = await prisma.service.findFirst({
+    where: { categoryId: payload.categoryId },
+    orderBy: [{ displayOrder: "desc" }, { createdAt: "desc" }],
+    select: { displayOrder: true },
+  });
+
   const service = await prisma.service.create({
     data: {
       categoryId: payload.categoryId,
+      displayOrder: (lastService?.displayOrder || 0) + 1,
       name,
       description: normalizeText(payload.description) || null,
       isActive: parseBoolean(payload.isActive, true),
@@ -245,14 +256,25 @@ const createService = async (payload) => {
 };
 
 const updateService = async (serviceId, payload) => {
-  await getService(serviceId);
+  const existingService = await getService(serviceId);
 
   const targetCategory = payload.categoryId !== undefined
     ? await getCategory(payload.categoryId)
     : null;
 
   const data = {};
-  if (payload.categoryId !== undefined) data.categoryId = payload.categoryId;
+  if (payload.categoryId !== undefined) {
+    data.categoryId = payload.categoryId;
+
+    if (payload.categoryId !== existingService.categoryId) {
+      const lastService = await prisma.service.findFirst({
+        where: { categoryId: payload.categoryId },
+        orderBy: [{ displayOrder: "desc" }, { createdAt: "desc" }],
+        select: { displayOrder: true },
+      });
+      data.displayOrder = (lastService?.displayOrder || 0) + 1;
+    }
+  }
   if (payload.name !== undefined) {
     const name = normalizeText(payload.name);
     if (!name) throw new ApiError(400, "Service name cannot be empty");
@@ -319,6 +341,41 @@ const deactivateService = async (serviceId) => {
 
   await invalidateServiceCache();
   return service;
+};
+
+const reorderCategoryServices = async (categoryId, serviceIds = []) => {
+  const category = await getCategory(categoryId);
+  const uniqueServiceIds = [...new Set(serviceIds)];
+
+  if (uniqueServiceIds.length !== serviceIds.length) {
+    throw new ApiError(400, "Service order cannot contain duplicates");
+  }
+
+  const currentServiceIds = category.services.map((service) => service.id);
+  const currentServiceIdSet = new Set(currentServiceIds);
+
+  if (
+    uniqueServiceIds.length !== currentServiceIds.length ||
+    uniqueServiceIds.some((serviceId) => !currentServiceIdSet.has(serviceId))
+  ) {
+    throw new ApiError(
+      409,
+      "The services in this category changed. Refresh the catalogue and try again",
+    );
+  }
+
+  await prisma.$transaction(
+    uniqueServiceIds.map((serviceId, index) =>
+      prisma.service.update({
+        where: { id: serviceId },
+        data: { displayOrder: index + 1 },
+        select: { id: true },
+      }),
+    ),
+  );
+
+  await invalidateServiceCache();
+  return getCategory(categoryId);
 };
 
 const setPopularServices = async (serviceIds = []) => {
@@ -495,6 +552,7 @@ module.exports = {
   getCategory,
   getService,
   listCategories,
+  reorderCategoryServices,
   setPopularServices,
   updateCategory,
   updateService,

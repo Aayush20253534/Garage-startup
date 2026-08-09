@@ -30,6 +30,16 @@ const deactivateCategory = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Service category deactivated successfully", category));
 });
 
+const reorderCategoryServices = asyncHandler(async (req, res) => {
+  const category = await service.reorderCategoryServices(
+    req.params.categoryId,
+    req.body.serviceIds,
+  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Service order updated successfully", category));
+});
+
 const createService = asyncHandler(async (req, res) => {
   const created = await service.createService(req.body);
   return res
@@ -83,6 +93,7 @@ module.exports = {
   deactivateCategory,
   deactivateService,
   listCategories,
+  reorderCategoryServices,
   updateCategory,
   updatePopularServices,
   updateService,

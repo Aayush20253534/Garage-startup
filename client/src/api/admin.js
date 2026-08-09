@@ -603,6 +603,14 @@ export const adminApi = {
     );
   },
 
+  async reorderCategoryServices(categoryId, serviceIds) {
+    return unwrap(
+      await api.put(`/admin/services/categories/${categoryId}/service-order`, {
+        serviceIds,
+      }),
+    );
+  },
+
   async updatePopularServices(serviceIds) {
     return unwrap(await api.put("/admin/services/popular", { serviceIds }));
   },

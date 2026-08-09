@@ -217,6 +217,7 @@ export default function AdminServices() {
   const [togglingCategoryId, setTogglingCategoryId] = useState(null);
   const [coverageService, setCoverageService] = useState(null);
   const [savingCoverage, setSavingCoverage] = useState(false);
+  const [reorderingCategoryId, setReorderingCategoryId] = useState(null);
 
   const activeCategoryCount = useMemo(
     () => categories.filter((category) => category.isActive).length,
@@ -706,6 +707,60 @@ export default function AdminServices() {
         err.response?.data?.message ||
           `Unable to ${action} service`,
       );
+    }
+  };
+
+  const moveCategoryService = async (category, serviceId, direction) => {
+    if (isIntern || reorderingCategoryId) return;
+
+    const orderedServices = [...(category.services || [])];
+    const currentIndex = orderedServices.findIndex(
+      (service) => service.id === serviceId,
+    );
+    const nextIndex = currentIndex + direction;
+
+    if (
+      currentIndex < 0 ||
+      nextIndex < 0 ||
+      nextIndex >= orderedServices.length
+    ) {
+      return;
+    }
+
+    [orderedServices[currentIndex], orderedServices[nextIndex]] = [
+      orderedServices[nextIndex],
+      orderedServices[currentIndex],
+    ];
+
+    setError("");
+    setSuccess("");
+    setReorderingCategoryId(category.id);
+
+    // Update the visible list immediately, then let the server persist the
+    // complete category order so concurrent catalogue changes cannot be lost.
+    setCategories((current) =>
+      current.map((item) =>
+        item.id === category.id
+          ? { ...item, services: orderedServices }
+          : item,
+      ),
+    );
+
+    try {
+      await adminApi.reorderCategoryServices(
+        category.id,
+        orderedServices.map((service) => service.id),
+      );
+      setSuccess(`Service order updated for ${category.name}.`);
+      await load();
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to update service order",
+      );
+      await load();
+    } finally {
+      setReorderingCategoryId(null);
     }
   };
 
@@ -1580,11 +1635,53 @@ export default function AdminServices() {
                           <p className="mt-1 line-clamp-1 text-sm text-muted">
                             {service.description || "No service description."}
                           </p>
+                          <p className="mt-1 text-xs font-semibold text-muted">
+                            Position {
+                              (category.services || []).findIndex(
+                                (item) => item.id === service.id,
+                              ) + 1
+                            } of {(category.services || []).length}
+                          </p>
 
                         </div>
 
                         {!isIntern && (
                         <div className="flex flex-wrap gap-2 sm:justify-end">
+                          <div className="inline-flex overflow-hidden rounded-lg border border-line bg-white">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                moveCategoryService(category, service.id, -1)
+                              }
+                              disabled={
+                                reorderingCategoryId === category.id ||
+                                (category.services || [])[0]?.id === service.id
+                              }
+                              className="inline-flex h-9 w-9 items-center justify-center text-ink transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-35"
+                              aria-label={`Move ${service.name} up`}
+                              title="Move service up"
+                            >
+                              <FiArrowUp />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                moveCategoryService(category, service.id, 1)
+                              }
+                              disabled={
+                                reorderingCategoryId === category.id ||
+                                (category.services || [])[
+                                  (category.services || []).length - 1
+                                ]?.id === service.id
+                              }
+                              className="inline-flex h-9 w-9 items-center justify-center border-l border-line text-ink transition hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-35"
+                              aria-label={`Move ${service.name} down`}
+                              title="Move service down"
+                            >
+                              <FiArrowDown />
+                            </button>
+                          </div>
+
                           <button
                             type="button"
                             onClick={() => toggleComingSoon(service)}
