@@ -505,7 +505,7 @@ export default function ServiceSelect() {
                             service={service}
                             className="justify-start"
                             regularClassName="whitespace-nowrap text-[9px] font-semibold leading-none text-red-500 line-through decoration-[1.5px] decoration-red-500"
-                            currentClassName="whitespace-nowrap text-base font-black leading-none tracking-tight text-ink"
+                            currentClassName="whitespace-nowrap text-[13px] font-black leading-none tracking-tight text-ink min-[390px]:text-sm"
                           />
                         ) : (
                           <div className="max-w-28 text-[10px] font-bold leading-3.5 text-amber-700">
@@ -783,7 +783,7 @@ export default function ServiceSelect() {
 
         return (
           <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            className="fixed inset-0 z-50 flex items-stretch justify-center bg-white sm:items-center sm:bg-black/50 sm:p-4 sm:backdrop-blur-sm"
             role="presentation"
             onMouseDown={(event) => {
               if (event.target === event.currentTarget) setSelectedService(null);
@@ -793,9 +793,9 @@ export default function ServiceSelect() {
               role="dialog"
               aria-modal="true"
               aria-labelledby="booking-service-detail-title"
-              className="max-h-[88vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-xl sm:rounded-3xl"
+              className="h-[100dvh] max-h-[100dvh] w-full overflow-y-auto bg-white shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-xl sm:rounded-3xl"
             >
-              <div className="p-4 sm:p-5">
+              <div className="p-4 pt-[max(1rem,env(safe-area-inset-top))] sm:p-5">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h2

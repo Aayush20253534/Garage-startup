@@ -251,7 +251,7 @@ export default function MyVehicles() {
       )}
 
       {safeVehicles.length ? (
-        <div className="grid min-w-0 gap-3 min-[600px]:grid-cols-2 sm:gap-4 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {safeVehicles.map((savedVehicle) => {
             const isActive =
               vehicle?.id === savedVehicle.id || savedVehicle.isDefault;
@@ -264,7 +264,7 @@ export default function MyVehicles() {
               <article
                 key={savedVehicle.id}
                 className={[
-                  "card-soft min-w-0 overflow-hidden rounded-2xl border p-2.5 shadow-sm transition hover:shadow-md sm:p-4",
+                  "card-soft overflow-hidden rounded-2xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
                   isActive
                     ? "border-brand bg-brand-soft/30"
                     : "border-line bg-white",
@@ -275,155 +275,84 @@ export default function MyVehicles() {
                   onClick={() => handleSetDefault(savedVehicle)}
                   disabled={isSettingDefault}
                   aria-pressed={isActive}
-                  className="grid w-full min-w-0 grid-cols-[72px_minmax(0,1fr)] items-start gap-3 text-left disabled:cursor-not-allowed disabled:opacity-70 sm:block"
+                  className="w-full text-left disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  <div className="h-[72px] min-w-0 overflow-hidden rounded-lg border border-line bg-bg-soft sm:h-auto sm:rounded-xl">
+                  <div className="flex items-start gap-3">
                     <SafeImage
-                      src={getOptimizedImageUrl(modelImageUrl, { width: 720 })}
+                      src={getOptimizedImageUrl(modelImageUrl, { width: 320 })}
                       alt={vehicleTitle}
-                      width="720"
-                      height="405"
+                      width="160"
+                      height="112"
                       loading="lazy"
                       decoding="async"
-                      className="h-full w-full object-contain sm:aspect-[16/9] sm:h-auto sm:object-cover"
+                      className="h-14 w-20 shrink-0 rounded-xl border border-line bg-white object-cover"
                       fallback={
-                        <span className="flex h-[72px] w-full items-center justify-center bg-brand text-xl text-black sm:aspect-[16/9] sm:h-auto sm:text-4xl">
+                        <span className="flex h-14 w-20 shrink-0 items-center justify-center rounded-xl bg-brand text-xl text-black">
                           <FiTruck />
                         </span>
                       }
                     />
+
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-bold text-ink">
+                        {vehicleTitle}
+                      </div>
+
+                      <div className="mt-1 truncate text-xs text-muted">
+                        {savedVehicle.fuelType || "Fuel"} ·{" "}
+                        {savedVehicle.registrationNumber || "No registration"}
+                      </div>
+
+                      <div className="mt-1 text-xs text-muted">
+                        Year: {savedVehicle.year || "-"}
+                      </div>
+
+                      {savedVehicle.registrationVerified && (
+                        <div className="mt-1 text-[11px] font-bold text-green-700">
+                          RC verified
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="min-w-0 sm:mt-4">
-                    <div className="min-w-0 break-words text-base font-bold leading-5 text-ink [overflow-wrap:anywhere] sm:text-lg sm:leading-6">
-                      {vehicleTitle}
-                    </div>
-
-                    <div className="mt-2 min-w-0 space-y-1.5 text-xs sm:hidden">
-                      <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
-                        <span className="min-w-0">
-                          <span className="text-muted">Fuel:</span>{" "}
-                          <span className="font-semibold text-ink">
-                            {savedVehicle.fuelType || "Not provided"}
-                          </span>
-                        </span>
-                        <span className="min-w-0">
-                          <span className="text-muted">Year:</span>{" "}
-                          <span className="font-semibold text-ink">
-                            {savedVehicle.year || "Not provided"}
-                          </span>
-                        </span>
-                      </div>
-
-                      <div
-                        className="min-w-0 truncate rounded-md border border-line bg-white/80 px-2 py-1.5 font-semibold text-ink"
-                        title={savedVehicle.registrationNumber || "Not provided"}
-                      >
-                        {savedVehicle.registrationNumber || "Not provided"}
-                      </div>
-                      <div className={`text-[10px] font-bold uppercase tracking-wide ${
-                        savedVehicle.registrationVerified
-                          ? "text-green-700"
-                          : savedVehicle.registrationNumber
-                            ? "text-amber-700"
-                            : "text-muted"
-                      }`}>
-                        {savedVehicle.registrationVerified
-                          ? "RC verified"
-                          : savedVehicle.registrationNumber
-                            ? "Not verified"
-                            : registrationRequired
-                              ? "Verification required"
-                              : "Registration optional"}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 hidden min-w-0 grid-cols-2 gap-2 sm:grid">
-                      <div className="min-w-0 rounded-lg border border-line bg-white/80 p-2.5">
-                        <div className="text-[11px] font-bold uppercase tracking-wide text-muted">
-                          Fuel type
-                        </div>
-                        <div className="mt-1 min-w-0 break-words text-sm font-semibold text-ink [overflow-wrap:anywhere]">
-                          {savedVehicle.fuelType || "Not provided"}
-                        </div>
-                      </div>
-
-                      <div className="min-w-0 rounded-lg border border-line bg-white/80 p-2.5">
-                        <div className="text-[11px] font-bold uppercase tracking-wide text-muted">
-                          Model year
-                        </div>
-                        <div className="mt-1 min-w-0 break-words text-sm font-semibold text-ink">
-                          {savedVehicle.year || "Not provided"}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-2 hidden min-w-0 rounded-lg border border-line bg-white/80 p-2.5 sm:block">
-                      <div className="text-[11px] font-bold uppercase tracking-wide text-muted">
-                        Registration number
-                      </div>
-                      <div className="mt-1 min-w-0 break-all text-sm font-semibold text-ink">
-                        {savedVehicle.registrationNumber || "Not provided"}
-                      </div>
-                      <div className={`mt-1 text-[11px] font-bold uppercase tracking-wide ${
-                        savedVehicle.registrationVerified
-                          ? "text-green-700"
-                          : savedVehicle.registrationNumber
-                            ? "text-amber-700"
-                            : "text-muted"
-                      }`}>
-                        {savedVehicle.registrationVerified
-                          ? "RC verified"
-                          : savedVehicle.registrationNumber
-                            ? "Not verified"
-                            : registrationRequired
-                              ? "Verification required"
-                              : "Optional for your account"}
-                      </div>
-                    </div>
+                  <div className="mt-4 border-t border-line pt-4">
+                    {isActive ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-xs font-bold text-black">
+                        <FiCheckCircle />
+                        Default vehicle
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-ink">
+                        {isSettingDefault ? "Setting..." : "Set as default"}
+                      </span>
+                    )}
                   </div>
                 </button>
 
-                <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 border-t border-line pt-3 sm:mt-4 sm:pt-4">
-                  {isActive ? (
-                    <span className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-brand-soft px-2 py-2 text-center text-xs font-bold text-ink sm:px-3">
-                      <FiCheckCircle className="shrink-0" />
-                      <span className="truncate sm:hidden">Default</span>
-                      <span className="hidden truncate sm:inline">Default vehicle</span>
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSetDefault(savedVehicle)}
-                      disabled={isSettingDefault}
-                      className="inline-flex min-h-9 min-w-0 items-center justify-center rounded-lg border border-line px-2 py-2 text-center text-xs font-semibold text-ink transition hover:border-ink hover:bg-bg-soft disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
-                    >
-                      <span className="truncate sm:hidden">
-                        {isSettingDefault ? "Setting..." : "Set default"}
-                      </span>
-                      <span className="hidden truncate sm:inline">
-                        {isSettingDefault ? "Setting..." : "Set as default"}
-                      </span>
-                    </button>
-                  )}
+                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-line pt-3">
+                  <button
+                    type="button"
+                    onClick={() => startRegistrationEdit(savedVehicle)}
+                    className="inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-2 text-xs font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
+                  >
+                    <FiEdit3 className="shrink-0" />
+                    <span className="truncate">Registration</span>
+                  </button>
 
                   <button
                     type="button"
                     onClick={() => handleDelete(savedVehicle.id)}
                     disabled={isDeleting}
-                    className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-2 py-2 text-center text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
+                    className="inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-2 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FiTrash2 className="shrink-0" />
-                    <span className="truncate sm:hidden">
+                    <span className="truncate">
                       {isDeleting ? "Deleting..." : "Delete"}
-                    </span>
-                    <span className="hidden truncate sm:inline">
-                      {isDeleting ? "Deleting..." : "Delete vehicle"}
                     </span>
                   </button>
                 </div>
 
-                {editingVehicleId === savedVehicle.id ? (
+                {editingVehicleId === savedVehicle.id && (
                   <div className="mt-3 rounded-xl border border-line bg-white p-3 sm:p-4">
                     <RegistrationVerificationField
                       value={editRegistrationNumber}
@@ -450,23 +379,12 @@ export default function MyVehicles() {
                         disabled={savingRegistrationId === savedVehicle.id}
                         className="h-9 rounded-lg bg-ink text-xs font-bold text-white transition hover:bg-ink/90 disabled:opacity-50"
                       >
-                        {savingRegistrationId === savedVehicle.id ? "Saving..." : "Save registration"}
+                        {savingRegistrationId === savedVehicle.id
+                          ? "Saving..."
+                          : "Save registration"}
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => startRegistrationEdit(savedVehicle)}
-                    className="mt-2 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-bold text-ink transition hover:border-ink hover:bg-bg-soft"
-                  >
-                    <FiEdit3 />
-                    {savedVehicle.registrationNumber
-                      ? savedVehicle.registrationVerified
-                        ? "Update registration"
-                        : "Verify registration"
-                      : "Add registration number"}
-                  </button>
                 )}
               </article>
             );
