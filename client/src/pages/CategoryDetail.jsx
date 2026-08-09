@@ -14,13 +14,10 @@ import {
   FiArrowLeft,
   FiCheckCircle,
   FiDroplet,
-  FiLayers,
   FiMapPin,
   FiSearch,
   FiSettings,
-  FiShield,
   FiSliders,
-  FiStar,
   FiTool,
   FiTruck,
   FiX,
@@ -750,7 +747,6 @@ export default function CategoryDetail() {
 
       <div className="grid gap-5">
         {packages.map((pkg) => {
-          const includes = getIncludes(pkg);
           const serviceImage = getServiceThumbnailUrl(pkg);
           const hasPrice = Boolean(pkg.priceRange);
           const pricingContextActive = Boolean(user || guestPricingReady);
@@ -760,176 +756,166 @@ export default function CategoryDetail() {
           return (
             <article
               key={pkg.id}
-              className="group overflow-hidden rounded-[20px] border border-gray-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_16px_36px_rgba(15,23,42,0.09)]"
+              className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.05)] transition duration-300 hover:border-gray-300 hover:shadow-[0_10px_26px_rgba(15,23,42,0.08)]"
             >
-              <div className="grid lg:grid-cols-[260px_minmax(0,1fr)_285px] 2xl:grid-cols-[300px_minmax(0,1fr)_320px]">
-                <div className="relative aspect-[16/10] overflow-hidden bg-bg-soft lg:m-4 lg:aspect-auto lg:min-h-[250px] lg:rounded-2xl">
+              <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 p-3 sm:grid-cols-[124px_minmax(0,1fr)] sm:gap-4 sm:p-4 lg:grid-cols-[140px_minmax(0,1fr)_220px] lg:items-center">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPackage(pkg)}
+                  className="relative h-24 w-24 overflow-hidden rounded-xl bg-bg-soft text-left sm:h-28 sm:w-full lg:h-28"
+                  aria-label={`View details for ${pkg.name}`}
+                >
                   <SafeImage
                     src={serviceImage}
                     alt={`${pkg.name} vehicle service`}
-                    width="720"
-                    height="520"
+                    width="420"
+                    height="320"
                     loading="lazy"
                     decoding="async"
                     className={`h-full w-full object-cover transition duration-500 ${
                       comingSoon
                         ? "scale-105 blur-sm grayscale"
-                        : "group-hover:scale-[1.035]"
+                        : "group-hover:scale-[1.03]"
                     }`}
                     fallback={
-                      <div className="grid h-full w-full place-items-center text-4xl text-muted">
+                      <div className="grid h-full w-full place-items-center text-3xl text-muted">
                         <Icon />
                       </div>
                     }
                   />
 
-                  {!comingSoon && (
-                    <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/95 px-3 py-1.5 text-[11px] font-extrabold text-gray-950 shadow-sm backdrop-blur">
-                      <FiStar className="text-amber-500" />
-                      Popular choice
-                    </span>
-                  )}
+                  {comingSoon && <ComingSoonOverlay compact />}
+                </button>
 
-                  {comingSoon && <ComingSoonOverlay />}
-                </div>
-
-                <div className="min-w-0 px-4 py-5 sm:px-5 lg:px-4 lg:py-6">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="text-xl font-black leading-tight tracking-tight text-ink sm:text-2xl">
-                        {pkg.name}
-                      </h2>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-gray-600">
-                        <span className="inline-flex items-center gap-1.5 text-emerald-700">
-                          <FiCheckCircle className="text-sm" />
-                          Verified service
-                        </span>
-                        <span
-                          className={`inline-flex items-center gap-1.5 ${
-                            isSelfDropOffOnlyService(pkg)
-                              ? "text-violet-700"
-                              : "text-sky-700"
-                          }`}
-                        >
-                          {isSelfDropOffOnlyService(pkg) ? (
-                            <FiMapPin className="text-sm" />
-                          ) : (
-                            <FiTruck className="text-sm" />
-                          )}
-                          {getServiceFulfillmentLabel(pkg)}
-                        </span>
-                      </div>
-                    </div>
+                <div className="min-w-0 self-center">
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <h2 className="min-w-0 text-base font-black leading-tight tracking-tight text-ink sm:text-lg">
+                      {pkg.name}
+                    </h2>
 
                     {comingSoon && (
-                      <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-amber-800">
+                      <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-800">
                         Coming soon
                       </span>
                     )}
                   </div>
 
-                  {includes.length > 0 && (
-                    <div className="mt-5">
-                      <p className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-gray-500">
-                        Service includes
-                      </p>
-                      <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                        {includes.slice(0, 4).map((item, index) => (
-                          <li
-                            key={`${item}-${index}`}
-                            className="flex min-w-0 items-start gap-2 text-sm leading-5 text-gray-700"
-                          >
-                            <FiCheckCircle className="mt-0.5 shrink-0 text-[#7fa500]" />
-                            <span className="min-w-0">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      {includes.length > 4 && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPackage(pkg)}
-                          className="mt-3 text-xs font-extrabold text-gray-700 underline decoration-gray-300 underline-offset-4 transition hover:text-black"
-                        >
-                          +{includes.length - 4} more included
-                        </button>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] font-bold sm:text-xs">
+                    <span className="inline-flex items-center gap-1.5 text-emerald-700">
+                      <FiCheckCircle className="shrink-0 text-sm" />
+                      Verified service
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1.5 ${
+                        isSelfDropOffOnlyService(pkg)
+                          ? "text-violet-700"
+                          : "text-sky-700"
+                      }`}
+                    >
+                      {isSelfDropOffOnlyService(pkg) ? (
+                        <FiMapPin className="shrink-0 text-sm" />
+                      ) : (
+                        <FiTruck className="shrink-0 text-sm" />
                       )}
-                    </div>
-                  )}
+                      {getServiceFulfillmentLabel(pkg)}
+                    </span>
+                  </div>
 
-                  <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100 pt-4 text-sm">
-                    <span className="inline-flex items-center gap-2 text-gray-600">
-                      <FiShield className="text-base text-gray-900" />
-                      <span>
-                        <strong className="font-extrabold text-gray-950">Warranty</strong>{" "}
-                        available
-                      </span>
-                    </span>
-                    <span className="inline-flex items-center gap-2 text-gray-600">
-                      <FiLayers className="text-base text-gray-900" />
-                      <span>
-                        <strong className="font-extrabold text-gray-950">{includes.length}</strong>{" "}
-                        included item{includes.length === 1 ? "" : "s"}
-                      </span>
-                    </span>
+                  <div className="mt-3 lg:hidden">
+                    {hasPrice ? (
+                      <ServicePriceDisplay
+                        service={pkg}
+                        regularClassName="whitespace-nowrap text-[11px] font-semibold text-red-500 line-through decoration-red-500"
+                        currentClassName="whitespace-nowrap text-lg font-black leading-none tracking-tight text-gray-950"
+                      />
+                    ) : pricingContextActive && !comingSoon ? (
+                      <p className="text-xs font-bold leading-4 text-amber-800">
+                        {pkg.priceUnavailableMessage ||
+                          "Price not allocated for this vehicle"}
+                      </p>
+                    ) : (
+                      <p className="text-sm font-extrabold text-ink">
+                        {comingSoon ? "Coming soon" : "Select vehicle for price"}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <aside className="border-t border-gray-200 bg-gray-50/55 p-4 sm:p-5 lg:border-l lg:border-t-0 lg:bg-white lg:p-6">
-                  <div className="flex h-full flex-col">
-                    <div>
-                      <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
-                        Estimated price range
+                <aside className="hidden min-w-0 border-l border-gray-100 pl-5 lg:flex lg:flex-col lg:gap-3">
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
+                      Estimated price
+                    </p>
+
+                    {hasPrice ? (
+                      <div className="mt-1.5">
+                        <ServicePriceDisplay
+                          service={pkg}
+                          regularClassName="whitespace-nowrap text-xs font-semibold text-red-500 line-through decoration-red-500"
+                          currentClassName="whitespace-nowrap text-xl font-black leading-none tracking-tight text-gray-950"
+                        />
+                      </div>
+                    ) : pricingContextActive && !comingSoon ? (
+                      <p className="mt-1.5 text-xs font-bold leading-4 text-amber-800">
+                        {pkg.priceUnavailableMessage ||
+                          "Price not allocated for this vehicle"}
                       </p>
+                    ) : (
+                      <p className="mt-1.5 text-sm font-extrabold text-ink">
+                        {comingSoon ? "Coming soon" : "Select vehicle for price"}
+                      </p>
+                    )}
+                  </div>
 
-                      {hasPrice ? (
-                        <div className="mt-2.5">
-                          <ServicePriceDisplay
-                            service={pkg}
-                            regularClassName="whitespace-nowrap text-sm font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500"
-                            currentClassName="whitespace-nowrap text-[1.7rem] font-black leading-none tracking-tight text-gray-950"
-                          />
-                          <p className="mt-3 text-xs leading-5 text-gray-500">
-                            Based on your selected city and vehicle. The final amount is confirmed before payment.
-                          </p>
-                        </div>
-                      ) : pricingContextActive && !comingSoon ? (
-                        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-semibold leading-5 text-amber-800">
-                          {pkg.priceUnavailableMessage ||
-                            "Price not allocated for this vehicle"}
-                        </div>
-                      ) : (
-                        <p className="mt-2.5 text-lg font-extrabold text-ink">
-                          {comingSoon ? "Coming soon" : "Select vehicle for price"}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="mt-6 grid grid-cols-2 gap-2.5 sm:max-w-md lg:mt-auto lg:grid-cols-1">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPackage(pkg)}
-                        className="min-h-12 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-extrabold text-ink transition hover:border-gray-950 hover:bg-gray-50 active:scale-[0.98]"
-                      >
-                        View details
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleBook(pkg)}
-                        disabled={comingSoon || (pricingContextActive && !hasPrice)}
-                        className="min-h-12 rounded-xl bg-[#b9f000] px-4 py-3 text-sm font-black text-gray-950 shadow-[0_10px_24px_-14px_rgba(100,130,0,0.75)] transition hover:bg-[#a9dc00] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {comingSoon
-                          ? "Coming Soon"
-                          : !user
-                            ? "Login to Book"
-                            : hasPrice
-                              ? "Book service"
-                              : "Unavailable"}
-                      </button>
-                    </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPackage(pkg)}
+                      className="min-h-9 rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs font-extrabold text-ink transition hover:border-gray-950 hover:bg-gray-50 active:scale-[0.98]"
+                    >
+                      Details
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBook(pkg)}
+                      disabled={comingSoon || (pricingContextActive && !hasPrice)}
+                      className="min-h-9 rounded-lg bg-[#b9f000] px-2.5 py-2 text-xs font-black text-gray-950 transition hover:bg-[#a9dc00] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {comingSoon
+                        ? "Soon"
+                        : !user
+                          ? "Login"
+                          : hasPrice
+                            ? "Book"
+                            : "Unavailable"}
+                    </button>
                   </div>
                 </aside>
+
+                <div className="col-span-2 grid grid-cols-2 gap-2 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPackage(pkg)}
+                    className="min-h-9 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-extrabold text-ink transition hover:border-gray-950 hover:bg-gray-50 active:scale-[0.98] sm:text-sm"
+                  >
+                    View details
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleBook(pkg)}
+                    disabled={comingSoon || (pricingContextActive && !hasPrice)}
+                    className="min-h-9 rounded-lg bg-[#b9f000] px-3 py-2 text-xs font-black text-gray-950 transition hover:bg-[#a9dc00] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                  >
+                    {comingSoon
+                      ? "Coming Soon"
+                      : !user
+                        ? "Login to Book"
+                        : hasPrice
+                          ? "Book service"
+                          : "Unavailable"}
+                  </button>
+                </div>
               </div>
             </article>
           );

@@ -1646,8 +1646,8 @@ export default function AdminServices() {
                         </div>
 
                         {!isIntern && (
-                        <div className="flex flex-wrap gap-2 sm:justify-end">
-                          <div className="inline-flex overflow-hidden rounded-lg border border-line bg-white">
+                        <div className="flex flex-wrap items-start gap-2 sm:justify-end">
+                          <div className="inline-flex h-9 shrink-0 self-start overflow-hidden rounded-lg border border-line bg-white">
                             <button
                               type="button"
                               onClick={() =>
