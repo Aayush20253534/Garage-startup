@@ -46,6 +46,15 @@ const isCartItemComingSoon = (item) =>
   toBoolean(item?.categoryComingSoon) ||
   toBoolean(item?.category?.isComingSoon);
 
+const getServiceIncludes = (service) => {
+  if (!service?.description) return ["Service inspection", "Basic checks"];
+
+  return service.description
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 function CartItems({ cart, serviceById, comingSoonIds, removeFromCart }) {
   if (cart.length === 0) {
     return <p className="text-sm text-muted">No services added yet.</p>;
@@ -139,6 +148,7 @@ export default function ServiceSelect() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState(null);
 
   const selectedCategory = categories.find((category) => category.id === catId);
   const list = selectedCategory?.services || [];
@@ -409,9 +419,25 @@ export default function ServiceSelect() {
             return (
               <article
                 key={service.id}
-                className="card-soft overflow-hidden p-3 sm:grid sm:grid-cols-[112px_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:p-4"
+                role="button"
+                tabIndex={0}
+                aria-label={`View details for ${service.name}`}
+                onClick={() =>
+                  setSelectedService({
+                    service,
+                    comingSoon,
+                  })
+                }
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedService({ service, comingSoon });
+                  }
+                }}
+                className="card-soft cursor-pointer overflow-hidden p-3 transition hover:border-gray-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/70 sm:grid sm:grid-cols-[112px_minmax(0,1fr)_auto] sm:items-start sm:gap-4 sm:p-4"
               >
-                <div className="grid grid-cols-[88px_minmax(0,1fr)] items-center gap-3 sm:contents">
+                <div className="grid grid-cols-[88px_minmax(0,1fr)] items-start gap-3 sm:contents">
                   <div className="relative h-[88px] w-[88px] overflow-hidden rounded-xl bg-bg-soft sm:h-24 sm:w-28">
                     <SafeImage
                       src={serviceImage}
@@ -433,7 +459,7 @@ export default function ServiceSelect() {
                     {comingSoon && <ComingSoonOverlay compact />}
                   </div>
 
-                  <div className="min-w-0 self-center">
+                  <div className="min-w-0 self-start">
                     <div className="flex min-w-0 items-start justify-between gap-2">
                       <h3 className="min-w-0 text-base font-black leading-tight tracking-tight text-ink sm:text-lg">
                         {service.name}
@@ -491,7 +517,10 @@ export default function ServiceSelect() {
                       <button
                         type="button"
                         aria-pressed={inCart}
-                        onClick={toggleService}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleService();
+                        }}
                         disabled={(!hasPrice && !inCart) || (comingSoon && !inCart)}
                         className={`inline-flex h-8 min-w-[3.75rem] shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-extrabold shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
                           inCart
@@ -535,7 +564,10 @@ export default function ServiceSelect() {
                   <button
                     type="button"
                     aria-pressed={inCart}
-                    onClick={toggleService}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleService();
+                    }}
                     disabled={(!hasPrice && !inCart) || (comingSoon && !inCart)}
                     className={`inline-flex h-8 min-w-[5.25rem] shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-extrabold shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
                       inCart
@@ -713,6 +745,201 @@ export default function ServiceSelect() {
           </div>
         </div>
       </div>
+
+      {selectedService && (() => {
+        const service = selectedService.service;
+        const comingSoon = selectedService.comingSoon;
+        const inCart = cart.some((item) => item.id === service.id);
+        const hasPrice = Boolean(service.priceRange);
+        const includes = getServiceIncludes(service);
+
+        const toggleSelectedService = () => {
+          if (inCart) {
+            removeFromCart(service.id);
+            return;
+          }
+
+          if (comingSoon || !hasPrice) return;
+
+          const category = categories.find((item) =>
+            (item.services || []).some((candidate) => candidate.id === service.id),
+          );
+          const result = addToCart({
+            ...service,
+            category: category
+              ? {
+                  id: category.id,
+                  name: category.name,
+                  isComingSoon: toBoolean(category.isComingSoon),
+                }
+              : service.category,
+            categoryComingSoon: toBoolean(category?.isComingSoon),
+          });
+
+          if (result?.added || result?.alreadyInCart) {
+            setError("");
+          }
+        };
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setSelectedService(null);
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="booking-service-detail-title"
+              className="max-h-[88vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-xl sm:rounded-3xl"
+            >
+              <div className="p-4 sm:p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2
+                      id="booking-service-detail-title"
+                      className="text-xl font-black leading-tight text-ink"
+                    >
+                      {service.name}
+                    </h2>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-bold">
+                      <span className="inline-flex items-center gap-1 text-emerald-700">
+                        <FiCheck />
+                        Verified service
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 ${
+                          isSelfDropOffOnlyService(service)
+                            ? "text-violet-700"
+                            : "text-sky-700"
+                        }`}
+                      >
+                        {isSelfDropOffOnlyService(service) ? <FiMapPin /> : <FiTruck />}
+                        {getServiceFulfillmentLabel(service)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedService(null)}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-line text-ink transition hover:bg-bg-soft"
+                    aria-label="Close service details"
+                  >
+                    <FiX />
+                  </button>
+                </div>
+
+                <div className="relative mb-4 h-44 overflow-hidden rounded-2xl bg-bg-soft sm:h-52">
+                  <SafeImage
+                    src={getServiceThumbnailUrl(service)}
+                    alt={`${service.name} service details`}
+                    width="960"
+                    height="540"
+                    loading="lazy"
+                    decoding="async"
+                    className={`h-full w-full object-cover transition ${
+                      comingSoon ? "scale-105 blur-sm grayscale" : ""
+                    }`}
+                    fallback={
+                      <div className="grid h-full w-full place-items-center text-3xl text-muted">
+                        <FiSettings />
+                      </div>
+                    }
+                  />
+                  {comingSoon && <ComingSoonOverlay />}
+                </div>
+
+                <div className="mb-4 rounded-2xl border border-line bg-bg-soft/60 p-4">
+                  <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
+                    Estimated price
+                  </div>
+                  <div className="mt-1.5">
+                    {comingSoon ? (
+                      <div className="font-extrabold text-ink">Coming Soon</div>
+                    ) : hasPrice ? (
+                      <ServicePriceDisplay
+                        service={service}
+                        regularClassName="text-xs font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500"
+                        currentClassName="text-2xl font-black leading-none tracking-tight text-ink"
+                      />
+                    ) : (
+                      <div className="text-sm font-bold text-amber-700">
+                        {service.priceUnavailableMessage ||
+                          "Price not allocated for this vehicle"}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mb-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-line p-3">
+                    <div className="text-xs text-muted">Warranty</div>
+                    <div className="mt-0.5 font-bold text-ink">Available</div>
+                  </div>
+                  <div className="rounded-xl border border-line p-3">
+                    <div className="text-xs text-muted">Services coverage</div>
+                    <div className="mt-0.5 font-bold text-ink">
+                      {includes.length} included items
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-extrabold uppercase tracking-[0.08em] text-muted">
+                    Service includes
+                  </h3>
+                  <ul className="mt-2 grid gap-2">
+                    {includes.map((item, index) => (
+                      <li
+                        key={`${item}-${index}`}
+                        className="flex items-start gap-2 rounded-xl bg-bg-soft px-3 py-2 text-sm text-ink"
+                      >
+                        <FiCheck className="mt-0.5 shrink-0 text-emerald-600" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="sticky bottom-0 -mx-4 mt-5 flex gap-2 border-t border-line bg-white/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:-mx-5 sm:px-5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedService(null)}
+                    className="h-10 flex-1 rounded-xl border border-line px-4 text-sm font-extrabold text-ink"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={inCart}
+                    onClick={toggleSelectedService}
+                    disabled={(!hasPrice && !inCart) || (comingSoon && !inCart)}
+                    className={`h-10 flex-1 rounded-xl px-4 text-sm font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      inCart
+                        ? "bg-ink text-white"
+                        : comingSoon
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-brand text-black"
+                    }`}
+                  >
+                    {inCart
+                      ? "Remove service"
+                      : comingSoon
+                        ? "Coming Soon"
+                        : hasPrice
+                          ? "Add service"
+                          : "Unavailable"}
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        );
+      })()}
     </div>
   );
 }
