@@ -374,141 +374,158 @@ export default function ServiceSelect() {
               toBoolean(selectedCategory?.isComingSoon) ||
               toBoolean(service.isComingSoon);
             const serviceImage = getServiceThumbnailUrl(service);
-            const duration = service.durationMin
-              ? `${service.durationMin} min`
-              : "Duration varies";
-            const includedItems = (service.description || "")
-              .split(",")
-              .map((item) => item.trim())
-              .filter(Boolean)
-              .slice(0, 5);
-            const primaryItems = includedItems.slice(0, 3);
-            const extraItems = includedItems.slice(3);
+
+            const toggleService = () => {
+              if (inCart) {
+                removeFromCart(service.id);
+                return;
+              }
+
+              if (comingSoon) return;
+
+              const result = addToCart({
+                ...service,
+                category: {
+                  id: selectedCategory?.id,
+                  name: selectedCategory?.name,
+                  isComingSoon: toBoolean(selectedCategory?.isComingSoon),
+                },
+                categoryComingSoon: toBoolean(selectedCategory?.isComingSoon),
+              });
+
+              if (result?.added || result?.alreadyInCart) {
+                setError("");
+              }
+            };
+
+            const actionLabel = inCart
+              ? "Remove"
+              : comingSoon
+                ? "Coming Soon"
+                : !hasPrice
+                  ? "Unavailable"
+                  : "Add";
 
             return (
               <article
                 key={service.id}
-                className="card-soft overflow-hidden p-0 sm:grid sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-start sm:gap-4 sm:p-4"
+                className="card-soft overflow-hidden p-3 sm:grid sm:grid-cols-[112px_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:p-4"
               >
-                <div className="relative aspect-[16/9] w-full overflow-hidden bg-bg-soft sm:h-32 sm:w-40 sm:rounded-2xl">
-                  <SafeImage
-                    src={serviceImage}
-                    alt={service.name}
-                    width="640"
-                    height="420"
-                    loading="lazy"
-                    decoding="async"
-                    className={`h-full w-full object-cover transition ${
-                      comingSoon ? "scale-105 blur-sm grayscale" : ""
-                    }`}
-                    fallback={
-                      <div className="grid h-full w-full place-items-center text-3xl text-muted">
-                        <FiSettings />
-                      </div>
-                    }
-                  />
+                <div className="grid grid-cols-[88px_minmax(0,1fr)] items-center gap-3 sm:contents">
+                  <div className="relative h-[88px] w-[88px] overflow-hidden rounded-xl bg-bg-soft sm:h-24 sm:w-28">
+                    <SafeImage
+                      src={serviceImage}
+                      alt={service.name}
+                      width="420"
+                      height="320"
+                      loading="lazy"
+                      decoding="async"
+                      className={`h-full w-full object-cover transition ${
+                        comingSoon ? "scale-105 blur-sm grayscale" : ""
+                      }`}
+                      fallback={
+                        <div className="grid h-full w-full place-items-center text-2xl text-muted">
+                          <FiSettings />
+                        </div>
+                      }
+                    />
 
-                  <span className="absolute left-3 top-3 z-10 inline-flex rounded-full border border-white/70 bg-white/95 px-2.5 py-1 text-[11px] font-bold text-ink shadow-sm backdrop-blur">
-                    {duration}
-                  </span>
-
-                  {comingSoon && <ComingSoonOverlay compact />}
-                </div>
-
-                <div className="min-w-0 px-4 pt-4 sm:px-0 sm:pt-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="min-w-0 text-lg font-bold leading-tight text-ink sm:text-xl">
-                      {service.name}
-                    </h3>
-
-                    {comingSoon && (
-                      <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-800">
-                        Coming Soon
-                      </span>
-                    )}
+                    {comingSoon && <ComingSoonOverlay compact />}
                   </div>
 
-                  <span
-                    className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold sm:text-xs ${
-                      isSelfDropOffOnlyService(service)
-                        ? "bg-violet-50 text-violet-800"
-                        : "bg-sky-50 text-sky-700"
-                    }`}
-                  >
-                    {isSelfDropOffOnlyService(service) ? <FiMapPin /> : <FiTruck />}
-                    {getServiceFulfillmentLabel(service)}
-                  </span>
+                  <div className="min-w-0 self-center">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <h3 className="min-w-0 text-base font-black leading-tight tracking-tight text-ink sm:text-lg">
+                        {service.name}
+                      </h3>
 
-                  {includedItems.length > 0 ? (
-                    <>
-                      <ul className="mt-3 grid gap-1.5 text-sm sm:hidden">
-                        {primaryItems.map((item, index) => (
-                          <li
-                            key={`${item}-${index}`}
-                            className="flex min-w-0 items-start gap-2 leading-5 text-slate-700"
-                          >
-                            <FiCheck className="mt-0.5 shrink-0 text-brand-dark" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      {extraItems.length > 0 && (
-                        <details className="mt-2 rounded-xl bg-bg-soft px-3 py-2 text-xs sm:hidden">
-                          <summary className="cursor-pointer font-bold text-muted">
-                            +{extraItems.length} more included
-                          </summary>
-                          <ul className="mt-2 grid gap-1.5">
-                            {extraItems.map((item, index) => (
-                              <li
-                                key={`${item}-extra-${index}`}
-                                className="flex items-start gap-2 leading-5 text-slate-700"
-                              >
-                                <FiCheck className="mt-0.5 shrink-0 text-brand-dark" />
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
+                      {comingSoon && (
+                        <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-800 sm:hidden">
+                          Soon
+                        </span>
                       )}
+                    </div>
 
-                      <ul className="mt-3 hidden gap-1.5 text-sm sm:grid">
-                        {includedItems.map((item, index) => (
-                          <li
-                            key={`${item}-desktop-${index}`}
-                            className="flex items-start gap-2 leading-5 text-slate-700"
-                          >
-                            <FiCheck className="mt-0.5 shrink-0 text-brand-dark" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  ) : (
-                    <p className="mt-2 text-sm leading-5 text-muted">
-                      Service details are available during checkout.
-                    </p>
-                  )}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] font-bold sm:text-xs">
+                      <span className="inline-flex items-center gap-1 text-emerald-700">
+                        <FiCheck className="shrink-0 text-xs sm:text-sm" />
+                        Verified service
+                      </span>
+
+                      <span
+                        className={`inline-flex items-center gap-1 ${
+                          isSelfDropOffOnlyService(service)
+                            ? "text-violet-700"
+                            : "text-sky-700"
+                        }`}
+                      >
+                        {isSelfDropOffOnlyService(service) ? (
+                          <FiMapPin className="shrink-0 text-xs sm:text-sm" />
+                        ) : (
+                          <FiTruck className="shrink-0 text-xs sm:text-sm" />
+                        )}
+                        {getServiceFulfillmentLabel(service)}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex min-w-0 items-end justify-between gap-2 sm:hidden">
+                      <div className="min-w-0">
+                        {comingSoon ? (
+                          <div className="text-sm font-extrabold leading-tight text-ink">
+                            Coming Soon
+                          </div>
+                        ) : hasPrice ? (
+                          <ServicePriceDisplay
+                            service={service}
+                            className="justify-start"
+                            regularClassName="whitespace-nowrap text-[9px] font-semibold leading-none text-red-500 line-through decoration-[1.5px] decoration-red-500"
+                            currentClassName="whitespace-nowrap text-base font-black leading-none tracking-tight text-ink"
+                          />
+                        ) : (
+                          <div className="max-w-28 text-[10px] font-bold leading-3.5 text-amber-700">
+                            {service.priceUnavailableMessage || "Price unavailable"}
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        aria-pressed={inCart}
+                        onClick={toggleService}
+                        disabled={(!hasPrice && !inCart) || (comingSoon && !inCart)}
+                        className={`inline-flex h-9 min-w-[4.5rem] shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-extrabold shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
+                          inCart
+                            ? "bg-ink text-white hover:bg-ink-2"
+                            : comingSoon
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-brand text-black shadow-brand/20 hover:bg-brand-dark"
+                        }`}
+                      >
+                        {inCart ? <FiMinus /> : !comingSoon && hasPrice ? <FiPlus /> : null}
+                        {actionLabel}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mx-4 mt-4 flex items-end justify-between gap-3 border-t border-line pb-4 pt-3 text-left sm:m-0 sm:w-44 sm:flex-col sm:items-end sm:border-0 sm:p-0 sm:text-right">
+                <div className="hidden min-w-[10.5rem] border-l border-line pl-4 sm:flex sm:flex-col sm:items-end sm:gap-3 sm:text-right">
                   <div className="min-w-0">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted sm:text-xs sm:normal-case sm:tracking-normal">
-                      Estimated
+                    <div className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted">
+                      Estimated price
                     </div>
                     {comingSoon ? (
-                      <div className="whitespace-nowrap text-lg font-extrabold leading-tight text-ink sm:text-xl">
+                      <div className="mt-1 text-base font-extrabold leading-tight text-ink">
                         Coming Soon
                       </div>
                     ) : hasPrice ? (
                       <ServicePriceDisplay
                         service={service}
-                        className="justify-start sm:justify-end"
-                        regularClassName="whitespace-nowrap text-xs font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500 sm:text-sm"
-                        currentClassName="whitespace-nowrap text-xl font-black leading-tight tracking-tight text-ink sm:text-2xl"
+                        className="mt-1 justify-end"
+                        regularClassName="whitespace-nowrap text-[10px] font-semibold text-red-500 line-through decoration-[1.5px] decoration-red-500"
+                        currentClassName="whitespace-nowrap text-lg font-black leading-none tracking-tight text-ink"
                       />
                     ) : (
-                      <div className="max-w-44 text-xs font-bold leading-4 text-amber-700 sm:text-sm sm:leading-5">
+                      <div className="mt-1 max-w-40 text-xs font-bold leading-4 text-amber-700">
                         {service.priceUnavailableMessage ||
                           "Price not allocated for this vehicle"}
                       </div>
@@ -518,56 +535,18 @@ export default function ServiceSelect() {
                   <button
                     type="button"
                     aria-pressed={inCart}
-                    onClick={() => {
-                      if (inCart) {
-                        removeFromCart(service.id);
-                        return;
-                      }
-
-                      if (!comingSoon) {
-                        const result = addToCart({
-                          ...service,
-                          category: {
-                            id: selectedCategory?.id,
-                            name: selectedCategory?.name,
-                            isComingSoon: toBoolean(
-                              selectedCategory?.isComingSoon,
-                            ),
-                          },
-                          categoryComingSoon: toBoolean(
-                            selectedCategory?.isComingSoon,
-                          ),
-                        });
-
-                        if (result?.added || result?.alreadyInCart) {
-                          setError("");
-                        }
-                      }
-                    }}
+                    onClick={toggleService}
                     disabled={(!hasPrice && !inCart) || (comingSoon && !inCart)}
-                    className={`inline-flex h-11 min-w-[6.75rem] shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
+                    className={`inline-flex h-9 min-w-[6.25rem] shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-extrabold shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
                       inCart
                         ? "bg-ink text-white hover:bg-ink-2"
                         : comingSoon
                           ? "bg-amber-100 text-amber-800"
-                          : "bg-brand text-black shadow-brand/25 hover:bg-brand-dark"
+                          : "bg-brand text-black shadow-brand/20 hover:bg-brand-dark"
                     }`}
                   >
-                    {inCart ? (
-                      <>
-                        <FiMinus />
-                        Remove
-                      </>
-                    ) : comingSoon ? (
-                      "Coming Soon"
-                    ) : !hasPrice ? (
-                      "Unavailable"
-                    ) : (
-                      <>
-                        <FiPlus />
-                        Add
-                      </>
-                    )}
+                    {inCart ? <FiMinus /> : !comingSoon && hasPrice ? <FiPlus /> : null}
+                    {actionLabel}
                   </button>
                 </div>
               </article>
