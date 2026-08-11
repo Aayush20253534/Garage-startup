@@ -18,7 +18,8 @@ test("homepage banner management is limited to admins and validates uploads", ()
 test("public homepage banners expose only active presentation data", () => {
   const service = read("server/src/admin/services/homepageBanner.service.js");
   assert.match(service, /where: \{ isActive: true \}/);
-  assert.match(service, /select: \{ id: true, imageUrl: true \}/);
+  assert.match(service, /heading: true/);
+  assert.match(service, /description: true/);
   assert.match(service, /homepageBannerSetting\.upsert/);
   assert.doesNotMatch(
     service.match(/const listActiveBanners[\s\S]*?const createBanner/)?.[0] || "",
@@ -31,6 +32,8 @@ test("homepage rotates active banners and keeps the original image fallback", ()
   const admin = read("client/src/pages/admin/HomepageBanners.jsx");
   assert.match(home, /\/public\/homepage-banners/);
   assert.match(home, /homepageBannerDuration \* 1000/);
+  assert.match(home, /activeBanner\.heading/);
+  assert.match(home, /activeBanner\.description/);
   assert.match(home, /HOMEPAGE_HERO_DESKTOP/);
   assert.match(admin, /Deactivate/);
   assert.match(admin, /Activate/);
@@ -39,4 +42,6 @@ test("homepage rotates active banners and keeps the original image fallback", ()
   assert.match(admin, /FiArrowDown/);
   assert.match(admin, /Save duration/);
   assert.match(admin, /updateHomepageBannerDuration/);
+  assert.match(admin, /Public heading/);
+  assert.match(admin, /Public description/);
 });

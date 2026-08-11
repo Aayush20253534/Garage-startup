@@ -30,16 +30,21 @@ const listBanners = async () => {
 const listActiveBanners = async () => {
   const [banners, duration] = await Promise.all([
     prisma.homepageBanner.findMany({
-    where: { isActive: true },
-      select: { id: true, imageUrl: true },
-    orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+      where: { isActive: true },
+      select: {
+        id: true,
+        imageUrl: true,
+        heading: true,
+        description: true,
+      },
+      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     }),
     getDuration(),
   ]);
   return { banners, duration };
 };
 
-const createBanner = async ({ title }, file) => {
+const createBanner = async ({ title, heading, description }, file) => {
   if (!file) throw new ApiError(400, "Banner image is required");
   if (!file.mimetype?.startsWith("image/")) {
     throw new ApiError(400, "Banner must be an image");
@@ -62,6 +67,8 @@ const createBanner = async ({ title }, file) => {
     return await prisma.homepageBanner.create({
       data: {
         title,
+        heading,
+        description,
         imageUrl: uploaded.secure_url,
         publicId: uploaded.public_id,
         position: (aggregate._max.position ?? -1) + 1,
@@ -81,6 +88,10 @@ const updateBanner = async (id, data) => {
     where: { id },
     data: {
       ...(data.title !== undefined ? { title: data.title } : {}),
+      ...(data.heading !== undefined ? { heading: data.heading } : {}),
+      ...(data.description !== undefined
+        ? { description: data.description }
+        : {}),
       ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
     },
   });

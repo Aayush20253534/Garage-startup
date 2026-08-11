@@ -32,6 +32,10 @@ const TRUST = [
 
 const HOMEPAGE_HERO_DESKTOP = "/images/Rovauto_home-desktop.webp";
 const HOMEPAGE_HERO_MOBILE = "/images/Rovauto_home-mobile.webp";
+const DEFAULT_HERO_HEADING =
+  "Verified Vehicle Service and Garage Booking in Prayagraj";
+const DEFAULT_HERO_DESCRIPTION =
+  "Book car repair, maintenance, pickup and doorstep service from verified garages with transparent pricing, live tracking and a 30-day service warranty.";
 
 const HOME_STRUCTURED_DATA = [
   {
@@ -148,6 +152,12 @@ export default function Home() {
   }, [activeBannerIndex, homepageBanners, homepageBannerDuration]);
 
   const activeBanner = homepageBanners[activeBannerIndex];
+  const heroHeading = activeBanner
+    ? activeBanner.heading
+    : DEFAULT_HERO_HEADING;
+  const heroDescription = activeBanner
+    ? activeBanner.description
+    : DEFAULT_HERO_DESCRIPTION;
   useEffect(() => {
     let mounted = true;
 
@@ -270,14 +280,18 @@ export default function Home() {
                 </span>
               </div>
 
-              <h1 className="mt-4 text-4xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)] sm:text-5xl lg:text-7xl">
-                Verified Vehicle Service and Garage Booking in Prayagraj
+              <h1
+                key={`heading-${activeBanner?.id || "default"}`}
+                className="mt-4 animate-[rovFadeIn_500ms_ease-out] text-4xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)] sm:text-5xl lg:text-7xl"
+              >
+                {heroHeading}
               </h1>
 
-              <p className="mt-5 max-w-xl text-base leading-relaxed text-white/85 drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-lg">
-                Book car repair, maintenance, pickup and doorstep
-                service from verified garages with transparent pricing, live
-                tracking and a 30-day service warranty.
+              <p
+                key={`description-${activeBanner?.id || "default"}`}
+                className="mt-5 max-w-xl animate-[rovFadeIn_500ms_ease-out] text-base leading-relaxed text-white/85 drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-lg"
+              >
+                {heroDescription}
               </p>
 
               <div className="mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">

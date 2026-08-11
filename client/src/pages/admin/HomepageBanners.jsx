@@ -21,6 +21,8 @@ export default function HomepageBanners() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
   const [title, setTitle] = useState("");
+  const [heading, setHeading] = useState("");
+  const [description, setDescription] = useState("");
   const [duration, setDuration] = useState("5");
   const [image, setImage] = useState(null);
   const [notice, setNotice] = useState("");
@@ -80,10 +82,14 @@ export default function HomepageBanners() {
     if (image.size > MAX_IMAGE_BYTES) return setError("Banner image must be under 8 MB.");
     const payload = new FormData();
     payload.append("title", title.trim());
+    payload.append("heading", heading.trim());
+    payload.append("description", description.trim());
     payload.append("image", image);
     try {
       await createMutation.mutateAsync(payload);
       setTitle("");
+      setHeading("");
+      setDescription("");
       setImage(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch {
@@ -134,6 +140,8 @@ export default function HomepageBanners() {
 
       <form onSubmit={submit} className="grid gap-4 rounded-2xl border border-line bg-white p-5 sm:p-6">
         <label className="text-sm font-bold text-ink">Internal title<input required maxLength={100} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Example: Monsoon campaign" className={`${fieldClass} mt-2`} /><span className="mt-1 block text-xs font-normal text-muted">Only admins can see this title.</span></label>
+        <label className="text-sm font-bold text-ink">Public heading<input required maxLength={140} value={heading} onChange={(event) => setHeading(event.target.value)} placeholder="Large heading shown over this banner" className={`${fieldClass} mt-2`} /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and position as the default heading.</span></label>
+        <label className="text-sm font-bold text-ink">Public description<textarea required maxLength={400} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description shown below the heading" className="mt-2 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink" /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and width as the default description.</span></label>
         <label className="text-sm font-bold text-ink">Banner image<input ref={fileInputRef} required type="file" accept="image/*" onChange={(event) => setImage(event.target.files?.[0] || null)} className="mt-2 block w-full rounded-lg border border-line p-2 text-sm" /><span className="mt-1 block text-xs font-normal text-muted">One image is responsively cropped on desktop and mobile. Maximum 8 MB.</span></label>
         <button disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black hover:brightness-95 disabled:opacity-50 sm:w-fit"><FiPlus /> {createMutation.isPending ? "Uploading…" : "Add banner"}</button>
       </form>
@@ -147,6 +155,8 @@ export default function HomepageBanners() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2"><h2 className="truncate font-bold text-ink">{banner.title}</h2><span className={`rounded-md px-2 py-0.5 text-xs font-bold ${banner.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}>{banner.isActive ? "Active" : "Inactive"}</span></div>
               <p className="mt-1 text-sm text-muted">Position {index + 1} in the slideshow loop</p>
+              <p className="mt-2 line-clamp-1 text-sm font-semibold text-ink">{banner.heading}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-muted">{banner.description}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" disabled={busy} onClick={() => updateMutation.mutate({ id: banner.id, payload: { isActive: !banner.isActive } })} className="h-9 rounded-lg border border-line px-3 text-xs font-bold hover:border-ink disabled:opacity-50">{banner.isActive ? "Deactivate" : "Activate"}</button>
                 <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Permanently delete “${banner.title}”?`)) deleteMutation.mutate(banner.id); }} className="inline-flex h-9 items-center gap-1 rounded-lg border border-red-200 px-3 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"><FiTrash2 /> Delete</button>

@@ -22,6 +22,8 @@ router.post(
   bannerUpload,
   upload.validateUploadedFiles,
   body("title").trim().isLength({ min: 1, max: 100 }).withMessage("Title must be 1–100 characters"),
+  body("heading").trim().isLength({ min: 1, max: 140 }).withMessage("Public heading must be 1–140 characters"),
+  body("description").trim().isLength({ min: 1, max: 400 }).withMessage("Public description must be 1–400 characters"),
   validate,
   controller.createBanner,
 );
@@ -42,6 +44,8 @@ router.patch(
   "/:bannerId",
   bannerId,
   body("title").optional().trim().isLength({ min: 1, max: 100 }),
+  body("heading").optional().trim().isLength({ min: 1, max: 140 }),
+  body("description").optional().trim().isLength({ min: 1, max: 400 }),
   body("isActive").optional().isBoolean().toBoolean(),
   validate,
   controller.updateBanner,

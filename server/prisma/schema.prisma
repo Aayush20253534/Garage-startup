@@ -656,14 +656,16 @@ model ServiceMedia {
 }
 
 model HomepageBanner {
-  id        String   @id @default(uuid())
-  title     String
-  imageUrl  String
-  publicId  String
-  position  Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  title       String
+  heading     String
+  description String
+  imageUrl    String
+  publicId    String
+  position    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([isActive, position])
   @@map("homepage_banners")
