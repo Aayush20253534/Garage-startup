@@ -41,6 +41,7 @@ const listActiveBanners = async () => {
         headingColors: true,
         description: true,
         descriptionColor: true,
+        descriptionColors: true,
       },
       orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     }),
@@ -50,7 +51,7 @@ const listActiveBanners = async () => {
 };
 
 const createBanner = async (
-  { title, heading, headingColors, description, descriptionColor },
+  { title, heading, headingColors, description, descriptionColors },
   file,
 ) => {
   if (!file) throw new ApiError(400, "Banner image is required");
@@ -78,7 +79,7 @@ const createBanner = async (
         heading,
         headingColors: parseWordColors(headingColors),
         description,
-        descriptionColor,
+        descriptionColors: parseWordColors(descriptionColors),
         imageUrl: uploaded.secure_url,
         publicId: uploaded.public_id,
         position: (aggregate._max.position ?? -1) + 1,
@@ -110,6 +111,9 @@ const updateBanner = async (id, data) => {
         : {}),
       ...(data.descriptionColor !== undefined
         ? { descriptionColor: data.descriptionColor }
+        : {}),
+      ...(data.descriptionColors !== undefined
+        ? { descriptionColors: parseWordColors(data.descriptionColors) }
         : {}),
       ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
     },

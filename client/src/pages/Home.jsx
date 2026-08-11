@@ -37,8 +37,8 @@ const DEFAULT_HERO_HEADING =
 const DEFAULT_HERO_DESCRIPTION =
   "Book car repair, maintenance, pickup and doorstep service from verified garages with transparent pricing, live tracking and a 30-day service warranty.";
 
-const renderColoredHeading = (heading, colors, fallbackColor) =>
-  heading.split(/\s+/).map((word, index, words) => (
+const renderColoredWords = (text, colors, fallbackColor) =>
+  text.split(/\s+/).map((word, index, words) => (
     <span key={`${word}-${index}`} style={{ color: colors?.[index] || fallbackColor }}>
       {word}{index < words.length - 1 ? " " : ""}
     </span>
@@ -319,7 +319,7 @@ export default function Home() {
                 key={`heading-${activeBanner?.id || "default"}`}
                 className="mt-4 animate-[rovFadeIn_500ms_ease-out] text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-7xl"
               >
-                {renderColoredHeading(
+                {renderColoredWords(
                   heroHeading,
                   activeBanner?.headingColors,
                   heroHeadingColor,
@@ -329,9 +329,12 @@ export default function Home() {
               <p
                 key={`description-${activeBanner?.id || "default"}`}
                 className="mt-5 max-w-xl animate-[rovFadeIn_500ms_ease-out] text-base leading-relaxed sm:text-lg"
-                style={{ color: heroDescriptionColor }}
               >
-                {heroDescription}
+                {renderColoredWords(
+                  heroDescription,
+                  activeBanner?.descriptionColors,
+                  heroDescriptionColor,
+                )}
               </p>
 
               <div className="mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">

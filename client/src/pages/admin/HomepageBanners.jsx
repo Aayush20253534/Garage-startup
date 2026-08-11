@@ -18,10 +18,10 @@ import { queryKeys } from "@/lib/query/queryKeys";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const fieldClass = "h-10 w-full rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-ink";
 const errorMessage = (error, fallback) => error.response?.data?.message || error.message || fallback;
-const headingWords = (value) => value.trim() ? value.trim().split(/\s+/) : [];
+const textWords = (value) => value.trim() ? value.trim().split(/\s+/) : [];
 
-const ColoredHeading = ({ heading, colors, fallback = "#ffffff" }) => {
-  const words = headingWords(heading || "Your public heading");
+const ColoredText = ({ text, colors, fallback = "#ffffff" }) => {
+  const words = textWords(text);
   return words.map((word, index) => (
     <span key={`${word}-${index}`} style={{ color: colors?.[index] || fallback }}>
       {word}{index < words.length - 1 ? " " : ""}
@@ -43,8 +43,8 @@ const BannerPreview = ({ banner, onClose }) => (
         <img src={banner.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
         <div className="relative z-10 w-full px-5 py-10 sm:px-10 sm:py-14 lg:px-16">
           <div className="max-w-3xl">
-            <h2 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-7xl"><ColoredHeading heading={banner.heading} colors={banner.headingColors} fallback={banner.headingColor} /></h2>
-            <p className="mt-5 max-w-xl text-base leading-relaxed sm:text-lg" style={{ color: banner.descriptionColor }}>{banner.description || "Your public description"}</p>
+            <h2 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-7xl"><ColoredText text={banner.heading || "Your public heading"} colors={banner.headingColors} fallback={banner.headingColor} /></h2>
+            <p className="mt-5 max-w-xl text-base leading-relaxed sm:text-lg"><ColoredText text={banner.description || "Your public description"} colors={banner.descriptionColors} fallback={banner.descriptionColor} /></p>
           </div>
         </div>
       </div>
@@ -59,7 +59,7 @@ export default function HomepageBanners() {
   const [heading, setHeading] = useState("");
   const [headingColors, setHeadingColors] = useState([]);
   const [description, setDescription] = useState("");
-  const [descriptionColor, setDescriptionColor] = useState("#ffffff");
+  const [descriptionColors, setDescriptionColors] = useState([]);
   const [duration, setDuration] = useState("5");
   const [image, setImage] = useState(null);
   const [notice, setNotice] = useState("");
@@ -69,9 +69,15 @@ export default function HomepageBanners() {
 
   useEffect(() => {
     setHeadingColors((current) =>
-      headingWords(heading).map((_, index) => current[index] || "#ffffff"),
+      textWords(heading).map((_, index) => current[index] || "#ffffff"),
     );
   }, [heading]);
+
+  useEffect(() => {
+    setDescriptionColors((current) =>
+      textWords(description).map((_, index) => current[index] || "#ffffff"),
+    );
+  }, [description]);
 
   useEffect(() => {
     if (!image) {
@@ -140,7 +146,7 @@ export default function HomepageBanners() {
     payload.append("heading", heading.trim());
     payload.append("headingColors", JSON.stringify(headingColors));
     payload.append("description", description.trim());
-    payload.append("descriptionColor", descriptionColor);
+    payload.append("descriptionColors", JSON.stringify(descriptionColors));
     payload.append("image", image);
     try {
       await createMutation.mutateAsync(payload);
@@ -148,7 +154,7 @@ export default function HomepageBanners() {
       setHeading("");
       setHeadingColors([]);
       setDescription("");
-      setDescriptionColor("#ffffff");
+      setDescriptionColors([]);
       setImage(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch {
@@ -200,14 +206,12 @@ export default function HomepageBanners() {
       <form onSubmit={submit} className="grid gap-4 rounded-2xl border border-line bg-white p-5 sm:p-6">
         <label className="text-sm font-bold text-ink">Internal title<input required maxLength={100} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Example: Monsoon campaign" className={`${fieldClass} mt-2`} /><span className="mt-1 block text-xs font-normal text-muted">Only admins can see this title.</span></label>
         <label className="text-sm font-bold text-ink">Public heading<input required maxLength={140} value={heading} onChange={(event) => setHeading(event.target.value)} placeholder="Large heading shown over this banner" className={`${fieldClass} mt-2`} /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and position as the default heading.</span></label>
-        {headingWords(heading).length > 0 && <div className="rounded-xl border border-line bg-bg-soft p-3"><p className="text-xs font-bold uppercase tracking-wide text-muted">Heading word colors</p><div className="mt-3 flex flex-wrap gap-2">{headingWords(heading).map((word, index) => <label key={`${word}-${index}`} className="flex items-center gap-2 rounded-lg border border-line bg-white px-2 py-1.5 text-xs font-bold text-ink"><input type="color" value={headingColors[index] || "#ffffff"} onChange={(event) => setHeadingColors((current) => current.map((color, colorIndex) => colorIndex === index ? event.target.value : color))} className="h-7 w-7 cursor-pointer border-0 bg-transparent p-0" /><span style={{ color: headingColors[index] || "#ffffff" }} className="rounded bg-ink px-1.5 py-0.5">{word}</span></label>)}</div><p className="mt-2 text-xs text-muted">Choose a separate color for every word.</p></div>}
-        <div className="grid gap-3 sm:grid-cols-[1fr_150px] sm:items-end">
-          <label className="text-sm font-bold text-ink">Public description<textarea required maxLength={400} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description shown below the heading" className="mt-2 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink" /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and width as the default description.</span></label>
-          <label className="text-sm font-bold text-ink">Description color<div className="mt-2 flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-2"><input type="color" value={descriptionColor} onChange={(event) => setDescriptionColor(event.target.value)} className="h-7 w-9 cursor-pointer border-0 bg-transparent p-0" /><span className="text-xs font-semibold uppercase text-muted">{descriptionColor}</span></div></label>
-        </div>
+        {textWords(heading).length > 0 && <div className="rounded-xl border border-line bg-bg-soft p-3"><p className="text-xs font-bold uppercase tracking-wide text-muted">Heading word colors</p><div className="mt-3 flex flex-wrap gap-2">{textWords(heading).map((word, index) => <label key={`${word}-${index}`} className="flex items-center gap-2 rounded-lg border border-line bg-white px-2 py-1.5 text-xs font-bold text-ink"><input type="color" value={headingColors[index] || "#ffffff"} onChange={(event) => setHeadingColors((current) => current.map((color, colorIndex) => colorIndex === index ? event.target.value : color))} className="h-7 w-7 cursor-pointer border-0 bg-transparent p-0" /><span style={{ color: headingColors[index] || "#ffffff" }} className="rounded bg-ink px-1.5 py-0.5">{word}</span></label>)}</div><p className="mt-2 text-xs text-muted">Choose a separate color for every word.</p></div>}
+        <label className="text-sm font-bold text-ink">Public description<textarea required maxLength={400} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description shown below the heading" className="mt-2 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink" /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and width as the default description.</span></label>
+        {textWords(description).length > 0 && <div className="rounded-xl border border-line bg-bg-soft p-3"><p className="text-xs font-bold uppercase tracking-wide text-muted">Description word colors</p><div className="mt-3 flex flex-wrap gap-2">{textWords(description).map((word, index) => <label key={`${word}-${index}`} className="flex items-center gap-2 rounded-lg border border-line bg-white px-2 py-1.5 text-xs font-bold text-ink"><input type="color" value={descriptionColors[index] || "#ffffff"} onChange={(event) => setDescriptionColors((current) => current.map((color, colorIndex) => colorIndex === index ? event.target.value : color))} className="h-7 w-7 cursor-pointer border-0 bg-transparent p-0" /><span style={{ color: descriptionColors[index] || "#ffffff" }} className="rounded bg-ink px-1.5 py-0.5">{word}</span></label>)}</div><p className="mt-2 text-xs text-muted">Choose a separate color for every word.</p></div>}
         <label className="text-sm font-bold text-ink">Banner image<input ref={fileInputRef} required type="file" accept="image/*" onChange={(event) => setImage(event.target.files?.[0] || null)} className="mt-2 block w-full rounded-lg border border-line p-2 text-sm" /><span className="mt-1 block text-xs font-normal text-muted">One image is responsively cropped on desktop and mobile. Maximum 8 MB.</span></label>
         <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={!imagePreviewUrl} onClick={() => setPreviewBanner({ imageUrl: imagePreviewUrl, heading, headingColors, description, descriptionColor })} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-bold text-ink hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"><FiEye /> Preview</button>
+          <button type="button" disabled={!imagePreviewUrl} onClick={() => setPreviewBanner({ imageUrl: imagePreviewUrl, heading, headingColors, description, descriptionColors })} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-bold text-ink hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"><FiEye /> Preview</button>
           <button disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black hover:brightness-95 disabled:opacity-50"><FiPlus /> {createMutation.isPending ? "Uploading…" : "Add banner"}</button>
         </div>
       </form>

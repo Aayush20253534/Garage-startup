@@ -19,7 +19,7 @@ const wordColors = (value) => {
     try {
       colors = JSON.parse(colors);
     } catch {
-      throw new Error("Heading word colors must be valid JSON");
+      throw new Error("Text word colors must be valid JSON");
     }
   }
   if (
@@ -27,7 +27,7 @@ const wordColors = (value) => {
     colors.length > 140 ||
     colors.some((color) => !/^#[0-9a-fA-F]{6}$/.test(color))
   ) {
-    throw new Error("Every heading word color must be a valid hex color");
+    throw new Error("Every word color must be a valid hex color");
   }
   return true;
 };
@@ -43,7 +43,7 @@ router.post(
   body("heading").trim().isLength({ min: 1, max: 140 }).withMessage("Public heading must be 1–140 characters"),
   body("headingColors").custom(wordColors),
   body("description").trim().isLength({ min: 1, max: 400 }).withMessage("Public description must be 1–400 characters"),
-  body("descriptionColor").matches(/^#[0-9a-fA-F]{6}$/).withMessage("Description color must be a valid hex color"),
+  body("descriptionColors").custom(wordColors),
   validate,
   controller.createBanner,
 );
@@ -69,6 +69,7 @@ router.patch(
   body("headingColors").optional().custom(wordColors),
   body("description").optional().trim().isLength({ min: 1, max: 400 }),
   body("descriptionColor").optional().matches(/^#[0-9a-fA-F]{6}$/),
+  body("descriptionColors").optional().custom(wordColors),
   body("isActive").optional().isBoolean().toBoolean(),
   validate,
   controller.updateBanner,

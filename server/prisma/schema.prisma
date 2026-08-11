@@ -663,6 +663,7 @@ model HomepageBanner {
   headingColors Json @default("[]")
   description String
   descriptionColor String @default("#ffffff")
+  descriptionColors Json @default("[]")
   imageUrl    String
   publicId    String
   position    Int      @default(0)

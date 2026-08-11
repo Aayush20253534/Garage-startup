@@ -23,6 +23,7 @@ test("public homepage banners expose only active presentation data", () => {
   assert.match(service, /headingColors: true/);
   assert.match(service, /description: true/);
   assert.match(service, /descriptionColor: true/);
+  assert.match(service, /descriptionColors: true/);
   assert.match(service, /homepageBannerSetting\.upsert/);
   assert.doesNotMatch(
     service.match(/const listActiveBanners[\s\S]*?const createBanner/)?.[0] || "",
@@ -50,6 +51,6 @@ test("homepage rotates active banners and keeps the original image fallback", ()
   assert.match(admin, /Public heading/);
   assert.match(admin, /Public description/);
   assert.match(admin, /Heading word colors/);
-  assert.match(admin, /Description color/);
+  assert.match(admin, /Description word colors/);
   assert.match(admin, /Homepage banner preview/);
 });
