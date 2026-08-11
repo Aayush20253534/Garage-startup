@@ -116,6 +116,37 @@ export default function Home() {
     customers: null,
     averageRating: null,
   });
+  const [homepageBanners, setHomepageBanners] = useState([]);
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    api
+      .get("/public/homepage-banners", { skipSessionExpiryMessage: true })
+      .then((response) => {
+        if (!mounted) return;
+        const banners = response.data?.data || response.data || [];
+        setHomepageBanners(Array.isArray(banners) ? banners : []);
+        setActiveBannerIndex(0);
+      })
+      .catch(() => {
+        if (mounted) setHomepageBanners([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (homepageBanners.length < 2) return undefined;
+    const duration = Number(homepageBanners[activeBannerIndex]?.duration) || 5;
+    const timer = window.setTimeout(() => {
+      setActiveBannerIndex((index) => (index + 1) % homepageBanners.length);
+    }, duration * 1000);
+    return () => window.clearTimeout(timer);
+  }, [activeBannerIndex, homepageBanners]);
+
+  const activeBanner = homepageBanners[activeBannerIndex];
   useEffect(() => {
     let mounted = true;
 
@@ -191,24 +222,32 @@ export default function Home() {
       <main className="overflow-x-hidden">
         <section className="relative flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]">
           <div className="absolute inset-0 -z-10">
-            <picture className="block h-full w-full">
-              <source
-                media="(max-width: 640px)"
-                srcSet={HOMEPAGE_HERO_MOBILE}
-                type="image/webp"
-              />
-              <source srcSet={HOMEPAGE_HERO_DESKTOP} type="image/webp" />
+            {activeBanner ? (
               <img
+                key={activeBanner.id}
                 alt="Rovauto verified vehicle service workshop"
-                src={HOMEPAGE_HERO_DESKTOP}
-                width="1280"
-                height="640"
-                fetchPriority="high"
+                src={activeBanner.imageUrl}
+                fetchPriority={activeBannerIndex === 0 ? "high" : "auto"}
                 loading="eager"
                 decoding="async"
-                className="h-full w-full object-cover object-center"
+                className="h-full w-full animate-[rovFadeIn_500ms_ease-out] object-cover object-center"
               />
-            </picture>
+            ) : (
+              <picture className="block h-full w-full">
+                <source media="(max-width: 640px)" srcSet={HOMEPAGE_HERO_MOBILE} type="image/webp" />
+                <source srcSet={HOMEPAGE_HERO_DESKTOP} type="image/webp" />
+                <img
+                  alt="Rovauto verified vehicle service workshop"
+                  src={HOMEPAGE_HERO_DESKTOP}
+                  width="1280"
+                  height="640"
+                  fetchPriority="high"
+                  loading="eager"
+                  decoding="async"
+                  className="h-full w-full object-cover object-center"
+                />
+              </picture>
+            )}
 
             <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/20" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
