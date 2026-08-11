@@ -67,6 +67,10 @@ export const adminApi = {
     );
   },
 
+  async updateHomepageBannerDuration(duration) {
+    return unwrap(await api.patch("/admin/homepage-banners/settings", { duration }));
+  },
+
   async updateHomepageBanner(bannerId, payload) {
     return unwrap(await api.patch(`/admin/homepage-banners/${bannerId}`, payload));
   },

@@ -8,19 +8,38 @@ const {
 const BANNER_FOLDER = "rovauto/homepage-banners";
 const MAX_BANNER_SIZE = 8 * 1024 * 1024;
 
-const listBanners = () =>
-  prisma.homepageBanner.findMany({
-    orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+const getDuration = async () => {
+  const settings = await prisma.homepageBannerSetting.upsert({
+    where: { id: "homepage" },
+    create: { id: "homepage", duration: 5 },
+    update: {},
   });
+  return settings.duration;
+};
 
-const listActiveBanners = () =>
-  prisma.homepageBanner.findMany({
+const listBanners = async () => {
+  const [banners, duration] = await Promise.all([
+    prisma.homepageBanner.findMany({
+      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+    }),
+    getDuration(),
+  ]);
+  return { banners, duration };
+};
+
+const listActiveBanners = async () => {
+  const [banners, duration] = await Promise.all([
+    prisma.homepageBanner.findMany({
     where: { isActive: true },
-    select: { id: true, imageUrl: true, duration: true },
+      select: { id: true, imageUrl: true },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
-  });
+    }),
+    getDuration(),
+  ]);
+  return { banners, duration };
+};
 
-const createBanner = async ({ title, duration }, file) => {
+const createBanner = async ({ title }, file) => {
   if (!file) throw new ApiError(400, "Banner image is required");
   if (!file.mimetype?.startsWith("image/")) {
     throw new ApiError(400, "Banner must be an image");
@@ -43,7 +62,6 @@ const createBanner = async ({ title, duration }, file) => {
     return await prisma.homepageBanner.create({
       data: {
         title,
-        duration: Number(duration),
         imageUrl: uploaded.secure_url,
         publicId: uploaded.public_id,
         position: (aggregate._max.position ?? -1) + 1,
@@ -63,7 +81,6 @@ const updateBanner = async (id, data) => {
     where: { id },
     data: {
       ...(data.title !== undefined ? { title: data.title } : {}),
-      ...(data.duration !== undefined ? { duration: Number(data.duration) } : {}),
       ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
     },
   });
@@ -91,8 +108,15 @@ const reorderBanners = async (bannerIds) => {
       prisma.homepageBanner.update({ where: { id }, data: { position } }),
     ),
   );
-  return listBanners();
+  return (await listBanners()).banners;
 };
+
+const updateDuration = async (duration) =>
+  prisma.homepageBannerSetting.upsert({
+    where: { id: "homepage" },
+    create: { id: "homepage", duration: Number(duration) },
+    update: { duration: Number(duration) },
+  });
 
 const deleteBanner = async (id) => {
   const existing = await prisma.homepageBanner.findUnique({ where: { id } });
@@ -113,4 +137,5 @@ module.exports = {
   listBanners,
   reorderBanners,
   updateBanner,
+  updateDuration,
 };

@@ -22,9 +22,14 @@ router.post(
   bannerUpload,
   upload.validateUploadedFiles,
   body("title").trim().isLength({ min: 1, max: 100 }).withMessage("Title must be 1–100 characters"),
-  body("duration").isInt({ min: 1, max: 300 }).withMessage("Duration must be 1–300 seconds"),
   validate,
   controller.createBanner,
+);
+router.patch(
+  "/settings",
+  body("duration").isInt({ min: 1, max: 300 }).withMessage("Duration must be 1–300 seconds"),
+  validate,
+  controller.updateDuration,
 );
 router.put(
   "/order",
@@ -37,7 +42,6 @@ router.patch(
   "/:bannerId",
   bannerId,
   body("title").optional().trim().isLength({ min: 1, max: 100 }),
-  body("duration").optional().isInt({ min: 1, max: 300 }),
   body("isActive").optional().isBoolean().toBoolean(),
   validate,
   controller.updateBanner,

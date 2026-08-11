@@ -22,9 +22,14 @@ const reorderBanners = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Homepage banners reordered", banners));
 });
 
+const updateDuration = asyncHandler(async (req, res) => {
+  const settings = await service.updateDuration(req.body.duration);
+  return res.status(200).json(new ApiResponse(200, "Homepage rotation duration updated", settings));
+});
+
 const deleteBanner = asyncHandler(async (req, res) => {
   await service.deleteBanner(req.params.bannerId);
   return res.status(200).json(new ApiResponse(200, "Homepage banner deleted"));
 });
 
-module.exports = { createBanner, deleteBanner, listBanners, reorderBanners, updateBanner };
+module.exports = { createBanner, deleteBanner, listBanners, reorderBanners, updateBanner, updateDuration };

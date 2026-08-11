@@ -660,7 +660,6 @@ model HomepageBanner {
   title     String
   imageUrl  String
   publicId  String
-  duration  Int      @default(5)
   position  Int      @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -668,6 +667,14 @@ model HomepageBanner {
 
   @@index([isActive, position])
   @@map("homepage_banners")
+}
+
+model HomepageBannerSetting {
+  id        String   @id @default("homepage")
+  duration  Int      @default(5)
+  updatedAt DateTime @updatedAt
+
+  @@map("homepage_banner_settings")
 }
 
 model GarageService {

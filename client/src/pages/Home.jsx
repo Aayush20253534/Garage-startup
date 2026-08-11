@@ -117,6 +117,7 @@ export default function Home() {
     averageRating: null,
   });
   const [homepageBanners, setHomepageBanners] = useState([]);
+  const [homepageBannerDuration, setHomepageBannerDuration] = useState(5);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
 
   useEffect(() => {
@@ -125,8 +126,9 @@ export default function Home() {
       .get("/public/homepage-banners", { skipSessionExpiryMessage: true })
       .then((response) => {
         if (!mounted) return;
-        const banners = response.data?.data || response.data || [];
-        setHomepageBanners(Array.isArray(banners) ? banners : []);
+        const payload = response.data?.data || response.data || {};
+        setHomepageBanners(Array.isArray(payload.banners) ? payload.banners : []);
+        setHomepageBannerDuration(Number(payload.duration) || 5);
         setActiveBannerIndex(0);
       })
       .catch(() => {
@@ -139,12 +141,11 @@ export default function Home() {
 
   useEffect(() => {
     if (homepageBanners.length < 2) return undefined;
-    const duration = Number(homepageBanners[activeBannerIndex]?.duration) || 5;
     const timer = window.setTimeout(() => {
       setActiveBannerIndex((index) => (index + 1) % homepageBanners.length);
-    }, duration * 1000);
+    }, homepageBannerDuration * 1000);
     return () => window.clearTimeout(timer);
-  }, [activeBannerIndex, homepageBanners]);
+  }, [activeBannerIndex, homepageBanners, homepageBannerDuration]);
 
   const activeBanner = homepageBanners[activeBannerIndex];
   useEffect(() => {
