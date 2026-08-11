@@ -36,6 +36,26 @@ const DEFAULT_HERO_HEADING =
   "Verified Vehicle Service and Garage Booking in Prayagraj";
 const DEFAULT_HERO_DESCRIPTION =
   "Book car repair, maintenance, pickup and doorstep service from verified garages with transparent pricing, live tracking and a 30-day service warranty.";
+const INDEPENDENCE_HERO = {
+  id: "built-in-independence-day",
+  imageUrl: "/images/rovauto-independence-day-hero.png",
+  heading: "Freedom to\nDrive More!",
+  headingColors: ["#f97316", "#f97316", "#15803d", "#15803d"],
+  headingColor: "#0f172a",
+  description:
+    "This Independence Day,\nwe’re waiving the platform fee\non services up to ₹5000.",
+  descriptionColors: [
+    "#0f172a", "#f97316", "#f97316", "#0f172a", "#15803d", "#15803d",
+    "#15803d", "#15803d", "#0f172a", "#0f172a", "#15803d", "#15803d",
+  ],
+  descriptionColor: "#0f172a",
+};
+
+const getHeroBanner = (index, adminBanners) => {
+  if (index === 0) return null;
+  if (index === 1) return INDEPENDENCE_HERO;
+  return adminBanners[index - 2] || null;
+};
 
 const HeroImage = ({ banner, animate = false, priority = false }) =>
   banner ? (
@@ -175,13 +195,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (homepageBanners.length < 1 || isBannerPaused) return undefined;
+    if (isBannerPaused) return undefined;
+    const duration = activeBannerIndex <= 1 ? 5 : homepageBannerDuration;
     const timer = window.setTimeout(() => {
       setPreviousBannerIndex(activeBannerIndex);
       setActiveBannerIndex(
-        (activeBannerIndex + 1) % (homepageBanners.length + 1),
+        (activeBannerIndex + 1) % (homepageBanners.length + 2),
       );
-    }, homepageBannerDuration * 1000);
+    }, duration * 1000);
     return () => window.clearTimeout(timer);
   }, [
     activeBannerIndex,
@@ -210,11 +231,11 @@ export default function Home() {
     setIsBannerPaused((paused) => !paused);
   };
 
-  const activeBanner =
-    activeBannerIndex === 0 ? null : homepageBanners[activeBannerIndex - 1];
-  const previousBanner = previousBannerIndex === null || previousBannerIndex === 0
+  const activeBanner = getHeroBanner(activeBannerIndex, homepageBanners);
+  const previousBanner = previousBannerIndex === null
     ? null
-    : homepageBanners[previousBannerIndex - 1];
+    : getHeroBanner(previousBannerIndex, homepageBanners);
+  const isIndependenceBanner = activeBanner?.id === INDEPENDENCE_HERO.id;
   const heroHeading = activeBanner
     ? activeBanner.heading
     : DEFAULT_HERO_HEADING;
@@ -313,12 +334,12 @@ export default function Home() {
               className="rov-fade-up max-w-3xl text-white"
             >
               <div className="flex flex-col items-start gap-2 lg:flex-row lg:items-center">
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold backdrop-blur ${isIndependenceBanner ? "border-black/10 bg-white/75 text-ink" : "border-white/10 bg-white/10 text-white"}`}>
                   <span className="h-1.5 w-1.5 rounded-full bg-brand" />
                   New in Prayagraj
                 </span>
 
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold backdrop-blur ${isIndependenceBanner ? "border-black/10 bg-white/75 text-ink" : "border-white/10 bg-white/10 text-white"}`}>
                   <FiClock className="shrink-0" />
                   Daily services · 10 AM–12 AM
                 </span>
@@ -356,7 +377,7 @@ export default function Home() {
 
                 <Link
                   to="/partner"
-                  className="inline-flex h-11 min-w-0 items-center justify-center rounded-xl border border-white/30 bg-white/10 px-2.5 text-center text-xs font-bold text-white transition hover:border-white hover:bg-white/15 sm:w-auto sm:px-5 sm:text-sm"
+                  className={`inline-flex h-11 min-w-0 items-center justify-center rounded-xl border px-2.5 text-center text-xs font-bold transition sm:w-auto sm:px-5 sm:text-sm ${isIndependenceBanner ? "border-ink/25 bg-white/80 text-ink hover:border-ink" : "border-white/30 bg-white/10 text-white hover:border-white hover:bg-white/15"}`}
                 >
                   Become a Partner
                 </Link>
