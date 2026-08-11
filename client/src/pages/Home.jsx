@@ -123,6 +123,7 @@ export default function Home() {
   const [homepageBanners, setHomepageBanners] = useState([]);
   const [homepageBannerDuration, setHomepageBannerDuration] = useState(5);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+  const [isBannerPaused, setIsBannerPaused] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -144,12 +145,31 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (homepageBanners.length < 2) return undefined;
+    if (homepageBanners.length < 2 || isBannerPaused) return undefined;
     const timer = window.setTimeout(() => {
       setActiveBannerIndex((index) => (index + 1) % homepageBanners.length);
     }, homepageBannerDuration * 1000);
     return () => window.clearTimeout(timer);
-  }, [activeBannerIndex, homepageBanners, homepageBannerDuration]);
+  }, [
+    activeBannerIndex,
+    homepageBanners,
+    homepageBannerDuration,
+    isBannerPaused,
+  ]);
+
+  const handleBannerPointerEnter = (event) => {
+    if (event.pointerType === "mouse") setIsBannerPaused(true);
+  };
+
+  const handleBannerPointerLeave = (event) => {
+    if (event.pointerType === "mouse") setIsBannerPaused(false);
+  };
+
+  const handleBannerPointerUp = (event) => {
+    if (event.pointerType === "mouse") return;
+    if (event.target.closest("a, button, input, select, textarea")) return;
+    setIsBannerPaused((paused) => !paused);
+  };
 
   const activeBanner = homepageBanners[activeBannerIndex];
   const heroHeading = activeBanner
@@ -231,7 +251,12 @@ export default function Home() {
       />
 
       <main className="overflow-x-hidden">
-        <section className="relative flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]">
+        <section
+          className="relative flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]"
+          onPointerEnter={handleBannerPointerEnter}
+          onPointerLeave={handleBannerPointerLeave}
+          onPointerUp={handleBannerPointerUp}
+        >
           <div className="absolute inset-0 -z-10">
             {activeBanner ? (
               <img
