@@ -58,11 +58,16 @@
   animation: rov-slide-in 180ms ease-out both;
 }
 
+.rov-banner-slide-in {
+  animation: rov-slide-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rov-fade-up,
   .rov-header-enter,
   .rov-pop-in,
-  .rov-slide-in {
+  .rov-slide-in,
+  .rov-banner-slide-in {
     animation: none;
   }
 }

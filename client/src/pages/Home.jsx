@@ -37,6 +37,24 @@ const DEFAULT_HERO_HEADING =
 const DEFAULT_HERO_DESCRIPTION =
   "Book car repair, maintenance, pickup and doorstep service from verified garages with transparent pricing, live tracking and a 30-day service warranty.";
 
+const HeroImage = ({ banner, animate = false, priority = false }) =>
+  banner ? (
+    <img
+      alt="Rovauto verified vehicle service workshop"
+      src={banner.imageUrl}
+      fetchPriority={priority ? "high" : "auto"}
+      loading="eager"
+      decoding="async"
+      className={`absolute inset-0 h-full w-full object-cover object-center ${animate ? "rov-banner-slide-in" : ""}`}
+    />
+  ) : (
+    <picture className={`absolute inset-0 block h-full w-full ${animate ? "rov-banner-slide-in" : ""}`}>
+      <source media="(max-width: 640px)" srcSet={HOMEPAGE_HERO_MOBILE} type="image/webp" />
+      <source srcSet={HOMEPAGE_HERO_DESKTOP} type="image/webp" />
+      <img alt="Rovauto verified vehicle service workshop" src={HOMEPAGE_HERO_DESKTOP} width="1280" height="640" fetchPriority={priority ? "high" : "auto"} loading="eager" decoding="async" className="h-full w-full object-cover object-center" />
+    </picture>
+  );
+
 const renderColoredWords = (text, colors, fallbackColor) => {
   let wordIndex = 0;
   return text.split(/(\s+)/).map((part, index) => {
@@ -133,6 +151,7 @@ export default function Home() {
   const [homepageBanners, setHomepageBanners] = useState([]);
   const [homepageBannerDuration, setHomepageBannerDuration] = useState(5);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+  const [previousBannerIndex, setPreviousBannerIndex] = useState(null);
   const [isBannerPaused, setIsBannerPaused] = useState(false);
 
   useEffect(() => {
@@ -145,6 +164,7 @@ export default function Home() {
         setHomepageBanners(Array.isArray(payload.banners) ? payload.banners : []);
         setHomepageBannerDuration(Number(payload.duration) || 5);
         setActiveBannerIndex(0);
+        setPreviousBannerIndex(null);
       })
       .catch(() => {
         if (mounted) setHomepageBanners([]);
@@ -157,8 +177,9 @@ export default function Home() {
   useEffect(() => {
     if (homepageBanners.length < 1 || isBannerPaused) return undefined;
     const timer = window.setTimeout(() => {
+      setPreviousBannerIndex(activeBannerIndex);
       setActiveBannerIndex(
-        (index) => (index + 1) % (homepageBanners.length + 1),
+        (activeBannerIndex + 1) % (homepageBanners.length + 1),
       );
     }, homepageBannerDuration * 1000);
     return () => window.clearTimeout(timer);
@@ -168,6 +189,12 @@ export default function Home() {
     homepageBannerDuration,
     isBannerPaused,
   ]);
+
+  useEffect(() => {
+    if (previousBannerIndex === null) return undefined;
+    const timer = window.setTimeout(() => setPreviousBannerIndex(null), 520);
+    return () => window.clearTimeout(timer);
+  }, [activeBannerIndex, previousBannerIndex]);
 
   const handleBannerPointerEnter = (event) => {
     if (event.pointerType === "mouse") setIsBannerPaused(true);
@@ -185,6 +212,9 @@ export default function Home() {
 
   const activeBanner =
     activeBannerIndex === 0 ? null : homepageBanners[activeBannerIndex - 1];
+  const previousBanner = previousBannerIndex === null || previousBannerIndex === 0
+    ? null
+    : homepageBanners[previousBannerIndex - 1];
   const heroHeading = activeBanner
     ? activeBanner.heading
     : DEFAULT_HERO_HEADING;
@@ -273,32 +303,8 @@ export default function Home() {
           onPointerUp={handleBannerPointerUp}
         >
           <div className="absolute inset-0 -z-10">
-            {activeBanner ? (
-              <img
-                key={activeBanner.id}
-                alt="Rovauto verified vehicle service workshop"
-                src={activeBanner.imageUrl}
-                fetchPriority={activeBannerIndex === 0 ? "high" : "auto"}
-                loading="eager"
-                decoding="async"
-                className="h-full w-full animate-[rovFadeIn_500ms_ease-out] object-cover object-center"
-              />
-            ) : (
-              <picture className="block h-full w-full">
-                <source media="(max-width: 640px)" srcSet={HOMEPAGE_HERO_MOBILE} type="image/webp" />
-                <source srcSet={HOMEPAGE_HERO_DESKTOP} type="image/webp" />
-                <img
-                  alt="Rovauto verified vehicle service workshop"
-                  src={HOMEPAGE_HERO_DESKTOP}
-                  width="1280"
-                  height="640"
-                  fetchPriority="high"
-                  loading="eager"
-                  decoding="async"
-                  className="h-full w-full object-cover object-center"
-                />
-              </picture>
-            )}
+            {previousBannerIndex !== null && <HeroImage banner={previousBanner} />}
+            <HeroImage key={activeBanner?.id || "default"} banner={activeBanner} animate={previousBannerIndex !== null} priority={activeBannerIndex === 0} />
 
           </div>
 
@@ -320,7 +326,7 @@ export default function Home() {
 
               <h1
                 key={`heading-${activeBanner?.id || "default"}`}
-                className="mt-4 h-[4.2em] overflow-hidden whitespace-pre-line animate-[rovFadeIn_500ms_ease-out] text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[3.15em] sm:text-5xl lg:text-7xl"
+                className="rov-banner-slide-in mt-4 h-[4.2em] overflow-hidden whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[3.15em] sm:text-5xl lg:text-7xl"
               >
                 {renderColoredWords(
                   heroHeading,
@@ -331,7 +337,7 @@ export default function Home() {
 
               <p
                 key={`description-${activeBanner?.id || "default"}`}
-                className="mt-5 h-[4.5em] max-w-xl overflow-hidden whitespace-pre-line animate-[rovFadeIn_500ms_ease-out] text-base leading-relaxed sm:text-lg"
+                className="rov-banner-slide-in mt-5 h-[4.5em] max-w-xl overflow-hidden whitespace-pre-line text-base leading-relaxed sm:text-lg"
               >
                 {renderColoredWords(
                   heroDescription,

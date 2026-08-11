@@ -58,4 +58,7 @@ test("homepage rotates active banners and keeps the original image fallback", ()
   assert.match(admin, /Press Enter to change line/);
   assert.match(home, /whitespace-pre-line/);
   assert.match(home, /h-\[4\.2em\]/);
+  assert.match(home, /rov-banner-slide-in/);
+  assert.match(home, /previousBannerIndex/);
+  assert.doesNotMatch(home, /rovFadeIn/);
 });
