@@ -13,6 +13,24 @@ const bannerUpload = upload.createUpload({
   allowedMimeTypes: upload.IMAGE_MIME_TYPES,
 }).single("image");
 const bannerId = param("bannerId").isUUID().withMessage("Invalid banner ID");
+const wordColors = (value) => {
+  let colors = value;
+  if (typeof colors === "string") {
+    try {
+      colors = JSON.parse(colors);
+    } catch {
+      throw new Error("Heading word colors must be valid JSON");
+    }
+  }
+  if (
+    !Array.isArray(colors) ||
+    colors.length > 140 ||
+    colors.some((color) => !/^#[0-9a-fA-F]{6}$/.test(color))
+  ) {
+    throw new Error("Every heading word color must be a valid hex color");
+  }
+  return true;
+};
 
 router.use(protect);
 router.use(authorizeRoles("ADMIN", "SUB_ADMIN"));
@@ -23,7 +41,7 @@ router.post(
   upload.validateUploadedFiles,
   body("title").trim().isLength({ min: 1, max: 100 }).withMessage("Title must be 1–100 characters"),
   body("heading").trim().isLength({ min: 1, max: 140 }).withMessage("Public heading must be 1–140 characters"),
-  body("headingColor").matches(/^#[0-9a-fA-F]{6}$/).withMessage("Heading color must be a valid hex color"),
+  body("headingColors").custom(wordColors),
   body("description").trim().isLength({ min: 1, max: 400 }).withMessage("Public description must be 1–400 characters"),
   body("descriptionColor").matches(/^#[0-9a-fA-F]{6}$/).withMessage("Description color must be a valid hex color"),
   validate,
@@ -48,6 +66,7 @@ router.patch(
   body("title").optional().trim().isLength({ min: 1, max: 100 }),
   body("heading").optional().trim().isLength({ min: 1, max: 140 }),
   body("headingColor").optional().matches(/^#[0-9a-fA-F]{6}$/),
+  body("headingColors").optional().custom(wordColors),
   body("description").optional().trim().isLength({ min: 1, max: 400 }),
   body("descriptionColor").optional().matches(/^#[0-9a-fA-F]{6}$/),
   body("isActive").optional().isBoolean().toBoolean(),

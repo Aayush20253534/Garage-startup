@@ -37,6 +37,13 @@ const DEFAULT_HERO_HEADING =
 const DEFAULT_HERO_DESCRIPTION =
   "Book car repair, maintenance, pickup and doorstep service from verified garages with transparent pricing, live tracking and a 30-day service warranty.";
 
+const renderColoredHeading = (heading, colors, fallbackColor) =>
+  heading.split(/\s+/).map((word, index, words) => (
+    <span key={`${word}-${index}`} style={{ color: colors?.[index] || fallbackColor }}>
+      {word}{index < words.length - 1 ? " " : ""}
+    </span>
+  ));
+
 const HOME_STRUCTURED_DATA = [
   {
     "@context": "https://schema.org",
@@ -311,9 +318,12 @@ export default function Home() {
               <h1
                 key={`heading-${activeBanner?.id || "default"}`}
                 className="mt-4 animate-[rovFadeIn_500ms_ease-out] text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-7xl"
-                style={{ color: heroHeadingColor }}
               >
-                {heroHeading}
+                {renderColoredHeading(
+                  heroHeading,
+                  activeBanner?.headingColors,
+                  heroHeadingColor,
+                )}
               </h1>
 
               <p

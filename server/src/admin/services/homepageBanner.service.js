@@ -7,6 +7,8 @@ const {
 
 const BANNER_FOLDER = "rovauto/homepage-banners";
 const MAX_BANNER_SIZE = 8 * 1024 * 1024;
+const parseWordColors = (colors) =>
+  typeof colors === "string" ? JSON.parse(colors) : colors;
 
 const getDuration = async () => {
   const settings = await prisma.homepageBannerSetting.upsert({
@@ -36,6 +38,7 @@ const listActiveBanners = async () => {
         imageUrl: true,
         heading: true,
         headingColor: true,
+        headingColors: true,
         description: true,
         descriptionColor: true,
       },
@@ -47,7 +50,7 @@ const listActiveBanners = async () => {
 };
 
 const createBanner = async (
-  { title, heading, headingColor, description, descriptionColor },
+  { title, heading, headingColors, description, descriptionColor },
   file,
 ) => {
   if (!file) throw new ApiError(400, "Banner image is required");
@@ -73,7 +76,7 @@ const createBanner = async (
       data: {
         title,
         heading,
-        headingColor,
+        headingColors: parseWordColors(headingColors),
         description,
         descriptionColor,
         imageUrl: uploaded.secure_url,
@@ -98,6 +101,9 @@ const updateBanner = async (id, data) => {
       ...(data.heading !== undefined ? { heading: data.heading } : {}),
       ...(data.headingColor !== undefined
         ? { headingColor: data.headingColor }
+        : {}),
+      ...(data.headingColors !== undefined
+        ? { headingColors: parseWordColors(data.headingColors) }
         : {}),
       ...(data.description !== undefined
         ? { description: data.description }
