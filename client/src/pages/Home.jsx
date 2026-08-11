@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FiArrowRight,
   FiCheckCircle,
@@ -38,12 +38,12 @@ const DEFAULT_HERO_DESCRIPTION =
   "Book car repair, maintenance, pickup and doorstep service from verified garages with transparent pricing, live tracking and a 30-day service warranty.";
 const INDEPENDENCE_HERO = {
   id: "built-in-independence-day",
-  imageUrl: "/images/rovauto-independence-day-hero.png",
+  imageUrl: "/images/rovauto-independence-day-hero.webp",
   heading: "Freedom to\nDrive More!",
   headingColors: ["#f97316", "#f97316", "#15803d", "#15803d"],
   headingColor: "#0f172a",
   description:
-    "This Independence Day,\nwe’re waiving the platform fee\non services up to ₹5000.",
+    "This Independence Day, we’re waiving the platform fee\non services up to ₹5000.",
   descriptionColors: [
     "#0f172a", "#f97316", "#f97316", "#0f172a", "#15803d", "#15803d",
     "#15803d", "#15803d", "#0f172a", "#0f172a", "#15803d", "#15803d",
@@ -51,10 +51,9 @@ const INDEPENDENCE_HERO = {
   descriptionColor: "#0f172a",
 };
 
-const getHeroBanner = (index, adminBanners) => {
+const getHeroBanner = (index) => {
   if (index === 0) return null;
-  if (index === 1) return INDEPENDENCE_HERO;
-  return adminBanners[index - 2] || null;
+  return INDEPENDENCE_HERO;
 };
 
 const HeroImage = ({ banner, animate = false, priority = false }) =>
@@ -173,6 +172,8 @@ export default function Home() {
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const [previousBannerIndex, setPreviousBannerIndex] = useState(null);
   const [isBannerPaused, setIsBannerPaused] = useState(false);
+  const longPressTimerRef = useRef(null);
+  const longPressStartRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -196,18 +197,13 @@ export default function Home() {
 
   useEffect(() => {
     if (isBannerPaused) return undefined;
-    const duration = activeBannerIndex <= 1 ? 5 : homepageBannerDuration;
     const timer = window.setTimeout(() => {
       setPreviousBannerIndex(activeBannerIndex);
-      setActiveBannerIndex(
-        (activeBannerIndex + 1) % (homepageBanners.length + 2),
-      );
-    }, duration * 1000);
+      setActiveBannerIndex((activeBannerIndex + 1) % 2);
+    }, 5 * 1000);
     return () => window.clearTimeout(timer);
   }, [
     activeBannerIndex,
-    homepageBanners,
-    homepageBannerDuration,
     isBannerPaused,
   ]);
 
@@ -225,16 +221,37 @@ export default function Home() {
     if (event.pointerType === "mouse") setIsBannerPaused(false);
   };
 
-  const handleBannerPointerUp = (event) => {
-    if (event.pointerType === "mouse") return;
-    if (event.target.closest("a, button, input, select, textarea")) return;
-    setIsBannerPaused((paused) => !paused);
+  const clearLongPress = () => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
   };
 
-  const activeBanner = getHeroBanner(activeBannerIndex, homepageBanners);
+  const handleBannerPointerDown = (event) => {
+    if (event.pointerType === "mouse") return;
+    if (event.target.closest("a, button, input, select, textarea")) return;
+    clearLongPress();
+    longPressStartRef.current = { x: event.clientX, y: event.clientY };
+    longPressTimerRef.current = window.setTimeout(() => {
+      setIsBannerPaused((paused) => !paused);
+      longPressTimerRef.current = null;
+    }, 650);
+  };
+
+  const handleBannerPointerMove = (event) => {
+    const start = longPressStartRef.current;
+    if (!start) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) {
+      clearLongPress();
+    }
+  };
+
+  const activeBanner = getHeroBanner(activeBannerIndex);
   const previousBanner = previousBannerIndex === null
     ? null
-    : getHeroBanner(previousBannerIndex, homepageBanners);
+    : getHeroBanner(previousBannerIndex);
   const isIndependenceBanner = activeBanner?.id === INDEPENDENCE_HERO.id;
   const heroHeading = activeBanner
     ? activeBanner.heading
@@ -321,7 +338,11 @@ export default function Home() {
           className="relative flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]"
           onPointerEnter={handleBannerPointerEnter}
           onPointerLeave={handleBannerPointerLeave}
-          onPointerUp={handleBannerPointerUp}
+          onPointerDown={handleBannerPointerDown}
+          onPointerMove={handleBannerPointerMove}
+          onPointerUp={clearLongPress}
+          onPointerCancel={clearLongPress}
+          onContextMenu={(event) => event.preventDefault()}
         >
           <div className="absolute inset-0 -z-10">
             {previousBannerIndex !== null && <HeroImage banner={previousBanner} />}
@@ -345,29 +366,16 @@ export default function Home() {
                 </span>
               </div>
 
-              <h1
-                key={`heading-${activeBanner?.id || "default"}`}
-                className="rov-banner-slide-in mt-4 h-[4.2em] overflow-hidden whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[3.15em] sm:text-5xl lg:text-7xl"
-              >
-                {renderColoredWords(
-                  heroHeading,
-                  activeBanner?.headingColors,
-                  heroHeadingColor,
-                )}
-              </h1>
+              <div key={`copy-${activeBanner?.id || "default"}`} className="rov-banner-slide-in mt-4 h-[17rem] overflow-hidden sm:h-[18rem] lg:h-[19rem]">
+                <h1 className="h-[4.2em] overflow-hidden whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[3.15em] sm:text-5xl lg:text-7xl">
+                  {renderColoredWords(heroHeading, activeBanner?.headingColors, heroHeadingColor)}
+                </h1>
+                <p className={`${isIndependenceBanner ? "-mt-8 sm:-mt-5" : "mt-5"} h-[4.5em] max-w-xl overflow-hidden whitespace-pre-line text-base leading-relaxed sm:text-lg`}>
+                  {renderColoredWords(heroDescription, activeBanner?.descriptionColors, heroDescriptionColor)}
+                </p>
+              </div>
 
-              <p
-                key={`description-${activeBanner?.id || "default"}`}
-                className="rov-banner-slide-in mt-5 h-[4.5em] max-w-xl overflow-hidden whitespace-pre-line text-base leading-relaxed sm:text-lg"
-              >
-                {renderColoredWords(
-                  heroDescription,
-                  activeBanner?.descriptionColors,
-                  heroDescriptionColor,
-                )}
-              </p>
-
-              <div className="mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+              <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
                 <Link
                   to="/booking/vehicle"
                   className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-brand px-2.5 text-xs font-bold text-black shadow-2xl transition hover:bg-brand-dark sm:w-auto sm:gap-2 sm:px-5 sm:text-sm"
@@ -391,9 +399,9 @@ export default function Home() {
                   return (
                     <div
                       key={item.label}
-                      className="flex items-center gap-2 text-sm text-white/85"
+                      className={`flex items-center gap-2 text-sm ${isIndependenceBanner ? "text-ink/80" : "text-white/85"}`}
                     >
-                      <span className="grid h-7 w-7 place-items-center rounded-full bg-white/15 text-white backdrop-blur">
+                      <span className={`grid h-7 w-7 place-items-center rounded-full backdrop-blur ${isIndependenceBanner ? "bg-white/75 text-ink" : "bg-white/15 text-white"}`}>
                         <Icon />
                       </span>
                       {item.label}

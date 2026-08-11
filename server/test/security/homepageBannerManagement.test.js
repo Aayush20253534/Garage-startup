@@ -35,8 +35,7 @@ test("homepage rotates active banners and keeps the original image fallback", ()
   const home = read("client/src/pages/Home.jsx");
   const admin = read("client/src/pages/admin/HomepageBanners.jsx");
   assert.match(home, /\/public\/homepage-banners/);
-  assert.match(home, /activeBannerIndex <= 1 \? 5 : homepageBannerDuration/);
-  assert.match(home, /duration \* 1000/);
+  assert.match(home, /5 \* 1000/);
   assert.match(home, /if \(index === 0\) return null/);
   assert.match(home, /activeBanner\.heading/);
   assert.match(home, /activeBanner\.description/);
@@ -62,7 +61,9 @@ test("homepage rotates active banners and keeps the original image fallback", ()
   assert.match(home, /previousBannerIndex/);
   assert.doesNotMatch(home, /rovFadeIn/);
   assert.match(home, /built-in-independence-day/);
-  assert.match(home, /rovauto-independence-day-hero\.png/);
-  assert.match(home, /activeBannerIndex <= 1 \? 5/);
-  assert.match(home, /homepageBanners\.length \+ 2/);
+  assert.match(home, /rovauto-independence-day-hero\.webp/);
+  assert.match(home, /\(activeBannerIndex \+ 1\) % 2/);
+  assert.match(home, /longPressTimerRef/);
+  assert.match(home, /650/);
+  assert.match(home, /text-ink\/80/);
 });
