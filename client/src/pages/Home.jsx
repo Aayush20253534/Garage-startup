@@ -264,7 +264,7 @@ export default function Home() {
 
       <main className="overflow-x-hidden">
         <section
-          className="relative mt-16 flex min-h-[72vh] items-start overflow-hidden sm:mt-20 lg:min-h-[calc(100vh-96px)]"
+          className="relative flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]"
           onPointerEnter={handleBannerPointerEnter}
           onPointerLeave={handleBannerPointerLeave}
           onPointerUp={handleBannerPointerUp}
