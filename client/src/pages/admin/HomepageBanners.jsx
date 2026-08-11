@@ -5,10 +5,12 @@ import {
   FiArrowDown,
   FiArrowUp,
   FiCheckCircle,
+  FiEye,
   FiImage,
   FiPlus,
   FiRefreshCw,
   FiTrash2,
+  FiX,
 } from "react-icons/fi";
 import { adminApi } from "@/api/admin";
 import { queryKeys } from "@/lib/query/queryKeys";
@@ -17,16 +19,53 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const fieldClass = "h-10 w-full rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-ink";
 const errorMessage = (error, fallback) => error.response?.data?.message || error.message || fallback;
 
+const BannerPreview = ({ banner, onClose }) => (
+  <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/70 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Homepage banner preview">
+    <div className="mx-auto max-w-7xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="flex h-16 items-center justify-between border-b border-line px-5 sm:h-20 sm:px-8">
+        <span className="text-xl font-extrabold text-ink">Rovauto</span>
+        <div className="flex items-center gap-3">
+          <span className="hidden text-xs font-semibold text-muted sm:inline">Homepage preview</span>
+          <button type="button" onClick={onClose} aria-label="Close preview" className="grid h-10 w-10 place-items-center rounded-full border border-line text-ink hover:border-ink"><FiX /></button>
+        </div>
+      </div>
+      <div className="relative flex min-h-[65vh] items-start overflow-hidden">
+        <img src={banner.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+        <div className="relative z-10 w-full px-5 py-10 sm:px-10 sm:py-14 lg:px-16">
+          <div className="max-w-3xl">
+            <h2 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-7xl" style={{ color: banner.headingColor }}>{banner.heading || "Your public heading"}</h2>
+            <p className="mt-5 max-w-xl text-base leading-relaxed sm:text-lg" style={{ color: banner.descriptionColor }}>{banner.description || "Your public description"}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 export default function HomepageBanners() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
   const [title, setTitle] = useState("");
   const [heading, setHeading] = useState("");
+  const [headingColor, setHeadingColor] = useState("#ffffff");
   const [description, setDescription] = useState("");
+  const [descriptionColor, setDescriptionColor] = useState("#ffffff");
   const [duration, setDuration] = useState("5");
   const [image, setImage] = useState(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [previewBanner, setPreviewBanner] = useState(null);
+
+  useEffect(() => {
+    if (!image) {
+      setImagePreviewUrl("");
+      return undefined;
+    }
+    const objectUrl = URL.createObjectURL(image);
+    setImagePreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [image]);
 
   const bannersQuery = useQuery({
     queryKey: queryKeys.admin.homepageBanners,
@@ -83,13 +122,17 @@ export default function HomepageBanners() {
     const payload = new FormData();
     payload.append("title", title.trim());
     payload.append("heading", heading.trim());
+    payload.append("headingColor", headingColor);
     payload.append("description", description.trim());
+    payload.append("descriptionColor", descriptionColor);
     payload.append("image", image);
     try {
       await createMutation.mutateAsync(payload);
       setTitle("");
       setHeading("");
+      setHeadingColor("#ffffff");
       setDescription("");
+      setDescriptionColor("#ffffff");
       setImage(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch {
@@ -140,10 +183,19 @@ export default function HomepageBanners() {
 
       <form onSubmit={submit} className="grid gap-4 rounded-2xl border border-line bg-white p-5 sm:p-6">
         <label className="text-sm font-bold text-ink">Internal title<input required maxLength={100} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Example: Monsoon campaign" className={`${fieldClass} mt-2`} /><span className="mt-1 block text-xs font-normal text-muted">Only admins can see this title.</span></label>
-        <label className="text-sm font-bold text-ink">Public heading<input required maxLength={140} value={heading} onChange={(event) => setHeading(event.target.value)} placeholder="Large heading shown over this banner" className={`${fieldClass} mt-2`} /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and position as the default heading.</span></label>
-        <label className="text-sm font-bold text-ink">Public description<textarea required maxLength={400} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description shown below the heading" className="mt-2 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink" /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and width as the default description.</span></label>
+        <div className="grid gap-3 sm:grid-cols-[1fr_150px] sm:items-end">
+          <label className="text-sm font-bold text-ink">Public heading<input required maxLength={140} value={heading} onChange={(event) => setHeading(event.target.value)} placeholder="Large heading shown over this banner" className={`${fieldClass} mt-2`} /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and position as the default heading.</span></label>
+          <label className="text-sm font-bold text-ink">Heading color<div className="mt-2 flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-2"><input type="color" value={headingColor} onChange={(event) => setHeadingColor(event.target.value)} className="h-7 w-9 cursor-pointer border-0 bg-transparent p-0" /><span className="text-xs font-semibold uppercase text-muted">{headingColor}</span></div></label>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-[1fr_150px] sm:items-end">
+          <label className="text-sm font-bold text-ink">Public description<textarea required maxLength={400} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description shown below the heading" className="mt-2 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink" /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and width as the default description.</span></label>
+          <label className="text-sm font-bold text-ink">Description color<div className="mt-2 flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-2"><input type="color" value={descriptionColor} onChange={(event) => setDescriptionColor(event.target.value)} className="h-7 w-9 cursor-pointer border-0 bg-transparent p-0" /><span className="text-xs font-semibold uppercase text-muted">{descriptionColor}</span></div></label>
+        </div>
         <label className="text-sm font-bold text-ink">Banner image<input ref={fileInputRef} required type="file" accept="image/*" onChange={(event) => setImage(event.target.files?.[0] || null)} className="mt-2 block w-full rounded-lg border border-line p-2 text-sm" /><span className="mt-1 block text-xs font-normal text-muted">One image is responsively cropped on desktop and mobile. Maximum 8 MB.</span></label>
-        <button disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black hover:brightness-95 disabled:opacity-50 sm:w-fit"><FiPlus /> {createMutation.isPending ? "Uploading…" : "Add banner"}</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={!imagePreviewUrl} onClick={() => setPreviewBanner({ imageUrl: imagePreviewUrl, heading, headingColor, description, descriptionColor })} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-bold text-ink hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"><FiEye /> Preview</button>
+          <button disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold text-black hover:brightness-95 disabled:opacity-50"><FiPlus /> {createMutation.isPending ? "Uploading…" : "Add banner"}</button>
+        </div>
       </form>
 
       <div className="space-y-3">
@@ -158,6 +210,7 @@ export default function HomepageBanners() {
               <p className="mt-2 line-clamp-1 text-sm font-semibold text-ink">{banner.heading}</p>
               <p className="mt-1 line-clamp-2 text-xs text-muted">{banner.description}</p>
               <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={() => setPreviewBanner(banner)} className="inline-flex h-9 items-center gap-1 rounded-lg border border-line px-3 text-xs font-bold hover:border-ink"><FiEye /> Preview</button>
                 <button type="button" disabled={busy} onClick={() => updateMutation.mutate({ id: banner.id, payload: { isActive: !banner.isActive } })} className="h-9 rounded-lg border border-line px-3 text-xs font-bold hover:border-ink disabled:opacity-50">{banner.isActive ? "Deactivate" : "Activate"}</button>
                 <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Permanently delete “${banner.title}”?`)) deleteMutation.mutate(banner.id); }} className="inline-flex h-9 items-center gap-1 rounded-lg border border-red-200 px-3 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"><FiTrash2 /> Delete</button>
               </div>
@@ -169,6 +222,7 @@ export default function HomepageBanners() {
           </article>
         ))}
       </div>
+      {previewBanner && <BannerPreview banner={previewBanner} onClose={() => setPreviewBanner(null)} />}
     </div>
   );
 }

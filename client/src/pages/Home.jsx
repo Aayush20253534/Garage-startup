@@ -145,9 +145,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (homepageBanners.length < 2 || isBannerPaused) return undefined;
+    if (homepageBanners.length < 1 || isBannerPaused) return undefined;
     const timer = window.setTimeout(() => {
-      setActiveBannerIndex((index) => (index + 1) % homepageBanners.length);
+      setActiveBannerIndex(
+        (index) => (index + 1) % (homepageBanners.length + 1),
+      );
     }, homepageBannerDuration * 1000);
     return () => window.clearTimeout(timer);
   }, [
@@ -171,13 +173,16 @@ export default function Home() {
     setIsBannerPaused((paused) => !paused);
   };
 
-  const activeBanner = homepageBanners[activeBannerIndex];
+  const activeBanner =
+    activeBannerIndex === 0 ? null : homepageBanners[activeBannerIndex - 1];
   const heroHeading = activeBanner
     ? activeBanner.heading
     : DEFAULT_HERO_HEADING;
   const heroDescription = activeBanner
     ? activeBanner.description
     : DEFAULT_HERO_DESCRIPTION;
+  const heroHeadingColor = activeBanner?.headingColor || "#ffffff";
+  const heroDescriptionColor = activeBanner?.descriptionColor || "#ffffff";
   useEffect(() => {
     let mounted = true;
 
@@ -252,7 +257,7 @@ export default function Home() {
 
       <main className="overflow-x-hidden">
         <section
-          className="relative flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]"
+          className="relative mt-16 flex min-h-[72vh] items-start overflow-hidden sm:mt-20 lg:min-h-[calc(100vh-96px)]"
           onPointerEnter={handleBannerPointerEnter}
           onPointerLeave={handleBannerPointerLeave}
           onPointerUp={handleBannerPointerUp}
@@ -285,8 +290,6 @@ export default function Home() {
               </picture>
             )}
 
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/20" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
           </div>
 
           <div className="container-x relative z-10 py-10 sm:py-14 lg:py-12">
@@ -307,14 +310,16 @@ export default function Home() {
 
               <h1
                 key={`heading-${activeBanner?.id || "default"}`}
-                className="mt-4 animate-[rovFadeIn_500ms_ease-out] text-4xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)] sm:text-5xl lg:text-7xl"
+                className="mt-4 animate-[rovFadeIn_500ms_ease-out] text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-7xl"
+                style={{ color: heroHeadingColor }}
               >
                 {heroHeading}
               </h1>
 
               <p
                 key={`description-${activeBanner?.id || "default"}`}
-                className="mt-5 max-w-xl animate-[rovFadeIn_500ms_ease-out] text-base leading-relaxed text-white/85 drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-lg"
+                className="mt-5 max-w-xl animate-[rovFadeIn_500ms_ease-out] text-base leading-relaxed sm:text-lg"
+                style={{ color: heroDescriptionColor }}
               >
                 {heroDescription}
               </p>

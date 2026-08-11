@@ -19,7 +19,9 @@ test("public homepage banners expose only active presentation data", () => {
   const service = read("server/src/admin/services/homepageBanner.service.js");
   assert.match(service, /where: \{ isActive: true \}/);
   assert.match(service, /heading: true/);
+  assert.match(service, /headingColor: true/);
   assert.match(service, /description: true/);
+  assert.match(service, /descriptionColor: true/);
   assert.match(service, /homepageBannerSetting\.upsert/);
   assert.doesNotMatch(
     service.match(/const listActiveBanners[\s\S]*?const createBanner/)?.[0] || "",
@@ -32,6 +34,8 @@ test("homepage rotates active banners and keeps the original image fallback", ()
   const admin = read("client/src/pages/admin/HomepageBanners.jsx");
   assert.match(home, /\/public\/homepage-banners/);
   assert.match(home, /homepageBannerDuration \* 1000/);
+  assert.match(home, /homepageBanners\.length \+ 1/);
+  assert.match(home, /activeBannerIndex === 0 \? null/);
   assert.match(home, /activeBanner\.heading/);
   assert.match(home, /activeBanner\.description/);
   assert.match(home, /HOMEPAGE_HERO_DESKTOP/);
@@ -44,4 +48,7 @@ test("homepage rotates active banners and keeps the original image fallback", ()
   assert.match(admin, /updateHomepageBannerDuration/);
   assert.match(admin, /Public heading/);
   assert.match(admin, /Public description/);
+  assert.match(admin, /Heading color/);
+  assert.match(admin, /Description color/);
+  assert.match(admin, /Homepage banner preview/);
 });

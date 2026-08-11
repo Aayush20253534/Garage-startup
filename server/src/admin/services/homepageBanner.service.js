@@ -35,7 +35,9 @@ const listActiveBanners = async () => {
         id: true,
         imageUrl: true,
         heading: true,
+        headingColor: true,
         description: true,
+        descriptionColor: true,
       },
       orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     }),
@@ -44,7 +46,10 @@ const listActiveBanners = async () => {
   return { banners, duration };
 };
 
-const createBanner = async ({ title, heading, description }, file) => {
+const createBanner = async (
+  { title, heading, headingColor, description, descriptionColor },
+  file,
+) => {
   if (!file) throw new ApiError(400, "Banner image is required");
   if (!file.mimetype?.startsWith("image/")) {
     throw new ApiError(400, "Banner must be an image");
@@ -68,7 +73,9 @@ const createBanner = async ({ title, heading, description }, file) => {
       data: {
         title,
         heading,
+        headingColor,
         description,
+        descriptionColor,
         imageUrl: uploaded.secure_url,
         publicId: uploaded.public_id,
         position: (aggregate._max.position ?? -1) + 1,
@@ -89,8 +96,14 @@ const updateBanner = async (id, data) => {
     data: {
       ...(data.title !== undefined ? { title: data.title } : {}),
       ...(data.heading !== undefined ? { heading: data.heading } : {}),
+      ...(data.headingColor !== undefined
+        ? { headingColor: data.headingColor }
+        : {}),
       ...(data.description !== undefined
         ? { description: data.description }
+        : {}),
+      ...(data.descriptionColor !== undefined
+        ? { descriptionColor: data.descriptionColor }
         : {}),
       ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
     },

@@ -659,7 +659,9 @@ model HomepageBanner {
   id          String   @id @default(uuid())
   title       String
   heading     String
+  headingColor String @default("#ffffff")
   description String
+  descriptionColor String @default("#ffffff")
   imageUrl    String
   publicId    String
   position    Int      @default(0)
