@@ -50,7 +50,12 @@ test("homepage rotates active banners and keeps the original image fallback", ()
   assert.match(admin, /updateHomepageBannerDuration/);
   assert.match(admin, /Public heading/);
   assert.match(admin, /Public description/);
-  assert.match(admin, /Heading word colors/);
-  assert.match(admin, /Description word colors/);
+  assert.match(admin, /label="Heading"/);
+  assert.match(admin, /label="Description"/);
   assert.match(admin, /Homepage banner preview/);
+  assert.match(admin, /Edit banner/);
+  assert.match(admin, /Save changes/);
+  assert.match(admin, /Press Enter to change line/);
+  assert.match(home, /whitespace-pre-line/);
+  assert.match(home, /h-\[4\.2em\]/);
 });

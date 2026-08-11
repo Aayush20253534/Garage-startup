@@ -5,6 +5,7 @@ import {
   FiArrowDown,
   FiArrowUp,
   FiCheckCircle,
+  FiEdit2,
   FiEye,
   FiImage,
   FiPlus,
@@ -21,13 +22,22 @@ const errorMessage = (error, fallback) => error.response?.data?.message || error
 const textWords = (value) => value.trim() ? value.trim().split(/\s+/) : [];
 
 const ColoredText = ({ text, colors, fallback = "#ffffff" }) => {
-  const words = textWords(text);
-  return words.map((word, index) => (
-    <span key={`${word}-${index}`} style={{ color: colors?.[index] || fallback }}>
-      {word}{index < words.length - 1 ? " " : ""}
-    </span>
-  ));
+  let wordIndex = 0;
+  return text.split(/(\s+)/).map((part, index) => {
+    if (/^\s+$/.test(part)) return part;
+    const color = colors?.[wordIndex] || fallback;
+    wordIndex += 1;
+    return <span key={`${part}-${index}`} style={{ color }}>{part}</span>;
+  });
 };
+
+const WordColorEditor = ({ label, text, colors, setColors }) => textWords(text).length > 0 && (
+  <div className="rounded-xl border border-line bg-bg-soft p-3">
+    <p className="text-xs font-bold uppercase tracking-wide text-muted">{label} word colors</p>
+    <div className="mt-3 flex flex-wrap gap-2">{textWords(text).map((word, index) => <label key={`${word}-${index}`} className="flex items-center gap-2 rounded-lg border border-line bg-white px-2 py-1.5 text-xs font-bold text-ink"><input type="color" value={colors[index] || "#ffffff"} onChange={(event) => setColors((current) => current.map((color, colorIndex) => colorIndex === index ? event.target.value : color))} className="h-7 w-7 cursor-pointer border-0 bg-transparent p-0" /><span style={{ color: colors[index] || "#ffffff" }} className="rounded bg-ink px-1.5 py-0.5">{word}</span></label>)}</div>
+    <p className="mt-2 text-xs text-muted">Choose a separate color for every word.</p>
+  </div>
+);
 
 const BannerPreview = ({ banner, onClose }) => (
   <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/70 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Homepage banner preview">
@@ -43,14 +53,59 @@ const BannerPreview = ({ banner, onClose }) => (
         <img src={banner.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
         <div className="relative z-10 w-full px-5 py-10 sm:px-10 sm:py-14 lg:px-16">
           <div className="max-w-3xl">
-            <h2 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-7xl"><ColoredText text={banner.heading || "Your public heading"} colors={banner.headingColors} fallback={banner.headingColor} /></h2>
-            <p className="mt-5 max-w-xl text-base leading-relaxed sm:text-lg"><ColoredText text={banner.description || "Your public description"} colors={banner.descriptionColors} fallback={banner.descriptionColor} /></p>
+            <h2 className="h-[4.2em] overflow-hidden whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[3.15em] sm:text-5xl lg:text-7xl"><ColoredText text={banner.heading || "Your public heading"} colors={banner.headingColors} fallback={banner.headingColor} /></h2>
+            <p className="mt-5 h-[4.5em] max-w-xl overflow-hidden whitespace-pre-line text-base leading-relaxed sm:text-lg"><ColoredText text={banner.description || "Your public description"} colors={banner.descriptionColors} fallback={banner.descriptionColor} /></p>
           </div>
         </div>
       </div>
     </div>
   </div>
 );
+
+const BannerEditModal = ({ banner, busy, onClose, onSave }) => {
+  const [editTitle, setEditTitle] = useState(banner.title);
+  const [editHeading, setEditHeading] = useState(banner.heading);
+  const [editHeadingColors, setEditHeadingColors] = useState(
+    banner.headingColors?.length ? banner.headingColors : textWords(banner.heading).map(() => banner.headingColor || "#ffffff"),
+  );
+  const [editDescription, setEditDescription] = useState(banner.description);
+  const [editDescriptionColors, setEditDescriptionColors] = useState(
+    banner.descriptionColors?.length ? banner.descriptionColors : textWords(banner.description).map(() => banner.descriptionColor || "#ffffff"),
+  );
+
+  useEffect(() => {
+    setEditHeadingColors((current) => textWords(editHeading).map((_, index) => current[index] || "#ffffff"));
+  }, [editHeading]);
+
+  useEffect(() => {
+    setEditDescriptionColors((current) => textWords(editDescription).map((_, index) => current[index] || "#ffffff"));
+  }, [editDescription]);
+
+  const submitEdit = (event) => {
+    event.preventDefault();
+    onSave({
+      title: editTitle.trim(),
+      heading: editHeading.trim(),
+      headingColors: editHeadingColors,
+      description: editDescription.trim(),
+      descriptionColors: editDescriptionColors,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/70 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Edit homepage banner">
+      <form onSubmit={submitEdit} className="mx-auto grid max-w-3xl gap-4 rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
+        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-muted">Homepage banner</p><h2 className="text-xl font-extrabold text-ink">Edit banner</h2></div><button type="button" onClick={onClose} aria-label="Close editor" className="grid h-10 w-10 place-items-center rounded-full border border-line hover:border-ink"><FiX /></button></div>
+        <label className="text-sm font-bold text-ink">Internal title<input required maxLength={100} value={editTitle} onChange={(event) => setEditTitle(event.target.value)} className={`${fieldClass} mt-2`} /></label>
+        <label className="text-sm font-bold text-ink">Public heading<textarea required maxLength={140} rows={3} value={editHeading} onChange={(event) => setEditHeading(event.target.value)} className="mt-2 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink" /><span className="mt-1 block text-xs font-normal text-muted">Press Enter where you want a new line.</span></label>
+        <WordColorEditor label="Heading" text={editHeading} colors={editHeadingColors} setColors={setEditHeadingColors} />
+        <label className="text-sm font-bold text-ink">Public description<textarea required maxLength={400} rows={4} value={editDescription} onChange={(event) => setEditDescription(event.target.value)} className="mt-2 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink" /><span className="mt-1 block text-xs font-normal text-muted">Press Enter where you want a new line.</span></label>
+        <WordColorEditor label="Description" text={editDescription} colors={editDescriptionColors} setColors={setEditDescriptionColors} />
+        <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="h-10 rounded-lg border border-line px-4 text-sm font-bold hover:border-ink">Cancel</button><button disabled={busy} className="h-10 rounded-lg bg-brand px-4 text-sm font-bold text-black disabled:opacity-50">{busy ? "Saving…" : "Save changes"}</button></div>
+      </form>
+    </div>
+  );
+};
 
 export default function HomepageBanners() {
   const queryClient = useQueryClient();
@@ -66,6 +121,7 @@ export default function HomepageBanners() {
   const [error, setError] = useState("");
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [previewBanner, setPreviewBanner] = useState(null);
+  const [editingBanner, setEditingBanner] = useState(null);
 
   useEffect(() => {
     setHeadingColors((current) =>
@@ -205,10 +261,10 @@ export default function HomepageBanners() {
 
       <form onSubmit={submit} className="grid gap-4 rounded-2xl border border-line bg-white p-5 sm:p-6">
         <label className="text-sm font-bold text-ink">Internal title<input required maxLength={100} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Example: Monsoon campaign" className={`${fieldClass} mt-2`} /><span className="mt-1 block text-xs font-normal text-muted">Only admins can see this title.</span></label>
-        <label className="text-sm font-bold text-ink">Public heading<input required maxLength={140} value={heading} onChange={(event) => setHeading(event.target.value)} placeholder="Large heading shown over this banner" className={`${fieldClass} mt-2`} /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and position as the default heading.</span></label>
-        {textWords(heading).length > 0 && <div className="rounded-xl border border-line bg-bg-soft p-3"><p className="text-xs font-bold uppercase tracking-wide text-muted">Heading word colors</p><div className="mt-3 flex flex-wrap gap-2">{textWords(heading).map((word, index) => <label key={`${word}-${index}`} className="flex items-center gap-2 rounded-lg border border-line bg-white px-2 py-1.5 text-xs font-bold text-ink"><input type="color" value={headingColors[index] || "#ffffff"} onChange={(event) => setHeadingColors((current) => current.map((color, colorIndex) => colorIndex === index ? event.target.value : color))} className="h-7 w-7 cursor-pointer border-0 bg-transparent p-0" /><span style={{ color: headingColors[index] || "#ffffff" }} className="rounded bg-ink px-1.5 py-0.5">{word}</span></label>)}</div><p className="mt-2 text-xs text-muted">Choose a separate color for every word.</p></div>}
-        <label className="text-sm font-bold text-ink">Public description<textarea required maxLength={400} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description shown below the heading" className="mt-2 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink" /><span className="mt-1 block text-xs font-normal text-muted">Uses the same size and width as the default description.</span></label>
-        {textWords(description).length > 0 && <div className="rounded-xl border border-line bg-bg-soft p-3"><p className="text-xs font-bold uppercase tracking-wide text-muted">Description word colors</p><div className="mt-3 flex flex-wrap gap-2">{textWords(description).map((word, index) => <label key={`${word}-${index}`} className="flex items-center gap-2 rounded-lg border border-line bg-white px-2 py-1.5 text-xs font-bold text-ink"><input type="color" value={descriptionColors[index] || "#ffffff"} onChange={(event) => setDescriptionColors((current) => current.map((color, colorIndex) => colorIndex === index ? event.target.value : color))} className="h-7 w-7 cursor-pointer border-0 bg-transparent p-0" /><span style={{ color: descriptionColors[index] || "#ffffff" }} className="rounded bg-ink px-1.5 py-0.5">{word}</span></label>)}</div><p className="mt-2 text-xs text-muted">Choose a separate color for every word.</p></div>}
+        <label className="text-sm font-bold text-ink">Public heading<textarea required maxLength={140} rows={3} value={heading} onChange={(event) => setHeading(event.target.value)} placeholder="Large heading shown over this banner" className="mt-2 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink" /><span className="mt-1 block text-xs font-normal text-muted">Press Enter to change line. Uses the same fixed area as the default heading.</span></label>
+        <WordColorEditor label="Heading" text={heading} colors={headingColors} setColors={setHeadingColors} />
+        <label className="text-sm font-bold text-ink">Public description<textarea required maxLength={400} rows={4} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description shown below the heading" className="mt-2 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink" /><span className="mt-1 block text-xs font-normal text-muted">Press Enter to change line. Uses the same fixed area as the default description.</span></label>
+        <WordColorEditor label="Description" text={description} colors={descriptionColors} setColors={setDescriptionColors} />
         <label className="text-sm font-bold text-ink">Banner image<input ref={fileInputRef} required type="file" accept="image/*" onChange={(event) => setImage(event.target.files?.[0] || null)} className="mt-2 block w-full rounded-lg border border-line p-2 text-sm" /><span className="mt-1 block text-xs font-normal text-muted">One image is responsively cropped on desktop and mobile. Maximum 8 MB.</span></label>
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={!imagePreviewUrl} onClick={() => setPreviewBanner({ imageUrl: imagePreviewUrl, heading, headingColors, description, descriptionColors })} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-bold text-ink hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"><FiEye /> Preview</button>
@@ -229,6 +285,7 @@ export default function HomepageBanners() {
               <p className="mt-1 line-clamp-2 text-xs text-muted">{banner.description}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" onClick={() => setPreviewBanner(banner)} className="inline-flex h-9 items-center gap-1 rounded-lg border border-line px-3 text-xs font-bold hover:border-ink"><FiEye /> Preview</button>
+                <button type="button" onClick={() => setEditingBanner(banner)} className="inline-flex h-9 items-center gap-1 rounded-lg border border-line px-3 text-xs font-bold hover:border-ink"><FiEdit2 /> Edit</button>
                 <button type="button" disabled={busy} onClick={() => updateMutation.mutate({ id: banner.id, payload: { isActive: !banner.isActive } })} className="h-9 rounded-lg border border-line px-3 text-xs font-bold hover:border-ink disabled:opacity-50">{banner.isActive ? "Deactivate" : "Activate"}</button>
                 <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Permanently delete “${banner.title}”?`)) deleteMutation.mutate(banner.id); }} className="inline-flex h-9 items-center gap-1 rounded-lg border border-red-200 px-3 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"><FiTrash2 /> Delete</button>
               </div>
@@ -241,6 +298,7 @@ export default function HomepageBanners() {
         ))}
       </div>
       {previewBanner && <BannerPreview banner={previewBanner} onClose={() => setPreviewBanner(null)} />}
+      {editingBanner && <BannerEditModal banner={editingBanner} busy={updateMutation.isPending} onClose={() => setEditingBanner(null)} onSave={(payload) => updateMutation.mutate({ id: editingBanner.id, payload }, { onSuccess: () => setEditingBanner(null) })} />}
     </div>
   );
 }

@@ -37,12 +37,15 @@ const DEFAULT_HERO_HEADING =
 const DEFAULT_HERO_DESCRIPTION =
   "Book car repair, maintenance, pickup and doorstep service from verified garages with transparent pricing, live tracking and a 30-day service warranty.";
 
-const renderColoredWords = (text, colors, fallbackColor) =>
-  text.split(/\s+/).map((word, index, words) => (
-    <span key={`${word}-${index}`} style={{ color: colors?.[index] || fallbackColor }}>
-      {word}{index < words.length - 1 ? " " : ""}
-    </span>
-  ));
+const renderColoredWords = (text, colors, fallbackColor) => {
+  let wordIndex = 0;
+  return text.split(/(\s+)/).map((part, index) => {
+    if (/^\s+$/.test(part)) return part;
+    const color = colors?.[wordIndex] || fallbackColor;
+    wordIndex += 1;
+    return <span key={`${part}-${index}`} style={{ color }}>{part}</span>;
+  });
+};
 
 const HOME_STRUCTURED_DATA = [
   {
@@ -317,7 +320,7 @@ export default function Home() {
 
               <h1
                 key={`heading-${activeBanner?.id || "default"}`}
-                className="mt-4 animate-[rovFadeIn_500ms_ease-out] text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-7xl"
+                className="mt-4 h-[4.2em] overflow-hidden whitespace-pre-line animate-[rovFadeIn_500ms_ease-out] text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[3.15em] sm:text-5xl lg:text-7xl"
               >
                 {renderColoredWords(
                   heroHeading,
@@ -328,7 +331,7 @@ export default function Home() {
 
               <p
                 key={`description-${activeBanner?.id || "default"}`}
-                className="mt-5 max-w-xl animate-[rovFadeIn_500ms_ease-out] text-base leading-relaxed sm:text-lg"
+                className="mt-5 h-[4.5em] max-w-xl overflow-hidden whitespace-pre-line animate-[rovFadeIn_500ms_ease-out] text-base leading-relaxed sm:text-lg"
               >
                 {renderColoredWords(
                   heroDescription,
