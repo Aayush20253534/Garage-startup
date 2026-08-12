@@ -45,7 +45,7 @@ const INDEPENDENCE_HERO = {
   description:
     "This Independence Day, enjoy zero platform fees on vehicle services worth up to ₹5000, because every journey deserves more freedom.",
   mobileDescription:
-    "This Independence Day,\nenjoy zero platform fee on\nVehicle services worth up to\n₹5000, because every\nJourney deserves more\nfreedom",
+    "This Independence Day,\nenjoy zero platform fee on\nVehicle services worth up to\n₹5000, because every\nJourney deserves\nmore freedom",
   descriptionColors: [
     "#f97316", "#f97316", "#f97316", "#0f172a", "#15803d", "#15803d",
     "#15803d", "#0f172a", "#0f172a", "#f97316", "#0f172a", "#15803d",
@@ -383,11 +383,38 @@ export default function Home() {
                 <p className={`${isIndependenceBanner ? "-mt-8 sm:-mt-5" : "mt-5"} min-h-[6.5em] max-w-xl whitespace-pre-line text-base leading-relaxed sm:min-h-[5.25em] sm:text-lg`}>
                   {isIndependenceBanner ? (
                     <>
-                      <span className="sm:hidden">
-                        {renderColoredWords(INDEPENDENCE_HERO.mobileDescription, activeBanner?.descriptionColors, heroDescriptionColor)}
+                      <span className="text-slate-900 sm:hidden">
+                        <span className="text-white">This Inde</span>
+                        <span className="text-orange-500">pendence Day,</span>
+                        <br />
+                        <span>enjoy </span>
+                        <span className="text-green-700">zero platform fee</span>
+                        <span> on</span>
+                        <br />
+                        <span>Vehicle </span>
+                        <span className="text-white">servi</span>
+                        <span className="text-orange-500">ces</span>
+                        <span> worth </span>
+                        <span className="text-green-700">up to</span>
+                        <br />
+                        <span>₹5000, because every</span>
+                        <br />
+                        <span>Journey deserves</span>
+                        <br />
+                        <span className="text-green-700">more freedom</span>
                       </span>
-                      <span className="hidden sm:inline">
-                        {renderColoredWords(heroDescription, activeBanner?.descriptionColors, heroDescriptionColor)}
+                      <span className="hidden text-slate-900 sm:inline">
+                        <span className="text-white">This Inde</span>
+                        <span className="text-orange-500">pendence Day,</span>
+                        <span> enjoy </span>
+                        <span className="text-green-700">zero platform fees</span>
+                        <span> on vehicle </span>
+                        <span className="text-white">servi</span>
+                        <span className="text-orange-500">ces</span>
+                        <span> worth </span>
+                        <span className="text-green-700">up to</span>
+                        <span> ₹5000, because every journey deserves </span>
+                        <span className="text-green-700">more freedom.</span>
                       </span>
                     </>
                   ) : (
