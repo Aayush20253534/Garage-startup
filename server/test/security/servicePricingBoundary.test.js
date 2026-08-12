@@ -79,6 +79,7 @@ const prisma = {
     ],
   },
   service: {
+    findFirst: async () => null,
     create: async (args) => {
       calls.creates.push(args);
       return { id: "service-created", ...args.data, media: [] };
@@ -157,6 +158,7 @@ test("admin creates a service without service-level prices", async () => {
   assert.equal(calls.creates.length, 1);
   assert.deepEqual(calls.creates[0].data, {
     categoryId: "category-1",
+    displayOrder: 1,
     name: "Oil change",
     description: "Engine oil and filter replacement",
     isActive: true,

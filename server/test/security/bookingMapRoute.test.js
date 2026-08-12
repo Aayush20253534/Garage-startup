@@ -89,6 +89,10 @@ test("accepted booking tracking uses garage GPS and the fixed booking address", 
     trackingService,
     /account\.role === "GARAGE_CONTROLLER"[\s\S]*booking\.garageControllerId === account\.id/,
   );
-  assert.match(mapPanel, /new maps\.DirectionsService\(\)/);
-  assert.match(mapPanel, /new maps\.DirectionsRenderer/);
+  assert.match(mapPanel, /maps\.importLibrary\("geometry"\)/);
+  assert.match(mapPanel, /geometry\.encoding\.decodePath\(encodedPolyline\)/);
+  assert.doesNotMatch(mapPanel, /new maps\.DirectionsService\(\)/);
+  assert.doesNotMatch(mapPanel, /new maps\.DirectionsRenderer/);
+  assert.match(trackingService, /googleMapsService\.computeRoute/);
+  assert.match(trackingService, /routePolyline: route\.encodedPolyline/);
 });

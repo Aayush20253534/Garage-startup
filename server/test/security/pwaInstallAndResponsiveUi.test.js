@@ -165,13 +165,12 @@ test("customer vehicle cards stay compact on mobile and warranty cards remain ov
   const vehicles = read("client/src/pages/customer/MyVehicles.jsx");
   const warranties = read("client/src/pages/customer/WarrantyCenter.jsx");
 
-  assert.match(vehicles, /aspect-\[16\/9\]/);
-  assert.match(vehicles, /grid-cols-\[72px_minmax\(0,1fr\)\]/);
-  assert.match(vehicles, /h-\[72px\][\s\S]*sm:aspect-\[16\/9\]/);
-  assert.match(vehicles, /object-contain[\s\S]*sm:object-cover/);
-  assert.match(vehicles, /space-y-1\.5 text-xs sm:hidden/);
-  assert.match(vehicles, /hidden min-w-0 grid-cols-2 gap-2 sm:grid/);
-  assert.match(vehicles, /\[overflow-wrap:anywhere\]/);
+  assert.match(vehicles, /h-14 w-20 shrink-0/);
+  assert.match(vehicles, /object-cover/);
+  assert.match(vehicles, /grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4/);
+  assert.match(vehicles, /min-w-0 max-w-6xl/);
+  assert.match(vehicles, /grid grid-cols-2 gap-2/);
+  assert.match(vehicles, /break-words/);
 
   assert.match(warranties, /min-\[440px\]:flex-row/);
   assert.match(warranties, /break-all/);

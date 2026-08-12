@@ -10,6 +10,7 @@ const read = (relativePath) =>
 test("official mobile/PWA traffic keeps CSRF cookies first-party", () => {
   const baseUrl = read("client/src/api/baseUrl.js");
   const axiosClient = read("client/src/api/axios.js");
+  const csrfClient = read("client/src/api/csrf.js");
 
   assert.match(baseUrl, /isOfficialRovautoHost/);
   assert.match(baseUrl, /hostname === "rovauto\.com"/);
@@ -17,9 +18,12 @@ test("official mobile/PWA traffic keeps CSRF cookies first-party", () => {
     baseUrl,
     /!forceCrossOriginApi && isOfficialRovautoHost\(\)[\s\S]*?return "\/api\/v1"/,
   );
-  assert.match(axiosClient, /let csrfTokenRequest = null/);
-  assert.match(axiosClient, /if \(!csrfTokenRequest\)/);
-  assert.match(axiosClient, /return csrfTokenRequest/);
+  assert.match(axiosClient, /ensureCsrfToken/);
+  assert.match(axiosClient, /withCredentials: true/);
+  assert.match(csrfClient, /let csrfTokenRequest = null/);
+  assert.match(csrfClient, /if \(!csrfTokenRequest\)/);
+  assert.match(csrfClient, /return csrfTokenRequest/);
+  assert.match(csrfClient, /withCredentials: true/);
 });
 
 test("intern forgot-password uses a dedicated bounded OTP challenge", () => {
