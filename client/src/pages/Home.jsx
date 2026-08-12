@@ -44,9 +44,11 @@ const INDEPENDENCE_HERO = {
   headingColor: "#0f172a",
   description:
     "This Independence Day, enjoy zero platform fees on vehicle services worth up to ₹5000, because every journey deserves more freedom.",
+  mobileDescription:
+    "This Independence Day,\nenjoy zero platform fee on\nVehicle services worth up to\n₹5000, because every\nJourney deserves more freedom",
   descriptionColors: [
-    "#0f172a", "#f97316", "#f97316", "#0f172a", "#15803d", "#15803d",
-    "#15803d", "#0f172a", "#0f172a", "#0f172a", "#0f172a", "#15803d",
+    "#f97316", "#f97316", "#f97316", "#0f172a", "#15803d", "#15803d",
+    "#15803d", "#0f172a", "#0f172a", "#f97316", "#0f172a", "#15803d",
     "#15803d", "#0f172a", "#0f172a", "#0f172a", "#0f172a", "#0f172a",
     "#15803d", "#15803d",
   ],
@@ -379,7 +381,18 @@ export default function Home() {
                   {renderColoredWords(heroHeading, activeBanner?.headingColors, heroHeadingColor)}
                 </h1>
                 <p className={`${isIndependenceBanner ? "-mt-8 sm:-mt-5" : "mt-5"} min-h-[6.5em] max-w-xl whitespace-pre-line text-base leading-relaxed sm:min-h-[5.25em] sm:text-lg`}>
-                  {renderColoredWords(heroDescription, activeBanner?.descriptionColors, heroDescriptionColor)}
+                  {isIndependenceBanner ? (
+                    <>
+                      <span className="sm:hidden">
+                        {renderColoredWords(INDEPENDENCE_HERO.mobileDescription, activeBanner?.descriptionColors, heroDescriptionColor)}
+                      </span>
+                      <span className="hidden sm:inline">
+                        {renderColoredWords(heroDescription, activeBanner?.descriptionColors, heroDescriptionColor)}
+                      </span>
+                    </>
+                  ) : (
+                    renderColoredWords(heroDescription, activeBanner?.descriptionColors, heroDescriptionColor)
+                  )}
                 </p>
               </div>
 
