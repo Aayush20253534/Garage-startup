@@ -45,7 +45,7 @@ const INDEPENDENCE_HERO = {
   description:
     "This Independence Day, enjoy zero platform fees on vehicle services worth up to ₹5000, because every journey deserves more freedom.",
   mobileDescription:
-    "This Independence Day,\nenjoy zero platform fee on\nVehicle services worth up to\n₹5000, because every\nJourney deserves more freedom",
+    "This Independence Day,\nenjoy zero platform fee on\nVehicle services worth up to\n₹5000, because every\nJourney deserves more\nfreedom",
   descriptionColors: [
     "#f97316", "#f97316", "#f97316", "#0f172a", "#15803d", "#15803d",
     "#15803d", "#0f172a", "#0f172a", "#f97316", "#0f172a", "#15803d",
