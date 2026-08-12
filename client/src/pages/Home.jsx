@@ -43,10 +43,12 @@ const INDEPENDENCE_HERO = {
   headingColors: ["#f97316", "#f97316", "#15803d", "#15803d"],
   headingColor: "#0f172a",
   description:
-    "This Independence Day,\nWe’re waiving the platform fee\non services up to ₹5000.",
+    "This Independence Day, enjoy zero platform fees on vehicle services worth up to ₹5000, because every journey deserves more freedom.",
   descriptionColors: [
     "#0f172a", "#f97316", "#f97316", "#0f172a", "#15803d", "#15803d",
-    "#15803d", "#15803d", "#0f172a", "#0f172a", "#15803d", "#15803d",
+    "#15803d", "#0f172a", "#0f172a", "#0f172a", "#0f172a", "#15803d",
+    "#15803d", "#0f172a", "#0f172a", "#0f172a", "#0f172a", "#0f172a",
+    "#15803d", "#15803d",
   ],
   descriptionColor: "#0f172a",
 };
