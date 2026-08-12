@@ -859,10 +859,6 @@ const AdminPseudoData = lazyPage(
   () => import("@/pages/admin/PseudoData"),
   "AdminPseudoData",
 );
-const AdminHomepageBanners = lazyPage(
-  () => import("@/pages/admin/HomepageBanners"),
-  "AdminHomepageBanners",
-);
 const AdminSupportTickets = lazyPage(
   () => import("@/pages/admin/SupportTickets"),
   "AdminSupportTickets",
@@ -943,7 +939,6 @@ import {
   FiUserCheck,
   FiBarChart2,
   FiPhoneCall,
-  FiImage,
 } from "react-icons/fi";
 
 class AppErrorBoundary extends Component {
@@ -1095,7 +1090,6 @@ const adminItems = [
   { to: "/admin/control-center", label: "Control Center", icon: FiSettings },
   { to: "/admin/cars", label: "Cars", icon: FiTruck },
   { to: "/admin/services", label: "Services", icon: FiBriefcase },
-  { to: "/admin/homepage-banners", label: "Homepage Banners", icon: FiImage },
   { to: "/admin/garages", label: "Garages", icon: FiHome },
   { to: "/admin/revenue", label: "Price Ranges", icon: FiDollarSign },
   {
@@ -1568,14 +1562,6 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminServices />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/homepage-banners"
-            element={
-              <ProtectedRoute>
-                <AdminHomepageBanners />
               </ProtectedRoute>
             }
           />

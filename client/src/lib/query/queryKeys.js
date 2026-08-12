@@ -19,7 +19,6 @@ export const queryKeys = {
   },
   admin: {
     root: ["admin"],
-    homepageBanners: ["admin", "homepage-banners"],
     customers: (params = {}) => ["admin", "customers", params],
     vehicles: (params = {}) => ["admin", "vehicles", params],
     customerLoginHistory: (userId) => ["admin", "customers", userId, "login-history"],

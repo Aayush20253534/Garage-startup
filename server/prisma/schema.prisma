@@ -655,34 +655,6 @@ model ServiceMedia {
   @@index([isThumbnail])
 }
 
-model HomepageBanner {
-  id          String   @id @default(uuid())
-  title       String
-  heading     String
-  headingColor String @default("#ffffff")
-  headingColors Json @default("[]")
-  description String
-  descriptionColor String @default("#ffffff")
-  descriptionColors Json @default("[]")
-  imageUrl    String
-  publicId    String
-  position    Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([isActive, position])
-  @@map("homepage_banners")
-}
-
-model HomepageBannerSetting {
-  id        String   @id @default("homepage")
-  duration  Int      @default(5)
-  updatedAt DateTime @updatedAt
-
-  @@map("homepage_banner_settings")
-}
-
 model GarageService {
   id           String   @id @default(uuid())
   garageId     String

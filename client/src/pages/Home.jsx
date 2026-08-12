@@ -171,33 +171,11 @@ export default function Home() {
     customers: null,
     averageRating: null,
   });
-  const [homepageBanners, setHomepageBanners] = useState([]);
-  const [homepageBannerDuration, setHomepageBannerDuration] = useState(5);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const [previousBannerIndex, setPreviousBannerIndex] = useState(null);
   const [isBannerPaused, setIsBannerPaused] = useState(false);
   const longPressTimerRef = useRef(null);
   const longPressStartRef = useRef(null);
-
-  useEffect(() => {
-    let mounted = true;
-    api
-      .get("/public/homepage-banners", { skipSessionExpiryMessage: true })
-      .then((response) => {
-        if (!mounted) return;
-        const payload = response.data?.data || response.data || {};
-        setHomepageBanners(Array.isArray(payload.banners) ? payload.banners : []);
-        setHomepageBannerDuration(Number(payload.duration) || 5);
-        setActiveBannerIndex(0);
-        setPreviousBannerIndex(null);
-      })
-      .catch(() => {
-        if (mounted) setHomepageBanners([]);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (isBannerPaused) return undefined;

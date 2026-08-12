@@ -55,34 +55,6 @@ export const adminApi = {
     return unwrap(await api.patch("/admin/pseudo-data", payload));
   },
 
-  async getHomepageBanners() {
-    return unwrap(await api.get("/admin/homepage-banners"));
-  },
-
-  async createHomepageBanner(payload) {
-    return unwrap(
-      await api.post("/admin/homepage-banners", payload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      }),
-    );
-  },
-
-  async updateHomepageBannerDuration(duration) {
-    return unwrap(await api.patch("/admin/homepage-banners/settings", { duration }));
-  },
-
-  async updateHomepageBanner(bannerId, payload) {
-    return unwrap(await api.patch(`/admin/homepage-banners/${bannerId}`, payload));
-  },
-
-  async reorderHomepageBanners(bannerIds) {
-    return unwrap(await api.put("/admin/homepage-banners/order", { bannerIds }));
-  },
-
-  async deleteHomepageBanner(bannerId) {
-    return unwrap(await api.delete(`/admin/homepage-banners/${bannerId}`));
-  },
-
   async getOperations() {
     return unwrap(await api.get("/admin/operations"));
   },
