@@ -384,16 +384,14 @@ export default function Home() {
                   {isIndependenceBanner ? (
                     <>
                       <span className="text-slate-900 sm:hidden">
-                        <span className="text-white">This Inde</span>
-                        <span className="text-orange-500">pendence Day,</span>
+                        <span className="text-orange-500">This Independence Day,</span>
                         <br />
                         <span>enjoy </span>
                         <span className="text-green-700">zero platform fee</span>
                         <span> on</span>
                         <br />
                         <span>Vehicle </span>
-                        <span className="text-white">servi</span>
-                        <span className="text-orange-500">ces</span>
+                        <span className="text-orange-500">services</span>
                         <span> worth </span>
                         <span className="text-green-700">up to</span>
                         <br />
