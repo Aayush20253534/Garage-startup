@@ -17,6 +17,7 @@ import { useApp } from "@/hooks/useApp";
 import Seo, { SITE_ICON, SITE_URL } from "@/components/seo/Seo";
 import { getServiceCategoryPath } from "@/utils/serviceSlug";
 import ServicePriceDisplay from "@/components/services/ServicePriceDisplay";
+import { useCampaign } from "@/context/CampaignContext";
 import {
   getCategoryThumbnailUrl,
   getServiceThumbnailUrl,
@@ -38,6 +39,10 @@ const DEFAULT_HERO_HEADING =
   "Verified Vehicle Service and Garage Booking in Prayagraj";
 const DEFAULT_HERO_DESCRIPTION =
   "Book car repair, maintenance, pickup and doorstep service from verified garages with transparent pricing, live tracking and a 30-day service warranty.";
+const CAMPAIGN_DEFAULT_HERO_HEADING =
+  "Celebrate Freedom With Trusted Vehicle Care";
+const CAMPAIGN_DEFAULT_HERO_DESCRIPTION =
+  "This Independence Day, keep every journey moving with verified garages, transparent pricing, live tracking and a 30-day service warranty.";
 const INDEPENDENCE_HERO = {
   id: "built-in-independence-day",
   imageUrl: "/images/rovauto-independence-day-hero.webp",
@@ -164,6 +169,7 @@ const getHomepagePopularServices = (serviceCategories = []) => {
 
 export default function Home() {
   const { user, vehicle, location, fetchServiceCategories } = useApp();
+  const { independenceDayActive: independenceCampaignActive } = useCampaign();
 
   const [categories, setCategories] = useState([]);
   const [popularServices, setPopularServices] = useState([]);
@@ -173,7 +179,6 @@ export default function Home() {
     customers: null,
     averageRating: null,
   });
-  const [independenceCampaignActive, setIndependenceCampaignActive] = useState(false);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const [previousBannerIndex, setPreviousBannerIndex] = useState(null);
   const [isBannerPaused, setIsBannerPaused] = useState(false);
@@ -181,28 +186,10 @@ export default function Home() {
   const longPressStartRef = useRef(null);
 
   useEffect(() => {
-    let mounted = true;
-    const loadCampaign = () => api
-      .get("/public/independence-campaign", { skipSessionExpiryMessage: true })
-      .then((response) => {
-        if (!mounted) return;
-        const active = Boolean((response.data?.data || response.data || {}).active);
-        setIndependenceCampaignActive(active);
-        if (!active) {
-          setActiveBannerIndex(0);
-          setPreviousBannerIndex(null);
-        }
-      })
-      .catch(() => {
-        if (mounted) setIndependenceCampaignActive(false);
-      });
-    void loadCampaign();
-    const poller = window.setInterval(loadCampaign, 60 * 1000);
-    return () => {
-      mounted = false;
-      window.clearInterval(poller);
-    };
-  }, []);
+    if (independenceCampaignActive) return;
+    setActiveBannerIndex(0);
+    setPreviousBannerIndex(null);
+  }, [independenceCampaignActive]);
 
   useEffect(() => {
     if (!independenceCampaignActive || isBannerPaused) return undefined;
@@ -265,10 +252,14 @@ export default function Home() {
   const isIndependenceBanner = activeBanner?.id === INDEPENDENCE_HERO.id;
   const heroHeading = activeBanner
     ? activeBanner.heading
-    : DEFAULT_HERO_HEADING;
+    : independenceCampaignActive
+      ? CAMPAIGN_DEFAULT_HERO_HEADING
+      : DEFAULT_HERO_HEADING;
   const heroDescription = activeBanner
     ? activeBanner.description
-    : DEFAULT_HERO_DESCRIPTION;
+    : independenceCampaignActive
+      ? CAMPAIGN_DEFAULT_HERO_DESCRIPTION
+      : DEFAULT_HERO_DESCRIPTION;
   const heroHeadingColor = activeBanner?.headingColor || "#ffffff";
   const heroDescriptionColor = activeBanner?.descriptionColor || "#ffffff";
   useEffect(() => {

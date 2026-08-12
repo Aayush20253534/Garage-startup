@@ -21,10 +21,21 @@ test("Independence campaign is admin controlled and mutually exclusive", () => {
 
 test("public homepage uses only campaign status and keeps five second rotation", () => {
   const home = read("client/src/pages/Home.jsx");
+  const campaignContext = read("client/src/context/CampaignContext.jsx");
   const publicRoutes = read("server/src/routes/public.routes.js");
   assert.match(publicRoutes, /independence-campaign/);
-  assert.match(home, /\/public\/independence-campaign/);
+  assert.match(campaignContext, /\/public\/independence-campaign/);
+  assert.match(campaignContext, /rov-independence-theme/);
+  assert.match(home, /useCampaign/);
   assert.match(home, /5 \* 1000/);
   assert.match(home, /independenceCampaignActive \? getHeroBanner/);
   assert.match(home, /INDEPENDENCE_BUTTON_CLASS/);
+});
+
+test("campaign styling is scoped to customer-facing pages", () => {
+  const campaignContext = read("client/src/context/CampaignContext.jsx");
+  const styles = read("client/src/index.css");
+  assert.match(campaignContext, /"\/admin", "\/intern", "\/support", "\/garage"/);
+  assert.match(styles, /\.rov-independence-theme :where\(a, button\)\.bg-brand/);
+  assert.match(styles, /\.rov-independence-theme :where\(\.card-soft, article\.bg-white, section\.bg-white\)/);
 });

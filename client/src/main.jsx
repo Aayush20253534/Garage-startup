@@ -12,6 +12,7 @@ import { queryClient } from "./lib/query/queryClient";
 import { registerImageCacheWorker } from "./utils/imageCache";
 import { installGlobalErrorReporting } from "./utils/errorReporter";
 import { installChunkRecovery } from "./utils/chunkRecovery";
+import { CampaignProvider } from "./context/CampaignContext";
 
 import "./index.css";
 
@@ -27,8 +28,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <Provider store={store}>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <App />
-            <MobilePortraitGuard />
+            <CampaignProvider>
+              <App />
+              <MobilePortraitGuard />
+            </CampaignProvider>
           </BrowserRouter>
         </QueryClientProvider>
       </Provider>
