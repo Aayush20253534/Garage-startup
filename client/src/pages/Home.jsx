@@ -43,7 +43,7 @@ const INDEPENDENCE_HERO = {
   headingColors: ["#f97316", "#f97316", "#15803d", "#15803d"],
   headingColor: "#0f172a",
   description:
-    "This Independence Day, we’re waiving the platform fee\non services up to ₹5000.",
+    "This Independence Day,\nWe’re waiving the platform fee\non services up to ₹5000.",
   descriptionColors: [
     "#0f172a", "#f97316", "#f97316", "#0f172a", "#15803d", "#15803d",
     "#15803d", "#15803d", "#0f172a", "#0f172a", "#15803d", "#15803d",
@@ -347,6 +347,12 @@ export default function Home() {
           <div className="absolute inset-0 -z-10">
             {previousBannerIndex !== null && <HeroImage banner={previousBanner} />}
             <HeroImage key={activeBanner?.id || "default"} banner={activeBanner} animate={previousBannerIndex !== null} priority={activeBannerIndex === 0} />
+            {!activeBanner && (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/20" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+              </>
+            )}
 
           </div>
 
