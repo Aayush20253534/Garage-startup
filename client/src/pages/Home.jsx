@@ -376,7 +376,7 @@ export default function Home() {
                 <h1 className="h-[4.2em] overflow-hidden whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[3.15em] sm:text-5xl lg:text-7xl">
                   {renderColoredWords(heroHeading, activeBanner?.headingColors, heroHeadingColor)}
                 </h1>
-                <p className={`${isIndependenceBanner ? "-mt-8 sm:-mt-5" : "mt-5"} h-[4.5em] max-w-xl overflow-hidden whitespace-pre-line text-base leading-relaxed sm:text-lg`}>
+                <p className={`${isIndependenceBanner ? "-mt-8 sm:-mt-5" : "mt-5"} h-[5.25em] max-w-xl overflow-hidden whitespace-pre-line text-base leading-relaxed sm:text-lg`}>
                   {renderColoredWords(heroDescription, activeBanner?.descriptionColors, heroDescriptionColor)}
                 </p>
               </div>
