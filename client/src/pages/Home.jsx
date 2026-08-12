@@ -32,6 +32,8 @@ const TRUST = [
 
 const HOMEPAGE_HERO_DESKTOP = "/images/Rovauto_home-desktop.webp";
 const HOMEPAGE_HERO_MOBILE = "/images/Rovauto_home-mobile.webp";
+const INDEPENDENCE_BUTTON_CLASS =
+  "bg-gradient-to-r from-orange-500 via-white to-green-600 text-slate-900 ring-1 ring-black/10 hover:brightness-95";
 const DEFAULT_HERO_HEADING =
   "Verified Vehicle Service and Garage Booking in Prayagraj";
 const DEFAULT_HERO_DESCRIPTION =
@@ -171,6 +173,7 @@ export default function Home() {
     customers: null,
     averageRating: null,
   });
+  const [independenceCampaignActive, setIndependenceCampaignActive] = useState(false);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const [previousBannerIndex, setPreviousBannerIndex] = useState(null);
   const [isBannerPaused, setIsBannerPaused] = useState(false);
@@ -178,7 +181,31 @@ export default function Home() {
   const longPressStartRef = useRef(null);
 
   useEffect(() => {
-    if (isBannerPaused) return undefined;
+    let mounted = true;
+    const loadCampaign = () => api
+      .get("/public/independence-campaign", { skipSessionExpiryMessage: true })
+      .then((response) => {
+        if (!mounted) return;
+        const active = Boolean((response.data?.data || response.data || {}).active);
+        setIndependenceCampaignActive(active);
+        if (!active) {
+          setActiveBannerIndex(0);
+          setPreviousBannerIndex(null);
+        }
+      })
+      .catch(() => {
+        if (mounted) setIndependenceCampaignActive(false);
+      });
+    void loadCampaign();
+    const poller = window.setInterval(loadCampaign, 60 * 1000);
+    return () => {
+      mounted = false;
+      window.clearInterval(poller);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!independenceCampaignActive || isBannerPaused) return undefined;
     const timer = window.setTimeout(() => {
       setPreviousBannerIndex(activeBannerIndex);
       setActiveBannerIndex((activeBannerIndex + 1) % 2);
@@ -186,6 +213,7 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [
     activeBannerIndex,
+    independenceCampaignActive,
     isBannerPaused,
   ]);
 
@@ -230,10 +258,10 @@ export default function Home() {
     }
   };
 
-  const activeBanner = getHeroBanner(activeBannerIndex);
+  const activeBanner = independenceCampaignActive ? getHeroBanner(activeBannerIndex) : null;
   const previousBanner = previousBannerIndex === null
     ? null
-    : getHeroBanner(previousBannerIndex);
+    : independenceCampaignActive ? getHeroBanner(previousBannerIndex) : null;
   const isIndependenceBanner = activeBanner?.id === INDEPENDENCE_HERO.id;
   const heroHeading = activeBanner
     ? activeBanner.heading
@@ -326,6 +354,9 @@ export default function Home() {
           onPointerCancel={clearLongPress}
           onContextMenu={(event) => event.preventDefault()}
         >
+          {independenceCampaignActive && (
+            <div className="absolute inset-x-0 top-0 z-20 h-1 bg-gradient-to-r from-orange-500 via-white to-green-600" aria-hidden="true" />
+          )}
           <div className="absolute inset-0 -z-10">
             {previousBannerIndex !== null && <HeroImage banner={previousBanner} />}
             <HeroImage key={activeBanner?.id || "default"} banner={activeBanner} animate={previousBannerIndex !== null} priority={activeBannerIndex === 0} />
@@ -415,7 +446,7 @@ export default function Home() {
               <div className="mt-5 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
                 <Link
                   to="/booking/vehicle"
-                  className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-brand px-2.5 text-xs font-bold text-black shadow-2xl transition hover:bg-brand-dark sm:w-auto sm:gap-2 sm:px-5 sm:text-sm"
+                  className={`inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold shadow-2xl transition sm:w-auto sm:gap-2 sm:px-5 sm:text-sm ${independenceCampaignActive ? INDEPENDENCE_BUTTON_CLASS : "bg-brand text-black hover:bg-brand-dark"}`}
                 >
                   Book Service <FiArrowRight />
                 </Link>
@@ -438,7 +469,7 @@ export default function Home() {
                       key={item.label}
                       className={`flex items-center gap-2 text-sm ${isIndependenceBanner ? "text-ink/80" : "text-white/85"}`}
                     >
-                      <span className={`grid h-7 w-7 place-items-center rounded-full backdrop-blur ${isIndependenceBanner ? "bg-white/75 text-ink" : "bg-white/15 text-white"}`}>
+                      <span className={`grid h-7 w-7 place-items-center rounded-full backdrop-blur ${independenceCampaignActive ? "bg-gradient-to-br from-orange-400 via-white to-green-600 text-ink ring-1 ring-black/10" : "bg-white/15 text-white"}`}>
                         <Icon />
                       </span>
                       {item.label}
@@ -915,7 +946,7 @@ export default function Home() {
                 <div className="mt-6">
                   <Link
                     to="/partner"
-                    className="inline-flex h-11 items-center justify-center rounded-xl bg-brand px-5 text-sm font-bold text-black transition hover:bg-brand-dark"
+                    className={`inline-flex h-11 items-center justify-center rounded-xl px-5 text-sm font-bold transition ${independenceCampaignActive ? INDEPENDENCE_BUTTON_CLASS : "bg-brand text-black hover:bg-brand-dark"}`}
                   >
                     Become a Partner
                   </Link>

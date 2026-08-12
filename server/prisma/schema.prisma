@@ -1664,6 +1664,20 @@ model PlatformPseudoData {
   @@map("platform_pseudo_data")
 }
 
+/// Singleton configuration for the code-controlled Independence Day campaign.
+model IndependenceCampaign {
+  id                   String   @id @default("independence-day")
+  mode                 String   @default("OFF")
+  manualEnabled        Boolean  @default(false)
+  startsAt             DateTime?
+  endsAt               DateTime?
+  updatedAt            DateTime @updatedAt
+  updatedByStaffId     String?
+  updatedByStaffName   String?
+
+  @@map("independence_campaign")
+}
+
 model AdminEscalationRule {
   id               String   @id @default(uuid())
   key              String   @unique

@@ -859,6 +859,10 @@ const AdminPseudoData = lazyPage(
   () => import("@/pages/admin/PseudoData"),
   "AdminPseudoData",
 );
+const AdminIndependenceCampaign = lazyPage(
+  () => import("@/pages/admin/IndependenceCampaign"),
+  "AdminIndependenceCampaign",
+);
 const AdminSupportTickets = lazyPage(
   () => import("@/pages/admin/SupportTickets"),
   "AdminSupportTickets",
@@ -1109,6 +1113,7 @@ const adminItems = [
   { to: "/admin/intern-accounts", label: "Intern Accounts", icon: FiUserCheck },
   { to: "/admin/sub-admin-accounts", label: "Admin Accounts", icon: FiShield },
   { to: "/admin/pseudo-data", label: "Pseudo Data", icon: FiBarChart2 },
+  { to: "/admin/independence-campaign", label: "Festival Campaign", icon: FiStar },
   { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon, mainAdminOnly: true },
 ];
 
@@ -1666,6 +1671,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AdminPseudoData />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/independence-campaign"
+            element={
+              <ProtectedRoute>
+                <AdminIndependenceCampaign />
               </ProtectedRoute>
             }
           />

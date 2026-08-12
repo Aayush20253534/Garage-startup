@@ -1,0 +1,555 @@
+diff --git a/client/src/App.jsx b/client/src/App.jsx
+index 7834925..b805fc8 100644
+--- a/client/src/App.jsx
++++ b/client/src/App.jsx
+@@ -859,6 +859,10 @@ const AdminPseudoData = lazyPage(
+   () => import("@/pages/admin/PseudoData"),
+   "AdminPseudoData",
+ );
++const AdminIndependenceCampaign = lazyPage(
++  () => import("@/pages/admin/IndependenceCampaign"),
++  "AdminIndependenceCampaign",
++);
+ const AdminSupportTickets = lazyPage(
+   () => import("@/pages/admin/SupportTickets"),
+   "AdminSupportTickets",
+@@ -1109,6 +1113,7 @@ const adminItems = [
+   { to: "/admin/intern-accounts", label: "Intern Accounts", icon: FiUserCheck },
+   { to: "/admin/sub-admin-accounts", label: "Admin Accounts", icon: FiShield },
+   { to: "/admin/pseudo-data", label: "Pseudo Data", icon: FiBarChart2 },
++  { to: "/admin/independence-campaign", label: "Festival Campaign", icon: FiStar },
+   { to: "/admin/dangerous", label: "Dangerous", icon: FiAlertOctagon, mainAdminOnly: true },
+ ];
+ 
+@@ -1669,6 +1674,14 @@ function AppRoutes() {
+               </ProtectedRoute>
+             }
+           />
++          <Route
++            path="/admin/independence-campaign"
++            element={
++              <ProtectedRoute>
++                <AdminIndependenceCampaign />
++              </ProtectedRoute>
++            }
++          />
+           <Route
+             path="/admin/dangerous"
+             element={
+diff --git a/client/src/api/admin.js b/client/src/api/admin.js
+index 4c15c8d..d330c63 100644
+--- a/client/src/api/admin.js
++++ b/client/src/api/admin.js
+@@ -55,6 +55,14 @@ export const adminApi = {
+     return unwrap(await api.patch("/admin/pseudo-data", payload));
+   },
+ 
++  async getIndependenceCampaign() {
++    return unwrap(await api.get("/admin/independence-campaign"));
++  },
++
++  async updateIndependenceCampaign(payload) {
++    return unwrap(await api.patch("/admin/independence-campaign", payload));
++  },
++
+   async getOperations() {
+     return unwrap(await api.get("/admin/operations"));
+   },
+diff --git a/client/src/lib/query/queryKeys.js b/client/src/lib/query/queryKeys.js
+index 97688d6..0ea56b6 100644
+--- a/client/src/lib/query/queryKeys.js
++++ b/client/src/lib/query/queryKeys.js
+@@ -19,6 +19,7 @@ export const queryKeys = {
+   },
+   admin: {
+     root: ["admin"],
++    independenceCampaign: ["admin", "independence-campaign"],
+     customers: (params = {}) => ["admin", "customers", params],
+     vehicles: (params = {}) => ["admin", "vehicles", params],
+     customerLoginHistory: (userId) => ["admin", "customers", userId, "login-history"],
+diff --git a/client/src/pages/Home.jsx b/client/src/pages/Home.jsx
+index 4cf1c56..00170e9 100644
+--- a/client/src/pages/Home.jsx
++++ b/client/src/pages/Home.jsx
+@@ -32,6 +32,8 @@ const TRUST = [
+ 
+ const HOMEPAGE_HERO_DESKTOP = "/images/Rovauto_home-desktop.webp";
+ const HOMEPAGE_HERO_MOBILE = "/images/Rovauto_home-mobile.webp";
++const INDEPENDENCE_BUTTON_CLASS =
++  "bg-gradient-to-r from-orange-500 via-white to-green-600 text-slate-900 ring-1 ring-black/10 hover:brightness-95";
+ const DEFAULT_HERO_HEADING =
+   "Verified Vehicle Service and Garage Booking in Prayagraj";
+ const DEFAULT_HERO_DESCRIPTION =
+@@ -171,6 +173,7 @@ export default function Home() {
+     customers: null,
+     averageRating: null,
+   });
++  const [independenceCampaignActive, setIndependenceCampaignActive] = useState(false);
+   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+   const [previousBannerIndex, setPreviousBannerIndex] = useState(null);
+   const [isBannerPaused, setIsBannerPaused] = useState(false);
+@@ -178,7 +181,31 @@ export default function Home() {
+   const longPressStartRef = useRef(null);
+ 
+   useEffect(() => {
+-    if (isBannerPaused) return undefined;
++    let mounted = true;
++    const loadCampaign = () => api
++      .get("/public/independence-campaign", { skipSessionExpiryMessage: true })
++      .then((response) => {
++        if (!mounted) return;
++        const active = Boolean((response.data?.data || response.data || {}).active);
++        setIndependenceCampaignActive(active);
++        if (!active) {
++          setActiveBannerIndex(0);
++          setPreviousBannerIndex(null);
++        }
++      })
++      .catch(() => {
++        if (mounted) setIndependenceCampaignActive(false);
++      });
++    void loadCampaign();
++    const poller = window.setInterval(loadCampaign, 60 * 1000);
++    return () => {
++      mounted = false;
++      window.clearInterval(poller);
++    };
++  }, []);
++
++  useEffect(() => {
++    if (!independenceCampaignActive || isBannerPaused) return undefined;
+     const timer = window.setTimeout(() => {
+       setPreviousBannerIndex(activeBannerIndex);
+       setActiveBannerIndex((activeBannerIndex + 1) % 2);
+@@ -186,6 +213,7 @@ export default function Home() {
+     return () => window.clearTimeout(timer);
+   }, [
+     activeBannerIndex,
++    independenceCampaignActive,
+     isBannerPaused,
+   ]);
+ 
+@@ -230,10 +258,10 @@ export default function Home() {
+     }
+   };
+ 
+-  const activeBanner = getHeroBanner(activeBannerIndex);
++  const activeBanner = independenceCampaignActive ? getHeroBanner(activeBannerIndex) : null;
+   const previousBanner = previousBannerIndex === null
+     ? null
+-    : getHeroBanner(previousBannerIndex);
++    : independenceCampaignActive ? getHeroBanner(previousBannerIndex) : null;
+   const isIndependenceBanner = activeBanner?.id === INDEPENDENCE_HERO.id;
+   const heroHeading = activeBanner
+     ? activeBanner.heading
+@@ -326,6 +354,9 @@ export default function Home() {
+           onPointerCancel={clearLongPress}
+           onContextMenu={(event) => event.preventDefault()}
+         >
++          {independenceCampaignActive && (
++            <div className="absolute inset-x-0 top-0 z-20 h-1 bg-gradient-to-r from-orange-500 via-white to-green-600" aria-hidden="true" />
++          )}
+           <div className="absolute inset-0 -z-10">
+             {previousBannerIndex !== null && <HeroImage banner={previousBanner} />}
+             <HeroImage key={activeBanner?.id || "default"} banner={activeBanner} animate={previousBannerIndex !== null} priority={activeBannerIndex === 0} />
+@@ -415,7 +446,7 @@ export default function Home() {
+               <div className="mt-5 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+                 <Link
+                   to="/booking/vehicle"
+-                  className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-brand px-2.5 text-xs font-bold text-black shadow-2xl transition hover:bg-brand-dark sm:w-auto sm:gap-2 sm:px-5 sm:text-sm"
++                  className={`inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold shadow-2xl transition sm:w-auto sm:gap-2 sm:px-5 sm:text-sm ${independenceCampaignActive ? INDEPENDENCE_BUTTON_CLASS : "bg-brand text-black hover:bg-brand-dark"}`}
+                 >
+                   Book Service <FiArrowRight />
+                 </Link>
+@@ -438,7 +469,7 @@ export default function Home() {
+                       key={item.label}
+                       className={`flex items-center gap-2 text-sm ${isIndependenceBanner ? "text-ink/80" : "text-white/85"}`}
+                     >
+-                      <span className={`grid h-7 w-7 place-items-center rounded-full backdrop-blur ${isIndependenceBanner ? "bg-white/75 text-ink" : "bg-white/15 text-white"}`}>
++                      <span className={`grid h-7 w-7 place-items-center rounded-full backdrop-blur ${independenceCampaignActive ? "bg-gradient-to-br from-orange-400 via-white to-green-600 text-ink ring-1 ring-black/10" : "bg-white/15 text-white"}`}>
+                         <Icon />
+                       </span>
+                       {item.label}
+@@ -915,7 +946,7 @@ export default function Home() {
+                 <div className="mt-6">
+                   <Link
+                     to="/partner"
+-                    className="inline-flex h-11 items-center justify-center rounded-xl bg-brand px-5 text-sm font-bold text-black transition hover:bg-brand-dark"
++                    className={`inline-flex h-11 items-center justify-center rounded-xl px-5 text-sm font-bold transition ${independenceCampaignActive ? INDEPENDENCE_BUTTON_CLASS : "bg-brand text-black hover:bg-brand-dark"}`}
+                   >
+                     Become a Partner
+                   </Link>
+diff --git a/client/src/pages/admin/IndependenceCampaign.jsx b/client/src/pages/admin/IndependenceCampaign.jsx
+new file mode 100644
+index 0000000..dd19dd6
+--- /dev/null
++++ b/client/src/pages/admin/IndependenceCampaign.jsx
+@@ -0,0 +1,102 @@
++import { useEffect, useState } from "react";
++import { FiAlertTriangle, FiCheckCircle, FiClock, FiRefreshCw, FiSave, FiStar } from "react-icons/fi";
++import { adminApi } from "@/api/admin";
++
++const fieldClass = "h-11 w-full rounded-lg border border-line bg-white px-3 text-sm text-ink outline-none focus:border-ink disabled:bg-bg-soft disabled:text-muted";
++const initial = { mode: "OFF", manualEnabled: false, startsAt: "", endsAt: "", active: false };
++const localValue = (value) => value ? new Date(value).toISOString().slice(0, 16) : "";
++
++export default function IndependenceCampaign() {
++  const [form, setForm] = useState(initial);
++  const [loading, setLoading] = useState(true);
++  const [saving, setSaving] = useState(false);
++  const [message, setMessage] = useState("");
++  const [error, setError] = useState("");
++
++  const apply = (data) => setForm({
++    ...initial,
++    ...data,
++    startsAt: localValue(data?.startsAt),
++    endsAt: localValue(data?.endsAt),
++  });
++
++  const load = async () => {
++    try {
++      setLoading(true);
++      setError("");
++      apply(await adminApi.getIndependenceCampaign());
++    } catch (err) {
++      setError(err.response?.data?.message || err.message || "Unable to load campaign");
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  useEffect(() => { void load(); }, []);
++
++  const save = async (event) => {
++    event.preventDefault();
++    try {
++      setSaving(true);
++      setError("");
++      setMessage("");
++      const payload = { mode: form.mode };
++      if (form.mode === "MANUAL") payload.manualEnabled = true;
++      if (form.mode === "SCHEDULED") {
++        if (!form.startsAt || !form.endsAt) throw new Error("Choose both schedule times");
++        payload.startsAt = new Date(form.startsAt).toISOString();
++        payload.endsAt = new Date(form.endsAt).toISOString();
++      }
++      apply(await adminApi.updateIndependenceCampaign(payload));
++      setMessage(form.mode === "OFF" ? "Campaign deactivated." : "Campaign settings saved.");
++    } catch (err) {
++      setError(err.response?.data?.message || err.message || "Unable to save campaign");
++    } finally {
++      setSaving(false);
++    }
++  };
++
++  const manualSelected = form.mode === "MANUAL";
++  const scheduledSelected = form.mode === "SCHEDULED";
++
++  return (
++    <div className="mx-auto max-w-4xl space-y-5">
++      <header className="rounded-2xl border border-line bg-white p-5 sm:p-6">
++        <div className="flex flex-wrap items-start justify-between gap-4">
++          <div>
++            <p className="text-xs font-bold uppercase tracking-wide text-muted">Festival campaigns</p>
++            <h1 className="mt-1 flex items-center gap-2 text-2xl font-extrabold text-ink sm:text-3xl"><FiStar className="text-orange-500" />Independence Day</h1>
++            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Controls the built-in Independence banner and restrained tricolour homepage accents. Manual and scheduled modes are mutually exclusive.</p>
++          </div>
++          <button type="button" onClick={() => void load()} disabled={loading || saving} className="inline-flex h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm font-bold"><FiRefreshCw className={loading ? "animate-spin" : ""} />Refresh</button>
++        </div>
++      </header>
++
++      {error && <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><FiAlertTriangle className="mt-0.5 shrink-0" />{error}</div>}
++      {message && <div className="flex gap-2 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800"><FiCheckCircle className="mt-0.5 shrink-0" />{message}</div>}
++
++      <form onSubmit={save} className="space-y-5 rounded-2xl border border-line bg-white p-5 sm:p-6">
++        <div className="rounded-xl border border-line bg-bg-soft p-4">
++          <div className="flex items-center justify-between gap-4"><div><p className="font-bold text-ink">Current public status</p><p className="text-sm text-muted">Mode: {form.mode}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${form.active ? "bg-green-100 text-green-800" : "bg-slate-200 text-slate-700"}`}>{form.active ? "ACTIVE" : "INACTIVE"}</span></div>
++        </div>
++
++        <fieldset disabled={loading || saving} className="grid gap-3 sm:grid-cols-3">
++          {[{ value: "OFF", label: "Deactivated", help: "Normal Rovauto homepage only" }, { value: "MANUAL", label: "Manual", help: "Active until an admin turns it off" }, { value: "SCHEDULED", label: "Scheduled", help: "Active only between selected times" }].map((option) => (
++            <label key={option.value} className={`cursor-pointer rounded-xl border p-4 ${form.mode === option.value ? "border-orange-400 bg-orange-50" : "border-line"}`}>
++              <input type="radio" name="mode" value={option.value} checked={form.mode === option.value} onChange={() => setForm({ ...form, mode: option.value })} className="mr-2" />
++              <span className="font-bold text-ink">{option.label}</span><span className="mt-1 block text-xs leading-5 text-muted">{option.help}</span>
++            </label>
++          ))}
++        </fieldset>
++
++        <div className="grid gap-4 sm:grid-cols-2">
++          <label className="text-sm font-bold text-ink"><span className="mb-2 flex items-center gap-2"><FiClock />Starts at</span><input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} disabled={!scheduledSelected || saving} required={scheduledSelected} className={fieldClass} /></label>
++          <label className="text-sm font-bold text-ink"><span className="mb-2 flex items-center gap-2"><FiClock />Ends at</span><input type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} disabled={!scheduledSelected || saving} required={scheduledSelected} className={fieldClass} /></label>
++        </div>
++
++        <p className="text-xs leading-5 text-muted">{manualSelected ? "Scheduled fields are locked while Manual mode is selected." : scheduledSelected ? "Manual activation is unavailable while Scheduled mode is selected." : "Select Manual or Scheduled to activate the campaign."}</p>
++        <button disabled={loading || saving} className="inline-flex h-11 items-center gap-2 rounded-xl bg-ink px-5 text-sm font-bold text-white disabled:opacity-60"><FiSave />{saving ? "Saving..." : "Save campaign"}</button>
++      </form>
++    </div>
++  );
++}
+diff --git a/server/prisma/migrations/20260812200000_add_independence_campaign/migration.sql b/server/prisma/migrations/20260812200000_add_independence_campaign/migration.sql
+new file mode 100644
+index 0000000..77e93f4
+--- /dev/null
++++ b/server/prisma/migrations/20260812200000_add_independence_campaign/migration.sql
+@@ -0,0 +1,15 @@
++CREATE TABLE "independence_campaign" (
++    "id" TEXT NOT NULL DEFAULT 'independence-day',
++    "mode" TEXT NOT NULL DEFAULT 'OFF',
++    "manualEnabled" BOOLEAN NOT NULL DEFAULT false,
++    "startsAt" TIMESTAMP(3),
++    "endsAt" TIMESTAMP(3),
++    "updatedAt" TIMESTAMP(3) NOT NULL,
++    "updatedByStaffId" TEXT,
++    "updatedByStaffName" TEXT,
++    CONSTRAINT "independence_campaign_pkey" PRIMARY KEY ("id")
++);
++
++INSERT INTO "independence_campaign" ("id", "mode", "manualEnabled", "updatedAt")
++VALUES ('independence-day', 'OFF', false, CURRENT_TIMESTAMP)
++ON CONFLICT ("id") DO NOTHING;
+diff --git a/server/prisma/schema.prisma b/server/prisma/schema.prisma
+index 443994c..cf8ba52 100644
+--- a/server/prisma/schema.prisma
++++ b/server/prisma/schema.prisma
+@@ -1664,6 +1664,20 @@ model PlatformPseudoData {
+   @@map("platform_pseudo_data")
+ }
+ 
++/// Singleton configuration for the code-controlled Independence Day campaign.
++model IndependenceCampaign {
++  id                   String   @id @default("independence-day")
++  mode                 String   @default("OFF")
++  manualEnabled        Boolean  @default(false)
++  startsAt             DateTime?
++  endsAt               DateTime?
++  updatedAt            DateTime @updatedAt
++  updatedByStaffId     String?
++  updatedByStaffName   String?
++
++  @@map("independence_campaign")
++}
++
+ model AdminEscalationRule {
+   id               String   @id @default(uuid())
+   key              String   @unique
+diff --git a/server/src/admin/controllers/independenceCampaign.controller.js b/server/src/admin/controllers/independenceCampaign.controller.js
+new file mode 100644
+index 0000000..e3d6093
+--- /dev/null
++++ b/server/src/admin/controllers/independenceCampaign.controller.js
+@@ -0,0 +1,13 @@
++const asyncHandler = require("../../utils/asyncHandler");
++const ApiResponse = require("../../utils/apiResponse");
++const service = require("../services/independenceCampaign.service");
++
++const getSettings = asyncHandler(async (req, res) =>
++  res.status(200).json(new ApiResponse(200, "Independence campaign fetched", await service.getSettings())),
++);
++
++const updateSettings = asyncHandler(async (req, res) =>
++  res.status(200).json(new ApiResponse(200, "Independence campaign updated", await service.updateSettings(req.body, req.user))),
++);
++
++module.exports = { getSettings, updateSettings };
+diff --git a/server/src/admin/routes/independenceCampaign.routes.js b/server/src/admin/routes/independenceCampaign.routes.js
+new file mode 100644
+index 0000000..9877995
+--- /dev/null
++++ b/server/src/admin/routes/independenceCampaign.routes.js
+@@ -0,0 +1,20 @@
++const express = require("express");
++const { body } = require("express-validator");
++const controller = require("../controllers/independenceCampaign.controller");
++const { protect } = require("../../middlewares/auth.middleware");
++const { authorizeRoles } = require("../../middlewares/role.middleware");
++const validate = require("../../middlewares/validate.middleware");
++
++const router = express.Router();
++router.use(protect, authorizeRoles("ADMIN", "SUB_ADMIN"));
++router.get("/", controller.getSettings);
++router.patch(
++  "/",
++  body("mode").isIn(["OFF", "MANUAL", "SCHEDULED"]),
++  body("manualEnabled").optional().isBoolean(),
++  body("startsAt").optional({ nullable: true }).isISO8601(),
++  body("endsAt").optional({ nullable: true }).isISO8601(),
++  validate,
++  controller.updateSettings,
++);
++module.exports = router;
+diff --git a/server/src/admin/services/independenceCampaign.service.js b/server/src/admin/services/independenceCampaign.service.js
+new file mode 100644
+index 0000000..c0c411f
+--- /dev/null
++++ b/server/src/admin/services/independenceCampaign.service.js
+@@ -0,0 +1,78 @@
++const prisma = require("../../config/prisma");
++const ApiError = require("../../utils/apiError");
++
++const SETTINGS_ID = "independence-day";
++const MODES = ["OFF", "MANUAL", "SCHEDULED"];
++
++const ensureSettings = () =>
++  prisma.independenceCampaign.upsert({
++    where: { id: SETTINGS_ID },
++    create: { id: SETTINGS_ID },
++    update: {},
++  });
++
++const isActive = (settings, now = new Date()) => {
++  if (settings.mode === "MANUAL") return settings.manualEnabled === true;
++  if (settings.mode !== "SCHEDULED" || !settings.startsAt || !settings.endsAt) return false;
++  return now >= settings.startsAt && now < settings.endsAt;
++};
++
++const toPayload = (settings) => ({
++  mode: settings.mode,
++  active: isActive(settings),
++  manualEnabled: settings.manualEnabled,
++  startsAt: settings.startsAt,
++  endsAt: settings.endsAt,
++  updatedAt: settings.updatedAt,
++  updatedByStaffName: settings.updatedByStaffName,
++});
++
++const getSettings = async () => toPayload(await ensureSettings());
++
++const getPublicStatus = async () => {
++  const settings = await ensureSettings();
++  return { active: isActive(settings), mode: settings.mode };
++};
++
++const updateSettings = async (payload, staff) => {
++  const mode = String(payload?.mode || "").toUpperCase();
++  if (!MODES.includes(mode)) throw new ApiError(400, "Mode must be OFF, MANUAL or SCHEDULED");
++
++  const current = await ensureSettings();
++  if (
++    current.mode !== "OFF" &&
++    mode !== "OFF" &&
++    current.mode !== mode
++  ) {
++    throw new ApiError(409, `Deactivate ${current.mode.toLowerCase()} mode before enabling ${mode.toLowerCase()} mode`);
++  }
++
++  let data;
++  if (mode === "OFF") {
++    data = { mode, manualEnabled: false, startsAt: null, endsAt: null };
++  } else if (mode === "MANUAL") {
++    if (payload.manualEnabled !== true) throw new ApiError(400, "Manual mode must be explicitly enabled");
++    data = { mode, manualEnabled: true, startsAt: null, endsAt: null };
++  } else {
++    const startsAt = new Date(payload.startsAt);
++    const endsAt = new Date(payload.endsAt);
++    if (!Number.isFinite(startsAt.getTime()) || !Number.isFinite(endsAt.getTime())) {
++      throw new ApiError(400, "A valid start and end time are required");
++    }
++    if (endsAt <= startsAt) throw new ApiError(400, "End time must be after start time");
++    data = { mode, manualEnabled: false, startsAt, endsAt };
++  }
++
++  const actorData = {
++    updatedByStaffId: staff?.id || null,
++    updatedByStaffName: staff?.name || staff?.loginId || staff?.email || null,
++  };
++  const settings = await prisma.independenceCampaign.upsert({
++    where: { id: SETTINGS_ID },
++    create: { id: SETTINGS_ID, ...data, ...actorData },
++    update: { ...data, ...actorData },
++  });
++  return toPayload(settings);
++};
++
++module.exports = { getPublicStatus, getSettings, updateSettings };
+diff --git a/server/src/controllers/public.controller.js b/server/src/controllers/public.controller.js
+index 162d8ef..b724fd6 100644
+--- a/server/src/controllers/public.controller.js
++++ b/server/src/controllers/public.controller.js
+@@ -1,12 +1,19 @@
+ const asyncHandler = require("../utils/asyncHandler");
+ const ApiResponse = require("../utils/apiResponse");
+ const publicService = require("../services/public.service");
++const independenceCampaignService = require("../admin/services/independenceCampaign.service");
+ 
+ const getStats = asyncHandler(async (req, res) => {
+   const stats = await publicService.getStats();
+   return res.status(200).json(new ApiResponse(200, "Public stats fetched successfully", stats));
+ });
+ 
++const getIndependenceCampaign = asyncHandler(async (req, res) => {
++  res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=30");
++  return res.status(200).json(new ApiResponse(200, "Campaign status fetched", await independenceCampaignService.getPublicStatus()));
++});
++
+ module.exports = {
++  getIndependenceCampaign,
+   getStats,
+ };
+diff --git a/server/src/routes/index.routes.js b/server/src/routes/index.routes.js
+index c51b202..b05b223 100644
+--- a/server/src/routes/index.routes.js
++++ b/server/src/routes/index.routes.js
+@@ -50,6 +50,7 @@ const adminAuditMiddleware = require("../admin/middlewares/adminAudit.middleware
+ const adminControlCenterRoutes = require("../admin/routes/adminControlCenter.routes");
+ const integrationHealthRoutes = require("../admin/routes/integrationHealth.routes");
+ const pseudoDataRoutes = require("../admin/routes/pseudoData.routes");
++const independenceCampaignRoutes = require("../admin/routes/independenceCampaign.routes");
+ const garageControllerManagementRoutes = require("../garage/routes/controllerManagement.routes");
+ const garageControllerSelfRoutes = require("../garage/routes/controllerSelf.routes");
+ const garageWorkerTaskRoutes = require("./garageWorkerTask.routes");
+@@ -161,6 +162,7 @@ router.use("/garage/worker-tasks", garageWorkerTaskRoutes);
+ router.use("/admin/control-center", adminControlCenterRoutes);
+ router.use("/admin/integration-health", integrationHealthRoutes);
+ router.use("/admin/pseudo-data", pseudoDataRoutes);
++router.use("/admin/independence-campaign", independenceCampaignRoutes);
+ router.use(
+   "/admin/garage-applications",
+   adminGarageApplicationRoutes,
+diff --git a/server/src/routes/public.routes.js b/server/src/routes/public.routes.js
+index 501eda6..75f4318 100644
+--- a/server/src/routes/public.routes.js
++++ b/server/src/routes/public.routes.js
+@@ -5,5 +5,6 @@ const publicController = require("../controllers/public.controller");
+ const router = express.Router();
+ 
+ router.get("/stats", publicController.getStats);
++router.get("/independence-campaign", publicController.getIndependenceCampaign);
+ 
+ module.exports = router;
+diff --git a/server/test/security/independenceCampaignManagement.test.js b/server/test/security/independenceCampaignManagement.test.js
+new file mode 100644
+index 0000000..b5d02c2
+--- /dev/null
++++ b/server/test/security/independenceCampaignManagement.test.js
+@@ -0,0 +1,30 @@
++const test = require("node:test");
++const assert = require("node:assert/strict");
++const fs = require("node:fs");
++const path = require("node:path");
++
++const root = path.resolve(__dirname, "../../..");
++const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
++
++test("Independence campaign is admin controlled and mutually exclusive", () => {
++  const routes = read("server/src/admin/routes/independenceCampaign.routes.js");
++  const service = read("server/src/admin/services/independenceCampaign.service.js");
++  assert.match(routes, /authorizeRoles\("ADMIN", "SUB_ADMIN"\)/);
++  assert.match(routes, /\["OFF", "MANUAL", "SCHEDULED"\]/);
++  assert.match(service, /mode === "MANUAL"/);
++  assert.match(service, /mode !== "SCHEDULED"/);
++  assert.match(service, /startsAt: null, endsAt: null/);
++  assert.match(service, /manualEnabled: false, startsAt, endsAt/);
++  assert.match(service, /current\.mode !== "OFF"/);
++  assert.match(service, /Deactivate.*mode before enabling/);
++});
++
++test("public homepage uses only campaign status and keeps five second rotation", () => {
++  const home = read("client/src/pages/Home.jsx");
++  const publicRoutes = read("server/src/routes/public.routes.js");
++  assert.match(publicRoutes, /independence-campaign/);
++  assert.match(home, /\/public\/independence-campaign/);
++  assert.match(home, /5 \* 1000/);
++  assert.match(home, /independenceCampaignActive \? getHeroBanner/);
++  assert.match(home, /INDEPENDENCE_BUTTON_CLASS/);
++});

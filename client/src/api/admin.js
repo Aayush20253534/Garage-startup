@@ -55,6 +55,14 @@ export const adminApi = {
     return unwrap(await api.patch("/admin/pseudo-data", payload));
   },
 
+  async getIndependenceCampaign() {
+    return unwrap(await api.get("/admin/independence-campaign"));
+  },
+
+  async updateIndependenceCampaign(payload) {
+    return unwrap(await api.patch("/admin/independence-campaign", payload));
+  },
+
   async getOperations() {
     return unwrap(await api.get("/admin/operations"));
   },
