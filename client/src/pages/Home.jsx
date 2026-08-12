@@ -378,7 +378,19 @@ export default function Home() {
 
               <div key={`copy-${activeBanner?.id || "default"}`} className="rov-banner-slide-in mt-4 min-h-[17rem] sm:min-h-[18rem] lg:min-h-0">
                 <h1 className="h-[4.2em] overflow-hidden whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[3.15em] sm:text-5xl lg:text-7xl">
-                  {renderColoredWords(heroHeading, activeBanner?.headingColors, heroHeadingColor)}
+                  {isIndependenceBanner ? (
+                    <>
+                      <span className="lg:hidden">
+                        {renderColoredWords(heroHeading, activeBanner?.headingColors, heroHeadingColor)}
+                      </span>
+                      <span className="hidden lg:inline">
+                        <span className="block text-orange-500">Freedom</span>
+                        <span className="block text-green-700">to Drive More!</span>
+                      </span>
+                    </>
+                  ) : (
+                    renderColoredWords(heroHeading, activeBanner?.headingColors, heroHeadingColor)
+                  )}
                 </h1>
                 <p className={`${isIndependenceBanner ? "-mt-8 sm:-mt-5" : "mt-5"} min-h-[6.5em] max-w-xl whitespace-pre-line text-base leading-relaxed sm:min-h-[5.25em] sm:text-lg`}>
                   {isIndependenceBanner ? (
