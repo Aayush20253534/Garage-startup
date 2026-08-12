@@ -381,7 +381,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
                 <Link
                   to="/booking/vehicle"
                   className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-brand px-2.5 text-xs font-bold text-black shadow-2xl transition hover:bg-brand-dark sm:w-auto sm:gap-2 sm:px-5 sm:text-sm"
