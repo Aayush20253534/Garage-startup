@@ -402,8 +402,9 @@ export default function Home() {
                         <span className="text-green-700">more freedom</span>
                       </span>
                       <span className="hidden text-slate-900 sm:inline">
-                        <span className="text-white">This Inde</span>
-                        <span className="text-orange-500">pendence Day,</span>
+                        <span className="text-orange-500">T</span>
+                        <span className="text-white">his In</span>
+                        <span className="text-orange-500">dependence Day,</span>
                         <span> enjoy </span>
                         <span className="text-green-700">zero platform fees</span>
                         <span> on vehicle </span>
