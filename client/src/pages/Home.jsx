@@ -336,7 +336,7 @@ export default function Home() {
 
       <main className="overflow-x-hidden">
         <section
-          className="relative flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]"
+          className="relative isolate flex min-h-[72vh] items-start overflow-hidden lg:min-h-[calc(100vh-96px)]"
           onPointerEnter={handleBannerPointerEnter}
           onPointerLeave={handleBannerPointerLeave}
           onPointerDown={handleBannerPointerDown}
@@ -348,7 +348,7 @@ export default function Home() {
           {independenceCampaignActive && (
             <div className="absolute inset-x-0 top-0 z-20 h-1 bg-gradient-to-r from-orange-500 via-white to-green-600" aria-hidden="true" />
           )}
-          <div className="absolute inset-0 -z-10">
+          <div className="absolute inset-0 z-0">
             {previousBannerIndex !== null && <HeroImage banner={previousBanner} />}
             <HeroImage key={activeBanner?.id || "default"} banner={activeBanner} animate={previousBannerIndex !== null} priority={activeBannerIndex === 0} />
             {!activeBanner && (
