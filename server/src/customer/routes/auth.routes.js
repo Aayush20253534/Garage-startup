@@ -1,6 +1,7 @@
 const express = require("express");
 
 const authController = require("../controllers/auth.controller");
+const upload = require("../../middlewares/upload.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const {
   optionalProtect,
@@ -31,6 +32,12 @@ const {
 } = require("../../middlewares/otpRateLimit.middleware");
 
 const router = express.Router();
+const profileAvatarUpload = upload.createUpload({
+  fileSize: 7 * 1024 * 1024,
+  files: 1,
+  allowedMimeTypes: upload.IMAGE_MIME_TYPES,
+}).single("avatar");
+
 const authConcurrencyLimit = concurrencyLimit({
   max: Number(process.env.AUTH_MAX_CONCURRENT_REQUESTS || 50),
 });
@@ -164,6 +171,14 @@ router.get(
 );
 
 router.post(
+  "/support/profile/avatar",
+  protectCustomerSupport,
+  profileAvatarUpload,
+  upload.validateUploadedFiles,
+  authController.uploadProfileAvatar,
+);
+
+router.post(
   "/login",
   authConcurrencyLimit,
   loginIpRateLimit,
@@ -201,6 +216,14 @@ router.post(
 
 router.post("/logout", optionalProtect, authController.logout);
 router.get("/me", protect, authController.me);
+
+router.post(
+  "/profile/avatar",
+  protect,
+  profileAvatarUpload,
+  upload.validateUploadedFiles,
+  authController.uploadProfileAvatar,
+);
 
 router.post(
   "/change-password",

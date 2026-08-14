@@ -1479,6 +1479,10 @@ export function AppProvider({ children }) {
     profileFetchedAt: profileQuery.dataUpdatedAt || null,
 
     setUser,
+    setGarage: (value) => {
+      const nextGarage = typeof value === "function" ? value(garageUser) : value;
+      dispatch(setGarage(nextGarage));
+    },
     setVehicle,
     setVehicles,
     setCart,

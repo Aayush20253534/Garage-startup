@@ -95,6 +95,8 @@ model GarageController {
   deletedAt         DateTime?
   createdAt         DateTime                     @default(now())
   updatedAt         DateTime                     @updatedAt
+  avatarUrl         String?
+  avatarPublicId    String?
   garage            Garage                       @relation(fields: [garageId], references: [id], onDelete: Cascade)
   sessions          GarageControllerSession[]
   otps              GarageControllerOtp[]
@@ -213,6 +215,8 @@ model StaffAccount {
   passwordChangedAt      DateTime?
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
+  avatarUrl              String?
+  avatarPublicId         String?
   sessions               StaffSession[]
   passwordResetChallenge StaffPasswordResetChallenge?
   assignedSupportTickets SupportTicket[]              @relation("AssignedSupportTickets")
@@ -239,6 +243,8 @@ model CustomerSupportAccount {
   passwordChangedAt DateTime?
   createdAt         DateTime                          @default(now())
   updatedAt         DateTime                          @updatedAt
+  avatarUrl         String?
+  avatarPublicId    String?
   assignedTickets   SupportTicket[]                   @relation("CustomerSupportAssignedTickets")
   messages          SupportTicketMessage[]            @relation("SupportTicketSupportMessages")
   notifies          Notify[]

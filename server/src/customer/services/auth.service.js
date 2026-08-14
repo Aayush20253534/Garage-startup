@@ -42,6 +42,8 @@ const staffPasswordResetService = require("./staffPasswordReset.service");
 const {
   sendNewUserSignupNotification,
 } = require("./newUserSignupNotification.service");
+const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/cloudinaryUpload");
+
 
 const PENDING_SIGNUP_EXPIRY_MS = 15 * 60 * 1000;
 const PASSWORD_REGEX =
@@ -147,6 +149,7 @@ const toSafeUser = (user) => ({
   isPhoneVerified: user.isPhoneVerified,
   isOnboarded: user.isOnboarded,
   vehicleRegistrationRequired: user.vehicleRegistrationRequired === true,
+  avatarUrl: user.avatarUrl || user.customerProfile?.avatarUrl || null,
   mustChangePassword: false,
 });
 
@@ -161,6 +164,7 @@ const toSafeGarageOwner = (owner) => ({
   isEmailVerified: owner.isEmailVerified,
   isPhoneVerified: owner.isPhoneVerified,
   isOnboarded: owner.isOnboarded,
+  avatarUrl: owner.avatarUrl || null,
   mustChangePassword: !owner.passwordChangedAt,
 });
 
@@ -176,6 +180,7 @@ const toSafeGarageController = (controller) => ({
   availability: controller.availability,
   lastLoginAt: controller.lastLoginAt,
   lastActiveAt: controller.lastActiveAt,
+  avatarUrl: controller.avatarUrl || null,
   mustChangePassword: false,
 });
 
@@ -191,6 +196,7 @@ const toSafeStaff = (staff) => ({
   lastLoginAt: staff.lastLoginAt,
   passwordChangedAt: staff.passwordChangedAt,
   createdAt: staff.createdAt,
+  avatarUrl: staff.avatarUrl || null,
 });
 
 
@@ -204,6 +210,7 @@ const toSafeCustomerSupport = (account) => ({
   lastLoginAt: account.lastLoginAt,
   passwordChangedAt: account.passwordChangedAt,
   createdAt: account.createdAt,
+  avatarUrl: account.avatarUrl || null,
 });
 
 const getAuthUserById = async (userId) => {
@@ -240,6 +247,7 @@ const getAuthUserById = async (userId) => {
 
   return {
     ...safeUser,
+    avatarUrl: safeUser.customerProfile?.avatarUrl || null,
     accountType: "USER",
     mustChangePassword: false,
   };
@@ -259,6 +267,7 @@ const getAuthGarageOwnerById = async (garageOwnerId) => {
       isOnboarded: true,
       isActive: true,
       passwordChangedAt: true,
+      avatarUrl: true,
       createdAt: true,
     },
   });
@@ -284,6 +293,7 @@ const getAuthGarageControllerById = async (controllerId) => {
       lastLoginAt: true,
       lastActiveAt: true,
       passwordChangedAt: true,
+      avatarUrl: true,
       createdAt: true,
     },
   });
@@ -304,6 +314,7 @@ const getAuthStaffById = async (staffId) => {
       isActive: true,
       lastLoginAt: true,
       passwordChangedAt: true,
+      avatarUrl: true,
       createdAt: true,
     },
   });
@@ -329,6 +340,7 @@ const getAuthCustomerSupportById = async (accountId) => {
       isActive: true,
       lastLoginAt: true,
       passwordChangedAt: true,
+      avatarUrl: true,
       createdAt: true,
     },
   });
@@ -1439,6 +1451,72 @@ const changePassword = async (
   };
 };
 
+const uploadProfileAvatar = async (accountId, accountType, role, file) => {
+  if (!file) throw new ApiError(400, "Profile picture is required");
+
+  const allowedTypes = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
+  if (!allowedTypes.has(file.mimetype)) {
+    throw new ApiError(400, "Profile picture must be a JPG, PNG, or WebP image");
+  }
+
+  if (file.size > 7 * 1024 * 1024) {
+    throw new ApiError(400, "Profile picture must be 7 MB or smaller");
+  }
+
+  const uploadFolder = `rovauto/profile-avatars/${String(accountType || "account").toLowerCase()}`;
+  const uploaded = await uploadToCloudinary(file.buffer, uploadFolder, "image", {
+    resource_type: "image",
+    overwrite: false,
+  });
+
+  const data = { avatarUrl: uploaded.secure_url, avatarPublicId: uploaded.public_id };
+  let previousPublicId = null;
+
+  try {
+    if (accountType === "STAFF") {
+      const current = await prisma.staffAccount.findUnique({ where: { id: accountId }, select: { avatarPublicId: true } });
+      previousPublicId = current?.avatarPublicId || null;
+      await prisma.staffAccount.update({ where: { id: accountId }, data });
+    } else if (accountType === "CUSTOMER_SUPPORT") {
+      const current = await prisma.customerSupportAccount.findUnique({ where: { id: accountId }, select: { avatarPublicId: true } });
+      previousPublicId = current?.avatarPublicId || null;
+      await prisma.customerSupportAccount.update({ where: { id: accountId }, data });
+    } else if (accountType === "GARAGE_CONTROLLER") {
+      const current = await prisma.garageController.findFirst({ where: { id: accountId, deletedAt: null }, select: { avatarPublicId: true } });
+      previousPublicId = current?.avatarPublicId || null;
+      if (!current) throw new ApiError(404, "Garage controller account not found");
+      await prisma.garageController.update({ where: { id: accountId }, data });
+    } else if (accountType === "USER" && role === GARAGE_OWNER_ROLE) {
+      const current = await prisma.garageOwner.findUnique({ where: { id: accountId }, select: { avatarPublicId: true } });
+      previousPublicId = current?.avatarPublicId || null;
+      if (!current) throw new ApiError(404, "Garage owner account not found");
+      await prisma.garageOwner.update({ where: { id: accountId }, data });
+    } else if (accountType === "USER" && role === "CUSTOMER") {
+      const current = await prisma.user.findUnique({ where: { id: accountId }, select: { customerProfile: { select: { avatarPublicId: true } } } });
+      previousPublicId = current?.customerProfile?.avatarPublicId || null;
+      if (!current) throw new ApiError(404, "User not found");
+      await prisma.customerProfile.upsert({
+        where: { userId: accountId },
+        update: data,
+        create: { userId: accountId, ...data },
+      });
+    } else {
+      throw new ApiError(403, "This account type cannot update a profile picture");
+    }
+  } catch (error) {
+    await deleteFromCloudinary(uploaded.public_id, "image").catch(() => null);
+    throw error;
+  }
+
+  if (previousPublicId && previousPublicId !== uploaded.public_id) {
+    await deleteFromCloudinary(previousPublicId, "image").catch((error) => {
+      console.warn("[profile-avatar] failed to delete previous avatar", error?.message || error);
+    });
+  }
+
+  return getMe(accountId, accountType, role);
+};
+
 const logout = async (accountId, accountType, sessionId, role = null) => {
   if (accountType === "GARAGE_CONTROLLER" && accountId && sessionId) {
     await revokeGarageControllerSession(sessionId, accountId);
@@ -1477,4 +1555,5 @@ module.exports = {
   forgotPassword,
   resetPassword,
   changePassword,
+  uploadProfileAvatar,
 };

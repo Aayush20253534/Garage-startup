@@ -285,6 +285,21 @@ const logout = asyncHandler(async (req, res) => {
     );
 });
 
+const uploadProfileAvatar = asyncHandler(async (req, res) => {
+  const account = await authService.uploadProfileAvatar(
+    req.user.id,
+    req.user.accountType,
+    req.user.role,
+    req.file,
+  );
+
+  preventAuthResponseCaching(res);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Profile picture updated successfully", account));
+});
+
 const me = asyncHandler(async (req, res) => {
   const account = await authService.getMe(
     req.user.id,
@@ -359,4 +374,5 @@ module.exports = {
   forgotPassword,
   resetPassword,
   changePassword,
+  uploadProfileAvatar,
 };

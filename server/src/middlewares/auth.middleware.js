@@ -84,6 +84,7 @@ const getActiveAccount = async (accountId, accountType, role = null) => {
         passwordChangedAt: true,
         lastLoginAt: true,
         lastActiveAt: true,
+        avatarUrl: true,
         deletedAt: true,
         createdAt: true,
         garage: { select: { controllerAccountsEnabled: true, isActive: true } },
@@ -110,6 +111,7 @@ const getActiveAccount = async (accountId, accountType, role = null) => {
         isActive: true,
         lastLoginAt: true,
         passwordChangedAt: true,
+        avatarUrl: true,
         createdAt: true,
       },
     });
@@ -132,6 +134,7 @@ const getActiveAccount = async (accountId, accountType, role = null) => {
         isActive: true,
         lastLoginAt: true,
         passwordChangedAt: true,
+        avatarUrl: true,
         createdAt: true,
       },
     });
@@ -161,6 +164,7 @@ const getActiveAccount = async (accountId, accountType, role = null) => {
           isOnboarded: true,
           createdAt: true,
           passwordChangedAt: true,
+          avatarUrl: true,
         },
       });
 
@@ -185,6 +189,7 @@ const getActiveAccount = async (accountId, accountType, role = null) => {
         isPhoneVerified: true,
         isOnboarded: true,
         vehicleRegistrationRequired: true,
+        customerProfile: { select: { avatarUrl: true } },
         createdAt: true,
         passwordChangedAt: true,
       },
@@ -193,6 +198,7 @@ const getActiveAccount = async (accountId, accountType, role = null) => {
     return user
       ? {
           ...user,
+          avatarUrl: user.customerProfile?.avatarUrl || null,
           accountType: "USER",
         }
       : null;

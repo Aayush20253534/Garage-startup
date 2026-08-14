@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import { useEffect, useMemo, useState } from "react";
 import Logo from "@/components/common/Logo";
 import CustomerAvatar from "@/components/customer/CustomerAvatar";
+import ProfileAvatarUploader from "@/components/account/ProfileAvatarUploader";
 import SupportBrand from "@/components/support/SupportBrand";
 import StaffBrand from "@/components/staff/StaffBrand";
 import FAB from "@/components/FAB";
@@ -64,12 +65,16 @@ export default function DashboardLayout({ items = [], title = "Dashboard" }) {
     : null;
   const accountSummary = (
     <>
-      <CustomerAvatar
-        user={isCustomerPortal ? account : null}
-        name={accountName}
-        className="h-10 w-10 text-base"
-        fallbackClassName="bg-brand text-black"
-      />
+      {isCustomerPortal ? (
+        <CustomerAvatar
+          user={account}
+          name={accountName}
+          className="h-10 w-10 text-base"
+          fallbackClassName="bg-brand text-black"
+        />
+      ) : (
+        <ProfileAvatarUploader compact />
+      )}
       <div className="min-w-0">
         <p className="truncate text-sm font-bold text-ink">
           {accountName || "Guest"}
