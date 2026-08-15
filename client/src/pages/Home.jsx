@@ -393,7 +393,7 @@ export default function Home() {
                     renderColoredWords(heroHeading, activeBanner?.headingColors, heroHeadingColor)
                   )}
                 </h1>
-                <p className={`${isIndependenceBanner ? "-mt-8 sm:-mt-5 lg:-mt-3" : "mt-5"} min-h-[6.5em] max-w-xl whitespace-pre-line text-base leading-relaxed sm:min-h-[5.25em] sm:text-lg lg:min-h-[4.5em]`}>
+                <p className={`${isIndependenceBanner ? "-mt-8 sm:-mt-5 lg:mt-3" : "mt-5"} min-h-[6.5em] max-w-xl whitespace-pre-line text-base leading-relaxed sm:min-h-[5.25em] sm:text-lg lg:min-h-[4.5em]`}>
                   {isIndependenceBanner ? (
                     <>
                       <span className="text-slate-900 sm:hidden">
