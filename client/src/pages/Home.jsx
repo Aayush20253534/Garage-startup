@@ -377,7 +377,7 @@ export default function Home() {
               </div>
 
               <div key={`copy-${activeBanner?.id || "default"}`} className="rov-banner-slide-in mt-4 min-h-[17rem] sm:min-h-[18rem] lg:min-h-0">
-                <h1 className="h-[4.2em] overflow-hidden whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[4.2em] sm:text-5xl lg:text-7xl">
+                <h1 className="h-[4.2em] overflow-hidden whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[4.2em] sm:text-5xl lg:h-[3.15em] lg:text-7xl">
                   {isIndependenceBanner ? (
                     <>
                       <span className="block text-orange-500">Rovauto</span>
@@ -393,7 +393,7 @@ export default function Home() {
                     renderColoredWords(heroHeading, activeBanner?.headingColors, heroHeadingColor)
                   )}
                 </h1>
-                <p className={`${isIndependenceBanner ? "-mt-8 sm:-mt-5" : "mt-5"} min-h-[6.5em] max-w-xl whitespace-pre-line text-base leading-relaxed sm:min-h-[5.25em] sm:text-lg`}>
+                <p className={`${isIndependenceBanner ? "-mt-8 sm:-mt-5 lg:-mt-3" : "mt-5"} min-h-[6.5em] max-w-xl whitespace-pre-line text-base leading-relaxed sm:min-h-[5.25em] sm:text-lg lg:min-h-[4.5em]`}>
                   {isIndependenceBanner ? (
                     <>
                       <span className="text-slate-900 sm:hidden">
@@ -415,14 +415,11 @@ export default function Home() {
                         <span className="text-green-700">more freedom</span>
                       </span>
                       <span className="hidden text-slate-900 sm:inline">
-                        <span className="text-orange-500">T</span>
-                        <span className="text-white">his In</span>
-                        <span className="text-orange-500">dependence Day,</span>
+                        <span className="lg:text-orange-500">This Independence Day,</span>
                         <span> enjoy </span>
                         <span className="text-green-700">zero platform fees</span>
                         <span> on vehicle </span>
-                        <span className="text-white">servi</span>
-                        <span className="text-orange-500">ces</span>
+                        <span className="lg:text-orange-500">services</span>
                         <span> worth </span>
                         <span className="text-green-700">up to</span>
                         <span> ₹5000, because every journey deserves </span>
@@ -435,7 +432,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap lg:mt-3">
                 <Link
                   to="/booking/vehicle"
                   className={`inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold shadow-2xl transition sm:w-auto sm:gap-2 sm:px-5 sm:text-sm ${independenceCampaignActive ? INDEPENDENCE_BUTTON_CLASS : "bg-brand text-black hover:bg-brand-dark"}`}
