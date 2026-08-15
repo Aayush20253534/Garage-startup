@@ -377,9 +377,10 @@ export default function Home() {
               </div>
 
               <div key={`copy-${activeBanner?.id || "default"}`} className="rov-banner-slide-in mt-4 min-h-[17rem] sm:min-h-[18rem] lg:min-h-0">
-                <h1 className="h-[4.2em] overflow-hidden whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[3.15em] sm:text-5xl lg:text-7xl">
+                <h1 className="h-[4.2em] overflow-hidden whitespace-pre-line text-4xl font-extrabold leading-[1.05] tracking-tight sm:h-[4.2em] sm:text-5xl lg:text-7xl">
                   {isIndependenceBanner ? (
                     <>
+                      <span className="block text-orange-500">Rovauto</span>
                       <span className="lg:hidden">
                         {renderColoredWords(heroHeading, activeBanner?.headingColors, heroHeadingColor)}
                       </span>
