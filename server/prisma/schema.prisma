@@ -66,6 +66,8 @@ model GarageOwner {
   passwordChangedAt DateTime?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
+  avatarUrl         String?
+  avatarPublicId    String?
   garages           Garage[]
   sessions          GarageOwnerSession[]
   otps              GarageOwnerOtp[]
